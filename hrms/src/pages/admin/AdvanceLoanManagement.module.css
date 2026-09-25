@@ -84,9 +84,9 @@
 .secondaryButton,
 .resetButton,
 .smallAction {
-  background: var(--surface-alt);
-  border: 1px solid var(--border);
-  color: var(--text-primary);
+  background: var(--primary);
+  border: 1px solid var(--primary);
+  color: #fff;
 }
 
 .summaryGrid {
@@ -184,7 +184,9 @@
 
 .overviewTile {
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  /* flex-direction: column; */
   gap: 7px;
   padding: 14px;
   background: var(--surface-alt);

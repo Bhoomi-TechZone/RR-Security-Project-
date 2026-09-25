@@ -58,23 +58,29 @@ const statusLabel = (value) =>
   }[value] || value);
 
 const typeClass = (value) => (value === 'loan' ? styles.loan : styles.advance);
-const statusClass = (value) => styles[value] || styles.pending;
+const statusClass = (value) => styles[value] || styles.pending;function SummaryCards({ requests, tab }) {
+  const currentRequests = useMemo(() => {
+    if (tab === 'advances') return requests.filter((r) => r.type === 'advance');
+    if (tab === 'loans') return requests.filter((r) => r.type === 'loan');
+    return requests;
+  }, [requests, tab]);
 
-function SummaryCards({ requests }) {
-  const total = requests.length;
-  const pending = requests.filter((item) => item.status === 'pending').length;
-  const approved = requests
+  const total = currentRequests.length;
+  const pending = currentRequests.filter((item) => item.status === 'pending').length;
+  const approved = currentRequests
     .filter((item) => ['approved', 'completed'].includes(item.status))
     .reduce((sum, item) => sum + item.approvedAmount, 0);
-  const outstanding = requests
+  const outstanding = currentRequests
     .filter((item) => ['approved', 'completed'].includes(item.status))
     .reduce((sum, item) => sum + item.remainingAmount, 0);
 
+  const prefix = tab === 'advances' ? 'Advance' : tab === 'loans' ? 'Loan' : 'Request';
+
   const cards = [
-    { label: 'Total Requests', value: total, icon: FileText, tone: styles.blue },
-    { label: 'Pending Approval', value: pending, icon: Clock3, tone: styles.yellow },
-    { label: 'Approved Amount', value: money(approved), icon: BadgeIndianRupee, tone: styles.green },
-    { label: 'Outstanding Amount', value: money(outstanding), icon: WalletCards, tone: styles.purple }
+    { label: tab === 'advances' ? 'Total Advance Requests' : tab === 'loans' ? 'Total Loan Requests' : 'Total Requests', value: total, icon: FileText, tone: styles.blue },
+    { label: `Pending ${prefix}s`, value: pending, icon: Clock3, tone: styles.yellow },
+    { label: `Approved ${prefix} Amount`, value: money(approved), icon: BadgeIndianRupee, tone: styles.green },
+    { label: `Outstanding ${prefix} Amount`, value: money(outstanding), icon: WalletCards, tone: styles.purple }
   ];
 
   return (
@@ -94,8 +100,16 @@ function SummaryCards({ requests }) {
   );
 }
 
-function Overview({ requests }) {
-  const totals = ['advance', 'loan'].map((type) => {
+function Overview({ requests, tab }) {
+  const isAdvances = tab === 'advances';
+  const isLoans = tab === 'loans';
+  const currentRequests = useMemo(() => {
+    if (isAdvances) return requests.filter((r) => r.type === 'advance');
+    if (isLoans) return requests.filter((r) => r.type === 'loan');
+    return requests;
+  }, [requests, isAdvances, isLoans]);
+
+  const totals = (isAdvances ? ['advance'] : isLoans ? ['loan'] : ['advance', 'loan']).map((type) => {
     const list = requests.filter((item) => item.type === type);
     return {
       type,
@@ -104,12 +118,13 @@ function Overview({ requests }) {
     };
   });
   const states = ['approved', 'pending', 'rejected'];
+  const title = isAdvances ? 'Salary Advance Overview' : isLoans ? 'Employee Loan Overview' : 'Advance & Loan Overview';
 
   return (
     <section className={styles.overviewCard}>
       <div className={styles.sectionHeader}>
         <div>
-          <h2 className={styles.sectionTitle}>Advance &amp; Loan Overview</h2>
+          <h2 className={styles.sectionTitle}>{title}</h2>
           <p className={styles.sectionSubtext}>Requests and approval distribution</p>
         </div>
       </div>
@@ -129,7 +144,7 @@ function Overview({ requests }) {
               <i className={`${styles.statusDot} ${statusClass(state)}`} />
               {statusLabel(state)}{' '}
               <strong>
-                {requests.filter((item) => item.status === state).length}
+                {currentRequests.filter((item) => item.status === state).length}
               </strong>
             </span>
           ))}
@@ -139,7 +154,9 @@ function Overview({ requests }) {
   );
 }
 
-function Filters({ values, setValue, reset }) {
+function Filters({ values, setValue, reset, tab }) {
+  const isSingleType = tab === 'advances' || tab === 'loans';
+
   const field = (label, key, options, placeholder) => (
     <div className={styles.field}>
       <label className={styles.fieldLabel}>{label}</label>
@@ -174,7 +191,7 @@ function Filters({ values, setValue, reset }) {
           </div>
         </div>
 
-        {field(
+        {!isSingleType && field(
           'Request Type',
           'type',
           [
@@ -233,7 +250,7 @@ function Filters({ values, setValue, reset }) {
           />
         </div>
 
-        <button type="button" className={styles.resetButton} onClick={reset}>
+        <button type="button" className={styles.resetBtn} onClick={reset}>
           Reset Filters
         </button>
       </div>
@@ -1476,59 +1493,121 @@ function AdvanceLoanManagement() {
         <div className={styles.breadcrumb}>
           <span>Dashboard</span>
           <span>/</span>
-          <strong>Advances &amp; Loans</strong>
+          {tab === 'advances' ? (
+            <>
+              <span>Advances &amp; Loans</span>
+              <span>/</span>
+              <strong>Salary Advances</strong>
+            </>
+          ) : tab === 'loans' ? (
+            <>
+              <span>Advances &amp; Loans</span>
+              <span>/</span>
+              <strong>Employee Loans</strong>
+            </>
+          ) : tab === 'schedule' ? (
+            <>
+              <span>Advances &amp; Loans</span>
+              <span>/</span>
+              <strong>Deduction Schedule</strong>
+            </>
+          ) : tab === 'history' ? (
+            <>
+              <span>Advances &amp; Loans</span>
+              <span>/</span>
+              <strong>Deduction History</strong>
+            </>
+          ) : (
+            <strong>Advances &amp; Loans</strong>
+          )}
         </div>
 
         <header className={styles.pageHeader}>
           <div>
-            <h1>Advance &amp; Loan Management</h1>
+            <h1>
+              {tab === 'advances'
+                ? 'Salary Advances'
+                : tab === 'loans'
+                ? 'Employee Loans'
+                : tab === 'schedule'
+                ? 'Deduction Schedule'
+                : tab === 'history'
+                ? 'Deduction History'
+                : 'Advance & Loan Management'}
+            </h1>
             <p>
-              Manage employee advances, loans, approvals and salary deductions.
+              {tab === 'advances'
+                ? 'Manage employee salary advance requests, approval workflows and adjustments.'
+                : tab === 'loans'
+                ? 'Manage employee loan applications, interest calculations, EMIs and approvals.'
+                : tab === 'schedule'
+                ? 'Track active monthly advance and loan EMI deductions against salaries.'
+                : tab === 'history'
+                ? 'View previously recorded salary deductions and repayment history.'
+                : 'Manage employee advances, loans, approvals and salary deductions.'}
             </p>
           </div>
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => setTab('history')}
-            >
-              Deduction History
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => setRequestModal({ type: 'loan' })}
-            >
-              <Plus size={16} /> Request Loan
-            </button>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => setRequestModal({ type: 'advance' })}
-            >
-              <Plus size={16} /> Request Advance
-            </button>
+            {tab === 'all' && (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setTab('history')}
+              >
+                Deduction History
+              </button>
+            )}
+            {tab !== 'advances' && (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setRequestModal({ type: 'loan' })}
+              >
+                <Plus size={16} /> Request Loan
+              </button>
+            )}
+            {tab !== 'loans' && (
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => setRequestModal({ type: 'advance' })}
+              >
+                <Plus size={16} /> Request Advance
+              </button>
+            )}
           </div>
         </header>
 
-        <SummaryCards requests={requests} />
-        <Overview requests={requests} />
+        <SummaryCards requests={requests} tab={tab} />
+        <Overview requests={requests} tab={tab} />
 
         <div className={styles.infoCard}>
           <strong>Salary Adjustment</strong>
           <span>
-            Approved advances and loan deductions will be adjusted against the
-            employee&apos;s monthly salary. This is a frontend representation
-            only.
+            {tab === 'advances'
+              ? "Approved advances will be deducted from the employee's next salary payout."
+              : tab === 'loans'
+              ? "Approved loans will be deducted monthly based on configured EMI schedules."
+              : "Approved advances and loan deductions will be adjusted against the employee's monthly salary."}
           </span>
         </div>
 
         {tab !== 'schedule' && tab !== 'history' && (
           <section className={styles.sectionIntro}>
             <div>
-              <h2 className={styles.sectionTitle}>Advance &amp; Loan Requests</h2>
+              <h2 className={styles.sectionTitle}>
+                {tab === 'advances'
+                  ? 'Salary Advance Requests'
+                  : tab === 'loans'
+                  ? 'Employee Loan Applications'
+                  : 'Advance & Loan Requests'}
+              </h2>
               <p className={styles.sectionSubtext}>
-                View and manage employee financial requests.
+                {tab === 'advances'
+                  ? 'View and manage employee advance requests.'
+                  : tab === 'loans'
+                  ? 'View and manage employee loan applications.'
+                  : 'View and manage employee financial requests.'}
               </p>
             </div>
             <div className={styles.introActions}>
@@ -1539,20 +1618,24 @@ function AdvanceLoanManagement() {
               >
                 Export Report
               </button>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => setRequestModal({ type: 'loan' })}
-              >
-                <Plus size={16} /> Request Loan
-              </button>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={() => setRequestModal({ type: 'advance' })}
-              >
-                <Plus size={16} /> Request Advance
-              </button>
+              {tab !== 'advances' && (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => setRequestModal({ type: 'loan' })}
+                >
+                  <Plus size={16} /> Request Loan
+                </button>
+              )}
+              {tab !== 'loans' && (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => setRequestModal({ type: 'advance' })}
+                >
+                  <Plus size={16} /> Request Advance
+                </button>
+              )}
             </div>
           </section>
         )}
@@ -1582,11 +1665,11 @@ function AdvanceLoanManagement() {
         )}
 
         {tab !== 'schedule' && tab !== 'history' && (
-          <Filters values={filters} setValue={setFilter} reset={reset} />
+          <Filters values={filters} setValue={setFilter} reset={reset} tab={tab} />
         )}
 
         {tab === 'schedule' || tab === 'history' ? (
-          <Filters values={filters} setValue={setFilter} reset={reset} />
+          <Filters values={filters} setValue={setFilter} reset={reset} tab={tab} />
         ) : null}
 
         {rows.length ? (
