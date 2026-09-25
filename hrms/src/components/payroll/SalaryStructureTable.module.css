@@ -1,0 +1,208 @@
+.tableCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+
+.tableResponsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.table th {
+  background: #f8fafc;
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.row:hover {
+  background: #f8fafc;
+}
+
+.employeeCell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.empInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.empName {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.employeeCell:hover .empName {
+  color: var(--primary);
+}
+
+.empSub {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.idCode {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: #f1f5f9;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  font-weight: 500;
+}
+
+.grossText {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.deductText {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.netText {
+  color: var(--primary-dark);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.thActions, .tdActions {
+  text-align: right;
+  width: 110px;
+}
+
+.actionBtns {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.viewBtn, .editBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.viewBtn:hover {
+  background: #f1f5f9;
+  color: var(--text-primary);
+}
+
+.editBtn {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: var(--primary);
+}
+
+.editBtn:hover {
+  background: var(--primary);
+  color: #ffffff;
+}
+
+/* Mobile cards */
+.mobileList {
+  display: none;
+  padding: 12px;
+  gap: 12px;
+  flex-direction: column;
+}
+
+.mobileCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobileEditBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: var(--primary);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mobileGrid {
+  background: #f8fafc;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--text-xs);
+}
+
+.mobileRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-secondary);
+}
+
+.mobileNetRow {
+  border-top: 1px dashed var(--border);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .tableResponsive {
+    display: none;
+  }
+  .mobileList {
+    display: flex;
+  }
+}

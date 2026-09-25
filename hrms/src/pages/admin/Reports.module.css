@@ -1,0 +1,690 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.breadcrumb strong {
+  color: var(--text-primary);
+}
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.pageHeaderContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionEyebrow {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.pageDescription {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.pageHeaderContent h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-3xl);
+  font-weight: 800;
+}
+
+.sectionHeader h2,
+.sectionHeaderRow h2,
+.reportIntroRow h2,
+.previewHeader h3,
+.sectionTitle {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-weight: 750;
+}
+
+.reportIntroRow h2 {
+  font-size: var(--text-2xl);
+}
+
+.previewHeader h3 {
+  font-size: var(--text-lg);
+}
+
+.primaryButton,
+.primaryButtonSmall,
+.secondaryButton,
+.linkButton,
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius-md);
+  transition: all var(--transition);
+  font-weight: 600;
+}
+
+.primaryButton,
+.primaryButtonSmall {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+}
+
+.primaryButton {
+  padding: 10px 18px;
+}
+
+.primaryButtonSmall {
+  padding: 8px 14px;
+  font-size: var(--text-sm);
+}
+
+.secondaryButton {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 9px 14px;
+}
+
+.linkButton {
+  background: transparent;
+  color: var(--primary);
+  border: none;
+  padding: 0;
+  font-size: 12px;
+}
+
+.backLink {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 0;
+  margin-bottom: 8px;
+  font-size: var(--text-sm);
+}
+
+.summaryGrid,
+.dynamicSummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.summaryCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 18px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  min-height: 110px;
+}
+
+.summaryContent {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.summaryLabel {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.summaryValue {
+  font-size: 22px;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+}
+
+.summaryIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  color: #fff;
+}
+
+.cardBlue { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+.cardGreen { background: linear-gradient(135deg, #16a34a, #4ade80); }
+.cardPurple { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.cardOrange { background: linear-gradient(135deg, #f59e0b, #fb923c); }
+.cardRed { background: linear-gradient(135deg, #ef4444, #f87171); }
+.cardCyan { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.cardAmber { background: linear-gradient(135deg, #d97706, #fbbf24); }
+.cardRose { background: linear-gradient(135deg, #f43f5e, #fb7185); }
+
+.dashboardGrid,
+.historyGrid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 20px;
+}
+
+.mainColumn,
+.sideColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionCard,
+.analysisCard,
+.reportPanel,
+.filterCard,
+.reportPreviewCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+}
+
+.sectionCard,
+.analysisCard,
+.filterCard,
+.reportPreviewCard {
+  padding: 10px;
+}
+
+.sectionHeader,
+.sectionHeaderRow,
+.filterHeader,
+.reportIntroRow,
+.previewHeader,
+.toolbarRow,
+.filterActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sectionHeader {
+  margin-bottom: 18px;
+}
+
+.sectionTitle {
+  margin-top: 4px;
+}
+
+.reportGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.reportCard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.reportCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.reportIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  color: #fff;
+}
+
+.reportIcon.blue { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+.reportIcon.green { background: linear-gradient(135deg, #16a34a, #4ade80); }
+.reportIcon.purple { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.reportIcon.indigo { background: linear-gradient(135deg, #4338ca, #818cf8); }
+.reportIcon.cyan { background: linear-gradient(135deg, #0891b2, #22d3ee); }
+.reportIcon.amber { background: linear-gradient(135deg, #d97706, #fbbf24); }
+.reportIcon.rose { background: linear-gradient(135deg, #f43f5e, #fb7185); }
+
+.reportRecords {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.reportCard p {
+  color: var(--text-secondary);
+  min-height: 44px;
+}
+
+.activityList,
+.usageList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.activityRow,
+.usageRow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activityLabelRow,
+.usageLabelRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.barTrack {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: #e8ecf3;
+  overflow: hidden;
+}
+
+.barTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), #60a5fa);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.dataTable {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.dataTable th,
+.dataTable td {
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  font-size: var(--text-sm);
+}
+
+.dataTable th {
+  color: var(--text-secondary);
+  font-weight: 700;
+  background: rgba(148, 163, 184, 0.05);
+}
+
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.statusApproved {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.statusPending {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.statusRejected {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.statusNeutral {
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.inlineActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.reportPanel {
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.reportIntroRow {
+  align-items: flex-start;
+}
+
+.reportToolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.reportPreviewCard {
+  padding: 18px 20px;
+}
+
+.previewHeader {
+  margin-bottom: 16px;
+}
+
+.previewLabel {
+  margin: 0 0 4px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.previewGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.previewGrid div {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.previewGrid span,
+.detailRow span {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.previewGrid strong,
+.detailRow strong {
+  color: var(--text-primary);
+}
+
+.filterCard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.filterTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterHeader h3 {
+  margin: 0;
+}
+
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.quickFilter {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: var(--text-xs);
+}
+
+.quickFilterActive {
+  background: var(--primary-light);
+  border-color: rgba(37, 99, 235, 0.25);
+  color: var(--primary);
+}
+
+.filterGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fieldGroup label {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+}
+
+.fieldGroup input,
+.fieldGroup select {
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  background: #fff;
+  color: var(--text-primary);
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: var(--radius-md);
+  padding: 0 12px;
+  height: 42px;
+  min-width: 260px;
+  color: var(--text-secondary);
+}
+
+.searchBox input {
+  border: none;
+  background: transparent;
+  width: 100%;
+  color: var(--text-primary);
+}
+
+.toolbarRow {
+  justify-content: flex-end;
+}
+
+.emptyStateCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 240px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: #fafbff;
+}
+
+.drawerOverlay,
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.48);
+  z-index: 140;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawerOverlay {
+  justify-content: flex-end;
+}
+
+.drawerPanel {
+  background: #fff;
+  width: min(420px, 100%);
+  height: 100vh;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  box-shadow: -10px 0 30px rgba(15, 23, 42, 0.12);
+}
+
+.drawerHeader,
+.modalHeader,
+.modalActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.closeButton {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: #fff;
+  border-radius: 999px;
+  color: var(--text-primary);
+}
+
+.modalCard {
+  width: min(560px, calc(100% - 32px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.modalForm {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 1100px) {
+  .summaryGrid,
+  .dynamicSummaryGrid,
+  .previewGrid,
+  .filterGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboardGrid,
+  .historyGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .summaryGrid,
+  .dynamicSummaryGrid,
+  .previewGrid,
+  .filterGrid,
+  .reportGrid,
+  .modalForm {
+    grid-template-columns: 1fr;
+  }
+
+  .pageHeader,
+  .reportIntroRow,
+  .previewHeader,
+  .toolbarRow,
+  .filterActions,
+  .sectionHeaderRow,
+  .filterHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .reportToolbar {
+    width: 100%;
+  }
+
+  .primaryButton,
+  .secondaryButton,
+  .primaryButtonSmall {
+    width: 100%;
+  }
+
+  .reportToolbar > button,
+  .filterActions > button {
+    flex: 1 1 100%;
+  }
+
+  .searchBox {
+    width: 100%;
+    min-width: 0;
+  }
+}

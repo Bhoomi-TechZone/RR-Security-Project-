@@ -1,0 +1,235 @@
+/* =========================================
+   Login Page — Styles
+   Matches reference: navbar + card + footer
+========================================= */
+
+/* ---- Page wrapper ---- */
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+
+  /* Very light blue-gray page background */
+  background: linear-gradient(160deg, #eef0f8 0%, #e8eaf3 100%);
+}
+
+/* =========================================
+   Navbar
+========================================= */
+.navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  height: 52px;
+  flex-shrink: 0;
+
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.navBrand {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.navLogoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: #2563eb;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.navBrandName {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.2px;
+}
+
+.navSignIn {
+  font-size: 14px;
+  font-weight: 500;
+  color: #2563eb;
+  cursor: default;
+}
+
+/* =========================================
+   Main content area
+========================================= */
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+}
+
+/* =========================================
+   Card
+========================================= */
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: #ffffff;
+  border: 1px solid #e2e4ed;
+  border-radius: 10px;
+  box-shadow:
+    0 1px 4px rgba(0, 0, 0, 0.05),
+    0 8px 30px rgba(0, 0, 0, 0.08);
+  padding: 36px 36px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  animation: cardIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Lock icon at top ---- */
+.iconWrap {
+  width: 40px;
+  height: 40px;
+  background: #eff2ff;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+/* ---- Heading ---- */
+.heading {
+  font-size: 25px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.subheading {
+  font-size: 15px;
+  color: #64748b;
+  text-align: center;
+  margin-bottom: 15px;
+  line-height: 1.5;
+}
+
+/* =========================================
+   Footer
+========================================= */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+
+  padding: 0 32px;
+  height: 52px;
+  flex-shrink: 0;
+
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.footerLogoIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  background: #f1f0f5;
+  border-radius: 4px;
+  border: 1px solid #e2e0e8;
+}
+
+.footerBrand {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.footerLinks {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.footerLink {
+  font-size: 12px;
+  color: #64748b;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: #2563eb;
+}
+
+.footerCopy {
+  font-size: 12px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* =========================================
+   Responsive
+========================================= */
+@media (max-width: 600px) {
+
+  .navbar,
+  .footer {
+    padding: 0 20px;
+  }
+
+  .card {
+    padding: 28px 24px 24px;
+    border-radius: 12px;
+  }
+
+  .footerLinks {
+    gap: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .footer {
+    height: auto;
+    padding: 12px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .footerLinks {
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+}

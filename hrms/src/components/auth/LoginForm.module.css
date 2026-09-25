@@ -1,0 +1,168 @@
+/* =========================================
+   LoginForm — Component Styles
+   Matches reference image layout
+========================================= */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* ---- Password field with inline label+forgot ---- */
+.passwordField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.passwordLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.passwordLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #3d3847;
+  letter-spacing: 0.01em;
+}
+
+.forgotLink {
+  font-size: 12px;
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.forgotLink:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.forgotLink:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---- Remember me ---- */
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  font-size: 13px;
+  color: #475569;
+  margin-top: -2px;
+}
+
+.checkbox {
+  width: 14px;
+  height: 14px;
+  accent-color: #2563eb;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* ---- Request access ---- */
+.requestAccess {
+  font-size: 13px;
+  color: #64748b;
+  text-align: center;
+  margin-top: -4px;
+}
+
+.requestLink {
+  font-weight: 500;
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.requestLink:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* ---- Demo Credentials Section ---- */
+.demoSection {
+  border-top: 1px solid #e8eaf0;
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.demoLabel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.demoBadge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.demoBtnGroup {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.demoBtn {
+  flex: 1;
+  max-width: 110px;
+  height: 34px;
+  padding: 0 12px;
+
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  cursor: pointer;
+
+  transition:
+    color 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.demoBtn:hover {
+  color: #2563eb;
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.demoBtn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.18);
+}
+
+.demoBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.demoHint {
+  font-size: 11px;
+  color: #94a3b8;
+  text-align: center;
+  line-height: 1.5;
+}

@@ -1,0 +1,80 @@
+/* =========================================
+   AlertMessage — Component Styles
+========================================= */
+
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+
+  padding: 13px 16px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid transparent;
+
+  font-size: var(--text-base);
+  line-height: 1.5;
+
+  animation: slideIn 0.2s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Icon wrapper */
+.iconWrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 1px;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.title {
+  font-weight: 600;
+  font-size: var(--text-base);
+}
+
+.message {
+  font-size: var(--text-sm);
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* Variants */
+.error {
+  background: var(--danger-bg);
+  border-color: var(--danger-border);
+  color: #991b1b;
+}
+
+.success {
+  background: var(--success-bg);
+  border-color: var(--success-border);
+  color: #14532d;
+}
+
+.warning {
+  background: var(--warning-bg);
+  border-color: var(--warning-border);
+  color: #92400e;
+}
+
+.info {
+  background: var(--info-bg);
+  border-color: var(--info-border);
+  color: #1e40af;
+}

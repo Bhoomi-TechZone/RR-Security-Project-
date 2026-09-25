@@ -1,0 +1,264 @@
+.header {
+  height: var(--header-height);
+  background-color: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.toggleBtn:hover {
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.breadcrumb {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Header Right Panel */
+.right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Role Switcher Pill */
+.roleSwitcherWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background-color: var(--background);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+}
+
+.switcherLabel {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.switcherText {
+  white-space: nowrap;
+}
+
+.roleSelect {
+  border: none;
+  background: transparent;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.roleSelect:focus {
+  outline: none;
+}
+
+.actionBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.actionBtn:hover {
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.notificationWrapper {
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background-color: var(--danger);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid var(--surface);
+}
+
+.divider {
+  width: 1px;
+  height: 24px;
+  background-color: var(--border);
+}
+
+/* User profile button trigger */
+.profileTrigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.profileTrigger:hover {
+  background-color: var(--background);
+}
+
+.profileMeta {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.profileName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.profileRole {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.chevron {
+  color: var(--text-muted);
+}
+
+/* Dropdown Menu styling */
+.dropdownMenu {
+  list-style: none;
+  padding: 6px;
+  margin: 0;
+  min-width: 180px;
+}
+
+.dropdownItem {
+  margin: 0;
+}
+
+.dropdownLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-xs);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dropdownLink:hover {
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.dropdownItemDivider {
+  height: 1px;
+  background-color: var(--border-light);
+  margin: 4px 0;
+}
+
+.logoutOption:hover {
+  background-color: #fef2f2 !important;
+}
+
+/* 9-dots Apps / External Portals Grid Button */
+.appsGridBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  margin-left: 2px;
+  flex-shrink: 0;
+}
+
+.appsGridBtn:hover {
+  background-color: var(--background);
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.appsGridBtn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .header {
+    padding: 0 16px;
+  }
+
+  .roleSwitcherWrap {
+    display: none;
+  }
+
+  .profileMeta {
+    display: none;
+  }
+}

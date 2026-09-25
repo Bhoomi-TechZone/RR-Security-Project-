@@ -1,0 +1,6 @@
+.grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+.card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-sm); }
+.icon { display: grid; place-items: center; width: 40px; height: 40px; flex: 0 0 40px; border-radius: 11px; background: var(--primary-light); color: var(--primary); }.success { background: var(--success-bg); color: var(--success); }.danger { background: var(--danger-bg); color: var(--danger); }.info { background: var(--info-bg); color: var(--info); }.neutral { background: var(--surface-alt); color: var(--text-secondary); }.primary { background: var(--primary-light); color: var(--primary); }
+.content { min-width: 0; display: grid; gap: 3px; }.content span { color: var(--text-secondary); font-size: 12px; }.content strong { color: var(--text-primary); font-size: 21px; line-height: 1.2; }
+@media (max-width: 1100px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .grid { grid-template-columns: 1fr; } }

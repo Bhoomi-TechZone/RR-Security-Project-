@@ -1,0 +1,243 @@
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  font-size: var(--text-base);
+}
+
+.table thead tr {
+  background: var(--surface-alt);
+}
+
+.table th {
+  padding: 11px 14px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: middle;
+  color: var(--text-primary);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.row {
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.row:hover {
+  background: var(--surface-alt);
+}
+
+.actionsCol {
+  width: 40px;
+}
+
+.actionsCell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* Employee cell */
+.empCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.empName {
+  font-weight: 600;
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.empId {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Company / site cell */
+.companyCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.company {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.site {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.deptCell {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.hoursCell {
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+/* Late / Early tags */
+.lateTime,
+.earlyTime {
+  display: block;
+  font-weight: 500;
+}
+
+.lateTime { color: #c2410c; }
+.earlyTime { color: #d97706; }
+
+.lateTag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  background: #fff7ed;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.earlyTag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  background: #fff4e6;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-full);
+  padding: 1px 6px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+/* Action button */
+.menuBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: all 0.12s ease;
+  font-family: var(--font-sans);
+}
+
+.menuBtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* ---------- Mobile cards ---------- */
+.cards {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.cardBody {
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cardRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.cardRow span:last-child {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cardActions {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border-light);
+  text-align: right;
+}
+
+@media (max-width: 768px) {
+  .tableWrap {
+    display: none;
+  }
+  .cards {
+    display: flex;
+  }
+}

@@ -1,0 +1,142 @@
+.container {
+  padding: 0;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  margin-bottom: 16px;
+}
+
+.crumbLink {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.crumbLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.separator {
+  color: var(--text-muted);
+}
+
+.crumbActive {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  gap: 16px;
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.description {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.addBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  background-color: var(--primary);
+  color: #ffffff;
+  font-size: var(--text-base);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.addBtn:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.errorState {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.errorMsg {
+  color: var(--danger);
+  font-size: var(--text-base);
+  font-weight: 600;
+  margin: 0;
+}
+
+.retryBtn {
+  height: 38px;
+  padding: 0 16px;
+  background-color: var(--primary);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.retryBtn:hover {
+  background-color: var(--primary-dark);
+}
+
+.emptyWrap {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 48px 24px;
+}
+
+@media (max-width: 576px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .addBtn {
+    justify-content: center;
+  }
+  .container {
+    padding: 0;
+  }
+}

@@ -1,0 +1,420 @@
+.container {
+  padding: 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  margin-bottom: 16px;
+}
+
+.crumbLink {
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.crumbLink:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.separator {
+  color: var(--text-muted);
+}
+
+.crumbActive {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Header */
+.header {
+  margin-bottom: 24px;
+}
+
+.titleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.description {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* Card Sections */
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 20px;
+  overflow: hidden;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--background);
+}
+
+.cardIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.cardTitle {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cardBody {
+  padding: 24px;
+}
+
+/* Form Grid */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+/* Logo Upload Section */
+.label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.logoSection {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  padding: 20px;
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.logoPreview {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--border);
+  overflow: hidden;
+  background-color: var(--surface);
+  flex-shrink: 0;
+}
+
+.logoImage {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 10px;
+}
+
+.logoRemove {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  background-color: var(--danger);
+  color: #ffffff;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-sm);
+}
+
+.logoRemove:hover {
+  background-color: #dc2626;
+  transform: scale(1.1);
+}
+
+.logoEmpty {
+  width: 120px;
+  height: 120px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--surface);
+  flex-shrink: 0;
+}
+
+.uploadIcon {
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.uploadText {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.logoActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.fileInput {
+  display: none;
+}
+
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background-color: var(--primary);
+  color: #ffffff;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  width: fit-content;
+}
+
+.uploadBtn:hover {
+  background-color: var(--primary-dark);
+}
+
+.uploadHint {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Select Dropdown */
+.selectWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.selectContainer {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.selectIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--text-muted);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.select {
+  width: 100%;
+  height: 44px;
+  padding: 0 16px 0 40px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.select:hover {
+  border-color: var(--primary);
+}
+
+.select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Employee Code Preview Banner */
+.previewBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(99, 102, 241, 0.04) 100%);
+  border: 1.5px solid rgba(99, 102, 241, 0.25);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.previewInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previewLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #4f46e5;
+}
+
+.previewCode {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+  font-size: 20px;
+  font-weight: 800;
+  color: #312e81;
+  letter-spacing: 1px;
+}
+
+.previewBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  color: #4338ca;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 9999px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.inputHelper {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Action Buttons */
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.cancelBtn {
+  height: 44px;
+  padding: 0 24px;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cancelBtn:hover:not(:disabled) {
+  background-color: var(--background);
+  border-color: var(--text-secondary);
+  color: var(--text-primary);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .logoSection {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .logoActions {
+    width: 100%;
+    align-items: center;
+  }
+
+  .uploadBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+    gap: 10px;
+  }
+
+  .cancelBtn,
+  .actions button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .container {
+    padding: 0;
+  }
+
+  .cardHeader {
+    padding: 16px 20px;
+  }
+
+  .cardBody {
+    padding: 20px;
+  }
+
+  .title {
+    font-size: var(--text-2xl);
+  }
+
+  .description {
+    font-size: var(--text-sm);
+  }
+}

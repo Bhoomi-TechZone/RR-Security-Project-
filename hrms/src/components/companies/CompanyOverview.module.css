@@ -1,0 +1,93 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 32px;
+  box-shadow: var(--shadow-sm);
+}
+
+.infoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fullWidth {
+  grid-column: span 2;
+}
+
+.labelRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.icon {
+  color: var(--text-muted);
+}
+
+.label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.valueRow {
+  display: flex;
+}
+
+.value {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.gstin {
+  font-family: monospace;
+  font-weight: 600;
+  background-color: var(--surface-alt);
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+}
+
+.empBadge {
+  font-weight: 600;
+  color: var(--primary);
+  background-color: var(--primary-light);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.active {
+  color: var(--success);
+  font-weight: 700;
+  background-color: var(--success-bg);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.inactive {
+  color: var(--danger);
+  font-weight: 700;
+  background-color: var(--danger-bg);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    gap: 20px;
+  }
+  .fullWidth {
+    grid-column: span 1;
+  }
+}

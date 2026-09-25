@@ -1,0 +1,957 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* Page Header Details */
+.pageHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.welcomeSection {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.heading {
+  font-size: var(--text-2xl, 24px);
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.subheading {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin: 4px 0 0 0;
+  line-height: 1.4;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  background-color: var(--primary);
+  color: #ffffff;
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+/* .primaryBtn:hover {
+  background-color: var(--primary-hover);
+  transform: translateY(-1px);
+} */
+
+.secondaryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  background-color: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.secondaryBtn:hover {
+  background-color: var(--background);
+  border-color: #cbd5e1;
+}
+
+/* 5 KPI Cards Grid */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+@media (max-width: 1280px) {
+  .kpiGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statCard {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.statCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.statHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.statIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toneBlue {
+  background-color: #eff6ff;
+  color: #2563eb;
+}
+
+.toneGreen {
+  background-color: #f0fdf4;
+  color: #16a34a;
+}
+
+.toneTeal {
+  background-color: #f0fdfa;
+  color: #0d9488;
+}
+
+.tonePurple {
+  background-color: #faf5ff;
+  color: #9333ea;
+}
+
+.toneAmber {
+  background-color: #fffbeb;
+  color: #d97706;
+}
+
+.toneIndigo {
+  background-color: #eef2ff;
+  color: #4f46e5;
+}
+
+.toneCyan {
+  background-color: #ecfeff;
+  color: #0891b2;
+}
+
+.statValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.statValue {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.trendUp {
+  font-size: 11px;
+  font-weight: 600;
+  color: #16a34a;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.statusPillActive {
+  font-size: 11px;
+  font-weight: 600;
+  color: #16a34a;
+  background-color: #dcfce7;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.statPresentCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0d9488;
+}
+
+.statLeaveSub {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #9333ea;
+}
+
+.statPendingBadge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #d97706;
+  background-color: #fef3c7;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.statSubtext {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  margin: 0;
+}
+
+/* Two-column Main Grid Layout */
+.contentGrid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 20px;
+  min-width: 0;
+}
+
+@media (max-width: 1100px) {
+  .contentGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.gridColLeft,
+.gridColRight {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+/* Panel Card Structure */
+.panelCard {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 15px 15px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panelTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.panelSubtitle {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.panelActionLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-xs);
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.panelActionLink:hover {
+  background-color: var(--primary-light);
+}
+
+/* Responsive SVG Chart Container */
+.chartContainer {
+  width: 100%;
+  height: 220px;
+  padding: 4px 0;
+}
+
+.svgChart {
+  overflow: visible;
+}
+
+.gridGroup {
+  pointer-events: none;
+}
+
+.gridLine {
+  stroke: #f1f5f9;
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.baseline {
+  stroke: #e2e8f0;
+  stroke-width: 1.5;
+}
+
+.gridLabel {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--text-muted);
+  text-anchor: end;
+}
+
+.barTrack {
+  fill: #f1f5f9;
+}
+
+.barFill {
+  transition: fill 0.2s ease;
+}
+
+.barTopLabel {
+  font-size: 11.5px;
+  font-weight: 700;
+  fill: var(--text-primary);
+  text-anchor: middle;
+}
+
+.xAxisLabel {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--text-secondary);
+  text-anchor: middle;
+}
+
+.tooltipGroup {
+  pointer-events: none;
+}
+
+.tooltipBg {
+  fill: #0f172a;
+}
+
+.tooltipText {
+  font-size: 11px;
+  font-weight: 700;
+  fill: #ffffff;
+  text-anchor: middle;
+}
+
+/* Data Table in Dashboard */
+.tableResponsive {
+  overflow-x: auto;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.dataTable th {
+  padding: 10px 12px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--background);
+}
+
+.dataTable td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  vertical-align: middle;
+}
+
+.dataTable tr:hover td {
+  background-color: #f8fafc;
+}
+
+.employeeCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.empName {
+  font-weight: 600;
+  color: var(--text-primary);
+  display: block;
+}
+
+.empCode {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.deptBadge {
+  font-size: 11.5px;
+  padding: 3px 8px;
+  background-color: #f1f5f9;
+  border-radius: 4px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.siteCell {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+
+.alignRight {
+  text-align: right;
+}
+
+.viewBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.viewBtn:hover {
+  background-color: #dbeafe;
+}
+
+/* Billing Metrics List */
+.billingMetricsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  background-color: var(--background);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.billingRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+}
+
+.billingRowLabel {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.billingRowValue {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.billingRowMuted {
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.subSectionHeading {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 4px 0 0;
+}
+
+/* Invoices List */
+.invoiceList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invoiceItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background-color: var(--surface);
+  transition: background-color var(--transition-fast);
+  gap: 10px;
+  min-width: 0;
+}
+
+.invoiceItem:hover {
+  background-color: var(--background);
+}
+
+.invoiceMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.invNo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invPeriod {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.invRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.invAmount {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.invIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background-color: #f1f5f9;
+  color: var(--text-secondary);
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.invIconBtn:hover {
+  background-color: #e2e8f0;
+  color: var(--text-primary);
+}
+
+/* Reports Quick Grid (Full Width at Bottom) */
+.reportsQuickGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1200px) {
+  .reportsQuickGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .reportsQuickGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reportCardMini {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  background-color: var(--background);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.reportCardMini:hover {
+  border-color: #bfdbfe;
+  background-color: #eff6ff;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.reportIconMini {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.reportTitleMini {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: block;
+}
+
+.reportDescMini {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  display: block;
+}
+
+/* Notifications List */
+.notificationsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.notifItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background-color: var(--background);
+  border: 1px solid var(--border-light);
+}
+
+.notifIconWrap {
+  padding: 6px;
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.bellActive {
+  color: #ea580c;
+}
+
+.notifContent {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.notifTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notifTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.unreadDot {
+  width: 6px;
+  height: 6px;
+  background-color: #2563eb;
+  border-radius: 50%;
+}
+
+.notifMsg {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.notifTime {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Modal Styling */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.modalContent {
+  background-color: var(--surface);
+  border-radius: var(--radius-md);
+  width: 100%;
+  max-width: 580px;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modalTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modalSubtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.modalCloseBtn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.modalCloseBtn:hover {
+  background-color: var(--background);
+  color: var(--text-primary);
+}
+
+.modalBody {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalInfoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.infoField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.fieldVal {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fieldValBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.modalFooter {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--background);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.readOnlyNote {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.modalPrimaryBtn {
+  padding: 8px 16px;
+  background-color: var(--primary);
+  color: #ffffff;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+/* Invoice Specific Modal Body */
+.invoiceCompanyHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  background-color: #f8fafc;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.invBilledToLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.invCompanyName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 2px 0;
+}
+
+.invAddress {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.invGst {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.invStatusCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.invTotalHeader {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.invBreakdownTitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 8px 0 0;
+}
+
+.invTableWrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.invTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.invTable th {
+  padding: 8px 12px;
+  background-color: #f1f5f9;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+
+.invTable td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+}
+
+.invTotalRow td {
+  background-color: #eff6ff;
+  border-top: 1px solid #bfdbfe;
+  font-size: 13px;
+}

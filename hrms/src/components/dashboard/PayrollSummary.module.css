@@ -1,0 +1,264 @@
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.monthBadge {
+  background-color: var(--primary-light);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-full);
+}
+
+/* Statistics Grid details */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 20px;
+}
+
+.statGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.deductionValue {
+  color: var(--danger);
+}
+
+.netValue {
+  color: var(--primary);
+}
+
+/* Progress bar section styling */
+.progressSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.progressInfo {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.progressLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.progressCounts {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.progressBarWrapper {
+  position: relative;
+  height: 24px;
+  background-color: var(--background);
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: var(--primary);
+  border-radius: 6px;
+  transition: width 0.4s ease-out;
+}
+
+.progressPct {
+  position: absolute;
+  left: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  /* mix-blend-mode: difference; */
+}
+
+/* Empty State layout */
+.emptyState {
+  padding: 20px 0;
+  text-align: center;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* =========================================
+   Skeleton loading styles
+========================================= */
+.skeleton {
+  background: linear-gradient(90deg, #f1f3f7 25%, #e2e8f0 50%, #f1f3f7 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeletonTitle {
+  height: 16px;
+}
+
+.skeletonBadge {
+  height: 22px;
+  border-radius: 9999px;
+}
+
+.skeletonLabel {
+  height: 11px;
+  margin-bottom: 4px;
+}
+
+.skeletonVal {
+  height: 20px;
+}
+
+.skeletonBar {
+  height: 24px;
+  border-radius: 6px;
+  width: 100%;
+}
+
+/* Container for overall and client-wise cards */
+.container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+/* Client Selector Styles */
+.selectorWrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.selectorLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.selectContainer {
+  position: relative;
+  flex: 0 1 250px;
+}
+
+.clientSelect {
+  width: 100%;
+  padding: 8px 12px;
+  padding-right: 36px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  appearance: none;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.clientSelect:hover {
+  border-color: var(--primary);
+  background-color: var(--surface-hover);
+}
+
+.clientSelect:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.1);
+}
+
+.selectIcon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+@keyframes pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 768px) {
+  .selectorWrapper {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .selectContainer {
+    width: 100%;
+    flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 16px;
+  }
+
+  .selectorLabel {
+    font-size: 12px;
+  }
+
+  .clientSelect {
+    font-size: 12px;
+    padding: 6px 10px;
+    padding-right: 28px;
+  }
+}

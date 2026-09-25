@@ -1,0 +1,164 @@
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Tabs list styling */
+.tabs {
+  display: flex;
+  background-color: var(--background);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.tab {
+  padding: 6px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.tab:hover {
+  color: var(--text-primary);
+}
+
+.activeTab {
+  background-color: var(--surface);
+  color: var(--primary) !important;
+  box-shadow: var(--shadow-xs);
+}
+
+/* SVG Chart area */
+.chartContainer {
+  width: 100%;
+  height: auto;
+}
+
+.svg {
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: var(--border-light);
+  stroke-width: 1;
+}
+
+.baseline {
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
+}
+
+.gridLabel {
+  fill: var(--text-base);
+  font-size: 12px;
+  font-weight: 500;
+  text-anchor: end;
+}
+
+.barTrack {
+  fill: #f8fafc;
+}
+
+.bar {
+  fill: var(--primary);
+  transition: fill var(--transition-fast), opacity var(--transition-fast);
+}
+
+.barHovered {
+  fill: var(--primary-dark);
+}
+
+.xAxisLabel {
+  fill: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  text-anchor: middle;
+}
+
+/* Floating interactive tooltip */
+.tooltipGroup {
+  pointer-events: none;
+}
+
+.tooltipBg {
+  fill: #0f172a;
+}
+
+.tooltipText {
+  fill: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+/* =========================================
+   Skeleton loading styles
+========================================= */
+.skeleton {
+  background: linear-gradient(90deg, #f1f3f7 25%, #e2e8f0 50%, #f1f3f7 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeletonTitle {
+  height: 18px;
+  width: 150px;
+}
+
+.skeletonTabs {
+  height: 32px;
+  width: 220px;
+}
+
+.skeletonChart {
+  height: 180px;
+  width: 100%;
+}
+
+@keyframes pulse {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Larger screens - row layout */
+@media (min-width: 768px) {
+  .header {
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 16px;
+  }
+}

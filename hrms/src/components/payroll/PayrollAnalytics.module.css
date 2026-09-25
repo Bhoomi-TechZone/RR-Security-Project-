@@ -1,0 +1,208 @@
+.analyticsSection {
+  margin-top: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  font-size: var(--text-base);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 2px 0;
+}
+
+.sectionSub {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.titleWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.blueIcon { color: #2563eb; }
+.purpleIcon { color: #9333ea; }
+.amberIcon { color: #d97706; }
+
+.trendBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+
+.totalValue {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Trend Bars */
+.trendBarsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.trendItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trendLabels {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.monthText {
+  color: var(--text-secondary);
+}
+
+.currentMonthText {
+  color: var(--primary-dark);
+  font-weight: 600;
+}
+
+.amountText {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.currentAmountText {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.barTrack {
+  height: 6px;
+  background: #f1f5f9;
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  background: #cbd5e1;
+  border-radius: var(--radius-full);
+}
+
+.barFillCurrent {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+  border-radius: var(--radius-full);
+}
+
+/* Stacked bar */
+.stackedTrack {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: var(--radius-full);
+  display: flex;
+  overflow: hidden;
+}
+
+.stackSegment {
+  height: 100%;
+}
+
+.componentList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.compRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+}
+
+.compLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.colorDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.compRight {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.compRight strong {
+  color: var(--text-primary);
+}
+
+.compRight small {
+  color: var(--text-muted);
+}
+
+.deductText {
+  color: #dc2626 !important;
+}
+
+@media (max-width: 1024px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

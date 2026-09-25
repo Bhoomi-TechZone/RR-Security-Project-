@@ -1,0 +1,100 @@
+.wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.arrowBtn {
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.arrowBtn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.arrowBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.dateDisplay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+  user-select: none;
+}
+
+.dateDisplay:hover {
+  border-color: var(--primary);
+}
+
+.calIcon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.dateText {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.todayChip {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--info-border);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.todayBtn {
+  padding: 6px 14px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: 1px solid var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.todayBtn:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.hiddenPicker {
+  position: absolute;
+  top: 42px;
+  left: 42px;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}

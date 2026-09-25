@@ -1,0 +1,278 @@
+.container {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.table th {
+  background-color: var(--surface-alt);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table td {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  vertical-align: middle;
+}
+
+.table tr:hover td {
+  background-color: var(--surface-alt);
+}
+
+.employeeCell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary-light);
+  color: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: var(--text-base);
+  flex-shrink: 0;
+}
+
+.avatarImg {
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-full);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.employeeName {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.employeeId {
+  font-family: monospace;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.companyName {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.departmentName,
+.designationName {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.contactPhone {
+  color: var(--text-primary);
+  font-family: monospace;
+  font-weight: 500;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.inactiveRow {
+  opacity: 0.75;
+}
+
+/* Skeleton Styles */
+.skeletonRow td {
+  background-color: #ffffff;
+}
+
+.skeletonEmployee {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.skeletonAvatar {
+  width: 38px;
+  height: 38px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite;
+  border-radius: var(--radius-full);
+}
+
+.skeletonTextStack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeletonBarShort {
+  height: 12px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeletonBadge {
+  width: 70px;
+  height: 24px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite;
+  border-radius: 6px;
+}
+
+.skeletonAction {
+  width: 24px;
+  height: 24px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: loadingShimmer 1.5s infinite;
+  border-radius: 4px;
+  margin: 0 auto;
+}
+
+@keyframes loadingShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.emptyWrapper {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  padding: 40px 24px;
+}
+
+/* Responsive mobile view */
+.mobileList {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+}
+
+.mobileCard {
+  background-color: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+}
+
+.employeeInfo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cardSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-top: 1px solid var(--border-light);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.cardLabel {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.cardValue {
+  color: var(--text-primary);
+  font-weight: 500;
+  font-size: var(--text-base);
+}
+
+.cardActions {
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 992px) {
+  /* Allow horizontal scroll on tablet */
+  .tableWrapper {
+    display: block;
+  }
+}
+
+@media (max-width: 768px) {
+  .tableWrapper {
+    display: none;
+  }
+  .mobileList {
+    display: flex;
+  }
+  .container {
+    border: none;
+    background: transparent;
+  }
+}

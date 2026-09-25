@@ -1,0 +1,44 @@
+.layout {
+  min-height: 100vh;
+  display: flex;
+  background: var(--background);
+}
+
+.mainContainer {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding-left: var(--sidebar-width);
+  transition: padding-left var(--transition);
+}
+
+.sidebarCollapsed {
+  padding-left: 70px;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.wrapper {
+  width: 100%;
+  max-width: 1400px;
+  min-height: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 1024px) {
+  .mainContainer {
+    padding-left: 70px;
+  }
+}
+
+@media (max-width: 768px) {
+  .mainContainer,
+  .sidebarCollapsed {
+    padding-left: 0;
+  }
+}

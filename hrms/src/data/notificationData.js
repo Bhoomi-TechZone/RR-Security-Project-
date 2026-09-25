@@ -1,0 +1,122 @@
+export const notificationData = [
+  {
+    id: 1,
+    type: 'leave-approval',
+    title: 'Leave Approved',
+    message: "Rahul Kumar's leave request from 24 Aug 2026 to 26 Aug 2026 has been approved.",
+    employeeId: 'EMP001',
+    employeeName: 'Rahul Kumar',
+    clientId: 'c001',
+    clientName: 'ABC Security Services',
+    date: '2026-08-25',
+    status: 'unread'
+  },
+  {
+    id: 2,
+    type: 'salary-processed',
+    title: 'Salary Processed',
+    message: 'August 2026 salary has been processed successfully for Rahul Kumar.',
+    employeeId: 'EMP001',
+    employeeName: 'Rahul Kumar',
+    clientId: 'c001',
+    clientName: 'ABC Security Services',
+    date: '2026-08-24',
+    status: 'read'
+  },
+  {
+    id: 3,
+    type: 'document-expiry',
+    title: 'Document Expiring',
+    message: "Rahul Kumar's document is approaching expiry and needs review.",
+    employeeId: 'EMP001',
+    employeeName: 'Rahul Kumar',
+    clientId: 'c001',
+    clientName: 'ABC Security Services',
+    date: '2026-08-23',
+    status: 'unread'
+  },
+  {
+    id: 4,
+    type: 'leave-approval',
+    title: 'Leave Approved',
+    message: "Amit Sharma's leave request has been approved for the upcoming weekend.",
+    employeeId: 'EMP002',
+    employeeName: 'Amit Sharma',
+    clientId: 'c002',
+    clientName: 'XYZ Facility Management',
+    date: '2026-08-22',
+    status: 'read'
+  },
+  {
+    id: 5,
+    type: 'salary-processed',
+    title: 'Salary Processed',
+    message: 'August 2026 salary has been processed successfully for Amit Sharma.',
+    employeeId: 'EMP002',
+    employeeName: 'Amit Sharma',
+    clientId: 'c002',
+    clientName: 'XYZ Facility Management',
+    date: '2026-08-21',
+    status: 'unread'
+  },
+  {
+    id: 6,
+    type: 'document-expiry',
+    title: 'Document Expiring',
+    message: "Raj Kumar's ID proof is expiring soon and requires renewal.",
+    employeeId: 'EMP003',
+    employeeName: 'Raj Kumar',
+    clientId: 'c003',
+    clientName: 'PQR Housekeeping Pvt Ltd',
+    date: '2026-08-20',
+    status: 'read'
+  },
+  {
+    id: 7,
+    type: 'leave-approval',
+    title: 'Leave Approved',
+    message: "Raj Kumar's leave request has been approved for the upcoming holiday period.",
+    employeeId: 'EMP003',
+    employeeName: 'Raj Kumar',
+    clientId: 'c003',
+    clientName: 'PQR Housekeeping Pvt Ltd',
+    date: '2026-08-19',
+    status: 'unread'
+  },
+  {
+    id: 8,
+    type: 'salary-processed',
+    title: 'Salary Processed',
+    message: 'August 2026 salary has been processed successfully for Raj Kumar.',
+    employeeId: 'EMP003',
+    employeeName: 'Raj Kumar',
+    clientId: 'c003',
+    clientName: 'PQR Housekeeping Pvt Ltd',
+    date: '2026-08-18',
+    status: 'read'
+  },
+  {
+    id: 9,
+    type: 'document-expiry',
+    title: 'Document Expiring',
+    message: "Priya Nair's police verification has expired and needs action.",
+    employeeId: 'EMP005',
+    employeeName: 'Priya Nair',
+    clientId: 'c005',
+    clientName: 'Greenfield Services Ltd',
+    date: '2026-08-17',
+    status: 'unread'
+  },
+  {
+    id: 10,
+    type: 'leave-approval',
+    title: 'Leave Approved',
+    message: "Manoj Verma's leave request has been approved for the upcoming weekend.",
+    employeeId: 'EMP004',
+    employeeName: 'Manoj Verma',
+    clientId: 'c004',
+    clientName: 'Suraksha Security Corp',
+    date: '2026-08-16',
+    status: 'read'
+  }
+];

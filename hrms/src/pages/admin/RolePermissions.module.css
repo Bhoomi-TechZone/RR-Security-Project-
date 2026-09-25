@@ -1,0 +1,302 @@
+.container {
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Top Breadcrumb Bar */
+.topBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2px;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.crumbDivider {
+  color: var(--text-muted);
+}
+
+.currentCrumb {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.backBtn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--surface-alt);
+}
+
+/* Main Roles View */
+.rolesMainView {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Page Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.headerTitleArea {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.headerBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: 9999px;
+  background: #eff6ff;
+  color: #2563eb;
+  width: fit-content;
+}
+
+.title {
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.description {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.matrixBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-size: var(--text-base);
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+  box-shadow: var(--shadow-xs);
+}
+
+.matrixBtn:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.createBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  font-size: var(--text-base);
+  font-weight: 600;
+  background: var(--primary);
+  color: #ffffff;
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+
+.createBtn:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+/* Tabs Navigation Row */
+.tabsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 2px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.tabsGroup {
+  display: flex;
+  gap: 8px;
+}
+
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+}
+
+.tabBtn:hover {
+  color: var(--primary);
+  background: var(--surface-alt);
+}
+
+.activeTab {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+  background: var(--surface-alt);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #334155;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
+
+.activeTab .tabBadge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.tabsActionWrap {
+  display: flex;
+  align-items: center;
+}
+
+.secondaryActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.secondaryActionBtn:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+/* Matrix Wrapper */
+.matrixWrapper {
+  width: 100%;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .headerActions {
+    width: 100%;
+  }
+
+  .matrixBtn,
+  .createBtn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .tabsRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .tabsGroup {
+    width: 100%;
+  }
+
+  .tabBtn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .tabsActionWrap {
+    width: 100%;
+  }
+
+  .secondaryActionBtn {
+    width: 100%;
+    justify-content: center;
+  }
+}

@@ -1,0 +1,71 @@
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #ffffff;
+  font-weight: 600;
+  user-select: none;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+/* Sizes */
+.xs {
+  width: 28px;
+  height: 28px;
+  font-size: 10px;
+}
+
+.sm {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+}
+
+.md {
+  width: 40px;
+  height: 40px;
+  font-size: 14px;
+}
+
+.lg {
+  width: 48px;
+  height: 48px;
+  font-size: 16px;
+}
+
+.initials {
+  letter-spacing: -0.02em;
+}
+
+/* Status Indicator Dot */
+.badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--surface);
+}
+
+.online {
+  background-color: var(--success);
+}
+
+.away {
+  background-color: var(--warning);
+}
+
+.offline {
+  background-color: var(--text-muted);
+}

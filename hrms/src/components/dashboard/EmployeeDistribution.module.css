@@ -1,0 +1,269 @@
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.viewLink {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.viewLink:hover {
+  opacity: 0.75;
+}
+
+.container {
+  /* display: flex; */
+  align-items: center;
+  gap: 10px;
+}
+
+.donutWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0 auto;
+}
+
+.svg {
+  overflow: visible;
+}
+
+.donutTrack {
+  fill: transparent;
+  stroke: #c7e96c;
+}
+
+.donutSegment {
+  transition: stroke-width 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+.donutSegment:hover {
+  stroke-width: 24;
+  opacity: 0.96;
+  cursor: pointer;
+  filter: brightness(0.98);
+}
+
+.segmentBlue {
+  stroke: #007bff;
+}
+
+.segmentGreen {
+  stroke: #28a745;
+}
+
+.segmentAmber {
+  stroke: #e46a06;
+}
+
+.segmentOrange {
+  stroke: #dc3545;
+}
+
+.segmentPink {
+  stroke: #e83e8c;
+}
+
+.segmentGray {
+  stroke: #6c757d;
+}
+
+/* Donut text metadata details */
+.centerMeta {
+  pointer-events: none;
+}
+
+.centerText {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.totalNumber {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.totalLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+
+/* Legend items */
+.legend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background-color: currentColor;
+}
+
+.segmentBlue {
+  color: #007bff;
+}
+
+.segmentGreen {
+  color: #28a745;
+}
+
+.segmentAmber {
+  color: #fd7e14;
+}
+
+.segmentOrange {
+  color: #dc3545;
+}
+
+.segmentPink {
+  color: #e83e8c;
+}
+
+.segmentGray {
+  color: #6c757d;
+}
+
+.legendMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  line-height: 1.2;
+}
+
+.roleName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.roleCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.rolePct {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 2px;
+}
+
+/* =========================================
+   Skeleton loading styles
+ ========================================= */
+.skeleton {
+  background: linear-gradient(90deg, #f1f3f7 25%, #e2e8f0 50%, #f1f3f7 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeletonTitle {
+  height: 18px;
+  width: 160px;
+}
+
+.skeletonContainer {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+}
+
+.skeletonDonut {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeletonLegend {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skeletonLegendItem {
+  height: 28px;
+  width: 100%;
+}
+
+@keyframes pulse {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 16px;
+  }
+
+  .container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  .skeletonContainer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+}
