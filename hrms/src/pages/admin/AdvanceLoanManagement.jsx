@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BadgeIndianRupee,
   Clock3,
@@ -1224,7 +1225,17 @@ function AdvanceLoanManagement() {
     }
   });
 
-  const [tab, setTab] = useState('all');
+  const [searchParams] = useSearchParams();
+  const [tab, setTab] = useState(() => searchParams.get('tab') || 'all');
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      setTab(tabParam);
+    } else {
+      setTab('all');
+    }
+  }, [searchParams]);
   const [filters, setFilters] = useState({
     search: '',
     type: '',
@@ -1510,30 +1521,6 @@ function AdvanceLoanManagement() {
             employee&apos;s monthly salary. This is a frontend representation
             only.
           </span>
-        </div>
-
-        <div className={styles.tabs} role="tablist">
-          {[
-            ['all', 'All Requests'],
-            ['advances', 'Advances'],
-            ['loans', 'Loans'],
-            ['schedule', 'Deduction Schedule'],
-            ['history', 'Deduction History']
-          ].map(([value, label]) => (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={tab === value}
-              className={tab === value ? styles.activeTab : ''}
-              onClick={() => {
-                setPage(1);
-                setTab(value);
-              }}
-              key={value}
-            >
-              {label}
-            </button>
-          ))}
         </div>
 
         {tab !== 'schedule' && tab !== 'history' && (

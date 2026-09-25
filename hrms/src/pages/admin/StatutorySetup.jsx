@@ -55,6 +55,8 @@ function StatutorySetup() {
     const tabParam = searchParams.get('tab');
     if (tabParam && TABS.some(t => t.id === tabParam)) {
       setActiveTab(tabParam);
+    } else {
+      setActiveTab('overview');
     }
   }, [searchParams]);
 
@@ -332,29 +334,6 @@ function StatutorySetup() {
             </div>
           )}
         </header>
-
-        {/* Tab Navigation */}
-        <div className={styles.tabsWrapper}>
-          <div className={styles.tabsList} role="tablist">
-            {(isFromOrgSettings ? TABS.filter(t => t.id === activeTab) : TABS).map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`${styles.tabBtn} ${isActive ? styles.tabActive : ''}`}
-                  onClick={isFromOrgSettings ? undefined : () => handleTabChange(tab.id)}
-                  style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
-                >
-                  <Icon size={16} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* TAB 0: OVERVIEW LANDING VIEW */}
         {activeTab === 'overview' && (

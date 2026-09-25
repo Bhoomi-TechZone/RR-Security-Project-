@@ -104,9 +104,48 @@ const NAV_GROUPS = [
           { path: '/admin/payroll?tab=statutory', name: 'Statutory Reports' },
         ]
       },
-      { path: '/admin/payroll-setup', name: 'Payroll Setup', icon: SlidersHorizontal },
-      { path: '/admin/statutory-setup', name: 'Statutory Setup', icon: Landmark },
-      { path: '/admin/advances-loans', name: 'Advances & Loans', icon: HandCoins },
+      { 
+        path: '/admin/payroll-setup', 
+        name: 'Payroll Setup', 
+        icon: SlidersHorizontal,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/payroll-setup', name: 'Pay Groups' },
+          { path: '/admin/payroll-setup?tab=pay-schedules', name: 'Pay Schedules' },
+          { path: '/admin/payroll-setup?tab=pay-cycles', name: 'Pay Cycles' },
+          { path: '/admin/payroll-setup?tab=pay-days', name: 'Pay Days' },
+          { path: '/admin/payroll-setup?tab=calculation-methods', name: 'Calculation Methods' },
+        ]
+      },
+      { 
+        path: '/admin/statutory-setup', 
+        name: 'Statutory Setup', 
+        icon: Landmark,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/statutory-setup', name: 'Overview' },
+          { path: '/admin/statutory-setup?tab=pf', name: 'PF (Provident Fund)' },
+          { path: '/admin/statutory-setup?tab=esi', name: 'ESI' },
+          { path: '/admin/statutory-setup?tab=pt', name: 'Professional Tax (PT)' },
+          { path: '/admin/statutory-setup?tab=tds', name: 'TDS' },
+          { path: '/admin/statutory-setup?tab=bonus', name: 'Bonus' },
+          { path: '/admin/statutory-setup?tab=gratuity', name: 'Gratuity' },
+          { path: '/admin/statutory-setup?tab=lwf', name: 'Labour Welfare Fund (LWF)' },
+        ]
+      },
+      { 
+        path: '/admin/advances-loans', 
+        name: 'Advances & Loans', 
+        icon: HandCoins,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/advances-loans', name: 'All Requests' },
+          { path: '/admin/advances-loans?tab=advances', name: 'Advances' },
+          { path: '/admin/advances-loans?tab=loans', name: 'Loans' },
+          { path: '/admin/advances-loans?tab=schedule', name: 'Deduction Schedule' },
+          { path: '/admin/advances-loans?tab=history', name: 'Deduction History' },
+        ]
+      },
       { path: '/admin/reimbursements', name: 'Reimbursements', icon: Receipt },
       { path: '/admin/overtime', name: 'Overtime', icon: Timer },
     ]
@@ -146,7 +185,10 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/employees': location.pathname.startsWith('/admin/employees'),
       '/admin/attendance': location.pathname.startsWith('/admin/attendance'),
       '/admin/shifts': location.pathname.startsWith('/admin/shifts'),
-      '/admin/payroll': location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')
+      '/admin/payroll': location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/'),
+      '/admin/payroll-setup': location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/'),
+      '/admin/statutory-setup': location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory',
+      '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')
     };
   });
 
@@ -169,6 +211,15 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/payroll': true }));
+    }
+    if (location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/payroll-setup': true }));
+    }
+    if (location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory') {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/statutory-setup': true }));
+    }
+    if (location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/advances-loans': true }));
     }
   }, [location.pathname]);
 

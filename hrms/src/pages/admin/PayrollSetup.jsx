@@ -61,6 +61,8 @@ function PayrollSetup() {
     const tabParam = searchParams.get('tab');
     if (tabParam && TABS.some(t => t.id === tabParam)) {
       setActiveTab(tabParam);
+    } else {
+      setActiveTab('pay-groups');
     }
   }, [searchParams]);
 
@@ -435,32 +437,6 @@ function PayrollSetup() {
             <div className={`${styles.iconBox} ${styles.orange}`}>
               <Calculator size={20} />
             </div>
-          </div>
-        </div>
-
-        {/* Tab Switcher */}
-        <div className={styles.tabsWrapper}>
-          <div className={styles.tabsList} role="tablist">
-            {(isFromOrgSettings ? TABS.filter(t => t.id === activeTab) : TABS).map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`${styles.tabBtn} ${isActive ? styles.tabActive : ''}`}
-                  onClick={isFromOrgSettings ? undefined : () => {
-                    setActiveTab(tab.id);
-                    setSearchParams({ tab: tab.id }, { state: location.state });
-                  }}
-                  style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
-                >
-                  <Icon size={16} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
           </div>
         </div>
 
