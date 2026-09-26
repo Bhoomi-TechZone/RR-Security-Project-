@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import styles from './WorkLocations.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -20,18 +20,34 @@ const ITEMS_PER_PAGE = 8;
 
 function WorkLocations() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.companyId || activeCompany?.id || 'comp_rr_security';
 
   const [locations, setLocations] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(() => {
+    return Boolean(searchParams.get('type') || searchParams.get('status'));
+  });
   const [filters, setFilters] = useState({
-    status: 'all',
-    locationType: 'all',
+    status: searchParams.get('status') || 'all',
+    locationType: searchParams.get('type') || 'all',
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
+
+  // Sync filters with URL query parameters
+  useEffect(() => {
+    const nextType = searchParams.get('type') || 'all';
+    const nextStatus = searchParams.get('status') || 'all';
+    setFilters({
+      status: nextStatus,
+      locationType: nextType,
+    });
+    if (nextType !== 'all' || nextStatus !== 'all') {
+      setShowFilters(true);
+    }
+  }, [searchParams]);
 
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -210,7 +226,18 @@ function WorkLocations() {
   };
 
   const handleFilterChange = (filterName, value) => {
-    setFilters((prev) => ({ ...prev, [filterName]: value }));
+    const nextFilters = { ...filters, [filterName]: value };
+    setFilters(nextFilters);
+    const params = {};
+    if (nextFilters.locationType !== 'all') params.type = nextFilters.locationType;
+    if (nextFilters.status !== 'all') params.status = nextFilters.status;
+    setSearchParams(params);
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setFilters({ status: 'all', locationType: 'all' });
+    setSearchParams({});
   };
 
   return (
@@ -258,13 +285,39 @@ function WorkLocations() {
         />
 
         {/* Breadcrumb */}
-        <div className={styles.breadcrumb}>
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+          <span 
+            className={styles.crumbLink} 
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ cursor: 'pointer' }}
+          >
             Dashboard
           </span>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Work Locations</span>
-        </div>
+          <span 
+            className={styles.crumbLink} 
+            onClick={handleResetFilters}
+            style={{ 
+              cursor: (filters.status !== 'all' || filters.locationType !== 'all') ? 'pointer' : 'default',
+              color: (filters.status !== 'all' || filters.locationType !== 'all') ? 'var(--primary, #2563eb)' : 'inherit',
+              fontWeight: (filters.status !== 'all' || filters.locationType !== 'all') ? 500 : 600
+            }}
+          >
+            Work Locations
+          </span>
+          {(filters.locationType !== 'all' || filters.status !== 'all') && (
+            <>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive} style={{ fontWeight: 600 }}>
+                {filters.locationType === 'head-office' && 'Head Office'}
+                {filters.locationType === 'branch' && 'Branches'}
+                {filters.locationType === 'office' && 'Offices'}
+                {filters.status === 'active' && 'Active Locations'}
+                {filters.status === 'inactive' && 'Inactive Locations'}
+              </span>
+            </>
+          )}
+        </nav>
 
         {/* Page Header */}
         <header className={styles.header}>
@@ -305,10 +358,7 @@ function WorkLocations() {
           locations={paginatedLocations}
           loading={loading}
           onAction={handleAction}
-          onResetSearch={() => {
-            setSearchTerm('');
-            setFilters({ status: 'all', locationType: 'all' });
-          }}
+          onResetSearch={handleResetFilters}
         />
 
         {/* Pagination */}

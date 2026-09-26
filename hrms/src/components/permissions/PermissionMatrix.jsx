@@ -31,31 +31,56 @@ const STANDARD_ACTIONS = [
 ];
 
 function PermissionMatrix({
-  role,
+  role: directRole,
+  roles = [],
+  initialSelectedRoleId,
   onSavePermissions,
   onBack
 }) {
+  // Determine active role from direct prop or roles list
+  const activeRole = useMemo(() => {
+    if (directRole) return directRole;
+    if (Array.isArray(roles) && roles.length > 0) {
+      if (initialSelectedRoleId) {
+        const found = roles.find(r => r.id === initialSelectedRoleId || r.roleId === initialSelectedRoleId);
+        if (found) return found;
+      }
+      return roles[0];
+    }
+    return null;
+  }, [directRole, roles, initialSelectedRoleId]);
+
+  const [currentRole, setCurrentRole] = useState(activeRole);
+
+  useEffect(() => {
+    if (activeRole) {
+      setCurrentRole(activeRole);
+    }
+  }, [activeRole]);
+
   // Working permissions state
   const [workingPerms, setWorkingPerms] = useState(() => {
-    return role.permissions ? JSON.parse(JSON.stringify(role.permissions)) : createEmptyPermissions();
+    return currentRole?.permissions ? JSON.parse(JSON.stringify(currentRole.permissions)) : createEmptyPermissions();
   });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showUnsavedPrompt, setShowUnsavedPrompt] = useState(false);
 
-  // Sync state if role prop changes
+  // Sync state if currentRole changes
   useEffect(() => {
-    if (role && role.permissions) {
-      setWorkingPerms(JSON.parse(JSON.stringify(role.permissions)));
+    if (currentRole && currentRole.permissions) {
+      setWorkingPerms(JSON.parse(JSON.stringify(currentRole.permissions)));
+    } else {
+      setWorkingPerms(createEmptyPermissions());
     }
-  }, [role]);
+  }, [currentRole]);
 
   // Check if permissions have been modified (dirty state)
   const isDirty = useMemo(() => {
-    if (!role || !role.permissions) return false;
-    return JSON.stringify(workingPerms) !== JSON.stringify(role.permissions);
-  }, [workingPerms, role]);
+    if (!currentRole || !currentRole.permissions) return false;
+    return JSON.stringify(workingPerms) !== JSON.stringify(currentRole.permissions);
+  }, [workingPerms, currentRole]);
 
   // Categories list
   const categories = useMemo(() => {
@@ -134,8 +159,8 @@ function PermissionMatrix({
 
   // Reset to last saved state
   const handleResetToSaved = () => {
-    if (role && role.permissions) {
-      setWorkingPerms(JSON.parse(JSON.stringify(role.permissions)));
+    if (currentRole && currentRole.permissions) {
+      setWorkingPerms(JSON.parse(JSON.stringify(currentRole.permissions)));
     }
   };
 
@@ -154,27 +179,30 @@ function PermissionMatrix({
   };
 
   const handleSave = () => {
-    onSavePermissions(role.id, workingPerms);
+    if (currentRole && onSavePermissions) {
+      onSavePermissions(currentRole.id || currentRole.roleId, workingPerms);
+    }
   };
 
-  if (!role) return null;
+  if (!currentRole) {
+    return (
+      <div className={styles.matrixContainer}>
+        <div style={{ padding: '60px 20px', textAlign: 'center', color: '#64748b' }}>
+          <Shield size={36} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+          <h3 style={{ margin: '0 0 8px', color: '#334155' }}>No Role Selected</h3>
+          <p style={{ margin: '0 0 20px', fontSize: '14px' }}>Please select a role from Configured Roles to manage its permissions.</p>
+          <button type="button" className={styles.backBtn} onClick={onBack}>
+            <ArrowLeft size={16} /> Back to Roles
+          </button>
+        </div>
+      </div>
+    );
+  }
 
-  const isSystem = role.type === 'system';
+  const isSystem = currentRole.type === 'system';
 
   return (
     <div className={styles.matrixContainer}>
-      {/* Back Navigation & Breadcrumb */}
-      <div className={styles.topNavigation}>
-        <button
-          type="button"
-          className={styles.backBtn}
-          onClick={handleSafeBack}
-        >
-          <ArrowLeft size={16} />
-          <span>Back to Roles</span>
-        </button>
-      </div>
-
       {/* Role Header Banner */}
       <div className={styles.roleBanner}>
         <div className={styles.roleBannerLeft}>
@@ -183,12 +211,38 @@ function PermissionMatrix({
           </div>
           <div>
             <div className={styles.titleRow}>
-              <h1 className={styles.roleTitle}>{role.name}</h1>
+              <h1 className={styles.roleTitle}>{currentRole.name}</h1>
+              {roles && roles.length > 1 && (
+                <select
+                  value={currentRole.id || currentRole.roleId}
+                  onChange={(e) => {
+                    const selected = roles.find(r => (r.id || r.roleId) === e.target.value);
+                    if (selected) {
+                      setCurrentRole(selected);
+                    }
+                  }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '13px',
+                    background: '#fff',
+                    color: '#334155',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {roles.map(r => (
+                    <option key={r.id || r.roleId} value={r.id || r.roleId}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              )}
               <span className={`${styles.typeBadge} ${isSystem ? styles.badgeSystem : styles.badgeCustom}`}>
                 {isSystem ? 'System Role' : 'Custom Role'}
               </span>
-              <span className={`${styles.statusBadge} ${role.status === 'Active' ? styles.statusActive : styles.statusInactive}`}>
-                {role.status}
+              <span className={`${styles.statusBadge} ${currentRole.status === 'Active' ? styles.statusActive : styles.statusInactive}`}>
+                {currentRole.status}
               </span>
               {isSystem && (
                 <span className={styles.protectedBadge}>
@@ -196,13 +250,13 @@ function PermissionMatrix({
                 </span>
               )}
             </div>
-            <p className={styles.roleDesc}>{role.description || 'Configured system access control role.'}</p>
+            <p className={styles.roleDesc}>{currentRole.description || 'Configured system access control role.'}</p>
           </div>
         </div>
 
         {/* Live Summary Component */}
         <div className={styles.summaryWrapper}>
-          <PermissionSummary role={role} permissions={workingPerms} />
+          <PermissionSummary role={currentRole} permissions={workingPerms} />
         </div>
       </div>
 
@@ -460,7 +514,7 @@ function PermissionMatrix({
             </div>
             <h3 className={styles.dialogTitle}>Unsaved Permission Changes</h3>
             <p className={styles.dialogDesc}>
-              You have modified permissions for <strong>{role.name}</strong> that have not been saved yet. If you leave now, your changes will be discarded.
+              You have modified permissions for <strong>{currentRole.name}</strong> that have not been saved yet. If you leave now, your changes will be discarded.
             </p>
             <div className={styles.dialogActions}>
               <button

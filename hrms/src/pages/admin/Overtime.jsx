@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Download,
   ChevronLeft,
@@ -416,10 +417,22 @@ function OvertimeFormModal({
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
-      <div className={styles.modalCard}>
-        <h3 className={styles.modalTitle}>{mode === 'edit' ? 'Edit Overtime' : 'Add Overtime'}</h3>
+      <div className={`${styles.modalCard} ${styles.modalCardWide}`}>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>
+            {mode === 'edit' ? 'Edit Overtime' : 'Add Overtime'}
+          </h3>
+          <button 
+            type="button" 
+            className={styles.modalCloseBtn} 
+            onClick={onClose} 
+            aria-label="Close modal"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-        <div className={styles.formGrid}>
+        <div className={styles.formGridFour}>
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>Employee</label>
             <select className={styles.select} value={formData.employeeId || ''} onChange={(e) => onChange('employeeId', e.target.value)}>
@@ -466,7 +479,7 @@ function OvertimeFormModal({
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>OT Rate</label>
+            <label className={styles.fieldLabel}>OT Rate (₹)</label>
             <input className={styles.input} type="number" min="0" step="1" value={formData.overtimeRate || ''} onChange={(e) => onChange('overtimeRate', e.target.value)} />
             {errors.overtimeRate && <span className={styles.validation}>{errors.overtimeRate}</span>}
           </div>
@@ -506,7 +519,12 @@ function ApproveOvertimeModal({ request, onClose, onConfirm }) {
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
       <div className={styles.modalCard}>
-        <h3 className={styles.modalTitle}>Approve Overtime?</h3>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>Approve Overtime?</h3>
+          <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
+            <X size={18} />
+          </button>
+        </div>
         <p className={styles.modalText}>
           Are you sure you want to approve <span className={styles.modalHighlight}>{request.employeeName}&apos;s</span> overtime?
         </p>
@@ -533,7 +551,12 @@ function RejectOvertimeModal({ request, rejectionReason, setRejectionReason, onC
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
       <div className={styles.modalCard}>
-        <h3 className={styles.modalTitle}>Reject Overtime?</h3>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>Reject Overtime?</h3>
+          <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
+            <X size={18} />
+          </button>
+        </div>
         <p className={styles.modalText}>
           <span className={styles.modalHighlight}>{request.employeeName}&apos;s</span> overtime request will be rejected.
         </p>
@@ -556,7 +579,12 @@ function OvertimeExportModal({ open, onClose, onExport, filters, setFilters }) {
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
       <div className={styles.modalCard}>
-        <h3 className={styles.modalTitle}>Export Overtime Report</h3>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>Export Overtime Report</h3>
+          <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
+            <X size={18} />
+          </button>
+        </div>
 
         <div className={styles.gridTwo}>
           <div className={styles.formField}>
@@ -649,27 +677,30 @@ function OvertimeClientSummary({ records }) {
     <div className={styles.summaryBlock}>
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>Overtime by Client</h3>
+        <span className={styles.sectionBadge}>{rows.length} Clients</span>
       </div>
-      <table className={styles.summaryTable}>
-        <thead>
-          <tr>
-            <th>Client</th>
-            <th>Employees</th>
-            <th>OT Hours</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.client}>
-              <td>{row.client}</td>
-              <td>{row.employees}</td>
-              <td>{asHoursLabel(row.hours)}</td>
-              <td>{formatCurrency(row.amount)}</td>
+      <div className={styles.summaryTableWrapper}>
+        <table className={styles.summaryTable}>
+          <thead>
+            <tr>
+              <th>Client</th>
+              <th>Employees</th>
+              <th>OT Hours</th>
+              <th>Amount</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.client}>
+                <td>{row.client}</td>
+                <td>{row.employees}</td>
+                <td>{asHoursLabel(row.hours)}</td>
+                <td>{formatCurrency(row.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -690,30 +721,36 @@ function OvertimeDepartmentSummary({ records }) {
     <div className={styles.summaryBlock}>
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>Overtime by Department</h3>
+        <span className={styles.sectionBadge}>{rows.length} Depts</span>
       </div>
-      <table className={styles.summaryTable}>
-        <thead>
-          <tr>
-            <th>Department</th>
-            <th>OT Hours</th>
-            <th>Amount</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.department}>
-              <td>{row.department}</td>
-              <td>{asHoursLabel(row.hours)}</td>
-              <td>{formatCurrency(row.amount)}</td>
+      <div className={styles.summaryTableWrapper}>
+        <table className={styles.summaryTable}>
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th>OT Hours</th>
+              <th>Amount</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.department}>
+                <td>{row.department}</td>
+                <td>{asHoursLabel(row.hours)}</td>
+                <td>{formatCurrency(row.amount)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 function Overtime() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [overtimeRecords, setOvertimeRecords] = useState(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -724,7 +761,18 @@ function Overtime() {
   });
 
   const [selectedDate, setSelectedDate] = useState('2026-08-22');
-  const [activeTab, setActiveTab] = useState('requests');
+  const initialTab = searchParams.get('tab') || 'records';
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['records', 'requests', 'history', 'analytics'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    } else {
+      setActiveTab('records');
+    }
+  }, [searchParams]);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [clientFilter, setClientFilter] = useState('');
   const [siteFilter, setSiteFilter] = useState('');
@@ -815,17 +863,17 @@ function Overtime() {
   };
 
   const openAddOvertime = () => {
-    const currentEmployee = mockEmployees[0];
+    const currentEmployee = mockEmployees[0] || {};
     setEditingOvertime(null);
     setFormData({
-      employeeId: currentEmployee.employeeId,
-      clientName: currentEmployee.companyName,
-      department: currentEmployee.department,
-      site: currentEmployee.site,
-      date: selectedDate,
+      employeeId: currentEmployee.employeeId || '',
+      clientName: currentEmployee.companyName || '',
+      department: currentEmployee.department || '',
+      site: currentEmployee.siteLocation || currentEmployee.site || SITES[0] || 'Main Gate',
+      date: selectedDate || new Date().toISOString().slice(0, 10),
       regularHours: 8,
       overtimeHours: 1,
-      overtimeRate: currentEmployee.salaryStructure.overtimeRate,
+      overtimeRate: currentEmployee.overtimeRate || currentEmployee.salaryStructure?.overtimeRate || 150,
       reason: '',
     });
     setFormErrors({});
@@ -838,12 +886,12 @@ function Overtime() {
       employeeId: record.employeeId,
       clientName: record.clientName,
       department: record.department,
-      site: record.site,
+      site: record.site || 'Main Gate',
       date: record.date,
-      regularHours: record.regularHours,
-      overtimeHours: record.overtimeHours,
-      overtimeRate: record.overtimeRate,
-      reason: record.reason,
+      regularHours: record.regularHours || 8,
+      overtimeHours: record.overtimeHours || 1,
+      overtimeRate: record.overtimeRate || 150,
+      reason: record.reason || '',
     });
     setFormErrors({});
     setIsFormOpen(true);
@@ -854,10 +902,10 @@ function Overtime() {
     if (field === 'employeeId') {
       const employee = userMap[value];
       if (employee) {
-        next.clientName = employee.companyName;
-        next.department = employee.department;
-        next.site = employee.site || '';
-        next.overtimeRate = employee.salaryStructure?.overtimeRate || 150;
+        next.clientName = employee.companyName || '';
+        next.department = employee.department || '';
+        next.site = employee.siteLocation || employee.site || SITES[0] || 'Main Gate';
+        next.overtimeRate = employee.overtimeRate || employee.salaryStructure?.overtimeRate || 150;
       }
     }
     setFormData(next);
@@ -984,15 +1032,27 @@ function Overtime() {
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <span className={styles.crumbLink} onClick={() => window.location.href = '/admin/dashboard'}>Dashboard</span>
+          <button 
+            type="button" 
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary)', font: 'inherit' }}
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            Dashboard
+          </button>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Overtime</span>
+          <span className={styles.crumbActive}>
+            {activeTab === 'requests' ? 'Pending Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Analytics' : 'All Overtime'}
+          </span>
         </div>
 
         <header className={styles.header}>
           <div className={styles.titleBlock}>
-            <h1 className={styles.title}>Overtime Management</h1>
-            <p className={styles.subtitle}>Review, manage and approve employee overtime records.</p>
+            <h1 className={styles.title}>
+              {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Overtime Analytics' : 'Overtime Management'}
+            </h1>
+            <p className={styles.subtitle}>
+              {activeTab === 'requests' ? 'Review, approve or reject pending employee overtime claims.' : activeTab === 'history' ? 'Historical record of processed and approved overtime logs.' : activeTab === 'analytics' ? 'Client and department-wise overtime distribution and insights.' : 'Review, manage and track employee overtime records.'}
+            </p>
           </div>
           <div className={styles.headerActions}>
             <button className={styles.addBtn} onClick={openAddOvertime}><Plus size={16} /> Add Overtime</button>
@@ -1017,12 +1077,10 @@ function Overtime() {
         )}
 
         <OvertimeOverview records={overtimeRecords} />
-        <OvertimeDateSelector selectedDate={selectedDate} setSelectedDate={setSelectedDate} onToday={() => setSelectedDate('2026-08-22')} />
-
-        <div className={styles.tabsRow}>
-          <button type="button" className={`${styles.tabBtn} ${activeTab === 'requests' ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab('requests')}>Overtime Records</button>
-          <button type="button" className={`${styles.tabBtn} ${activeTab === 'history' ? styles.tabBtnActive : ''}`} onClick={() => setActiveTab('history')}>Overtime History</button>
-        </div>
+        
+        {activeTab !== 'analytics' && (
+          <OvertimeDateSelector selectedDate={selectedDate} setSelectedDate={setSelectedDate} onToday={() => setSelectedDate('2026-08-22')} />
+        )}
 
         <OvertimeFilters
           searchTerm={searchTerm}

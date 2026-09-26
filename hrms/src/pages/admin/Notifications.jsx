@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bell,
   Building2,
@@ -22,6 +23,11 @@ import { mockEmployees } from '../../data/employeeData';
 import { announcementData } from '../../data/announcementData';
 import { notificationData } from '../../data/notificationData';
 import styles from './Notifications.module.css';
+
+const TABS = [
+  { id: 'announcements', label: 'Announcements' },
+  { id: 'notifications', label: 'Notifications' }
+];
 
 const PAGE_SIZE = 10;
 const formatDate = (value) => {
@@ -272,15 +278,23 @@ function NotificationDetailsDrawer({ item, onClose, onMarkAsRead }) {
 }
 
 function NotificationsPage() {
-  const [activeTab, setActiveTab] = useState('announcements');
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const tabParam = searchParams.get('tab') || 'announcements';
+  const statusParam = searchParams.get('status');
+  const typeParam = searchParams.get('type');
+  const audienceParam = searchParams.get('audience');
+
+  const [activeTab, setActiveTab] = useState(tabParam);
   const [announcements, setAnnouncements] = useState(announcementData);
   const [notifications, setNotifications] = useState(notificationData);
   const [announcementSearch, setAnnouncementSearch] = useState('');
   const [notificationSearch, setNotificationSearch] = useState('');
-  const [announcementAudienceFilter, setAnnouncementAudienceFilter] = useState('all');
+  const [announcementAudienceFilter, setAnnouncementAudienceFilter] = useState(audienceParam || 'all');
   const [announcementStatusFilter, setAnnouncementStatusFilter] = useState('all');
-  const [notificationTypeFilter, setNotificationTypeFilter] = useState('all');
-  const [notificationStatusFilter, setNotificationStatusFilter] = useState('all');
+  const [notificationTypeFilter, setNotificationTypeFilter] = useState(typeParam || 'all');
+  const [notificationStatusFilter, setNotificationStatusFilter] = useState(statusParam || 'all');
   const [announcementPage, setAnnouncementPage] = useState(1);
   const [notificationPage, setNotificationPage] = useState(1);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
@@ -290,6 +304,30 @@ function NotificationsPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [toast, setToast] = useState(null);
+
+  // Sync state with URL params
+  useEffect(() => {
+    if (tabParam === 'notifications') {
+      setActiveTab('notifications');
+    } else {
+      setActiveTab('announcements');
+    }
+
+    if (statusParam) {
+      setNotificationStatusFilter(statusParam);
+    }
+    if (typeParam) {
+      setNotificationTypeFilter(typeParam);
+    }
+    if (audienceParam) {
+      setAnnouncementAudienceFilter(audienceParam);
+    }
+  }, [tabParam, statusParam, typeParam, audienceParam]);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    setSearchParams(newTab === 'announcements' ? {} : { tab: newTab });
+  };
 
   const unreadCount = notifications.filter((item) => item.status === 'unread').length;
 
@@ -369,11 +407,31 @@ function NotificationsPage() {
       <div className={styles.container}>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        <div className={styles.breadcrumb}>
-          <span>Dashboard</span>
+        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+          <span 
+            className={styles.breadcrumbLink}
+            onClick={() => navigate('/admin/dashboard')}
+            style={{ cursor: 'pointer' }}
+          >
+            Dashboard
+          </span>
           <span>/</span>
-          <strong>Notifications &amp; Announcements</strong>
-        </div>
+          <span 
+            className={styles.breadcrumbLink}
+            onClick={() => handleTabChange('announcements')}
+            style={{ cursor: activeTab !== 'announcements' ? 'pointer' : 'default', color: activeTab !== 'announcements' ? 'var(--primary, #2563eb)' : 'inherit', fontWeight: activeTab !== 'announcements' ? 500 : 600 }}
+          >
+            Notifications &amp; Announcements
+          </span>
+          {activeTab !== 'announcements' && (
+            <>
+              <span>/</span>
+              <span style={{ color: 'var(--text-primary, #0f172a)', fontWeight: 600 }}>
+                {TABS.find(t => t.id === activeTab)?.label || activeTab}
+              </span>
+            </>
+          )}
+        </nav>
 
         <header className={styles.pageHeader}>
           <div>
@@ -386,20 +444,16 @@ function NotificationsPage() {
         </header>
 
         <div className={styles.tabs} role="tablist">
-          <button
-            type="button"
-            className={activeTab === 'announcements' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('announcements')}
-          >
-            Announcements
-          </button>
-          <button
-            type="button"
-            className={activeTab === 'notifications' ? styles.activeTab : ''}
-            onClick={() => setActiveTab('notifications')}
-          >
-            Notifications
-          </button>
+          {TABS.filter(t => t.id === activeTab).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={styles.activeTab}
+              style={{ pointerEvents: 'none', cursor: 'default' }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {activeTab === 'announcements' ? (

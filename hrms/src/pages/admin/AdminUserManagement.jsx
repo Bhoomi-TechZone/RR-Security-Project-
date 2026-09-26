@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus } from 'lucide-react';
 import styles from './AdminUserManagement.module.css';
 
@@ -17,6 +17,12 @@ import { INITIAL_ROLES } from '../../data/rolesPermissionsData';
 
 function AdminUserManagement() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const statusParam = searchParams.get('status');
+  const filterParam = searchParams.get('filter');
+
+  const initialFilter = statusParam === 'active' ? 'active' : statusParam === 'inactive' ? 'inactive' : filterParam === 'roles' ? 'roles' : 'all';
 
   // Users State with LocalStorage Persistence
   const [users, setUsers] = useState(() => {
@@ -43,7 +49,35 @@ function AdminUserManagement() {
   }, [users]);
 
   // Card filter state
-  const [cardFilter, setCardFilter] = useState('all');
+  const [cardFilter, setCardFilter] = useState(initialFilter);
+
+  // Sync cardFilter with URL search parameters
+  useEffect(() => {
+    const currentStatus = searchParams.get('status');
+    const currentFilter = searchParams.get('filter');
+    if (currentStatus === 'active') {
+      setCardFilter('active');
+    } else if (currentStatus === 'inactive') {
+      setCardFilter('inactive');
+    } else if (currentFilter === 'roles' || currentStatus === 'roles') {
+      setCardFilter('roles');
+    } else {
+      setCardFilter('all');
+    }
+  }, [searchParams]);
+
+  const handleCardFilterClick = (filterType) => {
+    setCardFilter(filterType);
+    if (filterType === 'active') {
+      setSearchParams({ status: 'active' });
+    } else if (filterType === 'inactive') {
+      setSearchParams({ status: 'inactive' });
+    } else if (filterType === 'roles') {
+      setSearchParams({ filter: 'roles' });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   // Modals & Drawers State
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -238,6 +272,36 @@ function AdminUserManagement() {
     <AdminLayout>
       <div className={styles.page}>
         <div className={styles.container}>
+          {/* Breadcrumb nav header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-muted, #64748b)' }}>
+            <span onClick={() => navigate('/admin/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
+            <span>/</span>
+            <span 
+              onClick={() => handleCardFilterClick('all')} 
+              style={{ cursor: cardFilter !== 'all' ? 'pointer' : 'default', color: cardFilter !== 'all' ? 'var(--primary-color, #2563eb)' : 'inherit', fontWeight: cardFilter !== 'all' ? 500 : 600 }}
+            >
+              User Management
+            </span>
+            {cardFilter === 'active' && (
+              <>
+                <span>/</span>
+                <strong style={{ color: 'var(--text-primary, #0f172a)' }}>Active Users</strong>
+              </>
+            )}
+            {cardFilter === 'inactive' && (
+              <>
+                <span>/</span>
+                <strong style={{ color: 'var(--text-primary, #0f172a)' }}>Inactive Users</strong>
+              </>
+            )}
+            {cardFilter === 'roles' && (
+              <>
+                <span>/</span>
+                <strong style={{ color: 'var(--text-primary, #0f172a)' }}>Assigned Roles</strong>
+              </>
+            )}
+          </div>
+
           {/* Page Header */}
           <header className={styles.pageHeader}>
             <div>
@@ -265,7 +329,7 @@ function AdminUserManagement() {
             users={users}
             roles={roles}
             activeFilter={cardFilter}
-            onCardClick={(filter) => setCardFilter(filter)}
+            onCardClick={handleCardFilterClick}
           />
 
           {/* Main Users Table Section */}
@@ -273,6 +337,7 @@ function AdminUserManagement() {
             <UsersTable
               users={users}
               roles={roles}
+              externalStatusFilter={cardFilter}
               onViewUser={handleViewUser}
               onEditUser={handleOpenEditUser}
               onChangeRole={handleOpenChangeRole}

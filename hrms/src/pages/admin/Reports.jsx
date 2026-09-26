@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   BarChart3,
@@ -697,7 +698,14 @@ function ExportReportModal({ isOpen, onClose, selectedReport, onExport }) {
 }
 
 function Reports() {
-  const [activeReport, setActiveReport] = useState(null);
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab') || searchParams.get('type');
+
+  const validReportTypes = ['attendance', 'payroll', 'billing', 'employee', 'inventory'];
+  const initialActive = tabParam && validReportTypes.includes(tabParam) ? tabParam : null;
+
+  const [activeReport, setActiveReport] = useState(initialActive);
   const [searchTerm, setSearchTerm] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -710,10 +718,25 @@ function Reports() {
     employee: 'All Employees'
   });
 
+  // Sync activeReport state with URL search parameters
+  useEffect(() => {
+    const currentTab = searchParams.get('tab') || searchParams.get('type');
+    if (currentTab && validReportTypes.includes(currentTab)) {
+      setActiveReport(currentTab);
+    } else {
+      setActiveReport(null);
+    }
+  }, [searchParams]);
+
   const updateFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
 
   const handleSelectReport = (reportId) => {
-    setActiveReport(reportId);
+    navigate(`/admin/reports?tab=${reportId}`);
+    setSearchTerm('');
+  };
+
+  const handleBackToReports = () => {
+    navigate('/admin/reports');
     setSearchTerm('');
   };
 
@@ -756,9 +779,29 @@ function Reports() {
         {toastMessage && <Toast message={toastMessage} type="success" onClose={() => setToastMessage(null)} />}
 
         <div className={styles.breadcrumb}>
-          <span>Dashboard</span>
+          <span 
+            onClick={() => navigate('/admin/dashboard')} 
+            style={{ cursor: 'pointer' }}
+          >
+            Dashboard
+          </span>
           <span>/</span>
-          <strong>{activeReport ? reportMeta[activeReport]?.title : 'Reports'}</strong>
+          <span 
+            onClick={handleBackToReports}
+            style={{ 
+              cursor: activeReport ? 'pointer' : 'default',
+              color: activeReport ? 'var(--primary-color, #2563eb)' : 'inherit',
+              fontWeight: activeReport ? 500 : 600
+            }}
+          >
+            Reports
+          </span>
+          {activeReport && (
+            <>
+              <span>/</span>
+              <strong>{reportMeta[activeReport]?.title}</strong>
+            </>
+          )}
         </div>
 
         <header className={styles.pageHeader}>
@@ -785,7 +828,11 @@ function Reports() {
             filters={filters}
             setFilter={(key, value) => {
               if (key === 'activeReport') {
-                setActiveReport(value);
+                if (value) {
+                  navigate(`/admin/reports?tab=${value}`);
+                } else {
+                  handleBackToReports();
+                }
               } else if (key === 'searchTerm') {
                 setSearchTerm(value);
               } else {

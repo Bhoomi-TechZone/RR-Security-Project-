@@ -100,6 +100,8 @@ function Templates() {
     const tabParam = searchParams.get('tab');
     if (tabParam && TABS.some(t => t.id === tabParam)) {
       setActiveTab(tabParam);
+    } else if (!tabParam) {
+      setActiveTab('overview');
     }
   }, [searchParams]);
 
@@ -450,23 +452,29 @@ function Templates() {
         <header className={styles.pageHeader}>
           <div className={styles.headerLeft}>
             <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-              <button 
-                type="button" 
+              <span 
                 className={styles.breadcrumbLink}
                 onClick={() => navigate('/admin/dashboard')}
+                style={{ cursor: 'pointer' }}
               >
-                Admin
-              </button>
+                Dashboard
+              </span>
               <span>/</span>
-              <button 
-                type="button" 
+              <span 
                 className={styles.breadcrumbLink}
-                onClick={() => openOrganisationSettingsModal()}
+                onClick={() => handleTabChange('overview')}
+                style={{ cursor: activeTab !== 'overview' ? 'pointer' : 'default', color: activeTab !== 'overview' ? 'var(--primary-color, #2563eb)' : 'inherit', fontWeight: activeTab !== 'overview' ? 500 : 600 }}
               >
-                Organisation Settings
-              </button>
-              <span>/</span>
-              <span>Templates</span>
+                Templates
+              </span>
+              {activeTab !== 'overview' && (
+                <>
+                  <span>/</span>
+                  <span style={{ color: 'var(--text-primary, #0f172a)', fontWeight: 600 }}>
+                    {TABS.find(t => t.id === activeTab)?.label || activeTab}
+                  </span>
+                </>
+              )}
             </nav>
             <h1 className={styles.pageTitle}>Templates</h1>
             <p className={styles.pageSubtitle}>
@@ -478,16 +486,14 @@ function Templates() {
         {/* Tabs Bar with Scroller */}
         <div className={styles.tabsContainer}>
           <div className={styles.tabsScroller}>
-            {(isFromOrgSettings ? TABS.filter(t => t.id === activeTab) : TABS).map((tab) => {
+            {TABS.filter(t => t.id === activeTab).map((tab) => {
               const IconComponent = tab.icon;
-              const isActive = activeTab === tab.id;
               return (
                 <button
                   key={tab.id}
                   type="button"
-                  className={`${styles.tabButton} ${isActive ? styles.tabButtonActive : ''}`}
-                  onClick={isFromOrgSettings ? undefined : () => handleTabChange(tab.id)}
-                  style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
+                  className={`${styles.tabButton} ${styles.tabButtonActive}`}
+                  style={{ cursor: 'default' }}
                 >
                   <IconComponent size={15} />
                   <span>{tab.label}</span>
