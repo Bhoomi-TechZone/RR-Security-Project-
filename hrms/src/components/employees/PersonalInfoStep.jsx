@@ -3,7 +3,11 @@ import styles from './EmployeeFormSteps.module.css';
 
 function PersonalInfoStep({ data, onChange, errors }) {
   const handleChange = (field, value) => {
-    onChange({ ...data, [field]: value });
+    if (field === 'employeeCode') {
+      onChange({ ...data, employeeCode: value, employeeId: value });
+    } else {
+      onChange({ ...data, [field]: value });
+    }
   };
 
   return (
@@ -11,12 +15,15 @@ function PersonalInfoStep({ data, onChange, errors }) {
       {/* Row 1: 3 fields */}
       <div className={styles.threeColumnGrid}>
         <div className={styles.fieldGroup}>
-          <label htmlFor="emp-code" className={styles.label}>Employee Code</label>
+          <label htmlFor="emp-code" className={styles.label}>
+            Employee Code / ID
+          </label>
           <input
             id="emp-code"
             type="text"
             className={styles.input}
-            value={data.employeeCode || ''}
+            placeholder="e.g. EMP-01042"
+            value={data.employeeCode || data.employeeId || ''}
             onChange={(e) => handleChange('employeeCode', e.target.value)}
           />
         </div>

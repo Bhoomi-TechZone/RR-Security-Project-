@@ -15,7 +15,7 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 
 function Companies() {
   const navigate = useNavigate();
@@ -32,7 +32,7 @@ function Companies() {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   });
@@ -200,7 +200,7 @@ function Companies() {
             },
             body: JSON.stringify(formData)
           });
-        } catch (e) {}
+        } catch (e) { }
       }
 
       setCompanies((prev) => {
@@ -244,7 +244,7 @@ function Companies() {
           if (res.ok && data.client) {
             newClient = data.client;
           }
-        } catch (e) {}
+        } catch (e) { }
       }
 
       setCompanies((prev) => {
@@ -312,7 +312,7 @@ function Companies() {
           },
           body: JSON.stringify({ status: newStatus })
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     setCompanies((prev) => {

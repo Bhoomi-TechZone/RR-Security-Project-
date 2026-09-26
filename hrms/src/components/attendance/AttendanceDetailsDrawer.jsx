@@ -53,7 +53,7 @@ function AttendanceDetailsDrawer({ record, onClose, onEdit }) {
           <div className={styles.sectionTitle}>
             <Building2 size={14} /> Location
           </div>
-          <Row label="Company" value={record.companyName} />
+          <Row label="Client" value={record.companyName || record.clientName} />
           <Row label="Site" value={record.site} />
           <Row label="Department" value={record.department} />
         </div>

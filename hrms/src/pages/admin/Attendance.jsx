@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AttendanceDateSelector from '../../components/attendance/AttendanceDateSelector';
 import AttendanceSummaryCards from '../../components/attendance/AttendanceSummaryCards';
@@ -27,6 +28,25 @@ const INITIAL_FILTERS = {
   status: ''
 };
 
+const sanitizeRecords = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map((r) => {
+    let checkIn = r.checkIn;
+    let checkOut = r.checkOut;
+    if (typeof checkIn === 'string' && checkIn.includes('NaN')) {
+      checkIn = checkIn.replace(/:NaN/g, ':00');
+    }
+    if (typeof checkOut === 'string' && checkOut.includes('NaN')) {
+      checkOut = checkOut.replace(/:NaN/g, ':00');
+    }
+    return {
+      ...r,
+      checkIn,
+      checkOut
+    };
+  });
+};
+
 function Attendance() {
   const { activeCompany } = useCompany();
   const [searchParams] = useSearchParams();
@@ -38,7 +58,7 @@ function Attendance() {
   const [records, setRecords] = useState(() => {
     try {
       const saved = localStorage.getItem(`novaspark_attendance_${compId}`);
-      return saved ? JSON.parse(saved) : [];
+      return saved ? sanitizeRecords(JSON.parse(saved)) : [];
     } catch {
       return [];
     }
@@ -57,7 +77,7 @@ function Attendance() {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(`novaspark_attendance_${compId}`);
-      setRecords(saved ? JSON.parse(saved) : []);
+      setRecords(saved ? sanitizeRecords(JSON.parse(saved)) : []);
     } catch {
       setRecords([]);
     }
@@ -268,7 +288,121 @@ function Attendance() {
   // --- Export Handler ---
   const handleExport = (exportConfig) => {
     setShowExportModal(false);
-    showToast(`Attendance report (${exportConfig.format.toUpperCase()}) exported successfully!`);
+    const { fromDate, toDate, companyId, site, department, status, format } = exportConfig;
+
+    const dataToExport = records.filter((r) => {
+      if (fromDate && r.date && r.date < fromDate) return false;
+      if (toDate && r.date && r.date > toDate) return false;
+      if (companyId && r.companyName !== companyId && r.companyId !== companyId && r.clientName !== companyId) return false;
+      if (site && r.site !== site) return false;
+      if (department && r.department !== department) return false;
+      if (status && r.status !== status) return false;
+      return true;
+    }).map((r) => ({
+      'Employee ID': r.employeeId,
+      'Employee Name': r.employeeName,
+      'Client Name': r.companyName || r.clientName || 'General',
+      'Site': r.site || 'Main Site',
+      'Department': r.department || 'Security',
+      'Date': r.date,
+      'Check In': r.checkIn || '—',
+      'Check Out': r.checkOut || '—',
+      'Working Hours': r.workingHours || '—',
+      'Status': r.status || 'present'
+    }));
+
+    if (dataToExport.length === 0) {
+      showToast('No records match the selected export filters.', 'danger');
+      return;
+    }
+
+    if (format === 'pdf') {
+      const printWindow = window.open('', '_blank', 'width=1000,height=900');
+      if (printWindow) {
+        const companyName = activeCompany?.name || 'RR Security';
+        const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Attendance Report - ${companyName}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; color: #0f172a; }
+    .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .title { font-size: 20px; font-weight: 800; color: #1e3a8a; text-transform: uppercase; }
+    .meta { font-size: 12px; color: #64748b; margin-top: 4px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #f1f5f9; padding: 8px 10px; text-align: left; border: 1px solid #cbd5e1; font-weight: 700; color: #334155; }
+    td { padding: 8px 10px; border: 1px solid #cbd5e1; }
+    .tag { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-weight: 600; font-size: 11px; text-transform: uppercase; }
+    .tag-present { background: #dcfce7; color: #15803d; }
+    .tag-absent { background: #fee2e2; color: #b91c1c; }
+    .tag-late { background: #fef3c7; color: #b45309; }
+    .tag-halfDay { background: #e0f2fe; color: #0369a1; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="title">${companyName}</div>
+      <div class="meta">Attendance Report | Date Range: ${fromDate || 'All'} to ${toDate || 'All'} | Total Records: ${dataToExport.length}</div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Emp ID</th>
+        <th>Name</th>
+        <th>Client</th>
+        <th>Site</th>
+        <th>Dept</th>
+        <th>Date</th>
+        <th>Check In</th>
+        <th>Check Out</th>
+        <th>Hours</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dataToExport.map((row, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td><strong>${row['Employee ID']}</strong></td>
+          <td>${row['Employee Name']}</td>
+          <td>${row['Client Name']}</td>
+          <td>${row['Site']}</td>
+          <td>${row['Department']}</td>
+          <td>${row['Date']}</td>
+          <td>${row['Check In']}</td>
+          <td>${row['Check Out']}</td>
+          <td>${row['Working Hours']}</td>
+          <td><span class="tag tag-${row['Status']}">${row['Status']}</span></td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+  <script>
+    window.onload = function() { window.print(); };
+  </script>
+</body>
+</html>
+        `;
+        printWindow.document.open();
+        printWindow.document.write(html);
+        printWindow.document.close();
+        showToast(`✓ Generated printable PDF report for ${dataToExport.length} records.`);
+      }
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+
+    const fileName = `Attendance_Report_${fromDate || 'start'}_to_${toDate || 'end'}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+    XLSX.writeFile(workbook, fileName);
+
+    showToast(`✓ Exported ${dataToExport.length} records to ${fileName}`);
   };
 
   const pendingCount = corrections.length;
@@ -277,11 +411,17 @@ function Attendance() {
     const { month, date, records: newRecords } = importPayload;
     if (!newRecords || newRecords.length === 0) return;
 
-    setRecords((prev) => [...newRecords, ...prev]);
+    setRecords((prev) => {
+      const newKeys = new Set(newRecords.map((r) => `${r.employeeId}_${r.date}`));
+      const existingFiltered = prev.filter((r) => !newKeys.has(`${r.employeeId}_${r.date}`));
+      return [...newRecords, ...existingFiltered];
+    });
+
     setShowImportModal(false);
     showToast(`✓ Successfully imported ${newRecords.length} attendance records for ${month}.`);
     if (date) {
       setSelectedDate(date);
+      setCurrentPage(1);
     }
   };
 
@@ -431,6 +571,8 @@ function Attendance() {
           <AttendanceExportModal
             onClose={() => setShowExportModal(false)}
             onExport={handleExport}
+            records={records}
+            activeCompanyName={activeCompany?.name || 'RR Security'}
           />
         )}
 

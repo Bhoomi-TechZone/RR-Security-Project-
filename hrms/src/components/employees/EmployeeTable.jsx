@@ -23,7 +23,7 @@ function EmployeeTable({
             <tr>
               <th>Employee ID</th>
               <th>Employee</th>
-              <th>Company</th>
+              <th>Client</th>
               <th>Department</th>
               <th>Designation</th>
               <th>Contact</th>
@@ -78,7 +78,7 @@ function EmployeeTable({
             <tr>
               <th>Employee ID</th>
               <th>Employee</th>
-              <th>Company</th>
+              <th>Client</th>
               <th>Department</th>
               <th>Designation</th>
               <th>Contact</th>

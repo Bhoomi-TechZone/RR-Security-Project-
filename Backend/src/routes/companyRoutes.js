@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   getCompanies,
+  getCompanyById,
   createCompany,
   updateCompany,
   deleteCompany,
@@ -17,6 +18,7 @@ router.route('/')
   .post(adminOnly, createCompany);
 
 router.route('/:id')
+  .get(getCompanyById)
   .put(adminOnly, updateCompany)
   .delete(adminOnly, deleteCompany);
 

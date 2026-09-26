@@ -1,14 +1,15 @@
 import React, { useState, useRef } from 'react';
 import { X, UploadCloud, FileSpreadsheet, Download, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import styles from './AttendanceImportModal.module.css';
 
 /**
  * AttendanceImportModal
- * Allows admin to upload a CSV file of attendance records, configure target month/date,
- * preview parsed rows across all table columns separately, and bulk import into the system.
+ * Supports uploading both Excel (.xlsx, .xls) and CSV (.csv) files.
+ * Provides sample template download in both Excel (.xlsx) and CSV formats.
+ * Standardizes date formats (DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, Excel date numbers) to standard ISO YYYY-MM-DD.
  */
 function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Security' }) {
-  // Current month default: YYYY-MM (e.g. "2026-09")
   const defaultMonth = new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -20,25 +21,103 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Download Sample Template CSV (Only column headers, no prefilled data)
-  const handleDownloadSample = () => {
-    const csvContent = 'Employee ID,Employee Name,Company Name,Site,Department,Date,Check In,Check Out,Working Hours,Status\n';
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', `Attendance_Template_${targetMonth}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // Normalize any date format to YYYY-MM-DD
+  const normalizeDate = (val) => {
+    if (!val) return defaultDate;
+
+    // If it's an Excel numeric date serial
+    if (typeof val === 'number') {
+      try {
+        const dateObj = new Date(Math.round((val - 25569) * 86400 * 1000));
+        if (!isNaN(dateObj.getTime())) {
+          return dateObj.toISOString().split('T')[0];
+        }
+      } catch {
+        // continue
+      }
+    }
+
+    const str = String(val).trim();
+    if (!str) return defaultDate;
+
+    // ISO format: YYYY-MM-DD or YYYY/MM/DD
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/.test(str)) {
+      const [y, m, d] = str.split(/[-/]/);
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    // Common Indian/UK format: DD-MM-YYYY or DD/MM/YYYY
+    if (/^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/.test(str)) {
+      const [d, m, y] = str.split(/[-/]/);
+      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    // If only DD-MM is given without year, append targetMonth's year
+    if (/^\d{1,2}[-/]\d{1,2}$/.test(str)) {
+      const [d, m] = str.split(/[-/]/);
+      const year = targetMonth.split('-')[0] || new Date().getFullYear();
+      return `${year}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    return defaultDate;
   };
 
-  // Helper to calculate working hours string if check-in and check-out are given
-  const calculateHours = (inTime, outTime) => {
+  // Standardize time format: e.g. "09:05AM" -> "09:05 AM" or 0.378 (Excel decimal time)
+  const normalizeTime = (val) => {
+    if (!val && val !== 0) return '';
+    
+    // Excel decimal time fraction (e.g. 0.378472 -> 09:05 AM)
+    if (typeof val === 'number' && val >= 0 && val <= 1) {
+      const totalMinutes = Math.round(val * 24 * 60);
+      const hours = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 || 12;
+      return `${String(displayHours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${period}`;
+    }
+
+    let str = String(val).trim();
+    if (!str) return '';
+
+    // Check for "09:05AM" without space
+    const matchAmpm = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
+    if (matchAmpm) {
+      const h = String(matchAmpm[1]).padStart(2, '0');
+      const m = matchAmpm[2];
+      const p = matchAmpm[3].toUpperCase();
+      return `${h}:${m} ${p}`;
+    }
+
+    // Check for 24-hour "17:00" or "09:05"
+    const match24 = str.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      const h = Number(match24[1]);
+      const m = match24[2];
+      const p = h >= 12 ? 'PM' : 'AM';
+      const displayH = h % 12 || 12;
+      return `${String(displayH).padStart(2, '0')}:${m} ${p}`;
+    }
+
+    return str;
+  };
+
+  // Helper to calculate working hours string
+  const calculateHours = (inTime, outTime, providedHours) => {
+    if (providedHours && String(providedHours).trim()) {
+      const hStr = String(providedHours).trim();
+      if (/^\d+(\.\d+)?$/.test(hStr)) {
+        const num = Number(hStr);
+        const h = Math.floor(num);
+        const m = Math.round((num - h) * 60);
+        return `${h}h ${String(m).padStart(2, '0')}m`;
+      }
+      return hStr.includes('h') ? hStr : `${hStr}h 00m`;
+    }
+
     if (!inTime || !outTime) return '0h 00m';
     try {
       const parseTimeMinutes = (timeStr) => {
-        const cleaned = timeStr.trim().toUpperCase();
+        const cleaned = String(timeStr).trim().toUpperCase();
         const isPM = cleaned.includes('PM');
         const isAM = cleaned.includes('AM');
         const numbers = cleaned.replace(/[^0-9:]/g, '');
@@ -61,153 +140,181 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
     } catch {
       // ignore
     }
-    return '9h 00m';
+    return '8h 00m';
   };
 
-  // Parse CSV text
-  const parseCSV = (text) => {
+  // Download Sample Template as genuine Excel (.xlsx)
+  const handleDownloadExcelSample = () => {
+    const sampleData = [
+      {
+        'Employee ID': 'EMP-001',
+        'Employee Name': 'Rishab Sharma',
+        'Client Name': 'TNT Company',
+        'Site': 'Gurgaon HQ',
+        'Department': 'Security',
+        'Date': defaultDate,
+        'Check In': '09:00 AM',
+        'Check Out': '05:00 PM',
+        'Working Hours': '8',
+        'Status': 'Present'
+      },
+      {
+        'Employee ID': 'EMP-002',
+        'Employee Name': 'Amit Kumar',
+        'Client Name': 'TNT Company',
+        'Site': 'Main Gate',
+        'Department': 'Security',
+        'Date': defaultDate,
+        'Check In': '09:15 AM',
+        'Check Out': '05:00 PM',
+        'Working Hours': '8',
+        'Status': 'Present'
+      }
+    ];
+
+    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
+    XLSX.writeFile(workbook, `Attendance_Template_${targetMonth}.xlsx`);
+  };
+
+  // Download Sample Template as CSV (.csv)
+  const handleDownloadCsvSample = () => {
+    const csvContent = 'Employee ID,Employee Name,Client Name,Site,Department,Date,Check In,Check Out,Working Hours,Status\n' +
+      `EMP-001,Rishab Sharma,TNT Company,Gurgaon HQ,Security,${defaultDate},09:00 AM,05:00 PM,8,Present\n` +
+      `EMP-002,Amit Kumar,TNT Company,Main Gate,Security,${defaultDate},09:15 AM,05:00 PM,8,Present\n`;
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `Attendance_Template_${targetMonth}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Unified parser for both Excel (.xlsx, .xls) and CSV (.csv)
+  const processFileData = (rawRows) => {
     setParseError('');
-    try {
-      const lines = text
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean);
-
-      if (lines.length < 2) {
-        setParseError('The uploaded CSV file is empty or does not contain a header line.');
-        setParsedRows([]);
-        return;
-      }
-
-      // Simple CSV line splitter that handles quotes
-      const splitCSVLine = (line) => {
-        const result = [];
-        let curr = '';
-        let inQuotes = false;
-        for (let i = 0; i < line.length; i++) {
-          const char = line[i];
-          if (char === '"' || char === "'") {
-            inQuotes = !inQuotes;
-          } else if ((char === ',' || char === ';') && !inQuotes) {
-            result.push(curr.trim());
-            curr = '';
-          } else {
-            curr += char;
-          }
-        }
-        result.push(curr.trim());
-        return result;
-      };
-
-      const rawHeaders = splitCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-      
-      const findHeaderIndex = (...possibleNames) => {
-        for (const name of possibleNames) {
-          const idx = rawHeaders.findIndex((h) => h.includes(name));
-          if (idx !== -1) return idx;
-        }
-        return -1;
-      };
-
-      const empIdIdx = findHeaderIndex('employeeid', 'empid', 'id', 'code');
-      const empNameIdx = findHeaderIndex('employeename', 'name', 'employee');
-      const companyIdx = findHeaderIndex('companyname', 'company', 'client');
-      const siteIdx = findHeaderIndex('site', 'location');
-      const deptIdx = findHeaderIndex('department', 'dept');
-      const dateIdx = findHeaderIndex('date', 'day');
-      const checkInIdx = findHeaderIndex('checkin', 'in', 'intime');
-      const checkOutIdx = findHeaderIndex('checkout', 'out', 'outtime');
-      const hoursIdx = findHeaderIndex('workinghours', 'hours', 'totalhours');
-      const statusIdx = findHeaderIndex('status');
-
-      const rows = [];
-
-      for (let i = 1; i < lines.length; i++) {
-        const cols = splitCSVLine(lines[i]);
-        if (cols.length === 0 || cols.every((c) => !c)) continue;
-
-        const empId = (empIdIdx !== -1 ? cols[empIdIdx] : cols[0]) || `EMP${String(i).padStart(3, '0')}`;
-        const empName = (empNameIdx !== -1 ? cols[empNameIdx] : cols[1]) || 'Employee Name';
-        const companyName = (companyIdx !== -1 ? cols[companyIdx] : '') || activeCompanyName;
-        const site = (siteIdx !== -1 ? cols[siteIdx] : '') || 'Main Site';
-        const department = (deptIdx !== -1 ? cols[deptIdx] : '') || 'Security';
-        
-        let rowDate = (dateIdx !== -1 ? cols[dateIdx] : '') || defaultDate;
-        // If rowDate does not have year, prepend year from targetMonth
-        if (rowDate && !rowDate.includes('-')) {
-          rowDate = defaultDate;
-        }
-
-        const checkIn = (checkInIdx !== -1 ? cols[checkInIdx] : '') || '';
-        const checkOut = (checkOutIdx !== -1 ? cols[checkOutIdx] : '') || '';
-        
-        let rawStatus = (statusIdx !== -1 ? cols[statusIdx] : '').toLowerCase() || '';
-        let status = 'present';
-        if (rawStatus.includes('absent')) status = 'absent';
-        else if (rawStatus.includes('half')) status = 'halfDay';
-        else if (rawStatus.includes('leave')) status = 'onLeave';
-        else if (rawStatus.includes('late') || rawStatus.includes('early')) status = 'late';
-        else if (!checkIn && !checkOut) status = 'absent';
-
-        const workingHours = (hoursIdx !== -1 && cols[hoursIdx]) ? cols[hoursIdx] : (status === 'absent' ? '0h 00m' : calculateHours(checkIn, checkOut));
-
-        const initials = empName
-          .split(' ')
-          .map((n) => n[0])
-          .join('')
-          .substring(0, 2)
-          .toUpperCase() || 'EM';
-
-        rows.push({
-          id: `ATT-IMP-${Date.now()}-${i}`,
-          employeeId: empId,
-          employeeName: empName,
-          initials,
-          companyName,
-          companyId: 'comp-1',
-          site,
-          department,
-          date: rowDate,
-          checkIn: checkIn || null,
-          checkOut: checkOut || null,
-          workingHours,
-          status,
-          lateMinutes: status === 'late' ? 15 : 0,
-          earlyOutMinutes: 0
-        });
-      }
-
-      if (rows.length === 0) {
-        setParseError('No valid employee records could be parsed from the file.');
-      }
-
-      setParsedRows(rows);
-    } catch (err) {
-      console.error('CSV Parsing Error:', err);
-      setParseError('Failed to parse CSV file. Please check that the file is properly formatted.');
+    if (!rawRows || rawRows.length === 0) {
+      setParseError('The uploaded file contains no readable data rows.');
       setParsedRows([]);
-    }
-  };
-
-  // Handle File Selection
-  const handleFileChange = (e) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-
-    if (!selected.name.endsWith('.csv') && selected.type !== 'text/csv') {
-      setParseError('Please upload a valid CSV (.csv) file.');
       return;
     }
 
-    setFile(selected);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      parseCSV(event.target.result);
+    const headers = Object.keys(rawRows[0] || {});
+    const normalizeHeader = (h) => String(h).toLowerCase().replace(/[^a-z0-9]/g, '');
+
+    const findKey = (possibleNames) => {
+      return headers.find(h => {
+        const norm = normalizeHeader(h);
+        return possibleNames.some(p => norm.includes(p));
+      });
     };
-    reader.readAsText(selected);
+
+    const empIdKey = findKey(['employeeid', 'empid', 'id', 'code']);
+    const empNameKey = findKey(['employeename', 'name', 'employee']);
+    const companyKey = findKey(['companyname', 'company', 'client']);
+    const siteKey = findKey(['site', 'location']);
+    const deptKey = findKey(['department', 'dept']);
+    const dateKey = findKey(['date', 'day']);
+    const checkInKey = findKey(['checkin', 'intime', 'in']);
+    const checkOutKey = findKey(['checkout', 'outtime', 'out']);
+    const hoursKey = findKey(['workinghours', 'hours', 'totalhours']);
+    const statusKey = findKey(['status']);
+
+    const formattedRows = [];
+
+    rawRows.forEach((row, i) => {
+      const empId = (empIdKey ? row[empIdKey] : row[headers[0]]) || `EMP${String(i + 1).padStart(3, '0')}`;
+      const empName = (empNameKey ? row[empNameKey] : row[headers[1]]) || 'Employee';
+      const companyName = (companyKey ? row[companyKey] : '') || activeCompanyName;
+      const site = (siteKey ? row[siteKey] : '') || 'Main Site';
+      const department = (deptKey ? row[deptKey] : '') || 'Security';
+
+      const rawDate = dateKey ? row[dateKey] : defaultDate;
+      const rowDate = normalizeDate(rawDate);
+
+      const checkIn = normalizeTime(checkInKey ? row[checkInKey] : '');
+      const checkOut = normalizeTime(checkOutKey ? row[checkOutKey] : '');
+
+      let rawStatus = String(statusKey && row[statusKey] !== undefined ? row[statusKey] : '').toLowerCase();
+      let status = 'present';
+      if (rawStatus.includes('absent')) status = 'absent';
+      else if (rawStatus.includes('half')) status = 'halfDay';
+      else if (rawStatus.includes('leave')) status = 'onLeave';
+      else if (rawStatus.includes('late')) status = 'late';
+      else if (!checkIn && !checkOut && rawStatus !== 'present') status = 'absent';
+
+      const workingHours = calculateHours(checkIn, checkOut, hoursKey ? row[hoursKey] : null);
+
+      const initials = String(empName)
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .substring(0, 2)
+        .toUpperCase() || 'EM';
+
+      formattedRows.push({
+        id: `ATT-IMP-${Date.now()}-${i + 1}`,
+        employeeId: String(empId).trim(),
+        employeeName: String(empName).trim(),
+        initials,
+        companyName: String(companyName).trim(),
+        companyId: 'comp-1',
+        site: String(site).trim(),
+        department: String(department).trim(),
+        date: rowDate,
+        checkIn: checkIn || null,
+        checkOut: checkOut || null,
+        workingHours,
+        status,
+        lateMinutes: status === 'late' ? 15 : 0,
+        earlyOutMinutes: 0
+      });
+    });
+
+    if (formattedRows.length === 0) {
+      setParseError('No valid employee attendance records could be extracted.');
+    }
+
+    setParsedRows(formattedRows);
   };
 
-  // Drag & Drop
+  // Read file as ArrayBuffer for XLSX (handles .xlsx, .xls, and .csv universally)
+  const readFile = (fileObj) => {
+    setFile(fileObj);
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array', cellDates: false });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        processFileData(json);
+      } catch (err) {
+        console.error('Error parsing spreadsheet file:', err);
+        setParseError('Failed to read file. Please ensure it is a valid Excel (.xlsx/.xls) or CSV (.csv) file.');
+        setParsedRows([]);
+      }
+    };
+
+    reader.readAsArrayBuffer(fileObj);
+  };
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    const name = selected.name.toLowerCase();
+    if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
+      setParseError('Please upload a valid Excel (.xlsx, .xls) or CSV (.csv) file.');
+      return;
+    }
+    readFile(selected);
+  };
+
   const handleDragOver = (e) => {
     e.preventDefault();
     setIsDragging(true);
@@ -222,16 +329,12 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
     setIsDragging(false);
     const dropped = e.dataTransfer.files?.[0];
     if (dropped) {
-      if (!dropped.name.endsWith('.csv') && dropped.type !== 'text/csv') {
-        setParseError('Please drop a valid .csv file.');
+      const name = dropped.name.toLowerCase();
+      if (!name.endsWith('.xlsx') && !name.endsWith('.xls') && !name.endsWith('.csv')) {
+        setParseError('Please drop a valid .xlsx, .xls, or .csv file.');
         return;
       }
-      setFile(dropped);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        parseCSV(event.target.result);
-      };
-      reader.readAsText(dropped);
+      readFile(dropped);
     }
   };
 
@@ -245,9 +348,13 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
   const handleSubmit = (e) => {
     e.preventDefault();
     if (parsedRows.length === 0) return;
+
+    // Use the parsed date from the first record as target active date if available
+    const firstDate = parsedRows[0]?.date || defaultDate;
+
     onImport({
       month: targetMonth,
-      date: defaultDate,
+      date: firstDate,
       records: parsedRows
     });
   };
@@ -274,7 +381,7 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
             </div>
             <div>
               <h3 className={styles.title}>Import Attendance Records</h3>
-              <p className={styles.sub}>Bulk upload monthly or daily attendance from CSV</p>
+              <p className={styles.sub}>Upload monthly or daily attendance from Excel (.xlsx/.xls) or CSV</p>
             </div>
           </div>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
@@ -313,20 +420,32 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
             </div>
           </div>
 
-          {/* Sample CSV Template Downloader */}
+          {/* Sample Template Download Options */}
           <div className={styles.templateDownloadCard}>
             <div className={styles.templateInfo}>
               <FileText size={18} />
-              <span>Need the standard CSV format with all table columns?</span>
+              <span>Download official attendance template with all required columns:</span>
             </div>
-            <button
-              type="button"
-              className={styles.downloadBtn}
-              onClick={handleDownloadSample}
-            >
-              <Download size={14} />
-              Download Sample CSV Template
-            </button>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={styles.downloadBtn}
+                onClick={handleDownloadExcelSample}
+                title="Download genuine Excel format"
+              >
+                <Download size={14} />
+                Download Excel Template (.xlsx)
+              </button>
+              <button
+                type="button"
+                className={styles.downloadBtn}
+                onClick={handleDownloadCsvSample}
+                title="Download standard CSV format"
+              >
+                <Download size={14} />
+                Download CSV (.csv)
+              </button>
+            </div>
           </div>
 
           {/* File Upload Dropzone */}
@@ -341,13 +460,13 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".xlsx,.xls,.csv"
                 style={{ display: 'none' }}
                 onChange={handleFileChange}
               />
               <UploadCloud className={styles.dropzoneIcon} />
-              <div className={styles.dropzoneTitle}>Click to upload or drag & drop CSV file</div>
-              <div className={styles.dropzoneDesc}>Supports standard CSV (.csv) format with column headers</div>
+              <div className={styles.dropzoneTitle}>Click to upload or drag & drop Excel / CSV file</div>
+              <div className={styles.dropzoneDesc}>Supports Microsoft Excel (.xlsx, .xls) and CSV (.csv) formats</div>
             </div>
           ) : (
             <div className={styles.fileActiveBar}>
@@ -356,7 +475,7 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
                 <div>
                   <div className={styles.fileName}>{file.name}</div>
                   <div className={styles.fileMeta}>
-                    {(file.size / 1024).toFixed(1)} KB &bull; {parsedRows.length} rows parsed
+                    {(file.size / 1024).toFixed(1)} KB &bull; {parsedRows.length} employee records parsed
                   </div>
                 </div>
               </div>
@@ -397,7 +516,7 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
                       <th>#</th>
                       <th>Employee ID</th>
                       <th>Employee Name</th>
-                      <th>Company / Client</th>
+                      <th>Client</th>
                       <th>Site</th>
                       <th>Department</th>
                       <th>Date</th>

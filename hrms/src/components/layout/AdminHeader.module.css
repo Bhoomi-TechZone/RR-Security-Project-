@@ -280,6 +280,16 @@
   font-weight: 600;
 }
 
+.companyDropdownLogo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  border-radius: 4px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
 .companyItemMeta {
   display: flex;
   flex-direction: column;

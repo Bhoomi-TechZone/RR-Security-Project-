@@ -26,7 +26,7 @@ function CorrectionRequests({ requests, onReview }) {
             <tr>
               <th>Employee</th>
               <th>Date</th>
-              <th>Company / Site</th>
+              <th>Client / Site</th>
               <th>Original In / Out</th>
               <th>Requested In / Out</th>
               <th>Reason</th>

@@ -6,7 +6,7 @@ import styles from './AttendanceFilters.module.css';
 function AttendanceFilters({ filters, onChange, onReset, records = [] }) {
   const handleChange = (key, value) => onChange({ ...filters, [key]: value });
 
-  const dynamicCompanies = Array.from(new Set(records.map(r => r.companyName).filter(Boolean)));
+  const dynamicClients = Array.from(new Set(records.map(r => r.companyName || r.clientName).filter(Boolean)));
   const dynamicSites = Array.from(new Set(records.map(r => r.site).filter(Boolean)));
   const dynamicDepts = Array.from(new Set(records.map(r => r.department).filter(Boolean)));
 
@@ -27,8 +27,8 @@ function AttendanceFilters({ filters, onChange, onReset, records = [] }) {
         value={filters.companyId}
         onChange={(e) => handleChange('companyId', e.target.value)}
       >
-        <option value="">All Companies</option>
-        {dynamicCompanies.map((c) => (
+        <option value="">All Clients</option>
+        {dynamicClients.map((c) => (
           <option key={c} value={c}>{c}</option>
         ))}
       </select>

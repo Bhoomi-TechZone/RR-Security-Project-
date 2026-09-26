@@ -11,6 +11,7 @@ import clientRoutes from './routes/clientRoutes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
 import workLocationRoutes from './routes/workLocationRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
+import shiftRoutes from './routes/shiftRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -88,8 +89,8 @@ app.use(cors({
 // ===========================================
 // Body Parsers
 // ===========================================
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 
 // ===========================================
@@ -132,6 +133,9 @@ app.use('/api/work-locations', workLocationRoutes);
 
 // Roles
 app.use('/api/roles', roleRoutes);
+
+// Shifts & Roster Management
+app.use('/api/shifts', shiftRoutes);
 
 
 // ===========================================

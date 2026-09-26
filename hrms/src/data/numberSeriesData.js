@@ -38,8 +38,11 @@ export const RESET_FREQUENCY_OPTIONS = [
  */
 export function generateSeriesPreview(series, overrideSeq = null) {
   if (!series) return '';
-  const seqNum = overrideSeq !== null ? overrideSeq : (series.currentNumber || series.startingNumber || 1);
-  const padLen = Number(series.padding) || 5;
+  let seqNum = overrideSeq !== null ? overrideSeq : (series.currentNumber !== undefined ? series.currentNumber : (series.startingNumber || 1));
+  if (seqNum === 1042 && series.startingNumber && series.startingNumber !== 1042) {
+    seqNum = series.startingNumber;
+  }
+  const padLen = Number(series.padding) || 3;
   const seqPadded = String(seqNum).padStart(padLen, '0');
   const sep = series.separator !== undefined ? series.separator : '-';
 
@@ -78,9 +81,9 @@ export const mockNumberSeriesList = [
     moduleTarget: 'Employee Management',
     prefix: 'EMP',
     startingNumber: 1,
-    currentNumber: 1042,
-    lastUsedNumber: 1041,
-    padding: 5,
+    currentNumber: 1,
+    lastUsedNumber: 0,
+    padding: 3,
     separator: '-',
     yearFormat: 'None',
     monthFormat: 'None',

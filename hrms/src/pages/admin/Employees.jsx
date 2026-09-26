@@ -16,8 +16,9 @@ import EmptyState from '../../components/common/EmptyState';
 
 import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
+import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 const ITEMS_PER_PAGE = 10;
 
 function Employees() {
@@ -239,7 +240,7 @@ function Employees() {
       setTransferEmployee(employee);
       setIsTransferOpen(true);
     } else if (actionType === 'download') {
-      window.print();
+      downloadEmployeeProfile(employee, activeCompany);
     } else if (actionType === 'deactivate') {
       setConfirmModal({
         isOpen: true,
@@ -343,6 +344,7 @@ function Employees() {
           onSubmit={handleFormSubmit}
           employee={editingEmployee}
           clients={clients}
+          employeesCount={employees.length}
         />
 
         {/* Transfer Modal */}

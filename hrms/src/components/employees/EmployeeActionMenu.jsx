@@ -8,7 +8,7 @@ import styles from './EmployeeActionMenu.module.css';
  * Renders the three-dot action menu for each employee in the table/cards.
  */
 function EmployeeActionMenu({ employee, onAction }) {
-  const isEmployeeActive = employee.status === 'active';
+  const isEmployeeActive = String(employee.status || '').toLowerCase() === 'active';
 
   return (
     <Dropdown
@@ -50,7 +50,7 @@ function EmployeeActionMenu({ employee, onAction }) {
             onClick={() => onAction(isEmployeeActive ? 'deactivate' : 'activate', employee)}
           >
             <Power size={14} />
-            <span>{isEmployeeActive ? 'Deactivate' : 'Activate'}</span>
+            <span>{isEmployeeActive ? 'Deactivate Employee' : 'Activate Employee'}</span>
           </button>
         </li>
       </ul>

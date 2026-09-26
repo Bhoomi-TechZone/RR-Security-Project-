@@ -43,7 +43,7 @@ export const DEFAULT_PRIMARY_COMPANY = {
   activeShifts: 3
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 
 export function CompanyProvider({ children }) {
   // 1. All registered companies for the admin
@@ -131,7 +131,7 @@ export function CompanyProvider({ children }) {
   };
 
   /**
-   * Add a new Company Profile (Creates isolated data space)
+   * Add a new Company Profile (Creates isolated company workspace in MongoDB database)
    */
   const addCompanyProfile = async (companyData) => {
     const token = authService.getToken();
@@ -144,29 +144,26 @@ export function CompanyProvider({ children }) {
     };
 
     if (token) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/companies`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(payload)
-        });
-        const data = await res.json();
-        if (res.ok && data.company) {
-          created = {
-            ...data.company,
-            companyId: data.company.companyId || uniqueId
-          };
-        }
-      } catch (err) {
-        // Backend offline fallback
+      const res = await fetch(`${API_BASE_URL}/companies`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (res.ok && data.company) {
+        created = {
+          ...data.company,
+          companyId: data.company.companyId || uniqueId,
+          id: data.company.companyId || data.company.id || uniqueId
+        };
+      } else {
+        throw new Error(data.message || 'Failed to save company profile to database.');
       }
-    }
-
-    if (!created) {
-      // Local fallback creation
+    } else {
+      // Local fallback creation if no auth token
       created = {
         id: uniqueId,
         companyId: uniqueId,
@@ -193,36 +190,78 @@ export function CompanyProvider({ children }) {
       };
     }
 
-    setCompanies(prev => [created, ...prev]);
+    setCompanies(prev => [created, ...prev.filter(c => (c.companyId || c.id) !== (created.companyId || created.id))]);
     setActiveCompanyId(created.companyId || created.id);
     window.dispatchEvent(new CustomEvent('company-profile-changed', { detail: created }));
     return created;
   };
 
   /**
-   * Update existing company profile
+   * Update existing company profile in MongoDB database
    */
   const updateCompanyProfile = async (companyId, updateData) => {
     const token = authService.getToken();
+    let updated = null;
 
     if (token) {
-      try {
-        await fetch(`${API_BASE_URL}/companies/${companyId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify(updateData)
-        });
-      } catch (e) {
-        // fallback
+      const res = await fetch(`${API_BASE_URL}/companies/${companyId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+      const data = await res.json();
+      if (res.ok && data.company) {
+        updated = {
+          ...data.company,
+          companyId: data.company.companyId || companyId,
+          id: data.company.companyId || data.company.id || companyId
+        };
+      } else {
+        throw new Error(data.message || 'Failed to update company profile in database.');
       }
     }
 
-    setCompanies(prev =>
-      prev.map(c => ((c.companyId === companyId || c.id === companyId) ? { ...c, ...updateData } : c))
-    );
+    setCompanies(prev => {
+      const merged = prev.map(c => ((c.companyId === companyId || c.id === companyId || c._id === companyId) ? { ...c, ...updateData, ...(updated || {}) } : c));
+      const targetCompany = merged.find(c => c.companyId === companyId || c.id === companyId || c._id === companyId);
+      if (targetCompany) {
+        window.dispatchEvent(new CustomEvent('company-profile-changed', { detail: targetCompany }));
+      }
+      return merged;
+    });
+    return updated;
+  };
+
+  /**
+   * Delete company profile from MongoDB database
+   */
+  const deleteCompanyProfile = async (companyId) => {
+    const token = authService.getToken();
+
+    if (token) {
+      const res = await fetch(`${API_BASE_URL}/companies/${companyId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to delete company profile from database.');
+      }
+    }
+
+    setCompanies(prev => {
+      const remaining = prev.filter(c => c.companyId !== companyId && c.id !== companyId && c._id !== companyId);
+      if (activeCompanyId === companyId && remaining.length > 0) {
+        const nextActive = remaining[0].companyId || remaining[0].id;
+        setActiveCompanyId(nextActive);
+      }
+      return remaining;
+    });
   };
 
   return (
@@ -234,6 +273,7 @@ export function CompanyProvider({ children }) {
         switchCompany,
         addCompanyProfile,
         updateCompanyProfile,
+        deleteCompanyProfile,
         refreshFromBackend
       }}
     >
@@ -249,10 +289,11 @@ export function useCompany() {
       companies: [DEFAULT_PRIMARY_COMPANY],
       activeCompany: DEFAULT_PRIMARY_COMPANY,
       activeCompanyId: DEFAULT_PRIMARY_COMPANY.companyId,
-      switchCompany: () => {},
+      switchCompany: () => { },
       addCompanyProfile: async () => DEFAULT_PRIMARY_COMPANY,
-      updateCompanyProfile: () => {},
-      refreshFromBackend: () => {}
+      updateCompanyProfile: () => { },
+      deleteCompanyProfile: () => { },
+      refreshFromBackend: () => { }
     };
   }
   return context;

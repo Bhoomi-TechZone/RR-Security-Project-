@@ -51,8 +51,9 @@ function TransferEmployeeModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!targetCompanyId) {
-      setError('Please select a company to transfer to.');
+    const targetComp = targetCompanyId.trim();
+    if (!targetComp) {
+      setError('Please select or enter a client company to transfer to.');
       return;
     }
     if (!site.trim()) {
@@ -64,18 +65,15 @@ function TransferEmployeeModal({
       return;
     }
 
-    const selectedCompany = clients.find(c => (c.clientId === targetCompanyId || c.id === targetCompanyId || c._id === targetCompanyId));
-    if (!selectedCompany) {
-      setError('Invalid company selected.');
-      return;
-    }
+    const matchedCompany = clients.find(c => (c.clientId === targetComp || c.id === targetComp || c._id === targetComp || c.name === targetComp));
+    const targetClientId = matchedCompany ? (matchedCompany.clientId || matchedCompany.id || matchedCompany._id) : `CLI-${Date.now().toString().slice(-6)}`;
+    const targetClientName = matchedCompany ? matchedCompany.name : targetComp;
 
-    const targetClientId = selectedCompany.clientId || selectedCompany.id || selectedCompany._id;
     onTransfer(employee.id || employee._id || employee.employeeId, {
       clientId: targetClientId,
-      clientName: selectedCompany.name,
+      clientName: targetClientName,
       companyId: targetClientId,
-      companyName: selectedCompany.name,
+      companyName: targetClientName,
       site: site.trim(),
       siteLocation: site.trim(),
       effectiveDate
@@ -109,12 +107,12 @@ function TransferEmployeeModal({
               <span className={styles.value}>{employee.name} ({employee.employeeId})</span>
             </div>
             <div className={styles.summaryRow}>
-              <span className={styles.label}>Current Company:</span>
-              <span className={styles.value}>{employee.companyName || employee.clientName || 'N/A'}</span>
+              <span className={styles.label}>Current Company / Client:</span>
+              <span className={styles.value}>{employee.clientName || employee.companyName || 'N/A'}</span>
             </div>
             <div className={styles.summaryRow}>
               <span className={styles.label}>Current Site:</span>
-              <span className={styles.value}>{employee.site || employee.siteLocation || 'N/A'}</span>
+              <span className={styles.value}>{employee.siteLocation || employee.site || 'N/A'}</span>
             </div>
           </div>
 
@@ -126,28 +124,43 @@ function TransferEmployeeModal({
 
           <div className={styles.field}>
             <label htmlFor="transfer-company" className={styles.fieldLabel}>Transfer To Client Company *</label>
-            <div className={styles.selectWrapper}>
-              <select
+            {clients && clients.length > 0 ? (
+              <div className={styles.selectWrapper}>
+                <select
+                  id="transfer-company"
+                  className={styles.select}
+                  value={targetCompanyId}
+                  onChange={(e) => {
+                    setTargetCompanyId(e.target.value);
+                    setError('');
+                  }}
+                  required
+                >
+                  <option value="">Select Client Company</option>
+                  {clients.map((c) => {
+                    const val = c.clientId || c.id || c._id;
+                    return (
+                      <option key={val} value={val}>
+                        {c.name}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            ) : (
+              <input
                 id="transfer-company"
-                className={styles.select}
+                type="text"
+                className={styles.input}
+                placeholder="e.g. Apex Security, Delta Logistics, Site Corp"
                 value={targetCompanyId}
                 onChange={(e) => {
                   setTargetCompanyId(e.target.value);
                   setError('');
                 }}
                 required
-              >
-                <option value="">Select Client Company</option>
-                {clients.map((c) => {
-                  const val = c.clientId || c.id || c._id;
-                  return (
-                    <option key={val} value={val}>
-                      {c.name}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+              />
+            )}
           </div>
 
           <div className={styles.field}>

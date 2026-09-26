@@ -44,7 +44,7 @@ function AttendanceTable({ records, onView, onEdit, onReview }) {
           <thead>
             <tr>
               <th>Employee</th>
-              <th>Company / Site</th>
+              <th>Client / Site</th>
               <th>Department</th>
               <th>Check In</th>
               <th>Check Out</th>

@@ -472,10 +472,33 @@ export const getStatusLabel = (status) => {
   return map[status] || status;
 };
 
-export const formatTime = (time24) => {
-  if (!time24) return '—';
-  const [h, m] = time24.split(':').map(Number);
-  const period = h >= 12 ? 'PM' : 'AM';
-  const hour12 = h % 12 || 12;
-  return `${String(hour12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${period}`;
+export const formatTime = (time) => {
+  if (!time || time === '—' || time === 'null' || time === 'undefined') return '—';
+
+  const str = String(time).trim();
+  if (str.includes('NaN')) return '—';
+
+  // Check if string matches "09:05 AM" or "09:05AM" or "9:05 PM"
+  const ampmMatch = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
+  if (ampmMatch) {
+    let h = parseInt(ampmMatch[1], 10);
+    const m = ampmMatch[2];
+    const period = ampmMatch[3].toUpperCase();
+    if (period === 'PM' && h < 12) h += 12;
+    if (period === 'AM' && h === 12) h = 0;
+    const hour12 = h % 12 || 12;
+    return `${String(hour12).padStart(2, '0')}:${m} ${period}`;
+  }
+
+  // Check for 24-hour format "09:05" or "17:00"
+  const match24 = str.match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) {
+    let h = parseInt(match24[1], 10);
+    const m = match24[2];
+    const period = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 || 12;
+    return `${String(hour12).padStart(2, '0')}:${m} ${period}`;
+  }
+
+  return str;
 };
