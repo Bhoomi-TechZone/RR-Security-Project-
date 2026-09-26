@@ -2,11 +2,14 @@
   background-color: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  overflow: hidden;
+  min-height: 280px;
 }
 
 .tableWrapper {
   overflow-x: auto;
+  overflow-y: visible;
+  min-height: 280px;
+  padding-bottom: 70px;
   display: block;
 }
 

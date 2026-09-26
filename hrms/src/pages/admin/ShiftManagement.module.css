@@ -316,11 +316,17 @@
 }
 
 .tableCard {
-  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  min-height: 280px;
 }
 
 .tableWrapper {
   overflow-x: auto;
+  overflow-y: visible;
+  min-height: 280px;
+  padding-bottom: 70px;
 }
 
 .table {
@@ -434,6 +440,32 @@
 }
 
 .iconButton:hover {
+  background: var(--surface-alt);
+  color: var(--primary);
+}
+
+.actionMenuList {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.menuItemBtn {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: background 0.12s ease;
+}
+
+.menuItemBtn:hover {
   background: var(--surface-alt);
   color: var(--primary);
 }

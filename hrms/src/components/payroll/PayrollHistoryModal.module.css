@@ -78,11 +78,13 @@
 .body {
   padding: 0;
   overflow-y: auto;
+  min-height: 250px;
 }
 
 .tableResponsive {
   width: 100%;
   overflow-x: auto;
+  overflow-y: visible;
 }
 
 .table {

@@ -17,48 +17,50 @@ function CompanyTable({
 }) {
   if (loading) {
     return (
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>GSTIN</th>
-              <th>Contact Person</th>
-              <th>Contract Start</th>
-              <th>Contract End</th>
-              <th>Employees</th>
-              <th>Status</th>
-              <th className={styles.textCenter}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[1, 2, 3, 4, 5].map((idx) => (
-              <tr key={idx} className={styles.skeletonRow}>
-                <td>
-                  <div className={styles.skeletonCompany}>
-                    <div className={styles.skeletonAvatar} />
-                    <div className={styles.skeletonTextStack}>
-                      <div className={styles.skeletonBarShort} style={{ width: '120px' }} />
-                      <div className={styles.skeletonBarShort} style={{ width: '80px' }} />
-                    </div>
-                  </div>
-                </td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '100px' }} /></td>
-                <td>
-                  <div className={styles.skeletonTextStack}>
-                    <div className={styles.skeletonBarShort} style={{ width: '90px' }} />
-                    <div className={styles.skeletonBarShort} style={{ width: '70px' }} />
-                  </div>
-                </td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '80px' }} /></td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '80px' }} /></td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '50px' }} /></td>
-                <td><div className={styles.skeletonBadge} /></td>
-                <td><div className={styles.skeletonAction} /></td>
+      <div className={styles.container}>
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>GSTIN</th>
+                <th>Contact Person</th>
+                <th>Contract Start</th>
+                <th>Contract End</th>
+                <th>Employees</th>
+                <th>Status</th>
+                <th className={styles.textCenter}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {[1, 2, 3, 4, 5].map((idx) => (
+                <tr key={idx} className={styles.skeletonRow}>
+                  <td>
+                    <div className={styles.skeletonCompany}>
+                      <div className={styles.skeletonAvatar} />
+                      <div className={styles.skeletonTextStack}>
+                        <div className={styles.skeletonBarShort} style={{ width: '120px' }} />
+                        <div className={styles.skeletonBarShort} style={{ width: '80px' }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '100px' }} /></td>
+                  <td>
+                    <div className={styles.skeletonTextStack}>
+                      <div className={styles.skeletonBarShort} style={{ width: '90px' }} />
+                      <div className={styles.skeletonBarShort} style={{ width: '70px' }} />
+                    </div>
+                  </td>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '80px' }} /></td>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '80px' }} /></td>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '50px' }} /></td>
+                  <td><div className={styles.skeletonBadge} /></td>
+                  <td><div className={styles.skeletonAction} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
