@@ -21,6 +21,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
+import Dropdown from '../../components/common/Dropdown';
 import { useCompany } from '../../context/CompanyContext';
 import { shiftService } from '../../services/shiftService';
 import { authService } from '../../services/authService';
@@ -230,8 +231,6 @@ function Filters({ values, setValue, onReset, patterns, clients, sites, departme
 }
 
 function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
-  const [menu, setMenu] = useState(null);
-
   return (
     <div className={styles.tableCard}>
       <div className={styles.tableWrapper}>
@@ -284,33 +283,32 @@ function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
                         : 'Inactive'}
                   </StatusBadge>
                 </td>
-                <td className={styles.actionCell}>
-                  <button
-                    type="button"
-                    className={styles.iconButton}
-                    aria-label="Open shift actions"
-                    onClick={() => setMenu(menu === row.id ? null : row.id)}
-                  >
-                    <MoreVertical size={17} />
-                  </button>
-                  {menu === row.id && (
-                    <div className={styles.actionMenu}>
+                <td className={styles.actionCell} onClick={(e) => e.stopPropagation()}>
+                  <Dropdown
+                    align="right"
+                    trigger={
                       <button
                         type="button"
-                        onClick={() => {
-                          onView(row);
-                          setMenu(null);
-                        }}
+                        className={styles.iconButton}
+                        aria-label="Open shift actions"
+                      >
+                        <MoreVertical size={17} />
+                      </button>
+                    }
+                  >
+                    <div className={styles.actionMenuList}>
+                      <button
+                        type="button"
+                        className={styles.menuItemBtn}
+                        onClick={() => onView(row)}
                       >
                         View Details
                       </button>
                       {row.status === 'unassigned' ? (
                         <button
                           type="button"
-                          onClick={() => {
-                            onAssign(row);
-                            setMenu(null);
-                          }}
+                          className={styles.menuItemBtn}
+                          onClick={() => onAssign(row)}
                         >
                           Assign Shift
                         </button>
@@ -318,35 +316,29 @@ function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
                         <>
                           <button
                             type="button"
-                            onClick={() => {
-                              onEdit(row);
-                              setMenu(null);
-                            }}
+                            className={styles.menuItemBtn}
+                            onClick={() => onEdit(row)}
                           >
                             Edit Roster
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              onChange(row);
-                              setMenu(null);
-                            }}
+                            className={styles.menuItemBtn}
+                            onClick={() => onChange(row)}
                           >
                             Change Shift
                           </button>
                           <button
                             type="button"
-                            onClick={() => {
-                              onUnassign(row);
-                              setMenu(null);
-                            }}
+                            className={styles.menuItemBtn}
+                            onClick={() => onUnassign(row)}
                           >
                             Unassign Employee
                           </button>
                         </>
                       )}
                     </div>
-                  )}
+                  </Dropdown>
                 </td>
               </tr>
             ))}

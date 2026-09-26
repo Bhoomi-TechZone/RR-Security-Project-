@@ -1,8 +1,12 @@
 .tableWrap {
   overflow-x: auto;
+  overflow-y: visible;
+  min-height: 280px;
+  padding-bottom: 70px;
   border: 1px solid var(--border-light);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
+  background: var(--surface);
 }
 
 .table {

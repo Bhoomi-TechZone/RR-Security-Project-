@@ -21,10 +21,12 @@ function PersonalInfoStep({ data, onChange, errors }) {
           <input
             id="emp-code"
             type="text"
-            className={styles.input}
-            placeholder="e.g. EMP-01042"
+            className={`${styles.input} ${styles.readOnlyInput}`}
+            placeholder="Auto-generated"
             value={data.employeeCode || data.employeeId || ''}
-            onChange={(e) => handleChange('employeeCode', e.target.value)}
+            readOnly
+            disabled
+            tabIndex="-1"
           />
         </div>
 

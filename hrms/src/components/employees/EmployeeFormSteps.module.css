@@ -83,6 +83,16 @@
   border-color: var(--danger) !important;
 }
 
+.readOnlyInput,
+.input:disabled,
+.input[readonly] {
+  background-color: #f1f5f9 !important;
+  color: var(--text-secondary) !important;
+  cursor: not-allowed !important;
+  border-color: var(--border) !important;
+  user-select: none;
+}
+
 .textarea {
   width: 100%;
   padding: 12px 14px;

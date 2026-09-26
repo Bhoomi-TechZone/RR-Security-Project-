@@ -7,6 +7,7 @@ import styles from './Dropdown.module.css';
  */
 function Dropdown({ trigger, children, align = 'right', className = '' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
@@ -24,10 +25,24 @@ function Dropdown({ trigger, children, align = 'right', className = '' }) {
     };
   }, [isOpen]);
 
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    if (!isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < 220 && rect.top > 220) {
+        setOpenUpward(true);
+      } else {
+        setOpenUpward(false);
+      }
+    }
+    setIsOpen(!isOpen);
+  };
+
   return (
     <div className={`${styles.dropdown} ${className}`} ref={dropdownRef}>
       <div 
-        onClick={() => setIsOpen(!isOpen)} 
+        onClick={handleToggle} 
         className={styles.trigger}
         role="button"
         aria-haspopup="true"
@@ -38,7 +53,7 @@ function Dropdown({ trigger, children, align = 'right', className = '' }) {
       
       {isOpen && (
         <div 
-          className={`${styles.menu} ${styles[align]}`}
+          className={`${styles.menu} ${styles[align]} ${openUpward ? styles.menuUpward : ''}`}
           onClick={() => setIsOpen(false)}
         >
           {children}
