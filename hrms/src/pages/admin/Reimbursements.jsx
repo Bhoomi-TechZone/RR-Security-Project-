@@ -34,10 +34,38 @@ export default function Reimbursements() {
   const initialTab = searchParams.get('tab') || 'claims';
   const [activeTab, setActiveTab] = useState(initialTab);
 
+  // --- SEARCH & FILTER STATE FOR CLAIMS ---
+  const [searchQuery, setSearchQuery] = useState('');
+  const [subStatusFilter, setSubStatusFilter] = useState('All');
+  const [selectedDepartment, setSelectedDepartment] = useState('All');
+  const [selectedLocation, setSelectedLocation] = useState('All');
+  const [selectedExpenseType, setSelectedExpenseType] = useState('All');
+  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('All');
+  const [selectedMonth, setSelectedMonth] = useState('');
+
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam && ['claims', 'expense-types', 'reports'].includes(tabParam)) {
       setActiveTab(tabParam);
+    } else {
+      setActiveTab('claims');
+    }
+
+    const statusParam = searchParams.get('status');
+    if (statusParam) {
+      if (statusParam.toLowerCase() === 'pending' || statusParam.toLowerCase() === 'pending-approval') {
+        setSubStatusFilter('Pending Approval');
+      } else if (statusParam.toLowerCase() === 'approved') {
+        setSubStatusFilter('Approved');
+      } else if (statusParam.toLowerCase() === 'paid') {
+        setSubStatusFilter('Paid');
+      } else if (statusParam.toLowerCase() === 'ready-for-payment' || statusParam.toLowerCase() === 'payment') {
+        setSubStatusFilter('Ready for Payment');
+      } else {
+        setSubStatusFilter('All');
+      }
+    } else {
+      setSubStatusFilter('All');
     }
   }, [searchParams]);
 
@@ -91,15 +119,6 @@ export default function Reimbursements() {
     message: '',
     onConfirm: () => {}
   });
-
-  // --- SEARCH & FILTER STATE FOR CLAIMS ---
-  const [searchQuery, setSearchQuery] = useState('');
-  const [subStatusFilter, setSubStatusFilter] = useState('All');
-  const [selectedDepartment, setSelectedDepartment] = useState('All');
-  const [selectedLocation, setSelectedLocation] = useState('All');
-  const [selectedExpenseType, setSelectedExpenseType] = useState('All');
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('All');
-  const [selectedMonth, setSelectedMonth] = useState('');
 
   // Extract unique departments and sites from mockEmployees
   const departments = useMemo(() => {
@@ -472,44 +491,6 @@ export default function Reimbursements() {
 
         {/* Reusable Component 1: ReimbursementSummaryCards */}
         <ReimbursementSummaryCards metrics={metrics} />
-
-        {/* Navigation Tabs */}
-        <div className={styles.tabsContainer}>
-          <div className={styles.tabsScroller}>
-            <button
-              type="button"
-              className={`${styles.tabButton} ${activeTab === 'claims' ? styles.tabButtonActive : ''}`}
-              onClick={() => handleTabChange('claims')}
-            >
-              <Receipt size={15} />
-              <span>All Claims</span>
-              <span className={`${styles.tabBadge} ${activeTab === 'claims' ? styles.tabBadgeActive : ''}`}>
-                {claimsList.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              className={`${styles.tabButton} ${activeTab === 'expense-types' ? styles.tabButtonActive : ''}`}
-              onClick={() => handleTabChange('expense-types')}
-            >
-              <Tag size={15} />
-              <span>Expense Types Master</span>
-              <span className={`${styles.tabBadge} ${activeTab === 'expense-types' ? styles.tabBadgeActive : ''}`}>
-                {expenseTypes.length}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              className={`${styles.tabButton} ${activeTab === 'reports' ? styles.tabButtonActive : ''}`}
-              onClick={() => handleTabChange('reports')}
-            >
-              <BarChart3 size={15} />
-              <span>Reports &amp; Analytics</span>
-            </button>
-          </div>
-        </div>
 
         {/* TAB 1: ALL CLAIMS VIEW */}
         {activeTab === 'claims' && (

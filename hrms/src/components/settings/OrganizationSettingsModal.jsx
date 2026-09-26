@@ -62,14 +62,15 @@ const SETTINGS_SECTIONS = [
     badgeTheme: styles.themeIndigo,
     headerTheme: styles.themeIndigoHeader,
     items: [
+      { name: 'Bank', route: '/admin/masters?tab=banks' },
       { name: 'Department', route: '/admin/masters?tab=departments' },
       { name: 'Designation', route: '/admin/masters?tab=designations' },
       { name: 'Employee Type', route: '/admin/masters?tab=employee-types' },
-      { name: 'Client', route: '/admin/clients' },
+      { name: 'Client', route: '/admin/masters?tab=clients' },
       { name: 'Site', route: '/admin/masters?tab=sites' },
       { name: 'Post', route: '/admin/masters?tab=posts' },
-      { name: 'Shift', route: '/admin/shifts?tab=patterns' },
-      { name: 'Leave Type', route: '/admin/leave?tab=master' },
+      { name: 'Shift', route: '/admin/masters?tab=shifts' },
+      { name: 'Leave Type', route: '/admin/masters?tab=leave-types' },
       { name: 'Holiday', route: '/admin/masters?tab=holidays' },
       { name: 'Salary Components', route: '/admin/masters?tab=salary-components' },
       { name: 'Document Types', route: '/admin/masters?tab=document-types' }
@@ -212,6 +213,8 @@ function OrganizationSettingsModal({ isOpen, onClose }) {
       e.stopPropagation();
     }
     if (item.route) {
+      if (onClose) onClose();
+      closeOrganisationSettingsModal();
       navigate(item.route, { state: { fromOrganisationSettings: true } });
     } else {
       setSelectedItem({
