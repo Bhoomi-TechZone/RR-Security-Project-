@@ -29,11 +29,22 @@ function UsersTable({
   onToggleStatus,
   onSuspendUser,
   onResetAccess,
-  onAddUser
+  onAddUser,
+  externalStatusFilter = 'all'
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState(
+    externalStatusFilter === 'active' || externalStatusFilter === 'inactive' ? externalStatusFilter : 'all'
+  );
+
+  React.useEffect(() => {
+    if (externalStatusFilter === 'active' || externalStatusFilter === 'inactive') {
+      setStatusFilter(externalStatusFilter);
+    } else if (externalStatusFilter === 'all') {
+      setStatusFilter('all');
+    }
+  }, [externalStatusFilter]);
 
   const filteredUsers = users.filter(user => {
     const term = searchTerm.toLowerCase();

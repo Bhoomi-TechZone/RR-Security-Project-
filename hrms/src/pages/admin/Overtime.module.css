@@ -165,10 +165,25 @@
   justify-content: center;
 }
 
-.blue { background: var(--primary-light); color: var(--primary); }
-.yellow { background: var(--warning-bg); color: var(--warning); }
-.green { background: var(--success-bg); color: var(--success); }
-.purple { background: rgba(139, 92, 246, 0.1); color: #7c3aed; }
+.blue {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.yellow {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.green {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.purple {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+}
 
 .overviewCard,
 .filterCard,
@@ -520,16 +535,61 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
+  align-items: stretch;
 }
 
 .summaryBlock {
   padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  height: 275px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.sectionBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-light);
+}
+
+.summaryTableWrapper {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  margin-top: 4px;
+  padding-right: 4px;
+}
+
+.summaryTableWrapper::-webkit-scrollbar {
+  width: 8px;
+  height: 5px;
+}
+
+.summaryTableWrapper::-webkit-scrollbar-track {
+  background: var(--surface-alt);
+  border-radius: 4px;
+}
+
+.summaryTableWrapper::-webkit-scrollbar-thumb {
+  background: #3282e4;
+  border-radius: 4px;
+}
+
+.summaryTableWrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .summaryTable {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 8px;
 }
 
 .summaryTable th,
@@ -537,13 +597,24 @@
   padding: 10px 8px;
   border-bottom: 1px solid var(--border-light);
   text-align: left;
+  font-size: var(--text-sm);
 }
 
 .summaryTable th {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  z-index: 2;
+  color: var(--text-primary);
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
+  letter-spacing: 0.03em;
+  box-shadow: 0 1px 0 var(--border-light);
+}
+
+.summaryTable tbody tr:hover {
+  background: rgba(37, 99, 235, 0.02);
 }
 
 .summaryTable tbody tr:last-child td {
@@ -573,14 +644,49 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xl);
-  padding: 20px;
+  padding: 22px;
   overflow-y: auto;
 }
 
+.modalCardWide {
+  width: min(920px, 100%);
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.modalCloseBtn {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modalCloseBtn:hover {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .modalTitle {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: var(--text-2xl);
   color: var(--text-primary);
+  font-weight: 800;
 }
 
 .modalText {
@@ -617,6 +723,12 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.formGridFour {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .formField {
@@ -773,11 +885,17 @@
 }
 
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 @media (max-width: 1100px) {
+
   .summaryGrid,
   .overviewGrid,
   .summarySectionRow,
@@ -791,6 +909,7 @@
 }
 
 @media (max-width: 700px) {
+
   .summaryGrid,
   .overviewGrid,
   .summarySectionRow,

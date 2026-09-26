@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
   Clock3,
@@ -276,6 +276,7 @@ function LeaveExportModal({ open, filters, onClose, onExport, setExportFilters, 
 }
 
 export default function Leave() {
+  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
@@ -285,8 +286,10 @@ export default function Leave() {
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam) {
+    if (tabParam && ['requests', 'balances', 'master', 'calendar'].includes(tabParam)) {
       setActiveTab(tabParam);
+    } else {
+      setActiveTab('requests');
     }
   }, [searchParams]);
 
@@ -699,17 +702,27 @@ export default function Leave() {
 
         {/* Breadcrumb */}
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <span className={styles.crumbLink} onClick={() => window.location.href = '/admin/dashboard'}>Dashboard</span>
+          <button 
+            type="button" 
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary)', font: 'inherit' }}
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            Dashboard
+          </button>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Leave Management</span>
+          <span className={styles.crumbActive}>
+            {activeTab === 'balances' ? 'Employee Balances' : activeTab === 'master' ? 'Leave Master' : activeTab === 'calendar' ? 'Roster & Calendar' : 'Leave Requests'}
+          </span>
         </div>
 
         {/* Page Header */}
         <header className={styles.header}>
           <div className={styles.titleBlock}>
-            <h1 className={styles.title}>Enterprise Leave Management</h1>
+            <h1 className={styles.title}>
+              {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : 'Enterprise Leave Management'}
+            </h1>
             <p className={styles.subtitle}>
-              Leave Master rules, employee quotas, review site manpower, and approvals with Attendance & Payroll.
+              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Leave Master rules, employee quotas, review site manpower, and approvals with Attendance & Payroll.'}
             </p>
           </div>
 
@@ -749,50 +762,6 @@ export default function Leave() {
         ) : (
           <LeaveSummaryCards requests={leaveRequests} />
         )}
-
-        {/* Tabs Bar */}
-        <div className={styles.tabsRow}>
-          {(!isFromOrgSettings || activeTab === 'requests') && (
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === 'requests' ? styles.tabBtnActive : ''}`}
-              onClick={isFromOrgSettings ? undefined : () => setActiveTab('requests')}
-              style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
-            >
-              Leave Requests & Approvals ({leaveRequests.filter(r => r.status.includes('Pending')).length})
-            </button>
-          )}
-          {(!isFromOrgSettings || activeTab === 'balances') && (
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === 'balances' ? styles.tabBtnActive : ''}`}
-              onClick={isFromOrgSettings ? undefined : () => setActiveTab('balances')}
-              style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
-            >
-              Employee Balances & Policy ({employeeBalances.length})
-            </button>
-          )}
-          {(!isFromOrgSettings || activeTab === 'master') && (
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === 'master' ? styles.tabBtnActive : ''}`}
-              onClick={isFromOrgSettings ? undefined : () => setActiveTab('master')}
-              style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
-            >
-              Leave Master ({leaveTypes.length})
-            </button>
-          )}
-          {(!isFromOrgSettings || activeTab === 'calendar') && (
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === 'calendar' ? styles.tabBtnActive : ''}`}
-              onClick={isFromOrgSettings ? undefined : () => setActiveTab('calendar')}
-              style={isFromOrgSettings ? { pointerEvents: 'none', cursor: 'default' } : undefined}
-            >
-              Roster & Calendar View
-            </button>
-          )}
-        </div>
 
         {/* TAB 1: Leave Requests & Approvals */}
         {activeTab === 'requests' && (

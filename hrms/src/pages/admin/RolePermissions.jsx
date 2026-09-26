@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ShieldCheck,
   Plus,
@@ -35,6 +35,7 @@ import roleService from '../../services/roleService';
 import { mockEmployees } from '../../data/employeeData';
 
 function RolePermissions() {
+  const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
@@ -42,14 +43,56 @@ function RolePermissions() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.companyId || activeCompany?.id || 'comp_rr_security';
 
+  const tabParam = searchParams.get('tab');
+
   // Page mode: 'roles' | 'permissions'
   const [viewMode, setViewMode] = useState(() =>
-    searchParams.get('tab') === 'permissions' ? 'permissions' : 'roles'
+    tabParam === 'permissions' || tabParam === 'matrix' ? 'permissions' : 'roles'
   );
   const [selectedRoleForPermissions, setSelectedRoleForPermissions] = useState(null);
 
   // Active main tab under 'roles' mode: 'roles' | 'users'
-  const [activeTab, setActiveTab] = useState('roles');
+  const [activeTab, setActiveTab] = useState(() =>
+    tabParam === 'users' ? 'users' : 'roles'
+  );
+
+  // Sync tab with URL search parameters
+  useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab === 'permissions' || currentTab === 'matrix') {
+      setViewMode('permissions');
+    } else if (currentTab === 'users') {
+      setViewMode('roles');
+      setActiveTab('users');
+    } else {
+      setViewMode('roles');
+      setActiveTab('roles');
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    if (tabId === 'users') {
+      setSearchParams({ tab: 'users' });
+    } else {
+      setSearchParams({});
+    }
+  };
+
+  const handleOpenMatrix = (role = null) => {
+    if (role) setSelectedRoleForPermissions(role);
+    setViewMode('permissions');
+    setSearchParams({ tab: 'permissions' });
+  };
+
+  const handleBackToRoles = () => {
+    setViewMode('roles');
+    if (activeTab === 'users') {
+      setSearchParams({ tab: 'users' });
+    } else {
+      setSearchParams({});
+    }
+  };
 
   // Summary card active filter
   const [cardFilter, setCardFilter] = useState('all');
@@ -430,9 +473,9 @@ function RolePermissions() {
   const handleCardFilterClick = (filterType) => {
     setCardFilter(filterType);
     if (filterType === 'users') {
-      setActiveTab('users');
+      handleTabChange('users');
     } else {
-      setActiveTab('roles');
+      handleTabChange('roles');
     }
   };
 
@@ -442,16 +485,37 @@ function RolePermissions() {
         {/* Breadcrumb Bar */}
         <div className={styles.topBar}>
           <div className={styles.breadcrumb}>
-            <span>{isFromOrgSettings ? 'Organization Settings' : 'System'}</span>
-            <span className={styles.crumbDivider}>/</span>
-            <span className={styles.currentCrumb}>
-              {viewMode === 'permissions' ? 'Permission Matrix' : 'Role & Permissions'}
+            <span onClick={() => navigate('/admin/dashboard')} style={{ cursor: 'pointer' }}>
+              Dashboard
             </span>
+            <span className={styles.crumbDivider}>/</span>
+            <span 
+              onClick={handleBackToRoles}
+              style={{ 
+                cursor: (viewMode === 'permissions' || activeTab === 'users') ? 'pointer' : 'default',
+                color: (viewMode === 'permissions' || activeTab === 'users') ? 'var(--primary-color, #2563eb)' : 'inherit',
+                fontWeight: (viewMode === 'permissions' || activeTab === 'users') ? 500 : 600
+              }}
+            >
+              Role & Permissions
+            </span>
+            {viewMode === 'permissions' && (
+              <>
+                <span className={styles.crumbDivider}>/</span>
+                <span className={styles.currentCrumb}>Permission Matrix</span>
+              </>
+            )}
+            {viewMode !== 'permissions' && activeTab === 'users' && (
+              <>
+                <span className={styles.crumbDivider}>/</span>
+                <span className={styles.currentCrumb}>Assigned Users</span>
+              </>
+            )}
           </div>
 
           {viewMode === 'permissions' && (
             <button
-              onClick={() => setViewMode('roles')}
+              onClick={handleBackToRoles}
               className={styles.backBtn}
             >
               <RotateCcw size={16} />
@@ -464,10 +528,11 @@ function RolePermissions() {
         {viewMode === 'permissions' ? (
           <div className={styles.matrixWrapper}>
             <PermissionMatrix
+              role={selectedRoleForPermissions || roles[0]}
               roles={roles}
               initialSelectedRoleId={selectedRoleForPermissions ? (selectedRoleForPermissions.id || selectedRoleForPermissions.roleId) : roles[0]?.id}
               onSavePermissions={handleSavePermissions}
-              onBack={() => setViewMode('roles')}
+              onBack={handleBackToRoles}
             />
           </div>
         ) : (
@@ -485,10 +550,7 @@ function RolePermissions() {
 
               <div className={styles.headerActions}>
                 <button
-                  onClick={() => {
-                    setSelectedRoleForPermissions(roles[0]);
-                    setViewMode('permissions');
-                  }}
+                  onClick={() => handleOpenMatrix(roles[0])}
                   className={styles.matrixBtn}
                 >
                   <KeyRound size={16} />
@@ -516,23 +578,25 @@ function RolePermissions() {
             {/* Navigation Tabs (Roles List vs User Assignments) */}
             <div className={styles.tabsRow}>
               <div className={styles.tabsGroup}>
-                <button
-                  className={`${styles.tabBtn} ${activeTab === 'roles' ? styles.activeTab : ''}`}
-                  onClick={() => setActiveTab('roles')}
-                >
-                  <Shield size={16} />
-                  <span>Configured Roles</span>
-                  <span className={styles.tabBadge}>{roles.length}</span>
-                </button>
-
-                <button
-                  className={`${styles.tabBtn} ${activeTab === 'users' ? styles.activeTab : ''}`}
-                  onClick={() => setActiveTab('users')}
-                >
-                  <Users size={16} />
-                  <span>Assigned Users</span>
-                  <span className={styles.tabBadge}>{users.length}</span>
-                </button>
+                {activeTab === 'roles' ? (
+                  <button
+                    className={`${styles.tabBtn} ${styles.activeTab}`}
+                    style={{ cursor: 'default' }}
+                  >
+                    <Shield size={16} />
+                    <span>Configured Roles</span>
+                    <span className={styles.tabBadge}>{roles.length}</span>
+                  </button>
+                ) : (
+                  <button
+                    className={`${styles.tabBtn} ${styles.activeTab}`}
+                    style={{ cursor: 'default' }}
+                  >
+                    <Users size={16} />
+                    <span>Assigned Users</span>
+                    <span className={styles.tabBadge}>{users.length}</span>
+                  </button>
+                )}
               </div>
 
               <div className={styles.tabsActionWrap}>

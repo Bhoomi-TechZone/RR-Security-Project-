@@ -30,6 +30,21 @@ import { mockWorkLocations } from '../../data/workLocationsData';
 
 const ITEMS_PER_PAGE = 8;
 
+const TAB_LABELS = {
+  'banks': 'Banks',
+  'clients': 'Clients',
+  'departments': 'Departments',
+  'designations': 'Designations',
+  'employee-types': 'Employee Types',
+  'sites': 'Sites',
+  'posts': 'Posts',
+  'shifts': 'Shifts',
+  'leave-types': 'Leave Types',
+  'holidays': 'Holidays',
+  'salary-components': 'Salary Components',
+  'document-types': 'Document Types'
+};
+
 function Masters() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -48,8 +63,10 @@ function Masters() {
   // Sync tab with URL
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam) {
+    if (tabParam && TAB_LABELS[tabParam]) {
       setActiveTab(tabParam);
+    } else if (!tabParam) {
+      setActiveTab('banks');
     }
   }, [searchParams]);
 
@@ -501,7 +518,18 @@ function Masters() {
             Dashboard
           </span>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Masters</span>
+          <span 
+            className={activeTab ? styles.crumbLink : styles.crumbActive} 
+            onClick={() => handleTabChange('banks')}
+          >
+            Masters
+          </span>
+          {activeTab && (
+            <>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>{TAB_LABELS[activeTab] || activeTab}</span>
+            </>
+          )}
         </div>
 
         {/* Page Header */}

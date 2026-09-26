@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Download, MoreVertical, Package, PackageCheck, PackageOpen, Plus,
   RotateCcw, Search, X, AlertTriangle, ShieldCheck, DollarSign,
@@ -719,8 +720,22 @@ export default function Inventory() {
     }
   });
 
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Navigation & filter state
-  const [tab, setTab] = useState('stock'); // 'stock' | 'issued' | 'returns' | 'movement' | 'clearance'
+  const initialTab = searchParams.get('tab') || 'stock';
+  const [tab, setTab] = useState(initialTab); // 'stock' | 'issued' | 'returns' | 'movement' | 'clearance'
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['stock', 'issued', 'returns', 'movement', 'clearance'].includes(tabParam)) {
+      setTab(tabParam);
+    } else {
+      setTab('stock');
+    }
+  }, [searchParams]);
+
   const [filters, setFilters] = useState({ search: '', category: '', size: '', status: '' });
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
@@ -1193,17 +1208,29 @@ export default function Inventory() {
         )}
 
         {/* Breadcrumb */}
-        <div className={styles.breadcrumb}>
-          <span>Dashboard</span>
+        <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+          <button 
+            type="button" 
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary)', font: 'inherit' }}
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            Dashboard
+          </button>
           <span>/</span>
-          <strong>Admin Inventory & Asset Management</strong>
+          <strong>
+            {tab === 'issued' ? 'Issued Items' : tab === 'returns' ? 'Return History' : tab === 'movement' ? 'Stock Movements' : tab === 'clearance' ? 'Asset Exit Clearance' : 'Inventory Stock'}
+          </strong>
         </div>
 
         {/* Page Header */}
         <header className={styles.pageHeader}>
           <div>
-            <h1>Inventory Management</h1>
-            <p>Stock registers, uniform issues, return inspection & exit clearance</p>
+            <h1>
+              {tab === 'issued' ? 'Uniform & Asset Issue Register' : tab === 'returns' ? 'Uniform & Asset Return History' : tab === 'movement' ? 'Stock Movement & Audit Trail' : tab === 'clearance' ? 'Employee Exit Asset Clearance' : 'Inventory Management'}
+            </h1>
+            <p>
+              {tab === 'issued' ? 'Track issued uniform sets, safety gear, and assigned equipment to field personnel.' : tab === 'returns' ? 'Uniform inspection logs, returned condition grading, and recovery charges.' : tab === 'movement' ? 'Detailed inbound, outbound, opening balance, and adjustment transaction audit logs.' : tab === 'clearance' ? 'Separating employee no-due asset recovery, handover approvals, and clearance certificates.' : 'Stock registers, uniform issues, return inspection & exit clearance'}
+            </p>
           </div>
           <div className={styles.headerActions}>
             <button
@@ -1260,75 +1287,13 @@ export default function Inventory() {
         />
 
         {/* Dynamic Interactive Category Cards */}
-        <CategorySummary
-          items={items}
-          activeCategory={filters.category}
-          onSelectCategory={(cat) => setFilter('category', cat)}
-        />
-
-        {/* Primary Tabs */}
-        <div className={styles.tabs} role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'stock'}
-            className={tab === 'stock' ? styles.activeTab : ''}
-            onClick={() => {
-              setPage(1);
-              setTab('stock');
-            }}
-          >
-            Inventory Stock ({items.length})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'issued'}
-            className={tab === 'issued' ? styles.activeTab : ''}
-            onClick={() => {
-              setPage(1);
-              setTab('issued');
-            }}
-          >
-            Issued Items ({issued.length})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'returns'}
-            className={tab === 'returns' ? styles.activeTab : ''}
-            onClick={() => {
-              setPage(1);
-              setTab('returns');
-            }}
-          >
-            Return History ({returns.length})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'movement'}
-            className={tab === 'movement' ? styles.activeTab : ''}
-            onClick={() => {
-              setPage(1);
-              setTab('movement');
-            }}
-          >
-            Stock Movement Audit ({movements.length})
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === 'clearance'}
-            className={tab === 'clearance' ? styles.activeTab : ''}
-            onClick={() => {
-              setPage(1);
-              setTab('clearance');
-            }}
-          >
-            Asset Exit Clearance ({clearances.length})
-          </button>
-        </div>
+        {tab === 'stock' && (
+          <CategorySummary
+            items={items}
+            activeCategory={filters.category}
+            onSelectCategory={(cat) => setFilter('category', cat)}
+          />
+        )}
 
         {/* Section Header with Quick Actions */}
         <section className={styles.sectionIntro}>

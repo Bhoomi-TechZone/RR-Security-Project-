@@ -146,29 +146,185 @@ const NAV_GROUPS = [
           { path: '/admin/advances-loans?tab=history', name: 'Deduction History' },
         ]
       },
-      { path: '/admin/reimbursements', name: 'Reimbursements', icon: Receipt },
-      { path: '/admin/overtime', name: 'Overtime', icon: Timer },
+      { 
+        path: '/admin/reimbursements', 
+        name: 'Reimbursements', 
+        icon: Receipt,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/reimbursements', name: 'All Claims' },
+          { path: '/admin/reimbursements?status=pending', name: 'Pending Approvals' },
+          { path: '/admin/reimbursements?tab=expense-types', name: 'Expense Types Master' },
+          { path: '/admin/reimbursements?tab=reports', name: 'Reports & Analytics' },
+        ]
+      },
+      { 
+        path: '/admin/overtime', 
+        name: 'Overtime', 
+        icon: Timer,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/overtime', name: 'All Overtime' },
+          { path: '/admin/overtime?tab=requests', name: 'Pending Approvals' },
+          { path: '/admin/overtime?tab=history', name: 'Overtime History' },
+          { path: '/admin/overtime?tab=analytics', name: 'Client & Dept Analytics' },
+        ]
+      },
     ]
   },
   {
     title: 'MANAGEMENT',
     items: [
-      { path: '/admin/leave', name: 'Leave', icon: CalendarOff },
-      { path: '/admin/inventory', name: 'Inventory', icon: Package },
-      { path: '/admin/reports', name: 'Reports', icon: BarChart3 },
+      { 
+        path: '/admin/leave', 
+        name: 'Leave', 
+        icon: CalendarOff,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/leave', name: 'Leave Requests' },
+          { path: '/admin/leave?tab=balances', name: 'Employee Balances' },
+          { path: '/admin/leave?tab=master', name: 'Leave Master' },
+          { path: '/admin/leave?tab=calendar', name: 'Roster & Calendar' },
+        ]
+      },
+      { 
+        path: '/admin/inventory', 
+        name: 'Inventory', 
+        icon: Package,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/inventory', name: 'Inventory Stock' },
+          { path: '/admin/inventory?tab=issued', name: 'Issued Items' },
+          { path: '/admin/inventory?tab=returns', name: 'Return History' },
+          { path: '/admin/inventory?tab=movement', name: 'Stock Movements' },
+          { path: '/admin/inventory?tab=clearance', name: 'Asset Clearance' },
+        ]
+      },
+      { 
+        path: '/admin/reports', 
+        name: 'Reports', 
+        icon: BarChart3,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/reports', name: 'All Reports' },
+          { path: '/admin/reports?tab=attendance', name: 'Attendance Report' },
+          { path: '/admin/reports?tab=payroll', name: 'Payroll Report' },
+          { path: '/admin/reports?tab=billing', name: 'Billing Report' },
+          { path: '/admin/reports?tab=employee', name: 'Employee Master Report' },
+          { path: '/admin/reports?tab=inventory', name: 'Inventory Report' },
+        ]
+      },
     ]
   },
   {
     title: 'SETTINGS',
     items: [
-      { path: '/admin/work-locations', name: 'Work Locations', icon: MapPin },
-      { path: '/admin/masters', name: 'Masters', icon: Settings2 },
-      { path: '/admin/roles-permissions', name: 'Role & Permissions', icon: ShieldCheck },
-      { path: '/admin/users', name: 'User Management', icon: UserCog },
-      { path: '/admin/preferences', name: 'Preferences', icon: SlidersHorizontal },
-      { path: '/admin/templates', name: 'Templates', icon: FileText },
-      { path: '/admin/document-compliance', name: 'Document & Compliance', icon: FileCheck },
-      { path: '/admin/notifications', name: 'Notifications', icon: Bell },
+      { 
+        path: '/admin/work-locations', 
+        name: 'Work Locations', 
+        icon: MapPin,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/work-locations', name: 'All Locations' },
+          { path: '/admin/work-locations?type=head-office', name: 'Head Office' },
+          { path: '/admin/work-locations?type=branch', name: 'Branches' },
+        ]
+      },
+      { 
+        path: '/admin/masters', 
+        name: 'Masters', 
+        icon: Settings2,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/masters?tab=banks', name: 'Banks' },
+          { path: '/admin/masters?tab=clients', name: 'Clients' },
+          { path: '/admin/masters?tab=departments', name: 'Departments' },
+          { path: '/admin/masters?tab=designations', name: 'Designations' },
+          { path: '/admin/masters?tab=employee-types', name: 'Employee Types' },
+          { path: '/admin/masters?tab=sites', name: 'Sites' },
+          { path: '/admin/masters?tab=posts', name: 'Posts' },
+          { path: '/admin/masters?tab=shifts', name: 'Shifts' },
+          { path: '/admin/masters?tab=leave-types', name: 'Leave Types' },
+          { path: '/admin/masters?tab=holidays', name: 'Holidays' },
+          { path: '/admin/masters?tab=salary-components', name: 'Salary Components' },
+          { path: '/admin/masters?tab=document-types', name: 'Document Types' },
+        ]
+      },
+      { 
+        path: '/admin/roles-permissions', 
+        name: 'Role & Permissions', 
+        icon: ShieldCheck,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/roles-permissions', name: 'Configured Roles' },
+          { path: '/admin/roles-permissions?tab=users', name: 'Assigned Users' },
+          { path: '/admin/roles-permissions?tab=permissions', name: 'Permission Matrix' },
+        ]
+      },
+      { 
+        path: '/admin/users', 
+        name: 'User Management', 
+        icon: UserCog,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/users', name: 'All Users' },
+          { path: '/admin/users?status=active', name: 'Active Users' },
+          { path: '/admin/users?status=inactive', name: 'Inactive Users' },
+          { path: '/admin/roles-permissions', name: 'Roles & Access' },
+        ]
+      },
+      { 
+        path: '/admin/preferences', 
+        name: 'Preferences', 
+        icon: SlidersHorizontal,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/preferences', name: 'Overview' },
+          { path: '/admin/preferences?tab=employee-portal', name: 'Employee Portal' },
+          { path: '/admin/preferences?tab=reporting-manager', name: 'Manager Permissions' },
+          { path: '/admin/preferences?tab=email', name: 'Email Settings' },
+          { path: '/admin/preferences?tab=notifications', name: 'Notification Settings' },
+          { path: '/admin/preferences?tab=approvals', name: 'Approval Settings' },
+        ]
+      },
+      { 
+        path: '/admin/templates', 
+        name: 'Templates', 
+        icon: FileText,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/templates', name: 'Overview' },
+          { path: '/admin/templates?tab=salary-slip', name: 'Salary Slip' },
+          { path: '/admin/templates?tab=appointment-letter', name: 'Appointment Letter' },
+          { path: '/admin/templates?tab=joining-letter', name: 'Joining Letter' },
+          { path: '/admin/templates?tab=experience-letter', name: 'Experience Letter' },
+          { path: '/admin/templates?tab=full-final-letter', name: 'Full & Final Letter' },
+          { path: '/admin/templates?tab=email', name: 'Email Templates' },
+        ]
+      },
+      { 
+        path: '/admin/document-compliance', 
+        name: 'Docs & Compliance', 
+        icon: FileCheck,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/document-compliance', name: 'Overview' },
+          { path: '/admin/document-compliance?tab=document-master', name: 'Document Master' },
+          { path: '/admin/document-compliance?tab=verification-rules', name: 'Verification Rules' },
+          { path: '/admin/document-compliance?tab=expiry-alert', name: 'Expiry Alert' },
+          { path: '/admin/document-compliance?tab=police-verification', name: 'Police Verification' },
+        ]
+      },
+      { 
+        path: '/admin/notifications', 
+        name: 'Notifications', 
+        icon: Bell,
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/notifications', name: 'Announcements' },
+          { path: '/admin/notifications?tab=notifications', name: 'Notifications' },
+        ]
+      },
     ]
   }
 ];
@@ -188,7 +344,20 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/payroll': location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/'),
       '/admin/payroll-setup': location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/'),
       '/admin/statutory-setup': location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory',
-      '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')
+      '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/'),
+      '/admin/reimbursements': location.pathname === '/admin/reimbursements' || location.pathname.startsWith('/admin/reimbursements/'),
+      '/admin/overtime': location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/'),
+      '/admin/leave': location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/'),
+      '/admin/inventory': location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/'),
+      '/admin/reports': location.pathname === '/admin/reports' || location.pathname.startsWith('/admin/reports/'),
+      '/admin/work-locations': location.pathname === '/admin/work-locations' || location.pathname.startsWith('/admin/work-locations/'),
+      '/admin/masters': location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/'),
+      '/admin/roles-permissions': location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/'),
+      '/admin/users': location.pathname === '/admin/users' || location.pathname.startsWith('/admin/users/'),
+      '/admin/preferences': location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/'),
+      '/admin/templates': location.pathname === '/admin/templates' || location.pathname.startsWith('/admin/templates/'),
+      '/admin/document-compliance': location.pathname === '/admin/document-compliance' || location.pathname.startsWith('/admin/document-compliance/') || location.pathname === '/admin/settings/document-compliance',
+      '/admin/notifications': location.pathname === '/admin/notifications' || location.pathname.startsWith('/admin/notifications/')
     };
   });
 
@@ -220,6 +389,45 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/advances-loans': true }));
+    }
+    if (location.pathname === '/admin/reimbursements' || location.pathname.startsWith('/admin/reimbursements/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/reimbursements': true }));
+    }
+    if (location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/overtime': true }));
+    }
+    if (location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/leave': true }));
+    }
+    if (location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/inventory': true }));
+    }
+    if (location.pathname === '/admin/reports' || location.pathname.startsWith('/admin/reports/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/reports': true }));
+    }
+    if (location.pathname === '/admin/work-locations' || location.pathname.startsWith('/admin/work-locations/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/work-locations': true }));
+    }
+    if (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/masters': true }));
+    }
+    if (location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/roles-permissions': true }));
+    }
+    if (location.pathname === '/admin/users' || location.pathname.startsWith('/admin/users/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/users': true }));
+    }
+    if (location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/preferences': true }));
+    }
+    if (location.pathname === '/admin/templates' || location.pathname.startsWith('/admin/templates/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/templates': true }));
+    }
+    if (location.pathname === '/admin/document-compliance' || location.pathname.startsWith('/admin/document-compliance/') || location.pathname === '/admin/settings/document-compliance') {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/document-compliance': true }));
+    }
+    if (location.pathname === '/admin/notifications' || location.pathname.startsWith('/admin/notifications/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/notifications': true }));
     }
   }, [location.pathname]);
 
@@ -352,10 +560,11 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                     const currentFullUrl = location.pathname + location.search;
                                     let isSubActive = false;
                                     if (subItem.path.includes('?')) {
-                                      isSubActive = currentFullUrl === subItem.path;
+                                      isSubActive = currentFullUrl === subItem.path ||
+                                        (subItem.path.includes('tab=banks') && location.pathname === '/admin/masters' && !location.search) ||
+                                        (subItem.path.includes('section=company-profile') && location.pathname === '/admin/company-setup' && !location.search);
                                     } else {
-                                      isSubActive = (location.pathname === subItem.path && !location.search) ||
-                                        (subItem.path.includes('company-profile') && location.pathname === '/admin/company-setup' && !location.search);
+                                      isSubActive = (location.pathname === subItem.path && !location.search);
                                     }
 
                                     return (
