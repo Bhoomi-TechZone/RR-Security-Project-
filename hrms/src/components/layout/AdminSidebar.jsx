@@ -261,9 +261,15 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
         {/* Branding header */}
         <div className={styles.brandHeader}>
           <div className={styles.logoRow}>
-            <span className={styles.logoIcon}>
-              <Zap size={16} strokeWidth={2.5} color="#ffffff" fill="rgba(255,255,255,0.4)" />
-            </span>
+            {activeCompany?.logo ? (
+              <div className={styles.companyLogoWrap}>
+                <img src={activeCompany.logo} alt={activeCompany.name || 'Company'} className={styles.companyLogoImg} />
+              </div>
+            ) : (
+              <span className={styles.logoIcon}>
+                <Zap size={16} strokeWidth={2.5} color="#ffffff" fill="rgba(255,255,255,0.4)" />
+              </span>
+            )}
             {!isCollapsed && (
               <div className={styles.brandText}>
                 <span className={styles.appName} title={activeCompany.name}>

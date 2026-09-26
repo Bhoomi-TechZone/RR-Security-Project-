@@ -1,4 +1,5 @@
-import Company from '../models/companyModel.js';
+import mongoose from 'mongoose';
+import Company, { generateCompanyId } from '../models/companyModel.js';
 
 /**
  * @desc    Get all company profiles for current logged-in admin
@@ -17,26 +18,38 @@ export const getCompanies = async (req, res) => {
       ]
     }).sort({ isDefault: -1, createdAt: -1 });
 
-    // If no companies found, auto-create RR Security as default
+    // If no companies found, check if default exists or create one
     if (companies.length === 0) {
-      const defaultCompany = await Company.create({
-        name: 'RR Security',
-        code: 'RRS',
-        industry: 'Security & Facility Management Services',
-        email: adminEmail,
-        phone: '+91 9876543210',
-        address: 'Civil Lines, Bareilly, Uttar Pradesh 243001',
-        city: 'Bareilly',
-        state: 'Uttar Pradesh',
-        pinCode: '243001',
-        gstin: '09ABCDE1234F1Z5',
-        pan: 'ABCDE1234F',
-        tan: 'BLRA12345D',
-        adminEmail,
-        isDefault: true,
-        status: 'Active'
+      const existingCompany = await Company.findOne({
+        $or: [
+          { companyId: 'RRS8392014SEC' },
+          { isDefault: true }
+        ]
       });
-      companies = [defaultCompany];
+
+      if (existingCompany) {
+        companies = [existingCompany];
+      } else {
+        const defaultCompany = await Company.create({
+          companyId: 'RRS8392014SEC',
+          name: 'RR Security',
+          code: 'RRS',
+          industry: 'Security & Facility Management',
+          email: adminEmail,
+          phone: '+91 9876543210',
+          address: 'Civil Lines, Bareilly, Uttar Pradesh 243001',
+          city: 'Bareilly',
+          state: 'Uttar Pradesh',
+          pinCode: '243001',
+          gstin: '09ABCDE1234F1Z5',
+          pan: 'ABCDE1234F',
+          tan: 'BLRA12345D',
+          adminEmail,
+          isDefault: true,
+          status: 'Active'
+        });
+        companies = [defaultCompany];
+      }
     }
 
     return res.status(200).json({
@@ -54,6 +67,55 @@ export const getCompanies = async (req, res) => {
 };
 
 /**
+ * @desc    Get single company profile by ID or companyId
+ * @route   GET /api/companies/:id
+ * @access  Private
+ */
+export const getCompanyById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.user.email.toLowerCase();
+
+    const query = {
+      $and: [
+        {
+          $or: [
+            ...(mongoose.isValidObjectId(id) ? [{ _id: id }] : []),
+            { companyId: id }
+          ]
+        },
+        {
+          $or: [
+            { adminEmail },
+            { isDefault: true }
+          ]
+        }
+      ]
+    };
+
+    const company = await Company.findOne(query);
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company profile not found.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      company: company.toJSON()
+    });
+  } catch (error) {
+    console.error('Error fetching company details:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve company profile.'
+    });
+  }
+};
+
+/**
  * @desc    Create a new company profile
  * @route   POST /api/companies
  * @access  Private (Admin)
@@ -61,11 +123,14 @@ export const getCompanies = async (req, res) => {
 export const createCompany = async (req, res) => {
   try {
     const {
+      companyId,
       name,
       code,
       industry,
       email,
       phone,
+      alternatePhone,
+      alternateContact,
       address,
       city,
       state,
@@ -73,7 +138,12 @@ export const createCompany = async (req, res) => {
       gstin,
       pan,
       tan,
-      logo
+      logo,
+      dateFormat,
+      timeZone,
+      currency,
+      regionalSettings,
+      employeeCodeSeries
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -95,16 +165,21 @@ export const createCompany = async (req, res) => {
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: 'A company profile with this name already exists in your account.'
+        message: `A company profile named "${name.trim()}" already exists in your account.`
       });
     }
 
+    const generatedId = companyId || generateCompanyId(name.trim());
+
     const newCompany = await Company.create({
+      companyId: generatedId,
       name: name.trim(),
       code: companyCode,
       industry: industry || 'Security & Facility Management',
       email: (email || adminEmail).trim().toLowerCase(),
       phone: phone || '',
+      alternatePhone: alternatePhone || '',
+      alternateContact: alternateContact || alternatePhone || '',
       address: address || '',
       city: city || '',
       state: state || '',
@@ -113,6 +188,11 @@ export const createCompany = async (req, res) => {
       pan: (pan || '').toUpperCase(),
       tan: (tan || '').toUpperCase(),
       logo: logo || null,
+      dateFormat: dateFormat || 'DD/MM/YYYY',
+      timeZone: timeZone || 'Asia/Kolkata (IST +05:30)',
+      currency: currency || 'INR (₹)',
+      regionalSettings: regionalSettings || {},
+      employeeCodeSeries: employeeCodeSeries || null,
       adminEmail,
       status: 'Active',
       isDefault: false
@@ -142,10 +222,24 @@ export const updateCompany = async (req, res) => {
     const { id } = req.params;
     const adminEmail = req.user.email.toLowerCase();
 
-    const company = await Company.findOne({
-      _id: id,
-      $or: [{ adminEmail }, { isDefault: true }]
-    });
+    const query = {
+      $and: [
+        {
+          $or: [
+            ...(mongoose.isValidObjectId(id) ? [{ _id: id }] : []),
+            { companyId: id }
+          ]
+        },
+        {
+          $or: [
+            { adminEmail },
+            { isDefault: true }
+          ]
+        }
+      ]
+    };
+
+    const company = await Company.findOne(query);
 
     if (!company) {
       return res.status(404).json({
@@ -155,13 +249,20 @@ export const updateCompany = async (req, res) => {
     }
 
     const fields = [
-      'name', 'code', 'industry', 'email', 'phone',
-      'address', 'city', 'state', 'pinCode', 'gstin', 'pan', 'tan', 'logo', 'status'
+      'name', 'code', 'industry', 'email', 'phone', 'alternatePhone', 'alternateContact',
+      'address', 'city', 'state', 'pinCode', 'gstin', 'pan', 'tan', 'logo', 'status',
+      'dateFormat', 'timeZone', 'currency', 'regionalSettings', 'employeeCodeSeries'
     ];
 
     fields.forEach(field => {
       if (req.body[field] !== undefined) {
-        company[field] = req.body[field];
+        if (typeof req.body[field] === 'string' && ['code', 'gstin', 'pan', 'tan'].includes(field)) {
+          company[field] = req.body[field].trim().toUpperCase();
+        } else if (typeof req.body[field] === 'string') {
+          company[field] = req.body[field].trim();
+        } else {
+          company[field] = req.body[field];
+        }
       }
     });
 
@@ -176,7 +277,7 @@ export const updateCompany = async (req, res) => {
     console.error('Error updating company:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to update company profile.'
+      message: error.message || 'Failed to update company profile.'
     });
   }
 };
@@ -191,7 +292,19 @@ export const deleteCompany = async (req, res) => {
     const { id } = req.params;
     const adminEmail = req.user.email.toLowerCase();
 
-    const company = await Company.findOne({ _id: id, adminEmail });
+    const query = {
+      $and: [
+        {
+          $or: [
+            ...(mongoose.isValidObjectId(id) ? [{ _id: id }] : []),
+            { companyId: id }
+          ]
+        },
+        { adminEmail }
+      ]
+    };
+
+    const company = await Company.findOne(query);
 
     if (!company) {
       return res.status(404).json({
@@ -207,7 +320,7 @@ export const deleteCompany = async (req, res) => {
       });
     }
 
-    await Company.deleteOne({ _id: id });
+    await Company.deleteOne({ _id: company._id });
 
     return res.status(200).json({
       success: true,
@@ -217,7 +330,7 @@ export const deleteCompany = async (req, res) => {
     console.error('Error deleting company:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to delete company profile.'
+      message: error.message || 'Failed to delete company profile.'
     });
   }
 };

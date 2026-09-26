@@ -183,7 +183,13 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
           align="right"
           trigger={
             <button className={styles.profileTrigger} aria-label="Profile options menu">
-              <Avatar initials={activeCompany?.code ? activeCompany.code.substring(0, 2) : 'RR'} size="sm" status={null} />
+              <Avatar 
+                src={activeCompany?.logo} 
+                initials={activeCompany?.code ? activeCompany.code.substring(0, 2) : 'RR'} 
+                name={activeCompany?.name || 'RR Security'}
+                size="sm" 
+                status={null} 
+              />
               <div className={styles.profileMeta}>
                 <span className={styles.profileName}>{activeCompany?.name || 'RR Security'}</span>
                 <span className={styles.profileRole}>Administrator</span>
@@ -213,13 +219,13 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
             </div>
 
             {(companies || []).map((comp) => {
-              const isActive = comp.id === activeCompany?.id;
+              const isActive = comp.id === activeCompany?.id || comp.companyId === activeCompany?.companyId;
               return (
-                <li key={comp.id} className={styles.dropdownItem}>
+                <li key={comp.id || comp.companyId} className={styles.dropdownItem}>
                   <button
                     type="button"
                     onClick={() => {
-                      switchCompany(comp.id);
+                      switchCompany(comp.id || comp.companyId);
                       setToast({
                         message: `Switched to ${comp.name} profile`,
                         type: 'success'
@@ -228,7 +234,11 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
                     className={`${styles.dropdownLink} ${isActive ? styles.companyItemActive : ''}`}
                     title={comp.name}
                   >
-                    <Building2 size={14} />
+                    {comp.logo ? (
+                      <img src={comp.logo} alt={comp.name} className={styles.companyDropdownLogo} />
+                    ) : (
+                      <Building2 size={14} />
+                    )}
                     <div className={styles.companyItemMeta}>
                       <span className={styles.companyItemName}>{comp.name}</span>
                       <span className={styles.companyItemCode}>{comp.code}</span>

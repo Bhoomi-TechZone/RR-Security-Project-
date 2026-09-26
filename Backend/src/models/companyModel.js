@@ -49,6 +49,16 @@ const companySchema = new mongoose.Schema(
       default: '',
       trim: true,
     },
+    alternatePhone: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    alternateContact: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     address: {
       type: String,
       default: '',
@@ -89,6 +99,29 @@ const companySchema = new mongoose.Schema(
     },
     logo: {
       type: String,
+      default: null,
+    },
+    dateFormat: {
+      type: String,
+      default: 'DD/MM/YYYY',
+      trim: true,
+    },
+    timeZone: {
+      type: String,
+      default: 'Asia/Kolkata (IST +05:30)',
+      trim: true,
+    },
+    currency: {
+      type: String,
+      default: 'INR (₹)',
+      trim: true,
+    },
+    regionalSettings: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    employeeCodeSeries: {
+      type: mongoose.Schema.Types.Mixed,
       default: null,
     },
     adminEmail: {

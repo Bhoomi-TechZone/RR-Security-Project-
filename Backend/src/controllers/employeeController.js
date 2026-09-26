@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Employee from '../models/employeeModel.js';
+import Company from '../models/companyModel.js';
 
 /**
  * @desc    Get all employees for the active company profile
@@ -155,7 +156,53 @@ export const createEmployee = async (req, res) => {
       });
     }
 
-    const resolvedEmpId = employeeId || employeeCode || `EMP${Math.floor(1000 + Math.random() * 9000)}`;
+    // Fetch company configuration to resolve prefix & numbering series
+    const company = await Company.findOne({
+      $or: [
+        ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+        { companyId }
+      ]
+    });
+
+    const companySeries = company?.employeeCodeSeries;
+    const companyPrefix = (companySeries?.prefix || company?.code || 'EMP').trim().toUpperCase();
+    const separator = companySeries?.separator !== undefined ? companySeries.separator : '-';
+    const padding = Number(companySeries?.padding) || 3;
+    const startNumber = Number(companySeries?.startingNumber) || 1;
+
+    // Dynamically calculate sequence from actual database employee count for this company
+    const existingEmployeeCount = await Employee.countDocuments({ companyId, adminEmail });
+    const currentSeq = startNumber + existingEmployeeCount;
+
+    let resolvedEmpId = (employeeId || employeeCode || '').trim();
+
+    if (!resolvedEmpId) {
+      // Auto-generate using dynamic database sequence and company rules
+      const yearPart = companySeries?.yearFormat === 'YYYY' ? String(new Date().getFullYear()) : companySeries?.yearFormat === 'YY' ? String(new Date().getFullYear()).slice(-2) : '';
+      const monthPart = companySeries?.monthFormat === 'MM' ? String(new Date().getMonth() + 1).padStart(2, '0') : '';
+      const seqPart = String(currentSeq).padStart(padding, '0');
+      const parts = [companyPrefix, yearPart, monthPart, seqPart].filter(Boolean);
+      resolvedEmpId = parts.join(separator);
+
+      // Increment sequence for company
+      if (company) {
+        company.employeeCodeSeries = {
+          ...(company.employeeCodeSeries || {}),
+          prefix: companyPrefix,
+          separator,
+          padding,
+          startingNumber: startNumber,
+          currentNumber: currentSeq + 1,
+          lastUsedNumber: currentSeq,
+          lastUpdated: new Date().toLocaleString()
+        };
+        await company.save();
+      }
+    } else if (/^\d+$/.test(resolvedEmpId)) {
+      // If user provided only raw digits (e.g. 1 or 4534545), pad to configured sequence digits and prepend prefix
+      const formattedSeq = resolvedEmpId.length < padding ? resolvedEmpId.padStart(padding, '0') : resolvedEmpId;
+      resolvedEmpId = `${companyPrefix}${separator}${formattedSeq}`;
+    }
 
     const numBasic = Number(basic) || 0;
     const numVda = Number(vda) || 0;

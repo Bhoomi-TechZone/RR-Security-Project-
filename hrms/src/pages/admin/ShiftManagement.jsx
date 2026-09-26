@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useSearchParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
   ChevronLeft,
@@ -12,70 +12,83 @@ import {
   Search,
   UserRoundX,
   Users,
-  X
+  X,
+  Trash2,
+  Edit2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
-import { mockCompanies } from '../../data/companyData';
-import { mockEmployees, mockDepartments } from '../../data/employeeData';
-import { mockShiftPatterns, shiftDepartments, shiftSites } from '../../data/shiftData';
-import { mockShiftRoster, mockUnassignedEmployees } from '../../data/shiftRosterData';
+import { useCompany } from '../../context/CompanyContext';
+import { shiftService } from '../../services/shiftService';
+import { authService } from '../../services/authService';
 import styles from './ShiftManagement.module.css';
 
-const ROSTER_KEY = 'novaspark_shift_roster';
-const PATTERNS_KEY = 'novaspark_shift_patterns';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 const PAGE_SIZE = 10;
-const DEFAULT_DATE = '2026-08-24';
+const getTodayDate = () => new Date().toISOString().split('T')[0];
 
 const formatDate = (value) => {
   if (!value) return '—';
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  }).format(new Date(`${value}T00:00:00`));
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date(`${value}T00:00:00`));
+  } catch {
+    return value;
+  }
 };
 
 const displayType = (type) => {
-  if (type === 'rotational') return 'Rotational';
-  if (type === 'night') return 'Night';
+  if (!type) return '—';
+  const t = String(type).toLowerCase();
+  if (t === 'rotational') return 'Rotational';
+  if (t === 'night') return 'Night';
   return 'Day';
 };
 
 const displayTime = (value) => {
   if (!value) return 'Variable';
-  const [hours, minutes] = value.split(':').map(Number);
-  const suffix = hours >= 12 ? 'PM' : 'AM';
-  const hour = hours % 12 || 12;
-  return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${suffix}`;
+  try {
+    const [hours, minutes] = value.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) return value;
+    const suffix = hours >= 12 ? 'PM' : 'AM';
+    const hour = hours % 12 || 12;
+    return `${String(hour).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${suffix}`;
+  } catch {
+    return value;
+  }
 };
 
 const timeRange = (item) => {
+  if (!item) return 'Variable';
   return item.startTime
     ? `${displayTime(item.startTime)} - ${displayTime(item.endTime)}`
     : 'Variable';
 };
 
-function SummaryCards({ roster, patterns }) {
-  const assignedEmployees = new Set(
-    roster.filter((item) => item.status !== 'unassigned').map((item) => item.employeeId)
-  ).size;
+function SummaryCards({ stats, patterns, roster }) {
+  const totalShifts = stats?.totalShifts ?? patterns.length;
+  const activeShifts = stats?.activeShifts ?? patterns.filter(p => p.status === 'active').length;
+  const assigned = stats?.employeesAssigned ?? new Set(roster.filter(r => r.status !== 'unassigned').map(r => r.employeeId)).size;
+  const unassigned = stats?.unassignedEmployees ?? roster.filter(r => r.status === 'unassigned').length;
 
   const cards = [
-    { label: 'Total Shifts', value: patterns.length + 7, icon: Layers3, tone: styles.blue },
+    { label: 'Total Shifts', value: totalShifts, icon: Layers3, tone: styles.blue },
     {
       label: 'Active Shifts',
-      value: patterns.filter((item) => item.status === 'active').length + 4,
+      value: activeShifts,
       icon: CircleCheck,
       tone: styles.green
     },
-    { label: 'Employees Assigned', value: '1,184', icon: Users, tone: styles.purple },
+    { label: 'Employees Assigned', value: assigned, icon: Users, tone: styles.purple },
     {
       label: 'Unassigned Employees',
-      value: Math.max(66, mockUnassignedEmployees.length + (1184 - assignedEmployees)),
+      value: unassigned,
       icon: UserRoundX,
       tone: styles.orange
     }
@@ -98,10 +111,10 @@ function SummaryCards({ roster, patterns }) {
   );
 }
 
-function PatternSummary({ patterns }) {
+function PatternSummary({ patterns, stats }) {
   const counts = ['day', 'night', 'rotational'].map((type) => ({
     type,
-    count: patterns.filter((item) => item.type === type).length
+    count: stats?.patternsByType?.[type] ?? patterns.filter((item) => (item.type || 'day').toLowerCase() === type).length
   }));
 
   return (
@@ -109,7 +122,7 @@ function PatternSummary({ patterns }) {
       <div className={styles.sectionHeader}>
         <div>
           <h2 className={styles.sectionTitle}>Shift Patterns</h2>
-          <p className={styles.sectionSubtext}>Configured workforce patterns</p>
+          <p className={styles.sectionSubtext}>Configured workforce patterns for active company profile</p>
         </div>
       </div>
       <div className={styles.patternSummaryGrid}>
@@ -127,7 +140,7 @@ function PatternSummary({ patterns }) {
   );
 }
 
-function Filters({ values, setValue, onReset, patterns }) {
+function Filters({ values, setValue, onReset, patterns, clients, sites, departments }) {
   const field = (label, key, options, placeholder) => (
     <div className={styles.field}>
       <label className={styles.fieldLabel}>{label}</label>
@@ -165,16 +178,11 @@ function Filters({ values, setValue, onReset, patterns }) {
         {field(
           'Client',
           'client',
-          mockCompanies.map((item) => ({ value: item.name, label: item.name })),
+          clients.map((c) => ({ value: c.name, label: c.name })),
           'All Clients'
         )}
-        {field('Site', 'site', shiftSites, 'All Sites')}
-        {field(
-          'Department',
-          'department',
-          [...new Set([...shiftDepartments, ...mockDepartments])],
-          'All Departments'
-        )}
+        {field('Site', 'site', sites, 'All Sites')}
+        {field('Department', 'department', departments, 'All Departments')}
         {field(
           'Shift',
           'shift',
@@ -244,23 +252,22 @@ function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id}>
+              <tr key={row.id || row._id || `${row.employeeId}-${row.date}`}>
                 <td>
                   <div className={styles.employeeCell}>
-                    <span className={styles.avatar}>{row.initials}</span>
+                    <span className={styles.avatar}>{row.initials || (row.employeeName ? row.employeeName.substring(0, 2).toUpperCase() : 'EM')}</span>
                     <strong>{row.employeeName}</strong>
                   </div>
                 </td>
                 <td className={styles.muted}>{row.employeeId}</td>
-                <td>{row.clientName}</td>
-                <td>{row.site}</td>
-                <td>{row.department}</td>
+                <td>{row.clientName || '—'}</td>
+                <td>{row.site || '—'}</td>
+                <td>{row.department || 'Security'}</td>
                 <td className={styles.shiftName}>{row.shiftName}</td>
                 <td>
                   <span
-                    className={`${styles.typeBadge} ${
-                      styles[row.shiftType || 'unassigned']
-                    }`}
+                    className={`${styles.typeBadge} ${styles[(row.shiftType || 'unassigned').toLowerCase()]
+                      }`}
                   >
                     {row.shiftType ? displayType(row.shiftType) : '—'}
                   </span>
@@ -273,8 +280,8 @@ function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
                     {row.status === 'unassigned'
                       ? 'Unassigned'
                       : row.status === 'active'
-                      ? 'Active'
-                      : 'Inactive'}
+                        ? 'Active'
+                        : 'Inactive'}
                   </StatusBadge>
                 </td>
                 <td className={styles.actionCell}>
@@ -354,15 +361,13 @@ function DetailsDrawer({ record, onClose, onEdit, onChange }) {
   if (!record) return null;
 
   const detailFields = [
-    ['Client', record.clientName],
-    ['Site', record.site],
-    ['Department', record.department],
-    ['Shift', record.shiftName],
+    ['Client', record.clientName || '—'],
+    ['Site', record.site || '—'],
+    ['Department', record.department || 'Security'],
+    ['Shift', record.shiftName || 'Unassigned'],
     ['Shift Type', record.shiftType ? displayType(record.shiftType) : 'Unassigned'],
-    ['Shift Start Date', formatDate(record.startDate || record.date)],
+    ['Shift Date', formatDate(record.startDate || record.date)],
     ...(record.endDate && record.endDate !== (record.startDate || record.date)
-      ? [['Shift End Date', formatDate(record.endDate)]]
-      : record.endDate
       ? [['Shift End Date', formatDate(record.endDate)]]
       : []),
     ['Start Time', displayTime(record.startTime)],
@@ -444,6 +449,24 @@ function ShiftForm({ open, editing, onClose, onSave }) {
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    if (editing) {
+      setForm({
+        name: editing.name || '',
+        type: editing.type || 'day',
+        startTime: editing.startTime || '',
+        endTime: editing.endTime || '',
+        gracePeriod: editing.gracePeriod ?? 15,
+        breakDuration: editing.breakDuration ?? 30,
+        status: editing.status || 'active',
+        description: editing.description || '',
+        id: editing.id || editing._id
+      });
+    } else {
+      setForm(empty);
+    }
+  }, [editing, open]);
+
   if (!open) return null;
 
   const update = (key, value) =>
@@ -460,7 +483,7 @@ function ShiftForm({ open, editing, onClose, onSave }) {
       onSave({
         ...form,
         name: form.name.trim(),
-        id: editing?.id || Date.now()
+        id: editing?.id || editing?._id
       });
     }
   };
@@ -473,7 +496,7 @@ function ShiftForm({ open, editing, onClose, onSave }) {
             className={styles.input}
             value={form.name}
             onChange={(event) => update('name', event.target.value)}
-            placeholder="Enter shift name"
+            placeholder="Enter shift name (e.g. Morning Patrol Shift)"
           />
         </FormField>
         <FormField label="Shift Type" error={errors.type}>
@@ -503,7 +526,7 @@ function ShiftForm({ open, editing, onClose, onSave }) {
             onChange={(event) => update('endTime', event.target.value)}
           />
         </FormField>
-        <FormField label="Grace Period">
+        <FormField label="Grace Period (minutes)">
           <input
             className={styles.input}
             type="number"
@@ -512,7 +535,7 @@ function ShiftForm({ open, editing, onClose, onSave }) {
             onChange={(event) => update('gracePeriod', event.target.value)}
           />
         </FormField>
-        <FormField label="Break Duration">
+        <FormField label="Break Duration (minutes)">
           <input
             className={styles.input}
             type="number"
@@ -595,43 +618,61 @@ function ModalActions({ onClose, onSave, saveLabel }) {
   );
 }
 
-function AssignModal({ open, editing, patterns, onClose, onSave }) {
+function AssignModal({ open, editing, patterns, employees, clients, sites, onClose, onSave }) {
   const initialEmployee = editing?.employeeId
-    ? mockEmployees.find((item) => item.employeeId === editing.employeeId)
+    ? employees.find((item) => (item.employeeId === editing.employeeId || item._id === editing.employeeId))
     : null;
 
   const empty = {
-    clientName: editing?.clientName || initialEmployee?.companyName || '',
+    clientName: editing?.clientName || initialEmployee?.companyName || initialEmployee?.clientName || '',
     employeeId: editing?.employeeId || '',
-    site: editing?.site || initialEmployee?.siteLocation || '',
+    site: editing?.site || initialEmployee?.siteLocation || initialEmployee?.site || '',
     shiftId: editing?.shiftId ? String(editing.shiftId) : '',
-    startDate: editing?.startDate || editing?.date || DEFAULT_DATE,
-    endDate: editing?.endDate || editing?.date || DEFAULT_DATE,
-    date: editing?.date || editing?.startDate || DEFAULT_DATE
+    startDate: editing?.startDate || editing?.date || getTodayDate(),
+    endDate: editing?.endDate || editing?.date || getTodayDate(),
+    date: editing?.date || editing?.startDate || getTodayDate()
   };
 
   const [form, setForm] = useState(empty);
   const [errors, setErrors] = useState({});
 
+  useEffect(() => {
+    if (editing) {
+      setForm({
+        clientName: editing.clientName || '',
+        employeeId: editing.employeeId || '',
+        site: editing.site || '',
+        shiftId: editing.shiftId ? String(editing.shiftId) : '',
+        startDate: editing.startDate || editing.date || getTodayDate(),
+        endDate: editing.endDate || editing.date || getTodayDate(),
+        date: editing.date || editing.startDate || getTodayDate()
+      });
+    } else {
+      setForm(empty);
+    }
+  }, [editing, open]);
+
   if (!open) return null;
 
-  const employee = mockEmployees.find((item) => item.employeeId === form.employeeId);
+  const selectedEmployeeObj = employees.find((item) => (item.employeeId === form.employeeId || item._id === form.employeeId));
 
-  // Filter employees belonging to the selected client
+  // Available employees (filtered by selected client if any, otherwise all)
   const availableEmployees = form.clientName
-    ? mockEmployees.filter(
-        (item) =>
-          item.companyName === form.clientName ||
-          item.companyId === form.clientName
-      )
-    : [];
+    ? employees.filter(
+      (item) =>
+        item.companyName === form.clientName ||
+        item.clientName === form.clientName ||
+        item.clientId === form.clientName ||
+        item.companyId === form.clientName
+    )
+    : employees;
 
   const handleClientChange = (clientName) => {
     setForm((current) => {
-      const empBelongs = mockEmployees.some(
+      const empBelongs = employees.some(
         (item) =>
-          item.employeeId === current.employeeId &&
-          (item.companyName === clientName || item.companyId === clientName)
+          (item.employeeId === current.employeeId || item._id === current.employeeId) &&
+          (item.companyName === clientName || item.clientName === clientName)
       );
 
       return {
@@ -646,10 +687,11 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
   };
 
   const handleEmployeeChange = (employeeId) => {
-    const selectedEmp = mockEmployees.find((item) => item.employeeId === employeeId);
+    const selectedEmp = employees.find((item) => (item.employeeId === employeeId || item._id === employeeId));
     setForm((current) => ({
       ...current,
       employeeId,
+      clientName: current.clientName || selectedEmp?.clientName || selectedEmp?.companyName || '',
       site: current.site || selectedEmp?.siteLocation || selectedEmp?.site || ''
     }));
     if (errors.employeeId) {
@@ -666,10 +708,8 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
 
   const save = () => {
     const next = {};
-    if (!form.clientName) next.clientName = 'Client is required.';
-    if (!form.employeeId) next.employeeId = 'Employee is required.';
-    if (!form.site) next.site = 'Site is required.';
-    if (!form.shiftId) next.shiftId = 'Shift is required.';
+    if (!form.employeeId) next.employeeId = 'Employee selection is required.';
+    if (!form.shiftId) next.shiftId = 'Shift selection is required.';
     if (!form.startDate && !form.date) next.startDate = 'Shift start date is required.';
     if (!form.endDate) next.endDate = 'Shift end date is required.';
     if (form.startDate && form.endDate && form.startDate > form.endDate) {
@@ -682,66 +722,66 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
         date: form.startDate || form.date,
         startDate: form.startDate || form.date,
         endDate: form.endDate,
-        shiftId: Number(form.shiftId),
-        employee
+        shiftId: form.shiftId,
+        employee: selectedEmployeeObj
       });
     }
   };
 
   return (
     <Modal
-      title={editing ? 'Edit Roster' : 'Assign Employee to Shift'}
+      title={editing ? 'Edit Roster Assignment' : 'Assign Employee to Shift'}
       onClose={onClose}
     >
       <div className={styles.formGrid}>
         {/* 1. Client Select */}
-        <FormField label="Client" error={errors.clientName}>
+        <FormField label="Client (Optional Filter)" error={errors.clientName}>
           <select
             className={styles.select}
             value={form.clientName}
             onChange={(event) => handleClientChange(event.target.value)}
             disabled={Boolean(editing)}
           >
-            <option value="">Select client</option>
-            {mockCompanies.map((item) => (
-              <option key={item.id} value={item.name}>
+            <option value="">All Clients / Companies</option>
+            {clients.map((item) => (
+              <option key={item.id || item._id || item.name} value={item.name}>
                 {item.name}
               </option>
             ))}
           </select>
         </FormField>
 
-        {/* 2. Employee Select (Filtered by Client) */}
-        <FormField label="Employee" error={errors.employeeId}>
+        {/* 2. Employee Select */}
+        <FormField label="Employee *" error={errors.employeeId}>
           <select
             className={styles.select}
             value={form.employeeId}
             onChange={(event) => handleEmployeeChange(event.target.value)}
-            disabled={Boolean(editing) || !form.clientName}
+            disabled={Boolean(editing)}
           >
-            <option value="">
-              {form.clientName ? 'Select employee' : 'Select client first'}
-            </option>
-            {availableEmployees.map((item) => (
-              <option key={item.employeeId} value={item.employeeId}>
-                {item.name} — {item.employeeId}
+            <option value="">Select employee</option>
+            {(availableEmployees.length > 0 ? availableEmployees : employees).map((item) => (
+              <option key={item.employeeId || item._id} value={item.employeeId}>
+                {item.name} — ({item.employeeId || item.employeeCode || 'ID'})
               </option>
             ))}
           </select>
         </FormField>
 
         {/* 3. Site */}
-        <FormField label="Site" error={errors.site}>
-          <select
-            className={styles.select}
+        <FormField label="Site / Location" error={errors.site}>
+          <input
+            className={styles.input}
+            list="site-suggestions"
+            placeholder="e.g. Main Gate, Building 4, Warehouse A"
             value={form.site}
             onChange={(event) => update('site', event.target.value)}
-          >
-            <option value="">Select site</option>
-            {shiftSites.map((site) => (
-              <option key={site} value={site}>{site}</option>
+          />
+          <datalist id="site-suggestions">
+            {sites.map((s) => (
+              <option key={s} value={s} />
             ))}
-          </select>
+          </datalist>
         </FormField>
 
         {/* 4. Department */}
@@ -749,13 +789,13 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
           <input
             className={styles.input}
             readOnly
-            value={employee?.department || ''}
-            placeholder={form.employeeId ? '' : 'Auto-filled from employee'}
+            value={selectedEmployeeObj?.department || 'Security'}
+            placeholder="Department"
           />
         </FormField>
 
         {/* 5. Shift */}
-        <FormField label="Shift" error={errors.shiftId}>
+        <FormField label="Shift *" error={errors.shiftId}>
           <select
             className={styles.select}
             value={form.shiftId}
@@ -763,18 +803,15 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
           >
             <option value="">Select shift</option>
             {patterns.map((item) => (
-              <option key={item.id} value={item.id}>
+              <option key={item.id || item._id || item.shiftId} value={item.shiftId || item._id || item.id}>
                 {item.name} — {timeRange(item)}
               </option>
             ))}
           </select>
         </FormField>
 
-        {/* Empty placeholder to keep next fields on aligned row if needed */}
-        <div style={{ display: 'none' }} />
-
         {/* 6. Shift Start Date */}
-        <FormField label="Shift Start Date" error={errors.startDate || errors.date}>
+        <FormField label="Shift Start Date *" error={errors.startDate || errors.date}>
           <input
             className={styles.input}
             type="date"
@@ -787,7 +824,7 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
         </FormField>
 
         {/* 7. Shift End Date */}
-        <FormField label="Shift End Date" error={errors.endDate}>
+        <FormField label="Shift End Date *" error={errors.endDate}>
           <input
             className={styles.input}
             type="date"
@@ -807,7 +844,7 @@ function AssignModal({ open, editing, patterns, onClose, onSave }) {
 
 function ChangeShiftModal({ record, patterns, onClose, onSave }) {
   const [shiftId, setShiftId] = useState(String(record?.shiftId || ''));
-  const [date, setDate] = useState(record?.date || DEFAULT_DATE);
+  const [date, setDate] = useState(record?.date || getTodayDate());
 
   if (!record) return null;
 
@@ -815,7 +852,7 @@ function ChangeShiftModal({ record, patterns, onClose, onSave }) {
     <Modal title="Change Shift" onClose={onClose}>
       <div className={styles.changeSummary}>
         <span>Employee</span>
-        <strong>{record.employeeName}</strong>
+        <strong>{record.employeeName} ({record.employeeId})</strong>
         <span>Current Shift</span>
         <strong>{record.shiftName} · {timeRange(record)}</strong>
       </div>
@@ -826,9 +863,9 @@ function ChangeShiftModal({ record, patterns, onClose, onSave }) {
             value={shiftId}
             onChange={(event) => setShiftId(event.target.value)}
           >
-            <option value="">Select shift</option>
+            <option value="">Select new shift</option>
             {patterns.map((item) => (
-              <option key={item.id} value={item.id}>
+              <option key={item.id || item._id || item.shiftId} value={item.shiftId || item._id || item.id}>
                 {item.name} — {timeRange(item)}
               </option>
             ))}
@@ -845,7 +882,7 @@ function ChangeShiftModal({ record, patterns, onClose, onSave }) {
       </div>
       <ModalActions
         onClose={onClose}
-        onSave={() => onSave({ shiftId: Number(shiftId), date })}
+        onSave={() => onSave({ shiftId, date })}
         saveLabel="Change Shift"
       />
     </Modal>
@@ -869,7 +906,7 @@ function UnassignModal({ record, onClose, onConfirm }) {
   );
 }
 
-function PatternTable({ patterns, onEdit }) {
+function PatternTable({ patterns, onEdit, onDelete }) {
   return (
     <div className={styles.tableCard}>
       <div className={styles.tableWrapper}>
@@ -882,36 +919,48 @@ function PatternTable({ patterns, onEdit }) {
               <th>End Time</th>
               <th>Break</th>
               <th>Grace Period</th>
-              <th>Employees</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {patterns.map((item) => (
-              <tr key={item.id}>
+              <tr key={item.id || item._id || item.shiftId}>
                 <td className={styles.shiftName}>{item.name}</td>
                 <td>
-                  <span className={`${styles.typeBadge} ${styles[item.type]}`}>
+                  <span className={`${styles.typeBadge} ${styles[(item.type || 'day').toLowerCase()]}`}>
                     {displayType(item.type)}
                   </span>
                 </td>
                 <td>{displayTime(item.startTime)}</td>
                 <td>{displayTime(item.endTime)}</td>
-                <td>{item.breakDuration} min</td>
-                <td>{item.gracePeriod} min</td>
-                <td>{Math.round(250 + item.id * 37)} Employees</td>
+                <td>{item.breakDuration || 30} min</td>
+                <td>{item.gracePeriod || 15} min</td>
                 <td>
                   <StatusBadge status={item.status}>{item.status}</StatusBadge>
                 </td>
                 <td>
-                  <button
-                    type="button"
-                    className={styles.smallAction}
-                    onClick={() => onEdit(item)}
-                  >
-                    Edit Shift
-                  </button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      className={styles.smallAction}
+                      onClick={() => onEdit(item)}
+                      title="Edit shift details"
+                    >
+                      <Edit2 size={13} style={{ marginRight: '4px' }} /> Edit
+                    </button>
+                    {onDelete && (
+                      <button
+                        type="button"
+                        className={styles.smallAction}
+                        style={{ color: 'var(--danger, #ef4444)' }}
+                        onClick={() => onDelete(item)}
+                        title="Delete shift"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
@@ -923,7 +972,7 @@ function PatternTable({ patterns, onEdit }) {
 }
 
 function CalendarView({ roster, selectedDate, setSelectedDate }) {
-  const [month, setMonth] = useState(new Date('2026-08-01T00:00:00'));
+  const [month, setMonth] = useState(() => new Date(selectedDate ? `${selectedDate}T00:00:00` : new Date()));
   const [view, setView] = useState('month');
   const [dayRecords, setDayRecords] = useState(null);
 
@@ -933,7 +982,9 @@ function CalendarView({ roster, selectedDate, setSelectedDate }) {
   const recordsByDate = useMemo(
     () =>
       roster.reduce((map, item) => {
-        (map[item.date] ||= []).push(item);
+        if (item.date) {
+          (map[item.date] ||= []).push(item);
+        }
         return map;
       }, {}),
     [roster]
@@ -942,7 +993,9 @@ function CalendarView({ roster, selectedDate, setSelectedDate }) {
   const shiftCounts = (date) =>
     Object.values(
       (recordsByDate[date] || []).reduce((map, item) => {
-        map[item.shiftName] = (map[item.shiftName] || 0) + 1;
+        if (item.shiftName && item.status !== 'unassigned') {
+          map[item.shiftName] = (map[item.shiftName] || 0) + 1;
+        }
         return map;
       }, {})
     );
@@ -959,10 +1012,18 @@ function CalendarView({ roster, selectedDate, setSelectedDate }) {
     return (
       <div className={styles.calendarCard}>
         <CalendarHeader
-          label="Week of 24 Aug 2026"
-          onPrevious={() => setSelectedDate('2026-08-23')}
-          onNext={() => setSelectedDate('2026-08-30')}
-          onToday={() => setSelectedDate(DEFAULT_DATE)}
+          label={`Week of ${formatDate(selectedDate)}`}
+          onPrevious={() => {
+            const d = new Date(selectedDate);
+            d.setDate(d.getDate() - 7);
+            setSelectedDate(d.toISOString().split('T')[0]);
+          }}
+          onNext={() => {
+            const d = new Date(selectedDate);
+            d.setDate(d.getDate() + 7);
+            setSelectedDate(d.toISOString().split('T')[0]);
+          }}
+          onToday={() => setSelectedDate(getTodayDate())}
           view={view}
           setView={setView}
         />
@@ -977,7 +1038,10 @@ function CalendarView({ roster, selectedDate, setSelectedDate }) {
         label={monthLabel}
         onPrevious={() => moveMonth(-1)}
         onNext={() => moveMonth(1)}
-        onToday={() => setMonth(new Date('2026-08-01T00:00:00'))}
+        onToday={() => {
+          setMonth(new Date());
+          setSelectedDate(getTodayDate());
+        }}
         view={view}
         setView={setView}
       />
@@ -1004,9 +1068,8 @@ function CalendarView({ roster, selectedDate, setSelectedDate }) {
           return (
             <button
               type="button"
-              className={`${styles.calendarDay} ${
-                date === selectedDate ? styles.selectedDay : ''
-              }`}
+              className={`${styles.calendarDay} ${date === selectedDate ? styles.selectedDay : ''
+                }`}
               key={date}
               onClick={() => {
                 setSelectedDate(date);
@@ -1016,12 +1079,11 @@ function CalendarView({ roster, selectedDate, setSelectedDate }) {
               <span className={styles.dayNumber}>{day}</span>
               {counts.slice(0, 3).map((count, countIndex) => (
                 <span
-                  className={`${styles.dayIndicator} ${
-                    styles[`indicator${countIndex}`]
-                  }`}
+                  className={`${styles.dayIndicator} ${styles[`indicator${countIndex}`]
+                    }`}
                   key={`${date}-${countIndex}`}
                 >
-                  {count} employees
+                  {count} employee{count > 1 ? 's' : ''}
                 </span>
               ))}
               {counts.length > 3 && (
@@ -1100,7 +1162,7 @@ function WeekView({ roster }) {
   const week = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
   const employees = [
     ...new Map(roster.map((item) => [item.employeeId, item])).values()
-  ].slice(0, 10);
+  ].slice(0, 15);
 
   return (
     <div className={styles.weekWrapper}>
@@ -1120,17 +1182,16 @@ function WeekView({ roster }) {
               {week.map((day, dayIndex) => (
                 <td key={day}>
                   <span
-                    className={`${styles.weekBadge} ${
-                      styles[
-                        dayIndex === 6 || (employeeIndex + dayIndex) % 7 === 2
-                          ? 'off'
-                          : employee.shiftType
-                      ]
-                    }`}
+                    className={`${styles.weekBadge} ${styles[
+                      dayIndex === 6
+                        ? 'off'
+                        : (employee.shiftType || 'day').toLowerCase()
+                    ]
+                      }`}
                   >
-                    {dayIndex === 6 || (employeeIndex + dayIndex) % 7 === 2
+                    {dayIndex === 6
                       ? 'Off'
-                      : employee.shiftName.replace(' Shift', '')}
+                      : (employee.shiftName || 'Day Shift').replace(' Shift', '')}
                   </span>
                 </td>
               ))}
@@ -1145,7 +1206,8 @@ function WeekView({ roster }) {
 function DayDrawer({ records, date, onClose }) {
   const groups = Object.entries(
     records.reduce((map, item) => {
-      (map[item.shiftName] ||= []).push(item);
+      const sName = item.shiftName || 'Unassigned';
+      (map[sName] ||= []).push(item);
       return map;
     }, {})
   );
@@ -1170,96 +1232,97 @@ function DayDrawer({ records, date, onClose }) {
           </button>
         </div>
         <div className={styles.drawerBody}>
-          {groups.map(([name, items]) => (
-            <div className={styles.dayGroup} key={name}>
-              <div>
-                <strong>{name}</strong>
-                <span>{items.length} Employees</span>
+          {groups.length === 0 ? (
+            <p className={styles.muted}>No shift records for this date.</p>
+          ) : (
+            groups.map(([name, items]) => (
+              <div className={styles.dayGroup} key={name}>
+                <div>
+                  <strong>{name}</strong>
+                  <span>{items.length} Employees</span>
+                </div>
+                <span className={styles.muted}>{timeRange(items[0])}</span>
+                {items.slice(0, 8).map((item) => (
+                  <p key={item.id || item._id || item.employeeId}>
+                    {item.initials || 'EM'} {item.employeeName}
+                  </p>
+                ))}
               </div>
-              <span className={styles.muted}>{timeRange(items[0])}</span>
-              {items.slice(0, 5).map((item) => (
-                <p key={item.id}>
-                  {item.initials} {item.employeeName}
-                </p>
-              ))}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </aside>
     </>
   );
 }
 
-function SummarySections({ roster }) {
-  const siteRows = shiftSites.map((site) => ({
-    site,
-    day: roster.filter((item) => item.site === site && item.shiftType === 'day').length + 40,
-    night: roster.filter((item) => item.site === site && item.shiftType === 'night').length + 24,
-    rotational:
-      roster.filter((item) => item.site === site && item.shiftType === 'rotational').length + 8
-  }));
-
-  const clientRows = mockCompanies.slice(0, 3).map((client, index) => ({
-    name: client.name,
-    employees: [520, 380, 284][index],
-    shifts: [5, 4, 3][index]
-  }));
+function SummarySections({ stats, roster }) {
+  const siteDistribution = stats?.siteDistribution || [];
+  const clientSummary = stats?.clientSummary || [];
 
   return (
     <div className={styles.summarySections}>
       <section className={styles.summaryBlock}>
         <h2 className={styles.sectionTitle}>Shift Distribution by Site</h2>
-        <table className={styles.summaryTable}>
-          <thead>
-            <tr>
-              <th>Site</th>
-              <th>Day</th>
-              <th>Night</th>
-              <th>Rotational</th>
-            </tr>
-          </thead>
-          <tbody>
-            {siteRows.map((row) => (
-              <tr key={row.site}>
-                <td>{row.site}</td>
-                <td>{row.day}</td>
-                <td>{row.night}</td>
-                <td>{row.rotational}</td>
+        {siteDistribution.length === 0 ? (
+          <p className={styles.muted} style={{ padding: '16px 0' }}>No site distribution data recorded yet.</p>
+        ) : (
+          <table className={styles.summaryTable}>
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Day</th>
+                <th>Night</th>
+                <th>Rotational</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {siteDistribution.map((row) => (
+                <tr key={row.site}>
+                  <td>{row.site}</td>
+                  <td>{row.day}</td>
+                  <td>{row.night}</td>
+                  <td>{row.rotational}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
 
       <section className={styles.summaryBlock}>
         <h2 className={styles.sectionTitle}>Shift Summary by Client</h2>
-        <table className={styles.summaryTable}>
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Employees</th>
-              <th>Active Shifts</th>
-            </tr>
-          </thead>
-          <tbody>
-            {clientRows.map((row) => (
-              <tr key={row.name}>
-                <td>{row.name}</td>
-                <td>{row.employees}</td>
-                <td>{row.shifts}</td>
+        {clientSummary.length === 0 ? (
+          <p className={styles.muted} style={{ padding: '16px 0' }}>No client summary recorded yet.</p>
+        ) : (
+          <table className={styles.summaryTable}>
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Employees</th>
+                <th>Active Shifts</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {clientSummary.map((row) => (
+                <tr key={row.name}>
+                  <td>{row.name}</td>
+                  <td>{row.employees}</td>
+                  <td>{row.shifts}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </section>
     </div>
   );
 }
 
-function ExportModal({ open, onClose, onExport }) {
+function ExportModal({ open, onClose, onExport, clients, sites, departments, patterns }) {
   const [form, setForm] = useState({
-    fromDate: DEFAULT_DATE,
-    toDate: DEFAULT_DATE,
+    fromDate: getTodayDate(),
+    toDate: getTodayDate(),
     format: 'excel',
     client: '',
     site: '',
@@ -1298,8 +1361,8 @@ function ExportModal({ open, onClose, onExport }) {
             onChange={(event) => update('client', event.target.value)}
           >
             <option value="">All Clients</option>
-            {mockCompanies.map((item) => (
-              <option key={item.id}>{item.name}</option>
+            {clients.map((item) => (
+              <option key={item.id || item._id || item.name} value={item.name}>{item.name}</option>
             ))}
           </select>
         </FormField>
@@ -1310,8 +1373,8 @@ function ExportModal({ open, onClose, onExport }) {
             onChange={(event) => update('site', event.target.value)}
           >
             <option value="">All Sites</option>
-            {shiftSites.map((item) => (
-              <option key={item}>{item}</option>
+            {sites.map((item) => (
+              <option key={item} value={item}>{item}</option>
             ))}
           </select>
         </FormField>
@@ -1322,8 +1385,8 @@ function ExportModal({ open, onClose, onExport }) {
             onChange={(event) => update('department', event.target.value)}
           >
             <option value="">All Departments</option>
-            {shiftDepartments.map((item) => (
-              <option key={item}>{item}</option>
+            {departments.map((item) => (
+              <option key={item} value={item}>{item}</option>
             ))}
           </select>
         </FormField>
@@ -1334,8 +1397,8 @@ function ExportModal({ open, onClose, onExport }) {
             onChange={(event) => update('shift', event.target.value)}
           >
             <option value="">All Shifts</option>
-            {mockShiftPatterns.map((item) => (
-              <option key={item.id}>{item.name}</option>
+            {patterns.map((item) => (
+              <option key={item.id || item._id || item.shiftId} value={item.name}>{item.name}</option>
             ))}
           </select>
         </FormField>
@@ -1365,31 +1428,16 @@ function ExportModal({ open, onClose, onExport }) {
 }
 
 function ShiftManagement() {
-  const [patterns, setPatterns] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(PATTERNS_KEY)) || mockShiftPatterns;
-    } catch {
-      return mockShiftPatterns;
-    }
-  });
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
-  const [roster, setRoster] = useState(() => {
-    try {
-      return (
-        JSON.parse(localStorage.getItem(ROSTER_KEY)) || [
-          ...mockShiftRoster,
-          ...mockUnassignedEmployees
-        ]
-      );
-    } catch {
-      return [...mockShiftRoster, ...mockUnassignedEmployees];
-    }
-  });
+  const [patterns, setPatterns] = useState([]);
+  const [roster, setRoster] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [stats, setStats] = useState(null);
 
-  const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
-
+  const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'roster');
 
   useEffect(() => {
@@ -1400,7 +1448,8 @@ function ShiftManagement() {
       setTab('roster');
     }
   }, [searchParams]);
-  const [selectedDate, setSelectedDate] = useState(DEFAULT_DATE);
+
+  const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [filters, setFilters] = useState({
     search: '',
     client: '',
@@ -1409,8 +1458,9 @@ function ShiftManagement() {
     shift: '',
     shiftType: '',
     status: '',
-    date: DEFAULT_DATE
+    date: getTodayDate()
   });
+
   const [page, setPage] = useState(1);
   const [details, setDetails] = useState(null);
   const [editingRoster, setEditingRoster] = useState(null);
@@ -1423,20 +1473,83 @@ function ShiftManagement() {
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 350);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(PATTERNS_KEY, JSON.stringify(patterns));
-  }, [patterns]);
-
-  useEffect(() => {
-    localStorage.setItem(ROSTER_KEY, JSON.stringify(roster));
-  }, [roster]);
-
   const notify = (message, type = 'success') => setToast({ message, type });
+
+  // Fetch shifts, roster, employees, and clients dynamically from MongoDB
+  const fetchData = useCallback(async () => {
+    if (!currentCompanyId) return;
+    setLoading(true);
+    try {
+      const [shiftsData, rosterData, statsData] = await Promise.all([
+        shiftService.getShifts(currentCompanyId).catch(() => []),
+        shiftService.getShiftRoster(filters, currentCompanyId).catch(() => ({ roster: [] })),
+        shiftService.getShiftStats(filters.date, currentCompanyId).catch(() => null)
+      ]);
+
+      setPatterns(shiftsData || []);
+      setRoster(rosterData.roster || []);
+      setStats(statsData);
+
+      // Fetch employees and clients
+      const token = authService.getToken();
+      const [empRes, clientRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/employees`, {
+          headers: { 'Authorization': `Bearer ${token || ''}`, 'x-company-id': currentCompanyId }
+        }),
+        fetch(`${API_BASE_URL}/clients`, {
+          headers: { 'Authorization': `Bearer ${token || ''}`, 'x-company-id': currentCompanyId }
+        })
+      ]);
+
+      const [empJson, clientJson] = await Promise.all([
+        empRes.json().catch(() => ({})),
+        clientRes.json().catch(() => ({}))
+      ]);
+
+      if (empJson.success) setEmployees(empJson.employees || []);
+      if (clientJson.success) setClients(clientJson.clients || []);
+    } catch (err) {
+      console.error('Error fetching shift management data:', err);
+      notify('Failed to load shift records from database.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentCompanyId, filters]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Derived lists for dropdowns
+  const sites = useMemo(() => {
+    const s = new Set();
+    employees.forEach(e => {
+      if (e.siteLocation) s.add(e.siteLocation);
+      if (e.site) s.add(e.site);
+    });
+    roster.forEach(r => {
+      if (r.site) s.add(r.site);
+    });
+    if (s.size === 0) {
+      s.add('Main Site');
+      s.add('Gate 1');
+      s.add('Warehouse A');
+    }
+    return Array.from(s);
+  }, [employees, roster]);
+
+  const departments = useMemo(() => {
+    const d = new Set();
+    employees.forEach(e => {
+      if (e.department) d.add(e.department);
+    });
+    if (d.size === 0) {
+      d.add('Security');
+      d.add('Operations');
+      d.add('Patrolling');
+    }
+    return Array.from(d);
+  }, [employees]);
 
   const setFilter = (key, value) => {
     setPage(1);
@@ -1448,8 +1561,8 @@ function ShiftManagement() {
       const query = filters.search.toLowerCase().trim();
       if (
         query &&
-        !item.employeeName.toLowerCase().includes(query) &&
-        !item.employeeId.toLowerCase().includes(query)
+        !item.employeeName?.toLowerCase().includes(query) &&
+        !item.employeeId?.toLowerCase().includes(query)
       ) {
         return false;
       }
@@ -1484,143 +1597,123 @@ function ShiftManagement() {
       shift: '',
       shiftType: '',
       status: '',
-      date: DEFAULT_DATE
+      date: getTodayDate()
     });
   };
 
-  const saveShift = (data) => {
-    if (
-      patterns.some(
-        (item) =>
-          item.name.toLowerCase() === data.name.toLowerCase() && item.id !== data.id
-      )
-    ) {
-      notify('A shift with this name already exists.', 'danger');
-      return;
+  const saveShift = async (data) => {
+    try {
+      if (data.id) {
+        await shiftService.updateShift(data.id, data, currentCompanyId);
+        notify('✓ Shift updated successfully.');
+      } else {
+        await shiftService.createShift(data, currentCompanyId);
+        notify('✓ Shift created successfully.');
+      }
+      setShiftFormOpen(false);
+      setEditingShift(null);
+      await fetchData();
+    } catch (err) {
+      console.error('Error saving shift:', err);
+      notify(err.message || 'Failed to save shift.', 'error');
     }
-
-    setPatterns((current) =>
-      data.id && current.some((item) => item.id === data.id)
-        ? current.map((item) => (item.id === data.id ? data : item))
-        : [...current, data]
-    );
-
-    setShiftFormOpen(false);
-    setEditingShift(null);
-    notify(
-      data.id && mockShiftPatterns.some((item) => item.id === data.id)
-        ? '✓ Shift updated successfully.'
-        : '✓ Shift created successfully.'
-    );
   };
 
-  const saveAssignment = (data) => {
-    if (
-      roster.some(
-        (item) =>
-          item.employeeId === data.employeeId &&
-          item.date === data.date &&
-          item.id !== editingRoster?.id
-      )
-    ) {
-      notify('This employee already has a shift assigned for this date.', 'danger');
-      return;
+  const deleteShift = async (shift) => {
+    if (!window.confirm(`Are you sure you want to delete shift "${shift.name}"?`)) return;
+    try {
+      await shiftService.deleteShift(shift.id || shift._id, currentCompanyId);
+      notify('✓ Shift deleted successfully.');
+      await fetchData();
+    } catch (err) {
+      notify(err.message || 'Failed to delete shift.', 'error');
     }
-
-    const shift = patterns.find((item) => item.id === data.shiftId);
-    const next = {
-      id: editingRoster?.id || Date.now(),
-      employeeId: data.employeeId,
-      employeeName: data.employee?.name || data.employeeName,
-      initials: data.employee?.initials || 'UN',
-      clientId: data.employee?.companyId || data.clientId,
-      clientName: data.employee?.companyName || data.clientName,
-      site: data.site,
-      department: data.employee?.department || data.department,
-      shiftId: shift.id,
-      shiftName: shift.name,
-      shiftType: shift.type,
-      date: data.startDate || data.date,
-      startDate: data.startDate || data.date,
-      endDate: data.endDate || data.startDate || data.date,
-      startTime: shift.startTime,
-      endTime: shift.endTime,
-      status: 'active'
-    };
-
-    setRoster((current) =>
-      editingRoster
-        ? current.map((item) => (item.id === editingRoster.id ? next : item))
-        : [next, ...current]
-    );
-
-    setAssignOpen(false);
-    setEditingRoster(null);
-    setDetails(null);
-    notify(
-      editingRoster
-        ? '✓ Roster updated successfully.'
-        : '✓ Employee assigned to shift successfully.'
-    );
   };
 
-  const changeShift = (data) => {
-    const shift = patterns.find((item) => item.id === data.shiftId);
-    setRoster((current) =>
-      current.map((item) =>
-        item.id === changingRoster.id
-          ? {
-              ...item,
-              shiftId: shift.id,
-              shiftName: shift.name,
-              shiftType: shift.type,
-              startTime: shift.startTime,
-              endTime: shift.endTime,
-              date: data.date
-            }
-          : item
-      )
-    );
-    setChangingRoster(null);
-    setDetails(null);
-    notify('✓ Shift changed successfully.');
+  const saveAssignment = async (data) => {
+    try {
+      await shiftService.assignShift(
+        {
+          employeeId: data.employeeId,
+          employeeName: data.employee?.name || data.employeeName,
+          clientId: data.employee?.clientId || data.employee?.companyId || data.clientId,
+          clientName: data.employee?.clientName || data.employee?.companyName || data.clientName,
+          site: data.site,
+          department: data.employee?.department || data.department,
+          shiftId: data.shiftId,
+          startDate: data.startDate || data.date,
+          endDate: data.endDate || data.startDate || data.date,
+          date: data.startDate || data.date
+        },
+        currentCompanyId
+      );
+
+      setAssignOpen(false);
+      setEditingRoster(null);
+      setDetails(null);
+      notify('✓ Shift assigned successfully.');
+      await fetchData();
+    } catch (err) {
+      console.error('Error assigning shift:', err);
+      notify(err.message || 'Failed to assign shift.', 'error');
+    }
   };
 
-  const confirmUnassign = () => {
-    setRoster((current) =>
-      current.map((item) =>
-        item.id === unassigning.id
-          ? {
-              ...item,
-              shiftId: null,
-              shiftName: 'Unassigned',
-              shiftType: null,
-              startTime: null,
-              endTime: null,
-              status: 'unassigned'
-            }
-          : item
-      )
-    );
-    setUnassigning(null);
-    setDetails(null);
-    notify('✓ Employee unassigned successfully.');
+  const changeShift = async (data) => {
+    try {
+      const recordId = changingRoster._id || changingRoster.id || changingRoster.employeeId;
+      await shiftService.changeShift(
+        recordId,
+        { shiftId: data.shiftId, date: data.date },
+        currentCompanyId
+      );
+      setChangingRoster(null);
+      setDetails(null);
+      notify('✓ Shift changed successfully.');
+      await fetchData();
+    } catch (err) {
+      notify(err.message || 'Failed to change shift.', 'error');
+    }
+  };
+
+  const confirmUnassign = async () => {
+    try {
+      const recordId = unassigning._id || unassigning.id || unassigning.employeeId;
+      await shiftService.unassignEmployee(recordId, unassigning.date, currentCompanyId);
+      setUnassigning(null);
+      setDetails(null);
+      notify('✓ Employee unassigned successfully.');
+      await fetchData();
+    } catch (err) {
+      notify(err.message || 'Failed to unassign employee.', 'error');
+    }
   };
 
   const exportRoster = (data) => {
     if (data.fromDate > data.toDate) {
-      notify('Start date cannot be later than end date.', 'danger');
+      notify('Start date cannot be later than end date.', 'error');
       return;
     }
     setExportOpen(false);
-    notify('Preparing shift roster...');
-    setTimeout(() => notify('✓ Shift roster exported successfully.'), 500);
+    notify('Preparing shift roster export...');
+    setTimeout(() => {
+      // Trigger browser print or CSV download of filtered entries
+      const rows = filteredRoster.map(r => `${r.employeeName},${r.employeeId},${r.clientName},${r.site},${r.shiftName},${r.shiftType},${r.date}`).join('\n');
+      const blob = new Blob([`Employee,ID,Client,Site,Shift,Type,Date\n${rows}`], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `shift_roster_${getTodayDate()}.csv`;
+      a.click();
+      notify('✓ Shift roster exported successfully.');
+    }, 500);
   };
 
   const openCalendar = () => {
     setPage(1);
     setTab('calendar');
     setSelectedDate(filters.date);
+    setSearchParams({ tab: 'calendar' });
   };
 
   return (
@@ -1643,7 +1736,7 @@ function ShiftManagement() {
         <header className={styles.pageHeader}>
           <div>
             <h1>Shift Management</h1>
-            <p>Create shifts, assign employees and manage workforce rosters.</p>
+            <p>Create shifts, assign employees and manage workforce rosters for {activeCompany?.name || 'Active Company'}.</p>
           </div>
           <div className={styles.headerActions}>
             <button
@@ -1666,17 +1759,17 @@ function ShiftManagement() {
           </div>
         </header>
 
-        {loading ? (
+        {loading && !stats ? (
           <div className={styles.loadingGrid}>
             {[1, 2, 3, 4].map((item) => (
               <div className={styles.loadingCard} key={item} />
             ))}
           </div>
         ) : (
-          <SummaryCards roster={roster} patterns={patterns} />
+          <SummaryCards stats={stats} patterns={patterns} roster={roster} />
         )}
 
-        <PatternSummary patterns={patterns} />
+        <PatternSummary patterns={patterns} stats={stats} />
 
         {tab === 'roster' && (
           <>
@@ -1713,6 +1806,9 @@ function ShiftManagement() {
               setValue={setFilter}
               onReset={resetFilters}
               patterns={patterns}
+              clients={clients}
+              sites={sites}
+              departments={departments}
             />
 
             {loading ? (
@@ -1747,7 +1843,7 @@ function ShiftManagement() {
               <div className={styles.emptyWrap}>
                 <EmptyState
                   title="No shift assignments found."
-                  description="Try changing your filters or date."
+                  description="Try changing your filters or date, or assign an employee to a shift."
                   actionLabel="Reset Filters"
                   onAction={resetFilters}
                 />
@@ -1759,13 +1855,13 @@ function ShiftManagement() {
                 <UserRoundX size={20} />
                 <div>
                   <strong>Employees Without Shift</strong>
-                  <span>66 employees currently have no shift assignment.</span>
+                  <span>{roster.filter((item) => item.status === 'unassigned').length} employees currently have no shift assignment on {formatDate(filters.date)}.</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => setFilter('status', 'unassigned')}
                 >
-                  View Employees
+                  View Unassigned
                 </button>
               </div>
             )}
@@ -1799,6 +1895,7 @@ function ShiftManagement() {
                   setEditingShift(item);
                   setShiftFormOpen(true);
                 }}
+                onDelete={deleteShift}
               />
             ) : (
               <div className={styles.emptyWrap}>
@@ -1832,7 +1929,7 @@ function ShiftManagement() {
           </>
         )}
 
-        {tab !== 'calendar' && <SummarySections roster={roster} />}
+        {tab !== 'calendar' && <SummarySections stats={stats} roster={roster} />}
 
         <DetailsDrawer
           record={details}
@@ -1849,7 +1946,7 @@ function ShiftManagement() {
         />
 
         <ShiftForm
-          key={`shift-${shiftFormOpen}-${editingShift?.id || 'new'}`}
+          key={`shift-${shiftFormOpen}-${editingShift?.id || editingShift?._id || 'new'}`}
           open={shiftFormOpen}
           editing={editingShift}
           onClose={() => {
@@ -1860,10 +1957,13 @@ function ShiftManagement() {
         />
 
         <AssignModal
-          key={`assignment-${assignOpen}-${editingRoster?.id || 'new'}`}
+          key={`assignment-${assignOpen}-${editingRoster?.id || editingRoster?._id || 'new'}`}
           open={assignOpen}
           editing={editingRoster}
           patterns={patterns}
+          employees={employees}
+          clients={clients}
+          sites={sites}
           onClose={() => {
             setAssignOpen(false);
             setEditingRoster(null);
@@ -1888,6 +1988,10 @@ function ShiftManagement() {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           onExport={exportRoster}
+          clients={clients}
+          sites={sites}
+          departments={departments}
+          patterns={patterns}
         />
       </div>
     </AdminLayout>

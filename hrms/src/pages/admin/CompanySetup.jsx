@@ -11,6 +11,7 @@ import FormInput from '../../components/common/FormInput';
 import PrimaryButton from '../../components/common/PrimaryButton';
 import Toast from '../../components/common/Toast';
 
+import { useCompany } from '../../context/CompanyContext';
 import { 
   SEPARATOR_OPTIONS, 
   YEAR_FORMAT_OPTIONS, 
@@ -25,6 +26,7 @@ function CompanySetup() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const { activeCompany, updateCompanyProfile } = useCompany();
 
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
   const activeSection = searchParams.get('section') || 'company-profile';
@@ -32,55 +34,131 @@ function CompanySetup() {
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
-  // Form state
-  const [formData, setFormData] = useState(() => {
-    const saved = localStorage.getItem('novaspark_company_setup');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // fallback
+  // Form state initialized dynamically from active company
+  const [formData, setFormData] = useState({
+    companyName: activeCompany?.name || '',
+    logo: activeCompany?.logo || null,
+    address: activeCompany?.address || '',
+    state: activeCompany?.state || '',
+    city: activeCompany?.city || '',
+    pinCode: activeCompany?.pinCode || '',
+    primaryContact: activeCompany?.phone || '',
+    alternateContact: activeCompany?.alternateContact || activeCompany?.alternatePhone || '',
+    email: activeCompany?.email || '',
+    pan: activeCompany?.pan || '',
+    tan: activeCompany?.tan || '',
+    gstin: activeCompany?.gstin || '',
+    dateFormat: activeCompany?.dateFormat || 'DD/MM/YYYY',
+    timeZone: activeCompany?.timeZone || 'Asia/Kolkata (IST +05:30)',
+    currency: activeCompany?.currency || 'INR (₹)',
+  });
+
+  // Keep synced when activeCompany changes
+  useEffect(() => {
+    if (activeCompany) {
+      setFormData(prev => ({
+        ...prev,
+        companyName: activeCompany.name || '',
+        logo: activeCompany.logo || null,
+        address: activeCompany.address || '',
+        state: activeCompany.state || '',
+        city: activeCompany.city || '',
+        pinCode: activeCompany.pinCode || '',
+        primaryContact: activeCompany.phone || '',
+        alternateContact: activeCompany.alternateContact || activeCompany.alternatePhone || '',
+        email: activeCompany.email || '',
+        pan: activeCompany.pan || '',
+        tan: activeCompany.tan || '',
+        gstin: activeCompany.gstin || '',
+        dateFormat: activeCompany.dateFormat || 'DD/MM/YYYY',
+        timeZone: activeCompany.timeZone || 'Asia/Kolkata (IST +05:30)',
+        currency: activeCompany.currency || 'INR (₹)',
+      }));
+
+      if (activeCompany.logo) {
+        setLogoPreview(activeCompany.logo);
+      }
+
+      // Sync employee code series configuration for active company
+      if (activeCompany.employeeCodeSeries) {
+        const compSeries = { ...activeCompany.employeeCodeSeries };
+        if (compSeries.currentNumber === 1042) {
+          compSeries.currentNumber = compSeries.startingNumber || 1;
+        }
+        setEmpCodeSeries(compSeries);
+      } else {
+        const compId = activeCompany.companyId || activeCompany.id;
+        const savedCompSeries = compId ? localStorage.getItem(`novaspark_number_series_${compId}`) : null;
+        if (savedCompSeries) {
+          try {
+            const parsed = JSON.parse(savedCompSeries);
+            if (parsed.currentNumber === 1042) {
+              parsed.currentNumber = parsed.startingNumber || 1;
+            }
+            setEmpCodeSeries(parsed);
+          } catch (e) {}
+        } else if (activeCompany.code) {
+          setEmpCodeSeries(prev => ({
+            ...prev,
+            prefix: activeCompany.code,
+            startingNumber: 1,
+            currentNumber: 1
+          }));
+        }
       }
     }
-    return {
-      companyName: 'NovaSpark HRMS Pvt Ltd',
-      logo: null,
-      address: '123, Tech Park, Electronic City',
-      state: 'Karnataka',
-      city: 'Bangalore',
-      pinCode: '560100',
-      primaryContact: '+91 9876543210',
-      alternateContact: '+91 9876543211',
-      email: 'admin@novaspark.com',
-      pan: 'ABCDE1234F',
-      tan: 'BLRA12345D',
-      gstin: '29ABCDE1234F1Z5',
-      dateFormat: 'DD/MM/YYYY',
-    };
-  });
+  }, [activeCompany]);
 
   // Employee Code Series State
   const [empCodeSeries, setEmpCodeSeries] = useState(() => {
+    if (activeCompany?.employeeCodeSeries) {
+      const compSeries = { ...activeCompany.employeeCodeSeries };
+      if (compSeries.currentNumber === 1042) {
+        compSeries.currentNumber = compSeries.startingNumber || 1;
+      }
+      return compSeries;
+    }
+    const compId = activeCompany?.companyId || activeCompany?.id;
+    const savedComp = compId ? localStorage.getItem(`novaspark_number_series_${compId}`) : null;
+    if (savedComp) {
+      try {
+        const parsed = JSON.parse(savedComp);
+        if (parsed.currentNumber === 1042) {
+          parsed.currentNumber = parsed.startingNumber || 1;
+        }
+        return parsed;
+      } catch (e) {}
+    }
     const savedList = localStorage.getItem('novaspark_number_series');
     if (savedList) {
       try {
         const parsed = JSON.parse(savedList);
         const empSeries = parsed.find(s => s.id === 'employee-code');
-        if (empSeries) return empSeries;
+        if (empSeries) {
+          if (empSeries.currentNumber === 1042) {
+            empSeries.currentNumber = empSeries.startingNumber || 1;
+          }
+          return {
+            ...empSeries,
+            prefix: activeCompany?.code || empSeries.prefix || 'EMP',
+            startingNumber: empSeries.startingNumber || 1,
+            currentNumber: empSeries.currentNumber || 1
+          };
+        }
       } catch {
         // fallback
       }
     }
-    return mockNumberSeriesList.find(s => s.id === 'employee-code') || {
+    return {
       id: 'employee-code',
       name: 'Employee Code',
       code: 'SERIES-EMP',
       moduleTarget: 'Employee Management',
-      prefix: 'EMP',
+      prefix: activeCompany?.code || 'EMP',
       startingNumber: 1,
-      currentNumber: 1042,
-      lastUsedNumber: 1041,
-      padding: 5,
+      currentNumber: 1,
+      lastUsedNumber: 0,
+      padding: 3,
       separator: '-',
       yearFormat: 'None',
       monthFormat: 'None',
@@ -93,7 +171,7 @@ function CompanySetup() {
 
   // Logo preview state
   const [logoPreview, setLogoPreview] = useState(() => {
-    return localStorage.getItem('novaspark_company_logo_preview') || null;
+    return activeCompany?.logo || localStorage.getItem('novaspark_company_logo_preview') || null;
   });
 
   useEffect(() => {
@@ -111,10 +189,16 @@ function CompanySetup() {
   };
 
   const handleEmpCodeSeriesChange = (field, value) => {
-    setEmpCodeSeries(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEmpCodeSeries(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      if (field === 'startingNumber') {
+        updated.currentNumber = value;
+      }
+      return updated;
+    });
   };
 
   const empCodePreview = useMemo(() => {
@@ -136,12 +220,11 @@ function CompanySetup() {
         return;
       }
 
-      setFormData(prev => ({ ...prev, logo: file.name }));
-
-      // Create preview
+      // Create preview & update logo in formData
       const reader = new FileReader();
       reader.onloadend = () => {
         setLogoPreview(reader.result);
+        setFormData(prev => ({ ...prev, logo: reader.result }));
         localStorage.setItem('novaspark_company_logo_preview', reader.result);
       };
       reader.readAsDataURL(file);
@@ -158,28 +241,54 @@ function CompanySetup() {
     e.preventDefault();
     setIsSaving(true);
 
-    // Persist company setup data
     try {
+      const updatedEmpSeries = {
+        ...empCodeSeries,
+        lastUpdated: new Date().toLocaleString()
+      };
+
+      // 1. Update company profile & employeeCodeSeries in backend database & CompanyContext
+      if (activeCompany) {
+        const compId = activeCompany.companyId || activeCompany.id;
+        await updateCompanyProfile(compId, {
+          name: formData.companyName,
+          code: updatedEmpSeries.prefix || activeCompany.code || 'EMP',
+          email: formData.email,
+          phone: formData.primaryContact,
+          alternateContact: formData.alternateContact,
+          alternatePhone: formData.alternateContact,
+          address: formData.address,
+          city: formData.city,
+          state: formData.state,
+          pinCode: formData.pinCode,
+          pan: formData.pan,
+          tan: formData.tan,
+          gstin: formData.gstin,
+          logo: formData.logo || logoPreview || null,
+          dateFormat: formData.dateFormat,
+          timeZone: formData.timeZone,
+          currency: formData.currency,
+          employeeCodeSeries: updatedEmpSeries,
+        });
+
+        localStorage.setItem(`novaspark_number_series_${compId}`, JSON.stringify(updatedEmpSeries));
+      }
+
+      // 2. Persist local cache
       localStorage.setItem('novaspark_company_setup', JSON.stringify(formData));
       
       // Also persist and sync Employee Code Series to global number series
       const savedSeriesList = localStorage.getItem('novaspark_number_series');
       let allSeries = savedSeriesList ? JSON.parse(savedSeriesList) : mockNumberSeriesList;
-      const updatedEmpSeries = {
-        ...empCodeSeries,
-        lastUpdated: new Date().toLocaleString()
-      };
       allSeries = allSeries.map(s => s.id === 'employee-code' ? updatedEmpSeries : s);
       localStorage.setItem('novaspark_number_series', JSON.stringify(allSeries));
-    } catch {
-      // ignore
-    }
 
-    // Simulate API call
-    setTimeout(() => {
       setIsSaving(false);
-      showToast('✓ Company settings saved successfully', 'success');
-    }, 600);
+      showToast('✓ Company profile, prefix & settings saved successfully to database', 'success');
+    } catch (err) {
+      setIsSaving(false);
+      showToast(err.message || 'Failed to save company settings', 'error');
+    }
   };
 
   const handleCancel = () => {

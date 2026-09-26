@@ -68,7 +68,13 @@ const ensureCoreCollections = async () => {
 
 const seedDefaultCompany = async () => {
   try {
-    let existing = await Company.findOne({ name: 'RR Security' });
+    const existing = await Company.findOne({
+      $or: [
+        { companyId: 'RRS8392014SEC' },
+        { isDefault: true },
+        { name: 'RR Security' }
+      ]
+    });
     if (!existing) {
       await Company.create({
         companyId: 'RRS8392014SEC',
@@ -89,9 +95,6 @@ const seedDefaultCompany = async () => {
         status: 'Active'
       });
       console.log('🌱 Seeded default primary company: RR Security (RRS8392014SEC)');
-    } else if (!existing.companyId) {
-      existing.companyId = 'RRS8392014SEC';
-      await existing.save();
     }
   } catch (err) {
     console.error('Error during company seeding:', err.message);

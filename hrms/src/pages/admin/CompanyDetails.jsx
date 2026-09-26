@@ -17,7 +17,7 @@ import authService from '../../services/authService';
 import { mockCompanies } from '../../data/companyData';
 import { mockEmployees } from '../../data/employeeData';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 
 function CompanyDetails() {
   const { id } = useParams();
@@ -57,7 +57,7 @@ function CompanyDetails() {
         if (saved) {
           const list = JSON.parse(saved);
           if (Array.isArray(list)) {
-            const match = list.find((c) => 
+            const match = list.find((c) =>
               c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))
             );
             if (match) {
@@ -71,7 +71,7 @@ function CompanyDetails() {
         const matchMock = mockCompanies.find((c) => c.id === id || c.clientId === id);
         if (matchMock) foundClient = matchMock;
       }
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. Fetch from backend API
     const token = authService.getToken();
@@ -100,14 +100,14 @@ function CompanyDetails() {
             const allData = await allRes.json();
             const list = allData.clients || allData;
             if (Array.isArray(list)) {
-              const match = list.find((c) => 
+              const match = list.find((c) =>
                 c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))
               );
               if (match) foundClient = match;
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (foundClient) {
@@ -134,7 +134,7 @@ function CompanyDetails() {
         }
       }
       if (empsList.length === 0) empsList = mockEmployees;
-    } catch (e) {}
+    } catch (e) { }
 
     if (token) {
       try {
@@ -150,7 +150,7 @@ function CompanyDetails() {
             empsList = empData.employees || empData;
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     }
 
     setEmployees(empsList);
@@ -177,7 +177,7 @@ function CompanyDetails() {
           },
           body: JSON.stringify(updatedCompany)
         });
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const key = `novaspark_clients_${currentCompanyId}`;
@@ -194,7 +194,7 @@ function CompanyDetails() {
           localStorage.setItem(key, JSON.stringify(next));
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const showToast = (message, type = 'success') => {

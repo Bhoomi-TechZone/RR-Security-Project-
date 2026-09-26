@@ -16,8 +16,9 @@ import Toast from '../../components/common/Toast';
 
 import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
+import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 const INR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
 const DOCUMENT_TYPES = [
@@ -86,11 +87,32 @@ function EmployeeDetails() {
     }
   };
 
+  const fetchClients = async () => {
+    try {
+      const token = authService.getToken();
+      const res = await fetch(`${API_BASE_URL}/clients`, {
+        headers: {
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': currentCompanyId
+        }
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setClients(data.clients || []);
+      }
+    } catch (err) {
+      console.error('Error fetching clients:', err);
+    }
+  };
+
   useEffect(() => {
-    if (id) fetchEmployeeData();
+    if (id) {
+      fetchEmployeeData();
+      fetchClients();
+    }
   }, [id, currentCompanyId]);
 
-  const handleEditSubmit = async (formData) => {
+  const updateEmployee = async (updateData) => {
     try {
       const token = authService.getToken();
       const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
@@ -100,72 +122,75 @@ function EmployeeDetails() {
           'Authorization': `Bearer ${token || ''}`,
           'x-company-id': currentCompanyId
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(updateData)
       });
       const data = await res.json();
       if (res.ok && data.success) {
         setEmployee(data.employee);
-        showToast('✓ Employee updated successfully.', 'success');
+        return data.employee;
+      } else {
+        throw new Error(data.message || 'Failed to update employee');
       }
     } catch (err) {
       console.error('Error updating employee:', err);
-      showToast('Failed to update employee.', 'error');
+      showToast(err.message || 'Failed to update employee.', 'error');
+      throw err;
     }
-    setIsEditOpen(false);
+  };
+
+  const handleEditSubmit = async (formData) => {
+    try {
+      await updateEmployee(formData);
+      showToast('✓ Employee updated successfully.', 'success');
+      setIsEditOpen(false);
+    } catch (err) {
+      // handled in updateEmployee
+    }
   };
 
   const handleTransfer = async (empId, transferData) => {
     try {
-      const token = authService.getToken();
-      const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-          'x-company-id': currentCompanyId
-        },
-        body: JSON.stringify({
-          clientId: transferData.companyId,
-          clientName: transferData.companyName,
-          siteLocation: transferData.site
-        })
+      await updateEmployee({
+        clientId: transferData.clientId || transferData.companyId,
+        clientName: transferData.clientName || transferData.companyName,
+        companyName: transferData.clientName || transferData.companyName,
+        siteLocation: transferData.siteLocation || transferData.site
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setEmployee(data.employee);
-        showToast('✓ Employee transferred successfully.', 'success');
-      }
+      showToast('✓ Employee transferred successfully.', 'success');
+      setIsTransferOpen(false);
     } catch (err) {
-      console.error('Error transferring employee:', err);
       showToast('Failed to transfer employee.', 'error');
     }
-    setIsTransferOpen(false);
   };
 
   const handleToggleStatus = () => {
-    const isActive = employee.status === 'active';
+    const isAct = String(employee.status || '').toLowerCase() === 'active';
     setConfirmModal({
       isOpen: true,
-      title: isActive ? 'Deactivate Employee?' : 'Activate Employee?',
-      description: isActive
+      title: isAct ? 'Deactivate Employee?' : 'Activate Employee?',
+      description: isAct
         ? `Are you sure you want to deactivate ${employee.name}?`
         : `Are you sure you want to activate ${employee.name}?`,
-      confirmLabel: isActive ? 'Deactivate' : 'Activate',
-      variant: isActive ? 'danger' : 'primary',
-      actionType: isActive ? 'deactivate' : 'activate'
+      confirmLabel: isAct ? 'Deactivate' : 'Activate',
+      variant: isAct ? 'danger' : 'primary',
+      actionType: isAct ? 'deactivate' : 'activate'
     });
   };
 
-  const handleConfirmAction = () => {
-    const newStatus = confirmModal.actionType === 'deactivate' ? 'inactive' : 'active';
-    updateEmployee({ status: newStatus });
-    setConfirmModal(prev => ({ ...prev, isOpen: false }));
-    showToast(
-      newStatus === 'inactive'
-        ? '✓ Employee deactivated successfully.'
-        : '✓ Employee activated successfully.',
-      'success'
-    );
+  const handleConfirmAction = async () => {
+    const newStatus = confirmModal.actionType === 'deactivate' ? 'Inactive' : 'Active';
+    try {
+      await updateEmployee({ status: newStatus });
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      showToast(
+        newStatus === 'Inactive'
+          ? '✓ Employee deactivated successfully.'
+          : '✓ Employee activated successfully.',
+        'success'
+      );
+    } catch (err) {
+      // handled
+    }
   };
 
   const handleDocumentSimulateUpload = (key, file) => {
@@ -193,7 +218,7 @@ function EmployeeDetails() {
     );
   }
 
-  const isActive = employee.status === 'active';
+  const isActive = String(employee.status || '').toLowerCase() === 'active';
   const isSecurityGuard = employee.designation === 'Security Guard';
   const salary = employee;
   const docs = employee.documents || {};
@@ -217,6 +242,7 @@ function EmployeeDetails() {
           onClose={() => setIsEditOpen(false)}
           onSubmit={handleEditSubmit}
           employee={employee}
+          clients={clients}
         />
 
         {/* Transfer Modal */}
@@ -225,6 +251,7 @@ function EmployeeDetails() {
           employee={employee}
           onClose={() => setIsTransferOpen(false)}
           onTransfer={handleTransfer}
+          clients={clients}
         />
 
         {/* Confirm Modal */}
@@ -266,7 +293,7 @@ function EmployeeDetails() {
               </div>
               <div className={styles.profileMeta}>
                 <Building2 size={14} className={styles.metaIcon} />
-                <span className={styles.profileCompany}>{employee.companyName}</span>
+                <span className={styles.profileCompany}>{employee.companyName || employee.clientName}</span>
               </div>
               <StatusBadge status={employee.status} />
             </div>
@@ -290,7 +317,7 @@ function EmployeeDetails() {
             </button>
             <button
               className={styles.downloadBtn}
-              onClick={() => window.print()}
+              onClick={() => downloadEmployeeProfile(employee, activeCompany)}
               aria-label="Download profile"
             >
               <Download size={15} />

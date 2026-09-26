@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Download } from 'lucide-react';
-import { attendanceCompanies, attendanceSites, attendanceDepartments, ATTENDANCE_STATUS_OPTIONS } from '../../data/attendanceData';
+import { ATTENDANCE_STATUS_OPTIONS } from '../../data/attendanceData';
 import styles from './AttendanceExportModal.module.css';
 
 const FORMAT_OPTIONS = [
@@ -9,7 +9,7 @@ const FORMAT_OPTIONS = [
   { value: 'pdf', label: 'PDF (.pdf)', icon: '📋' }
 ];
 
-function AttendanceExportModal({ onClose, onExport }) {
+function AttendanceExportModal({ onClose, onExport, records = [], clients = [], activeCompanyName = 'RR Security' }) {
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
     fromDate: today,
@@ -20,6 +20,23 @@ function AttendanceExportModal({ onClose, onExport }) {
     status: '',
     format: 'excel'
   });
+
+  // Extract dynamic dropdown options directly from actual database / loaded records
+  const dynamicClients = Array.from(
+    new Set([
+      activeCompanyName,
+      ...clients.map(c => c.name),
+      ...records.map(r => r.companyName || r.clientName)
+    ].filter(Boolean))
+  );
+
+  const dynamicSites = Array.from(
+    new Set(records.map(r => r.site).filter(Boolean))
+  );
+
+  const dynamicDepartments = Array.from(
+    new Set(records.map(r => r.department).filter(Boolean))
+  );
 
   const handleChange = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -52,7 +69,6 @@ function AttendanceExportModal({ onClose, onExport }) {
                 type="date"
                 className={styles.input}
                 value={form.fromDate}
-                max={today}
                 onChange={(e) => handleChange('fromDate', e.target.value)}
               />
             </div>
@@ -63,7 +79,6 @@ function AttendanceExportModal({ onClose, onExport }) {
                 className={styles.input}
                 value={form.toDate}
                 min={form.fromDate}
-                max={today}
                 onChange={(e) => handleChange('toDate', e.target.value)}
               />
             </div>
@@ -73,17 +88,17 @@ function AttendanceExportModal({ onClose, onExport }) {
           <div className={styles.sectionTitle}>Filters (Optional)</div>
           <div className={styles.formRow}>
             <div className={styles.formGroup}>
-              <label className={styles.label}>Company</label>
+              <label className={styles.label}>Client</label>
               <select className={styles.input} value={form.companyId} onChange={(e) => handleChange('companyId', e.target.value)}>
-                <option value="">All Companies</option>
-                {attendanceCompanies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value="">All Clients</option>
+                {dynamicClients.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className={styles.formGroup}>
               <label className={styles.label}>Site</label>
               <select className={styles.input} value={form.site} onChange={(e) => handleChange('site', e.target.value)}>
                 <option value="">All Sites</option>
-                {attendanceSites.map((s) => <option key={s} value={s}>{s}</option>)}
+                {dynamicSites.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
           </div>
@@ -92,7 +107,7 @@ function AttendanceExportModal({ onClose, onExport }) {
               <label className={styles.label}>Department</label>
               <select className={styles.input} value={form.department} onChange={(e) => handleChange('department', e.target.value)}>
                 <option value="">All Departments</option>
-                {attendanceDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
+                {dynamicDepartments.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </div>
             <div className={styles.formGroup}>
