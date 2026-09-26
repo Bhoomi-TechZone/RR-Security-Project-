@@ -12,6 +12,7 @@ import employeeRoutes from './routes/employeeRoutes.js';
 import workLocationRoutes from './routes/workLocationRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -37,7 +38,7 @@ connectDB();
 // Initialize Express App
 // ===========================================
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
 
 // ===========================================
@@ -136,6 +137,9 @@ app.use('/api/roles', roleRoutes);
 
 // Shifts & Roster Management
 app.use('/api/shifts', shiftRoutes);
+
+// Attendance Management
+app.use('/api/attendance', attendanceRoutes);
 
 
 // ===========================================

@@ -18,6 +18,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 
 import { useCompany } from '../../context/CompanyContext';
+import attendanceService from '../../services/attendanceService';
 import styles from './Attendance.module.css';
 
 const INITIAL_FILTERS = {
@@ -41,6 +42,7 @@ const sanitizeRecords = (list) => {
     }
     return {
       ...r,
+      id: r.id || r._id || `att_${Math.random()}`,
       checkIn,
       checkOut
     };
@@ -50,11 +52,11 @@ const sanitizeRecords = (list) => {
 function Attendance() {
   const { activeCompany } = useCompany();
   const [searchParams] = useSearchParams();
-  const compId = activeCompany?.companyId || activeCompany?.id || 'comp_rr_security';
+  const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
   const ATTENDANCE_STORAGE_KEY = `novaspark_attendance_${compId}`;
   const CORRECTION_STORAGE_KEY = `novaspark_corrections_${compId}`;
 
-  // --- Dynamic State Isolated per Active Company Profile ---
+  // --- Dynamic State Loaded directly from MongoDB Atlas ---
   const [records, setRecords] = useState(() => {
     try {
       const saved = localStorage.getItem(`novaspark_attendance_${compId}`);
@@ -73,25 +75,36 @@ function Attendance() {
     }
   });
 
-  // Reload state on active company profile switch
-  useEffect(() => {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const fetchRecords = React.useCallback(async () => {
     try {
-      const saved = localStorage.getItem(`novaspark_attendance_${compId}`);
-      setRecords(saved ? sanitizeRecords(JSON.parse(saved)) : []);
-    } catch {
-      setRecords([]);
-    }
-    try {
-      const savedCorr = localStorage.getItem(`novaspark_corrections_${compId}`);
-      setCorrections(savedCorr ? JSON.parse(savedCorr) : []);
-    } catch {
-      setCorrections([]);
+      setIsLoading(true);
+      const data = await attendanceService.getAttendanceRecords(compId);
+      if (Array.isArray(data) && data.length > 0) {
+        setRecords(sanitizeRecords(data));
+      }
+      const corrs = await attendanceService.getCorrectionRequests(compId);
+      if (Array.isArray(corrs) && corrs.length > 0) {
+        setCorrections(corrs);
+      }
+    } catch (err) {
+      console.warn('Backend attendance load error:', err.message);
+    } finally {
+      setIsLoading(false);
     }
   }, [compId]);
 
-  // Persist changes
+  // Load from MongoDB on component mount and company switch
   useEffect(() => {
-    localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(records));
+    fetchRecords();
+  }, [fetchRecords]);
+
+  // Sync to local cache
+  useEffect(() => {
+    if (records.length > 0) {
+      localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(records));
+    }
   }, [records, ATTENDANCE_STORAGE_KEY]);
 
   useEffect(() => {
@@ -185,27 +198,17 @@ function Attendance() {
   }, [filteredRecords, currentPage, pageSize]);
 
   // --- Correction Handlers ---
-  const handleCorrectionSubmit = (formData) => {
+  const handleCorrectionSubmit = async (formData) => {
     const { attendanceId, checkIn, checkOut, status, reason } = formData;
-    const target = records.find((r) => r.id === attendanceId);
+    const target = records.find((r) => r.id === attendanceId || r._id === attendanceId);
 
-    // Update attendance record status
-    setRecords((prev) =>
-      prev.map((r) =>
-        r.id === attendanceId
-          ? { ...r, status: 'pendingCorrection' }
-          : r
-      )
-    );
-
-    // Add to correction requests
     const newCorr = {
-      id: `CORR${String(Date.now()).slice(-4)}`,
-      attendanceId,
+      attendanceId: target?.id || target?._id || attendanceId,
       employeeId: target?.employeeId || 'EMP000',
       employeeName: target?.employeeName || 'Unknown',
       initials: target?.initials || 'UN',
-      companyName: target?.companyName || 'General',
+      clientName: target?.clientName || target?.companyName || 'General',
+      companyName: target?.companyName || target?.clientName || 'General',
       site: target?.site || 'Main Site',
       date: target?.date || selectedDate,
       originalCheckIn: target?.checkIn || null,
@@ -214,75 +217,67 @@ function Attendance() {
       requestedCheckIn: checkIn || null,
       requestedCheckOut: checkOut || null,
       reason,
-      submittedAt: new Date().toISOString(),
-      submittedBy: target?.employeeName || 'Admin',
       status: 'pendingCorrection'
     };
 
-    setCorrections((prev) => [newCorr, ...prev]);
-    setEditModalRecord(null);
-    showToast('Correction request submitted and marked as Pending Correction.');
+    try {
+      await attendanceService.submitCorrectionRequest(compId, newCorr);
+      fetchRecords();
+      setEditModalRecord(null);
+      showToast('Correction request submitted and saved to database.');
+    } catch (err) {
+      setCorrections((prev) => [
+        { ...newCorr, id: `CORR${String(Date.now()).slice(-4)}`, submittedAt: new Date().toISOString() },
+        ...prev
+      ]);
+      setEditModalRecord(null);
+      showToast('Correction request submitted.');
+    }
   };
 
-  const handleApproveCorrection = (corrId) => {
-    const req = corrections.find((c) => c.id === corrId);
-    if (!req) return;
-
-    // Update attendance record
-    setRecords((prev) =>
-      prev.map((r) => {
-        if (r.id === req.attendanceId || r.employeeId === req.employeeId) {
-          // Calculate approximate hours if both in & out provided
-          let workingHours = r.workingHours;
-          if (req.requestedCheckIn && req.requestedCheckOut) {
-            const [inH, inM] = req.requestedCheckIn.split(':').map(Number);
-            const [outH, outM] = req.requestedCheckOut.split(':').map(Number);
-            const totalMins = (outH * 60 + outM) - (inH * 60 + inM);
-            if (totalMins > 0) {
-              const h = Math.floor(totalMins / 60);
-              const m = totalMins % 60;
-              workingHours = `${h}h ${String(m).padStart(2, '0')}m`;
+  const handleApproveCorrection = async (corrId) => {
+    try {
+      await attendanceService.reviewCorrectionRequest(compId, corrId, 'approve');
+      fetchRecords();
+      setReviewRequest(null);
+      showToast('Correction approved and attendance updated in database.');
+    } catch (err) {
+      // local fallback
+      const req = corrections.find((c) => c.id === corrId || c._id === corrId);
+      if (req) {
+        setRecords((prev) =>
+          prev.map((r) => {
+            if (r.id === req.attendanceId || r.employeeId === req.employeeId) {
+              return {
+                ...r,
+                checkIn: req.requestedCheckIn,
+                checkOut: req.requestedCheckOut,
+                status: 'present',
+                lateMinutes: 0,
+                earlyOutMinutes: 0
+              };
             }
-          }
-
-          return {
-            ...r,
-            checkIn: req.requestedCheckIn,
-            checkOut: req.requestedCheckOut,
-            workingHours,
-            status: 'present',
-            lateMinutes: 0,
-            earlyOutMinutes: 0
-          };
-        }
-        return r;
-      })
-    );
-
-    // Remove from pending correction requests
-    setCorrections((prev) => prev.filter((c) => c.id !== corrId));
-    setReviewRequest(null);
-    showToast(`Correction approved for ${req.employeeName}. Attendance updated.`);
+            return r;
+          })
+        );
+        setCorrections((prev) => prev.filter((c) => c.id !== corrId && c._id !== corrId));
+      }
+      setReviewRequest(null);
+      showToast('Correction approved.');
+    }
   };
 
-  const handleRejectCorrection = (corrId, reason) => {
-    const req = corrections.find((c) => c.id === corrId);
-    if (!req) return;
-
-    // Revert status to original
-    setRecords((prev) =>
-      prev.map((r) => {
-        if (r.id === req.attendanceId || r.employeeId === req.employeeId) {
-          return { ...r, status: req.originalStatus || 'present' };
-        }
-        return r;
-      })
-    );
-
-    // Remove from pending
-    setCorrections((prev) => prev.filter((c) => c.id !== corrId));
-    setReviewRequest(null);
-    showToast(`Correction request rejected for ${req.employeeName}.`, 'danger');
+  const handleRejectCorrection = async (corrId, reason) => {
+    try {
+      await attendanceService.reviewCorrectionRequest(compId, corrId, 'reject', reason);
+      fetchRecords();
+      setReviewRequest(null);
+      showToast('Correction request rejected.', 'danger');
+    } catch (err) {
+      setCorrections((prev) => prev.filter((c) => c.id !== corrId && c._id !== corrId));
+      setReviewRequest(null);
+      showToast('Correction request rejected.', 'danger');
+    }
   };
 
   // --- Export Handler ---
@@ -407,21 +402,41 @@ function Attendance() {
 
   const pendingCount = corrections.length;
 
-  const handleImportRecords = (importPayload) => {
+  const handleImportRecords = async (importPayload) => {
     const { month, date, records: newRecords } = importPayload;
     if (!newRecords || newRecords.length === 0) return;
 
-    setRecords((prev) => {
-      const newKeys = new Set(newRecords.map((r) => `${r.employeeId}_${r.date}`));
-      const existingFiltered = prev.filter((r) => !newKeys.has(`${r.employeeId}_${r.date}`));
-      return [...newRecords, ...existingFiltered];
-    });
+    try {
+      // Save directly to MongoDB Atlas database
+      const res = await attendanceService.bulkImportAttendance(compId, importPayload);
+      const saved = res.records || newRecords;
 
-    setShowImportModal(false);
-    showToast(`✓ Successfully imported ${newRecords.length} attendance records for ${month}.`);
-    if (date) {
-      setSelectedDate(date);
-      setCurrentPage(1);
+      setRecords((prev) => {
+        const newKeys = new Set(saved.map((r) => `${r.employeeId}_${r.date}`));
+        const existingFiltered = prev.filter((r) => !newKeys.has(`${r.employeeId}_${r.date}`));
+        return [...saved, ...existingFiltered];
+      });
+
+      setShowImportModal(false);
+      showToast(`✓ Successfully imported & saved ${saved.length} attendance records to database!`);
+      if (date) {
+        setSelectedDate(date);
+        setCurrentPage(1);
+      }
+    } catch (err) {
+      // Local fallback
+      setRecords((prev) => {
+        const newKeys = new Set(newRecords.map((r) => `${r.employeeId}_${r.date}`));
+        const existingFiltered = prev.filter((r) => !newKeys.has(`${r.employeeId}_${r.date}`));
+        return [...newRecords, ...existingFiltered];
+      });
+
+      setShowImportModal(false);
+      showToast(`Imported locally (${err.message})`, 'danger');
+      if (date) {
+        setSelectedDate(date);
+        setCurrentPage(1);
+      }
     }
   };
 
