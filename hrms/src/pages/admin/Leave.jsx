@@ -825,7 +825,7 @@ export default function Leave() {
         <header className={styles.header}>
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>
-              {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : 'Enterprise Leave Management'}
+              {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : 'Leave Management'}
             </h1>
             <p className={styles.subtitle}>
               {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments in MongoDB database.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Live database leave records, employee quotas, approvals with instant Attendance synchronization.'}
@@ -841,14 +841,16 @@ export default function Leave() {
               <Download size={16} />
               <span>Export Report</span>
             </button>
-            <button
-              type="button"
-              className={styles.primaryAddBtn}
-              onClick={() => setIsApplyModalOpen(true)}
-            >
-              <Plus size={16} />
-              <span>Apply Leave</span>
-            </button>
+            {activeTab === 'requests' && (
+              <button
+                type="button"
+                className={styles.primaryAddBtn}
+                onClick={() => setIsApplyModalOpen(true)}
+              >
+                <Plus size={16} />
+                <span>Apply Leave</span>
+              </button>
+            )}
           </div>
         </header>
 
