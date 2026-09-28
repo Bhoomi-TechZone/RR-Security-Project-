@@ -82,6 +82,11 @@ function AttendanceDetailsDrawer({ record, onClose, onEdit }) {
           <button className={styles.editBtn} onClick={() => { onEdit(record); onClose(); }}>
             Edit Attendance
           </button>
+          {onDelete && (
+            <button className={styles.deleteBtn} onClick={() => { onDelete(record); onClose(); }}>
+              Delete Attendance
+            </button>
+          )}
         </div>
       </div>
     </>

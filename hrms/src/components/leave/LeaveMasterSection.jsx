@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit2, Eye, ToggleLeft, ToggleRight, Layers, CheckCircle, ShieldAlert, Sparkles } from 'lucide-react';
+import { Plus, Edit2, Eye, ToggleLeft, ToggleRight, Layers, CheckCircle, ShieldAlert, Sparkles, Trash2 } from 'lucide-react';
 import styles from './LeaveMasterSection.module.css';
 
 export default function LeaveMasterSection({
@@ -7,19 +7,20 @@ export default function LeaveMasterSection({
   onAddClick,
   onEditClick,
   onViewClick,
-  onToggleStatus
+  onToggleStatus,
+  onDeleteClick
 }) {
   const [filterType, setFilterType] = useState('ALL');
 
   const totalTypes = leaveTypes.length;
-  const paidTypes = leaveTypes.filter(t => t.category === 'Paid').length;
+  const paidTypes = leaveTypes.filter(t => (t.category || 'Paid') === 'Paid').length;
   const unpaidTypes = leaveTypes.filter(t => t.category === 'Unpaid').length;
-  const activeTypes = leaveTypes.filter(t => t.status === 'Active').length;
+  const activeTypes = leaveTypes.filter(t => (t.status || 'Active') === 'Active').length;
 
   const filteredList = leaveTypes.filter(t => {
-    if (filterType === 'PAID') return t.category === 'Paid';
+    if (filterType === 'PAID') return (t.category || 'Paid') === 'Paid';
     if (filterType === 'UNPAID') return t.category === 'Unpaid';
-    if (filterType === 'ACTIVE') return t.status === 'Active';
+    if (filterType === 'ACTIVE') return (t.status || 'Active') === 'Active';
     return true;
   });
 
@@ -148,24 +149,28 @@ export default function LeaveMasterSection({
                     </span>
                   </td>
                   <td className={styles.numberCell}>
-                    <strong>{item.annualQuota > 0 ? `${item.annualQuota} Days` : 'No Quota'}</strong>
+                    <strong>
+                      {Number(item.annualQuota ?? item.quota) > 0
+                        ? `${item.annualQuota ?? item.quota} Days`
+                        : (item.category === 'Unpaid' ? 'No Limit' : 'No Quota')}
+                    </strong>
                   </td>
                   <td>
-                    <span className={item.carryForward === 'Yes' ? styles.yesBadge : styles.noBadge}>
-                      {item.carryForward}
+                    <span className={(item.carryForward === 'Yes' || item.carryForward === true) ? styles.yesBadge : styles.noBadge}>
+                      {item.carryForward === true || item.carryForward === 'Yes' ? 'Yes' : 'No'}
                     </span>
                   </td>
                   <td className={styles.numberCell}>
-                    {item.maxAccumulation > 0 ? `${item.maxAccumulation} Days` : '0'}
+                    {Number(item.maxAccumulation ?? item.maxCarryForward) > 0 ? `${item.maxAccumulation ?? item.maxCarryForward} Days` : '0'}
                   </td>
                   <td>
-                    <span className={item.encashment === 'Yes' ? styles.yesBadge : styles.noBadge}>
-                      {item.encashment}
+                    <span className={(item.encashment === 'Yes' || item.encashment === true) ? styles.yesBadge : styles.noBadge}>
+                      {item.encashment === true || item.encashment === 'Yes' ? 'Yes' : 'No'}
                     </span>
                   </td>
                   <td>
-                    <span className={item.status === 'Active' ? styles.statusActive : styles.statusInactive}>
-                      {item.status}
+                    <span className={(item.status || 'Active') === 'Active' ? styles.statusActive : styles.statusInactive}>
+                      {item.status || 'Active'}
                     </span>
                   </td>
                   <td>
@@ -193,6 +198,14 @@ export default function LeaveMasterSection({
                         onClick={() => onToggleStatus(item)}
                       >
                         {item.status === 'Active' ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                      </button>
+                      <button
+                        type="button"
+                        className={`${styles.actionIconBtn} ${styles.btnDelete}`}
+                        title="Delete Leave Type"
+                        onClick={() => onDeleteClick(item)}
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>

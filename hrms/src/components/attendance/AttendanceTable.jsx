@@ -15,7 +15,18 @@ function getInitialsBg(initials) {
   return colors[idx];
 }
 
-function AttendanceTable({ records, onView, onEdit, onReview }) {
+const formatDateDisplay = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  }).format(d);
+};
+
+function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
   const handleAction = (action, rec) => {
     if (action === 'view') {
       onView(rec);
@@ -23,6 +34,8 @@ function AttendanceTable({ records, onView, onEdit, onReview }) {
       onEdit(rec);
     } else if (action === 'review') {
       onReview(rec);
+    } else if (action === 'delete') {
+      if (onDelete) onDelete(rec);
     }
   };
 
@@ -44,6 +57,7 @@ function AttendanceTable({ records, onView, onEdit, onReview }) {
           <thead>
             <tr>
               <th>Employee</th>
+              <th>Date</th>
               <th>Client / Site</th>
               <th>Department</th>
               <th>Check In</th>
@@ -69,6 +83,9 @@ function AttendanceTable({ records, onView, onEdit, onReview }) {
                       <div className={styles.empId}>{rec.employeeId}</div>
                     </div>
                   </div>
+                </td>
+                <td>
+                  <span className={styles.dateText}>{formatDateDisplay(rec.date)}</span>
                 </td>
                 <td>
                   <div className={styles.companyCell}>
@@ -138,6 +155,10 @@ function AttendanceTable({ records, onView, onEdit, onReview }) {
               </StatusBadge>
             </div>
             <div className={styles.cardBody}>
+              <div className={styles.cardRow}>
+                <span>Date</span>
+                <span className={styles.dateText}>{formatDateDisplay(rec.date)}</span>
+              </div>
               <div className={styles.cardRow}>
                 <span>In</span>
                 <span>

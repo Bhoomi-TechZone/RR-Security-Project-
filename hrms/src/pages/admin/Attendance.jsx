@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud } from 'lucide-react';
+import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AttendanceDateSelector from '../../components/attendance/AttendanceDateSelector';
@@ -20,6 +20,178 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import attendanceService from '../../services/attendanceService';
 import styles from './Attendance.module.css';
+
+function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onConfirm }) {
+  if (!isOpen || !record) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1060,
+        padding: 16,
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        style={{
+          background: 'var(--surface, #ffffff)',
+          border: '1px solid var(--border, #e2e8f0)',
+          borderRadius: 'var(--radius-lg, 12px)',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+          width: '100%',
+          maxWidth: 480,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '16px 20px',
+            borderBottom: '1px solid #fee2e2',
+            background: '#fff5f5',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 8,
+                background: '#fef2f2',
+                color: '#dc2626',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Trash2 size={18} />
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#991b1b' }}>Delete Attendance Record</h3>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#b91c1c' }}>Permanent removal from database</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', padding: 4, fontSize: 16 }}
+          >
+            ✕
+          </button>
+        </div>
+
+        <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary, #0f172a)', lineHeight: 1.5 }}>
+            Are you sure you want to permanently delete the attendance record for <strong>{record.employeeName}</strong> (<code>{record.employeeId}</code>) on <strong>{record.date}</strong>?
+          </p>
+          <div
+            style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: 6,
+              padding: '10px 12px',
+              fontSize: 12,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 4,
+            }}
+          >
+            <div><strong>Client / Site:</strong> {record.companyName || record.clientName} · {record.site}</div>
+            <div><strong>Timing:</strong> In: {record.checkIn || '—'} | Out: {record.checkOut || '—'} ({record.workingHours || '—'})</div>
+            <div><strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{record.status}</span></div>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12,
+              color: '#dc2626',
+              background: '#fef2f2',
+              padding: '8px 10px',
+              borderRadius: 6,
+            }}
+          >
+            <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+            <span>This action is immediate and permanently removes this record from database.</span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'flex-end',
+            gap: 10,
+            padding: '14px 20px',
+            borderTop: '1px solid var(--border-light, #f1f5f9)',
+            background: 'var(--surface-alt, #f8fafc)',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            style={{
+              padding: '8px 16px',
+              border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#475569',
+              cursor: 'pointer',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 18px',
+              border: 'none',
+              background: '#dc2626',
+              borderRadius: 6,
+              fontSize: 13,
+              fontWeight: 600,
+              color: '#ffffff',
+              cursor: isDeleting ? 'not-allowed' : 'pointer',
+              opacity: isDeleting ? 0.75 : 1,
+            }}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />
+                <span>Deleting...</span>
+              </>
+            ) : (
+              <>
+                <Trash2 size={15} />
+                <span>Delete Permanently</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const INITIAL_FILTERS = {
   search: '',
@@ -51,75 +223,62 @@ const sanitizeRecords = (list) => {
 
 function Attendance() {
   const { activeCompany } = useCompany();
-  const [searchParams] = useSearchParams();
   const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
-  const ATTENDANCE_STORAGE_KEY = `novaspark_attendance_${compId}`;
-  const CORRECTION_STORAGE_KEY = `novaspark_corrections_${compId}`;
 
-  // --- Dynamic State Loaded directly from MongoDB Atlas ---
-  const [records, setRecords] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_attendance_${compId}`);
-      return saved ? sanitizeRecords(JSON.parse(saved)) : [];
-    } catch {
-      return [];
-    }
-  });
+  // --- Dynamic State Loaded directly from MongoDB Atlas (NO LocalStorage) ---
+  const [records, setRecords] = useState([]);
+  const [corrections, setCorrections] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [corrections, setCorrections] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_corrections_${compId}`);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  // --- Active Date & Tab ---
+  const [searchParams, setSearchParams] = useSearchParams();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const urlDate = searchParams.get('date');
+  const [selectedDate, setSelectedDate] = useState(() => urlDate || todayStr);
+  const [activeTab, setActiveTab] = useState(() => (searchParams.get('tab') === 'corrections' ? 'corrections' : 'daily'));
 
-  const [isLoading, setIsLoading] = useState(false);
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate);
+    setCurrentPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newDate) {
+        next.set('date', newDate);
+      } else {
+        next.delete('date');
+      }
+      return next;
+    });
+  };
 
-  const fetchRecords = React.useCallback(async () => {
+  const fetchRecords = React.useCallback(async (targetDate) => {
     try {
       setIsLoading(true);
-      const data = await attendanceService.getAttendanceRecords(compId);
-      if (Array.isArray(data) && data.length > 0) {
+      const queryDate = targetDate !== undefined ? targetDate : selectedDate;
+      const data = await attendanceService.getAttendanceRecords(compId, { date: queryDate });
+      if (Array.isArray(data)) {
         setRecords(sanitizeRecords(data));
       }
       const corrs = await attendanceService.getCorrectionRequests(compId);
-      if (Array.isArray(corrs) && corrs.length > 0) {
+      if (Array.isArray(corrs)) {
         setCorrections(corrs);
       }
     } catch (err) {
-      console.warn('Backend attendance load error:', err.message);
+      console.warn('MongoDB attendance load error:', err.message);
     } finally {
       setIsLoading(false);
     }
-  }, [compId]);
+  }, [compId, selectedDate]);
 
-  // Load from MongoDB on component mount and company switch
+  // Load from MongoDB on component mount, company switch, or date change
   useEffect(() => {
-    fetchRecords();
-  }, [fetchRecords]);
-
-  // Sync to local cache
-  useEffect(() => {
-    if (records.length > 0) {
-      localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(records));
-    }
-  }, [records, ATTENDANCE_STORAGE_KEY]);
-
-  useEffect(() => {
-    localStorage.setItem(CORRECTION_STORAGE_KEY, JSON.stringify(corrections));
-  }, [corrections, CORRECTION_STORAGE_KEY]);
-
-  // --- Active Date & Tab ---
-  const todayStr = new Date().toISOString().split('T')[0];
-  const [selectedDate, setSelectedDate] = useState(todayStr);
-  const [activeTab, setActiveTab] = useState(() => searchParams.get('tab') === 'corrections' ? 'corrections' : 'daily');
+    fetchRecords(selectedDate);
+  }, [compId, selectedDate]);
 
   // --- Filters & Pagination ---
   const [filters, setFilters] = useState(() => ({
     ...INITIAL_FILTERS,
-    status: searchParams.get('status') || ''
+    status: searchParams.get('status') || '',
   }));
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -133,17 +292,24 @@ function Attendance() {
       setActiveTab('daily');
     }
 
+    const dateParam = searchParams.get('date');
+    if (dateParam && dateParam !== selectedDate) {
+      setSelectedDate(dateParam);
+    }
+
     const statusParam = searchParams.get('status');
     if (statusParam) {
-      setFilters(prev => ({ ...prev, status: statusParam }));
+      setFilters((prev) => ({ ...prev, status: statusParam }));
     } else if (!tab) {
-      setFilters(prev => ({ ...prev, status: '' }));
+      setFilters((prev) => ({ ...prev, status: '' }));
     }
   }, [searchParams]);
 
   // --- Modals & Drawers ---
   const [viewDrawerRecord, setViewDrawerRecord] = useState(null);
   const [editModalRecord, setEditModalRecord] = useState(null);
+  const [deleteModalRecord, setDeleteModalRecord] = useState(null);
+  const [isDeletingRecord, setIsDeletingRecord] = useState(false);
   const [reviewRequest, setReviewRequest] = useState(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -152,6 +318,27 @@ function Attendance() {
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  const handleDeleteRecord = (record) => {
+    setDeleteModalRecord(record);
+  };
+
+  const handleConfirmDeleteRecord = async () => {
+    if (!deleteModalRecord) return;
+    try {
+      setIsDeletingRecord(true);
+      const recordId = deleteModalRecord._id || deleteModalRecord.id || deleteModalRecord.employeeId;
+      await attendanceService.deleteAttendanceRecord(compId, recordId);
+      setDeleteModalRecord(null);
+      showToast(`✓ Attendance record for ${deleteModalRecord.employeeName || deleteModalRecord.employeeId} (${deleteModalRecord.date}) deleted from database.`);
+      await fetchRecords(selectedDate);
+    } catch (err) {
+      showToast(`Failed to delete attendance: ${err.message}`, 'danger');
+    } finally {
+      setIsDeletingRecord(false);
+    }
+  };
+
 
   // Reset page when filters change
   const handleFilterChange = (newFilters) => {
@@ -197,86 +384,64 @@ function Attendance() {
     return filteredRecords.slice(start, start + pageSize);
   }, [filteredRecords, currentPage, pageSize]);
 
-  // --- Correction Handlers ---
-  const handleCorrectionSubmit = async (formData) => {
-    const { attendanceId, checkIn, checkOut, status, reason } = formData;
-    const target = records.find((r) => r.id === attendanceId || r._id === attendanceId);
-
-    const newCorr = {
-      attendanceId: target?.id || target?._id || attendanceId,
-      employeeId: target?.employeeId || 'EMP000',
-      employeeName: target?.employeeName || 'Unknown',
-      initials: target?.initials || 'UN',
-      clientName: target?.clientName || target?.companyName || 'General',
-      companyName: target?.companyName || target?.clientName || 'General',
-      site: target?.site || 'Main Site',
-      date: target?.date || selectedDate,
-      originalCheckIn: target?.checkIn || null,
-      originalCheckOut: target?.checkOut || null,
-      originalStatus: target?.status || 'present',
-      requestedCheckIn: checkIn || null,
-      requestedCheckOut: checkOut || null,
-      reason,
-      status: 'pendingCorrection'
-    };
-
+  // --- Instant Edit Handler (Direct Save without Approval) ---
+  const handleEditRecordSubmit = async (formData) => {
     try {
-      await attendanceService.submitCorrectionRequest(compId, newCorr);
-      fetchRecords();
+      const payload = {
+        companyId: compId,
+        employeeId: formData.employeeId,
+        employeeName: formData.employeeName,
+        clientName: formData.clientName || formData.companyName || 'RR Security',
+        companyName: formData.companyName || formData.clientName || 'RR Security',
+        site: formData.site || 'Main Site',
+        department: formData.department || 'Security',
+        date: formData.date || selectedDate,
+        checkIn: formData.checkIn || null,
+        checkOut: formData.checkOut || null,
+        status: formData.status || 'present',
+        lateMinutes: Number(formData.lateMinutes) || 0,
+        remarks: formData.remarks || '',
+      };
+
+      await attendanceService.saveAttendanceRecord(compId, payload);
+      await fetchRecords(selectedDate);
       setEditModalRecord(null);
-      showToast('Correction request submitted and saved to database.');
+      showToast(`✓ Attendance updated instantly for ${formData.employeeName || 'employee'}.`);
     } catch (err) {
-      setCorrections((prev) => [
-        { ...newCorr, id: `CORR${String(Date.now()).slice(-4)}`, submittedAt: new Date().toISOString() },
-        ...prev
-      ]);
-      setEditModalRecord(null);
-      showToast('Correction request submitted.');
+      showToast(`Failed to update attendance: ${err.message}`, 'danger');
     }
   };
 
   const handleApproveCorrection = async (corrId) => {
     try {
       await attendanceService.reviewCorrectionRequest(compId, corrId, 'approve');
-      fetchRecords();
+      await fetchRecords(selectedDate);
       setReviewRequest(null);
-      showToast('Correction approved and attendance updated in database.');
+      showToast('Correction approved and attendance updated directly in MongoDB database.');
     } catch (err) {
-      // local fallback
-      const req = corrections.find((c) => c.id === corrId || c._id === corrId);
-      if (req) {
-        setRecords((prev) =>
-          prev.map((r) => {
-            if (r.id === req.attendanceId || r.employeeId === req.employeeId) {
-              return {
-                ...r,
-                checkIn: req.requestedCheckIn,
-                checkOut: req.requestedCheckOut,
-                status: 'present',
-                lateMinutes: 0,
-                earlyOutMinutes: 0
-              };
-            }
-            return r;
-          })
-        );
-        setCorrections((prev) => prev.filter((c) => c.id !== corrId && c._id !== corrId));
-      }
-      setReviewRequest(null);
-      showToast('Correction approved.');
+      showToast(`Failed to approve correction: ${err.message}`, 'danger');
     }
   };
 
   const handleRejectCorrection = async (corrId, reason) => {
     try {
       await attendanceService.reviewCorrectionRequest(compId, corrId, 'reject', reason);
-      fetchRecords();
+      await fetchRecords(selectedDate);
       setReviewRequest(null);
-      showToast('Correction request rejected.', 'danger');
+      showToast('Correction request rejected and updated in MongoDB database.', 'danger');
     } catch (err) {
-      setCorrections((prev) => prev.filter((c) => c.id !== corrId && c._id !== corrId));
-      setReviewRequest(null);
-      showToast('Correction request rejected.', 'danger');
+      showToast(`Failed to reject correction: ${err.message}`, 'danger');
+    }
+  };
+
+  // --- Direct Attendance Save Handler ---
+  const handleSaveAttendance = async (recordData) => {
+    try {
+      await attendanceService.saveAttendanceRecord(compId, recordData);
+      await fetchRecords(selectedDate);
+      showToast('Attendance record saved directly to MongoDB database.');
+    } catch (err) {
+      showToast(`Failed to save attendance: ${err.message}`, 'danger');
     }
   };
 
@@ -407,36 +572,25 @@ function Attendance() {
     if (!newRecords || newRecords.length === 0) return;
 
     try {
+      setIsLoading(true);
       // Save directly to MongoDB Atlas database
       const res = await attendanceService.bulkImportAttendance(compId, importPayload);
-      const saved = res.records || newRecords;
-
-      setRecords((prev) => {
-        const newKeys = new Set(saved.map((r) => `${r.employeeId}_${r.date}`));
-        const existingFiltered = prev.filter((r) => !newKeys.has(`${r.employeeId}_${r.date}`));
-        return [...saved, ...existingFiltered];
-      });
+      const targetDate = date || (res.records && res.records[0]?.date) || selectedDate;
 
       setShowImportModal(false);
-      showToast(`✓ Successfully imported & saved ${saved.length} attendance records to database!`);
-      if (date) {
-        setSelectedDate(date);
-        setCurrentPage(1);
+      showToast(`✓ Successfully stored ${res.count || newRecords.length} attendance records directly in MongoDB database!`);
+
+      if (targetDate) {
+        handleDateChange(targetDate);
+        await fetchRecords(targetDate);
+      } else {
+        await fetchRecords();
       }
     } catch (err) {
-      // Local fallback
-      setRecords((prev) => {
-        const newKeys = new Set(newRecords.map((r) => `${r.employeeId}_${r.date}`));
-        const existingFiltered = prev.filter((r) => !newKeys.has(`${r.employeeId}_${r.date}`));
-        return [...newRecords, ...existingFiltered];
-      });
-
-      setShowImportModal(false);
-      showToast(`Imported locally (${err.message})`, 'danger');
-      if (date) {
-        setSelectedDate(date);
-        setCurrentPage(1);
-      }
+      console.error('Import to database failed:', err);
+      showToast(`Failed to import to database: ${err.message}`, 'danger');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -488,10 +642,7 @@ function Attendance() {
             <div className={styles.dateSelectorRow}>
               <AttendanceDateSelector
                 date={selectedDate}
-                onChange={(newDate) => {
-                  setSelectedDate(newDate);
-                  setCurrentPage(1);
-                }}
+                onChange={handleDateChange}
               />
             </div>
 
@@ -514,6 +665,7 @@ function Attendance() {
               records={paginatedRecords}
               onView={(rec) => setViewDrawerRecord(rec)}
               onEdit={(rec) => setEditModalRecord(rec)}
+              onDelete={(rec) => handleDeleteRecord(rec)}
               onReview={(rec) => {
                 const matchedReq = corrections.find((c) => c.attendanceId === rec.id || c.employeeId === rec.employeeId);
                 if (matchedReq) {
@@ -562,6 +714,7 @@ function Attendance() {
             record={viewDrawerRecord}
             onClose={() => setViewDrawerRecord(null)}
             onEdit={(rec) => setEditModalRecord(rec)}
+            onDelete={(rec) => handleDeleteRecord(rec)}
           />
         )}
 
@@ -569,7 +722,17 @@ function Attendance() {
           <AttendanceCorrectionModal
             record={editModalRecord}
             onClose={() => setEditModalRecord(null)}
-            onSubmit={handleCorrectionSubmit}
+            onSubmit={handleEditRecordSubmit}
+          />
+        )}
+
+        {deleteModalRecord && (
+          <DeleteAttendanceConfirmModal
+            isOpen={!!deleteModalRecord}
+            record={deleteModalRecord}
+            isDeleting={isDeletingRecord}
+            onClose={() => setDeleteModalRecord(null)}
+            onConfirm={handleConfirmDeleteRecord}
           />
         )}
 
@@ -596,6 +759,8 @@ function Attendance() {
             onClose={() => setShowImportModal(false)}
             onImport={handleImportRecords}
             activeCompanyName={activeCompany?.name || 'RR Security'}
+            activeCompanyId={compId}
+            currentDate={selectedDate}
           />
         )}
       </div>

@@ -13,6 +13,7 @@ import workLocationRoutes from './routes/workLocationRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
+import leaveRoutes from './routes/leaveRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -140,6 +141,9 @@ app.use('/api/shifts', shiftRoutes);
 
 // Attendance Management
 app.use('/api/attendance', attendanceRoutes);
+
+// Leave Management
+app.use('/api/leaves', leaveRoutes);
 
 
 // ===========================================

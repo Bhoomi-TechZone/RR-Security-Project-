@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 
 class AttendanceService {
   getHeaders(companyId) {
@@ -77,6 +77,23 @@ class AttendanceService {
     }
     return data.record;
   }
+
+  /**
+   * Delete attendance record permanently from MongoDB
+   */
+  async deleteAttendanceRecord(companyId, recordId) {
+    const res = await fetch(`${API_BASE_URL}/attendance/${recordId}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(companyId),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to delete attendance record');
+    }
+    return data;
+  }
+
 
   /**
    * Get correction requests

@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import SiteManpowerImpactWidget from './SiteManpowerImpactWidget';
 import StatusBadge from '../common/StatusBadge';
-import { INITIAL_SITE_MANPOWER } from '../../data/leaveMasterData';
 import styles from './LeaveApprovalDrawer.module.css';
 
 export default function LeaveApprovalDrawer({
@@ -31,15 +30,15 @@ export default function LeaveApprovalDrawer({
 }) {
   if (!selectedLeave) return null;
 
-  const siteInfo = selectedLeave.siteManpower || INITIAL_SITE_MANPOWER[selectedLeave.site] || {
-    siteName: selectedLeave.site || 'Site Post A',
-    clientName: selectedLeave.clientName,
-    totalGuards: 25,
-    onDuty: 20,
-    onLeave: 3,
-    absent: 2,
-    relieverAvailable: 2,
-    minimumRequired: 20
+  const siteInfo = selectedLeave.siteManpower || {
+    siteName: selectedLeave.site || 'Main Site',
+    clientName: selectedLeave.clientName || 'RR Security',
+    totalGuards: 20,
+    onDuty: 18,
+    onLeave: 2,
+    absent: 0,
+    relieverAvailable: 1,
+    minimumRequired: 16
   };
 
   const isPendingSupervisor = selectedLeave.status === 'Pending Supervisor Approval';

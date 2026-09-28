@@ -91,6 +91,14 @@
   color: var(--text-muted);
 }
 
+.dateText {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+
 /* Company / site cell */
 .companyCell {
   display: flex;
