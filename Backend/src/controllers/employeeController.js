@@ -19,8 +19,22 @@ export const getEmployees = async (req, res) => {
       });
     }
 
+    let companyIds = [companyId];
+    try {
+      const comp = await Company.findOne({
+        adminEmail,
+        $or: [
+          { companyId },
+          { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+        ]
+      });
+      if (comp) {
+        companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+      }
+    } catch {}
+
     const filter = {
-      companyId,
+      companyId: { $in: companyIds },
       adminEmail
     };
 

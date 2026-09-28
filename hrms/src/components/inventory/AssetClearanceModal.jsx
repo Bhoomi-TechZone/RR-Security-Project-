@@ -1,15 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { X, ShieldCheck, AlertTriangle, CheckCircle, FileText, User, Printer, Award } from 'lucide-react';
+import { X, ShieldCheck, AlertTriangle, CheckCircle, FileText, User, Printer, Award, Loader2 } from 'lucide-react';
+import authService from '../../services/authService';
 import styles from './AssetClearanceModal.module.css';
 
 export default function AssetClearanceModal({
   isOpen,
   clearanceRecord = null,
+  isSubmitting = false,
   onClose,
   onApproveClearance
 }) {
+  const getActiveUserName = () => {
+    const user = authService.getCurrentUser();
+    return user?.name || user?.fullName || 'HR Manager / Store Admin';
+  };
+
   const [remarks, setRemarks] = useState('');
-  const [clearedBy, setClearedBy] = useState('HR Manager (Pooja Sharma)');
+  const [clearedBy, setClearedBy] = useState(getActiveUserName);
 
   if (!isOpen || !clearanceRecord) return null;
 
@@ -33,6 +40,7 @@ export default function AssetClearanceModal({
   const canBeCleared = totalPending === 0;
 
   const handleApprove = () => {
+    if (isSubmitting) return;
     onApproveClearance({
       ...clearanceRecord,
       clearanceStatus: 'Fully Cleared',
@@ -41,7 +49,6 @@ export default function AssetClearanceModal({
       certificateNo: certificateNo || `NDC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
       remarks: remarks || 'All assets verified and cleared for exit settlement.'
     });
-    onClose();
   };
 
   const handlePrint = () => {
@@ -49,7 +56,7 @@ export default function AssetClearanceModal({
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={isSubmitting ? undefined : onClose}>
       <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className={styles.header}>
@@ -63,10 +70,16 @@ export default function AssetClearanceModal({
             </div>
           </div>
           <div className={styles.headerActions}>
-            <button type="button" className={styles.btnPrint} onClick={handlePrint}>
+            <button type="button" className={styles.btnPrint} onClick={handlePrint} disabled={isSubmitting}>
               <Printer size={15} /> Print Clearance Slip
             </button>
-            <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={onClose}
+              disabled={isSubmitting}
+              aria-label="Close"
+            >
               <X size={18} />
             </button>
           </div>
@@ -182,6 +195,7 @@ export default function AssetClearanceModal({
                 className={styles.input}
                 value={clearedBy}
                 onChange={(e) => setClearedBy(e.target.value)}
+                disabled={isSubmitting}
               />
             </div>
             <div className={styles.field}>
@@ -192,6 +206,7 @@ export default function AssetClearanceModal({
                 placeholder="E.g. Full uniform returned in good condition, ID card surrendered..."
                 value={remarks}
                 onChange={(e) => setRemarks(e.target.value)}
+                disabled={isSubmitting}
               />
             </div>
           </div>
@@ -199,18 +214,33 @@ export default function AssetClearanceModal({
 
         {/* Footer */}
         <div className={styles.footer}>
-          <button type="button" className={styles.btnCancel} onClick={onClose}>
+          <button
+            type="button"
+            className={styles.btnCancel}
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             Close
           </button>
           {clearanceStatus !== 'Fully Cleared' && (
             <button
               type="button"
               className={styles.btnApprove}
-              disabled={!canBeCleared}
+              disabled={!canBeCleared || isSubmitting}
               onClick={handleApprove}
               title={!canBeCleared ? 'Cannot clear while items are pending' : 'Approve Clearance'}
             >
-              <Award size={15} /> Grant Asset Clearance
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={15} className={styles.spinner} />
+                  <span>Granting Clearance...</span>
+                </>
+              ) : (
+                <>
+                  <Award size={15} />
+                  <span>Grant Asset Clearance</span>
+                </>
+              )}
             </button>
           )}
         </div>

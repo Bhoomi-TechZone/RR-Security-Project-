@@ -14,6 +14,7 @@ import roleRoutes from './routes/roleRoutes.js';
 import shiftRoutes from './routes/shiftRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import leaveRoutes from './routes/leaveRoutes.js';
+import inventoryRoutes from './routes/inventoryRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -144,6 +145,9 @@ app.use('/api/attendance', attendanceRoutes);
 
 // Leave Management
 app.use('/api/leaves', leaveRoutes);
+
+// Inventory & Uniform / Asset Management
+app.use('/api/inventory', inventoryRoutes);
 
 
 // ===========================================

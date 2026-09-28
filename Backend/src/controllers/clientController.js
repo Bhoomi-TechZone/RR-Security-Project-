@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import Client from '../models/clientModel.js';
+import Company from '../models/companyModel.js';
 
 /**
  * @desc    Get all clients isolated to the active company profile
@@ -17,8 +19,22 @@ export const getClients = async (req, res) => {
       });
     }
 
+    let companyIds = [companyId];
+    try {
+      const comp = await Company.findOne({
+        adminEmail,
+        $or: [
+          { companyId },
+          { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+        ]
+      });
+      if (comp) {
+        companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+      }
+    } catch {}
+
     const clients = await Client.find({
-      companyId,
+      companyId: { $in: companyIds },
       adminEmail
     }).sort({ createdAt: -1 });
 

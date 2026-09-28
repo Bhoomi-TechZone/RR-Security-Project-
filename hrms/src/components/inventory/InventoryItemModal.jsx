@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Package, Sparkles, AlertCircle, Upload, Image as ImageIcon, Trash2, Shirt, Shield } from 'lucide-react';
+import { X, Package, Sparkles, AlertCircle, Upload, Image as ImageIcon, Trash2, Shirt, Shield, Loader2 } from 'lucide-react';
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_SIZES,
@@ -18,6 +18,7 @@ export default function InventoryItemModal({
   itemType = 'uniform', // 'uniform' | 'asset'
   initialData = null,
   existingItems = [],
+  isSubmitting = false,
   onClose,
   onSave
 }) {
@@ -150,19 +151,29 @@ export default function InventoryItemModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const nextErrors = {};
+
+    const isCodeChanged = !initialData || formData.itemCode.trim().toLowerCase() !== (initialData.itemCode || initialData.itemId || '').trim().toLowerCase();
 
     if (!formData.itemCode.trim()) {
       nextErrors.itemCode = isUniform
         ? 'Uniform Code is required (e.g. UNI-SHT-L)'
         : 'Item Identity Number is required (e.g. AST-WT-01)';
     } else if (
-      mode === 'add' &&
-      existingItems.some((itm) => itm.itemCode?.toLowerCase() === formData.itemCode.trim().toLowerCase())
+      isCodeChanged &&
+      existingItems.some((itm) => {
+        const isCurrent = initialData && (
+          (initialData._id && (itm._id === initialData._id || itm.id === initialData._id)) ||
+          (initialData.id && (itm.id === initialData.id || itm._id === initialData.id)) ||
+          (initialData.itemId && (itm.itemId === initialData.itemId || itm.id === initialData.itemId))
+        );
+        return !isCurrent && itm.itemCode?.toLowerCase() === formData.itemCode.trim().toLowerCase();
+      })
     ) {
       nextErrors.itemCode = isUniform
-        ? 'Uniform Code must be unique. This code already exists.'
-        : 'Item Identity Number must be unique. This number already exists.';
+        ? 'Uniform Code must be unique. This code already exists on another item.'
+        : 'Item Identity Number must be unique. This number already exists on another item.';
     }
 
     if (!formData.itemName.trim()) {
@@ -230,7 +241,13 @@ export default function InventoryItemModal({
               </p>
             </div>
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Close modal"
+          >
             <X size={18} />
           </button>
         </div>
@@ -325,7 +342,7 @@ export default function InventoryItemModal({
                     className={`${styles.input} ${errors.itemCode ? styles.inputError : ''}`}
                     value={formData.itemCode}
                     onChange={(e) => handleChange('itemCode', e.target.value.toUpperCase())}
-                    disabled={mode === 'edit'}
+                    disabled={isSubmitting}
                   />
                   {errors.itemCode && <span className={styles.errorText}>{errors.itemCode}</span>}
                 </div>
@@ -339,6 +356,7 @@ export default function InventoryItemModal({
                     className={styles.select}
                     value={formData.category}
                     onChange={(e) => handleChange('category', e.target.value)}
+                    disabled={isSubmitting}
                   >
                     {UNIFORM_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
@@ -352,6 +370,7 @@ export default function InventoryItemModal({
                     className={styles.select}
                     value={formData.size}
                     onChange={(e) => handleChange('size', e.target.value)}
+                    disabled={isSubmitting}
                   >
                     {INVENTORY_SIZES.map((sz) => (
                       <option key={sz} value={sz}>{sz}</option>
@@ -365,6 +384,7 @@ export default function InventoryItemModal({
                     className={styles.select}
                     value={formData.color}
                     onChange={(e) => handleChange('color', e.target.value)}
+                    disabled={isSubmitting}
                   >
                     {INVENTORY_COLORS.map((col) => (
                       <option key={col} value={col}>{col}</option>
@@ -386,7 +406,7 @@ export default function InventoryItemModal({
                     className={`${styles.input} ${errors.quantity ? styles.inputError : ''}`}
                     value={formData.quantity}
                     onChange={(e) => handleChange('quantity', e.target.value)}
-                    disabled={mode === 'edit'}
+                    disabled={isSubmitting}
                   />
                   {errors.quantity && <span className={styles.errorText}>{errors.quantity}</span>}
                 </div>
@@ -471,7 +491,7 @@ export default function InventoryItemModal({
                     className={`${styles.input} ${errors.itemCode ? styles.inputError : ''}`}
                     value={formData.itemCode}
                     onChange={(e) => handleChange('itemCode', e.target.value.toUpperCase())}
-                    disabled={mode === 'edit'}
+                    disabled={isSubmitting}
                   />
                   {errors.itemCode && <span className={styles.errorText}>{errors.itemCode}</span>}
                 </div>
@@ -485,6 +505,7 @@ export default function InventoryItemModal({
                     className={styles.select}
                     value={formData.category}
                     onChange={(e) => handleChange('category', e.target.value)}
+                    disabled={isSubmitting}
                   >
                     {ASSET_CATEGORIES.map((cat) => (
                       <option key={cat} value={cat}>{cat}</option>
@@ -503,7 +524,7 @@ export default function InventoryItemModal({
                     className={`${styles.input} ${errors.quantity ? styles.inputError : ''}`}
                     value={formData.quantity}
                     onChange={(e) => handleChange('quantity', e.target.value)}
-                    disabled={mode === 'edit'}
+                    disabled={isSubmitting}
                   />
                   {errors.quantity && <span className={styles.errorText}>{errors.quantity}</span>}
                 </div>
@@ -613,16 +634,39 @@ export default function InventoryItemModal({
 
         {/* Footer */}
         <div className={styles.footer}>
-          <button type="button" className={styles.cancelBtn} onClick={onClose}>
+          <button
+            type="button"
+            className={styles.cancelBtn}
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </button>
-          <button type="submit" form="inventoryItemForm" className={styles.saveBtn}>
-            <Sparkles size={15} />
-            <span>
-              {mode === 'add'
-                ? (isUniform ? 'Save Uniform Item' : 'Save Asset Item')
-                : (isUniform ? 'Update Uniform Item' : 'Update Asset Item')}
-            </span>
+          <button
+            type="submit"
+            form="inventoryItemForm"
+            className={styles.saveBtn}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 size={15} className={styles.spinner} />
+                <span>
+                  {mode === 'add'
+                    ? (isUniform ? 'Saving Uniform Item...' : 'Saving Asset Item...')
+                    : (isUniform ? 'Updating Uniform Item...' : 'Updating Asset Item...')}
+                </span>
+              </>
+            ) : (
+              <>
+                <Sparkles size={15} />
+                <span>
+                  {mode === 'add'
+                    ? (isUniform ? 'Save Uniform Item' : 'Save Asset Item')
+                    : (isUniform ? 'Update Uniform Item' : 'Update Asset Item')}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>

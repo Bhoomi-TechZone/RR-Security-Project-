@@ -1,19 +1,27 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, RotateCcw, AlertTriangle, CheckCircle, ShieldAlert, User, Package, Calendar } from 'lucide-react';
+import { X, RotateCcw, AlertTriangle, CheckCircle, ShieldAlert, User, Package, Calendar, Loader2 } from 'lucide-react';
+import authService from '../../services/authService';
 import styles from './InventoryReturnModal.module.css';
 
 export default function InventoryReturnModal({
   isOpen,
   issueRecord = null,
   issuedList = [],
+  isSubmitting = false,
   onClose,
   onSave
 }) {
+  const getActiveUserName = () => {
+    const user = authService.getCurrentUser();
+    return user?.name || user?.fullName || 'Store Admin';
+  };
+  const getTodayDate = () => new Date().toISOString().slice(0, 10);
+
   const [selectedIssueId, setSelectedIssueId] = useState('');
   const [returnQty, setReturnQty] = useState(1);
   const [condition, setCondition] = useState('Good');
-  const [returnDate, setReturnDate] = useState('2026-08-26');
-  const [returnedBy, setReturnedBy] = useState('Store Admin (Vikas)');
+  const [returnDate, setReturnDate] = useState(getTodayDate);
+  const [returnedBy, setReturnedBy] = useState(getActiveUserName);
   const [returnValue, setReturnValue] = useState(0);
   const [remarks, setRemarks] = useState('');
   const [errors, setErrors] = useState({});
@@ -66,6 +74,7 @@ export default function InventoryReturnModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const nextErrors = {};
 
     if (!currentIssue) nextErrors.issue = 'Please select an active issued item record.';
@@ -105,11 +114,10 @@ export default function InventoryReturnModal({
     };
 
     onSave(payload);
-    onClose();
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={isSubmitting ? undefined : onClose}>
       <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className={styles.header}>
@@ -122,7 +130,13 @@ export default function InventoryReturnModal({
               <p className={styles.subtitle}>Receive issued inventory items back and assess item condition</p>
             </div>
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Close"
+          >
             <X size={18} />
           </button>
         </div>
@@ -201,20 +215,14 @@ export default function InventoryReturnModal({
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  max={pendingQty || 1}
-                  className={`${styles.input} ${errors.returnQty ? styles.inputError : ''}`}
+                  className={`${styles.input} ${styles.readOnlyInput}`}
                   value={returnQty}
-                  onChange={(e) => setReturnQty(Math.max(1, parseInt(e.target.value) || 1))}
-                  required
+                  readOnly
+                  aria-readonly="true"
                 />
-                {errors.returnQty ? (
-                  <span className={styles.errorText}>{errors.returnQty}</span>
-                ) : (
-                  <span className={styles.helperText}>
-                    {isPartial ? `⚠️ Partial return: ${pendingQty - Number(returnQty)} will remain pending.` : `✅ Complete return of remaining ${pendingQty} unit(s).`}
-                  </span>
-                )}
+                <span className={styles.helperText}>
+                  ✅ Returning all remaining {pendingQty} unit(s) for this issued record.
+                </span>
               </div>
 
               <div className={styles.field}>
@@ -290,9 +298,10 @@ export default function InventoryReturnModal({
                 <label className={styles.label}>Rate per Unit (₹)</label>
                 <input
                   type="number"
-                  className={styles.input}
+                  className={`${styles.input} ${styles.readOnlyInput}`}
                   value={returnValue}
-                  onChange={(e) => setReturnValue(Math.max(0, parseFloat(e.target.value) || 0))}
+                  readOnly
+                  aria-readonly="true"
                 />
               </div>
 
@@ -326,11 +335,30 @@ export default function InventoryReturnModal({
 
           {/* Footer */}
           <div className={styles.footer}>
-            <button type="button" className={styles.btnCancel} onClick={onClose}>
+            <button
+              type="button"
+              className={styles.btnCancel}
+              onClick={onClose}
+              disabled={isSubmitting}
+            >
               Cancel
             </button>
-            <button type="submit" className={styles.btnSubmit}>
-              <RotateCcw size={15} /> Confirm Return
+            <button
+              type="submit"
+              className={styles.btnSubmit}
+              disabled={isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={15} className={styles.spinner} />
+                  <span>Processing Return...</span>
+                </>
+              ) : (
+                <>
+                  <RotateCcw size={15} />
+                  <span>Confirm Return</span>
+                </>
+              )}
             </button>
           </div>
         </form>

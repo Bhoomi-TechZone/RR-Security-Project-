@@ -10,9 +10,10 @@ import {
   Layers,
   Calculator,
   Shirt,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react';
-import { mockEmployees } from '../../data/employeeData';
+import authService from '../../services/authService';
 import styles from './InventoryIssueModal.module.css';
 
 const UNIFORM_CATEGORIES = ['Uniform', 'Accessory', 'Other'];
@@ -25,24 +26,33 @@ export default function InventoryIssueModal({
   initialItem = null,
   initialIssue = null,
   items = [],
-  employees = mockEmployees,
+  employees = [],
+  isSubmitting = false,
   onClose,
   onSave
 }) {
+  const getActiveUserName = () => {
+    const user = authService.getCurrentUser();
+    return user?.name || user?.fullName || 'Store Admin';
+  };
+
+  const getTodayDate = () => new Date().toISOString().slice(0, 10);
+  const getCurrentMonth = () => new Date().toISOString().slice(0, 7);
+
   const [selectedEmpId, setSelectedEmpId] = useState('');
-  const [issueDate, setIssueDate] = useState('2026-08-26');
+  const [issueDate, setIssueDate] = useState(getTodayDate);
   const [expectedReturnDate, setExpectedReturnDate] = useState('');
-  const [issuedBy, setIssuedBy] = useState('Store Admin (Vikas)');
+  const [issuedBy, setIssuedBy] = useState(getActiveUserName);
   const [remarks, setRemarks] = useState('');
   const [errors, setErrors] = useState({});
 
   // Deduction / Return Method state
   const isUniform = issueType === 'uniform';
   const [deductionMethod, setDeductionMethod] = useState(() => (issueType === 'asset' ? 'fnf' : 'salary-adjustment'));
-  const [adjustmentMonth, setAdjustmentMonth] = useState('2026-09');
+  const [adjustmentMonth, setAdjustmentMonth] = useState(getCurrentMonth);
   const [numberOfMonths, setNumberOfMonths] = useState(3);
   const [emiAmount, setEmiAmount] = useState('');
-  const [firstDeductionMonth, setFirstDeductionMonth] = useState('2026-09');
+  const [firstDeductionMonth, setFirstDeductionMonth] = useState(getCurrentMonth);
 
   // Multi-item rows state
   const [issueItems, setIssueItems] = useState([]);
@@ -51,31 +61,33 @@ export default function InventoryIssueModal({
   const availableCategoryItems = useMemo(() => {
     if (issueType === 'uniform') {
       const filtered = items.filter(
-        (i) => i.category === 'Uniform' || i.category === 'Accessory' || i.category === 'Clothing'
+        (i) => i.itemType === 'uniform' || i.category === 'Uniform' || i.category === 'Accessory' || i.category === 'Clothing'
       );
-      return filtered.length > 0 ? filtered : items;
+      return filtered.length > 0 ? filtered : items.filter((i) => i.itemType === 'uniform');
     } else if (issueType === 'asset') {
       const filtered = items.filter(
-        (i) => i.category !== 'Uniform' && i.category !== 'Clothing'
+        (i) => i.itemType === 'asset' || (i.category !== 'Uniform' && i.category !== 'Clothing' && i.category !== 'Accessory')
       );
-      return filtered.length > 0 ? filtered : items;
+      return filtered.length > 0 ? filtered : items.filter((i) => i.itemType !== 'uniform');
     }
     return items;
   }, [items, issueType]);
 
   useEffect(() => {
     if (employees.length > 0 && !selectedEmpId) {
-      setSelectedEmpId(employees[0].employeeId);
+      const first = employees[0];
+      setSelectedEmpId(first.employeeId || first.id || first._id || '');
     }
   }, [employees, selectedEmpId, isOpen]);
 
-  // Helper to find item robustly by id, itemId, or itemCode
+  // Helper to find item robustly by id, itemId, _id, or itemCode
   const getItemByValue = (val) => {
     if (!val && val !== 0) return null;
     return items.find(
       (i) =>
         String(i.id) === String(val) ||
         String(i.itemId) === String(val) ||
+        String(i._id) === String(val) ||
         String(i.itemCode) === String(val)
     );
   };
@@ -85,21 +97,21 @@ export default function InventoryIssueModal({
 
     if (mode === 'edit' && initialIssue) {
       setSelectedEmpId(initialIssue.employeeId || (employees[0]?.employeeId ?? ''));
-      setIssueDate(initialIssue.issueDate || '2026-08-26');
+      setIssueDate(initialIssue.issueDate || getTodayDate());
       setExpectedReturnDate(initialIssue.expectedReturnDate || '');
-      setIssuedBy(initialIssue.issuedBy || 'Store Admin');
+      setIssuedBy(initialIssue.issuedBy || getActiveUserName());
       setRemarks(initialIssue.remarks || '');
       setDeductionMethod(initialIssue.deductionMethod || (isUniform ? 'salary-adjustment' : 'fnf'));
-      setAdjustmentMonth(initialIssue.adjustmentMonth || '2026-09');
+      setAdjustmentMonth(initialIssue.adjustmentMonth || getCurrentMonth());
       setNumberOfMonths(initialIssue.numberOfMonths || 3);
       setEmiAmount(initialIssue.emiAmount ? String(initialIssue.emiAmount) : '');
-      setFirstDeductionMonth(initialIssue.firstDeductionMonth || '2026-09');
+      setFirstDeductionMonth(initialIssue.firstDeductionMonth || getCurrentMonth());
 
       const itm = getItemByValue(initialIssue.itemId || initialIssue.itemCode) || initialIssue;
       setIssueItems([
         {
           rowId: `row-${initialIssue.id || Date.now()}`,
-          itemId: itm.id || itm.itemId || initialIssue.itemId || '',
+          itemId: itm.id || itm.itemId || itm._id || initialIssue.itemId || '',
           itemCode: itm.itemCode || itm.itemId || initialIssue.itemCode || '',
           category: itm.category || initialIssue.category || (isUniform ? 'Uniform' : 'Equipment'),
           brand: itm.brand || initialIssue.brand || '',
@@ -112,12 +124,22 @@ export default function InventoryIssueModal({
       return;
     }
 
+    if (mode !== 'edit') {
+      setIssueDate(getTodayDate());
+      setIssuedBy(getActiveUserName());
+      setAdjustmentMonth(getCurrentMonth());
+      setFirstDeductionMonth(getCurrentMonth());
+      if (employees.length > 0) {
+        setSelectedEmpId(employees[0].employeeId || employees[0].id || employees[0]._id || '');
+      }
+    }
+
     if (initialItem) {
-      const itm = getItemByValue(initialItem.id || initialItem.itemId || initialItem.itemCode) || initialItem;
+      const itm = getItemByValue(initialItem.id || initialItem.itemId || initialItem.itemCode || initialItem._id) || initialItem;
       setIssueItems([
         {
           rowId: `row-${Date.now()}-1`,
-          itemId: itm.id || itm.itemId || '',
+          itemId: itm.id || itm.itemId || itm._id || '',
           itemCode: itm.itemCode || itm.itemId || '',
           category: itm.category || (isUniform ? 'Uniform' : 'Equipment'),
           brand: itm.brand || '',
@@ -131,7 +153,7 @@ export default function InventoryIssueModal({
       setIssueItems([
         {
           rowId: `row-${Date.now()}-1`,
-          itemId: firstAvail.id || firstAvail.itemId || '',
+          itemId: firstAvail.id || firstAvail.itemId || firstAvail._id || '',
           itemCode: firstAvail.itemCode || firstAvail.itemId || '',
           category: firstAvail.category || (isUniform ? 'Uniform' : 'Equipment'),
           brand: firstAvail.brand || '',
@@ -147,7 +169,17 @@ export default function InventoryIssueModal({
   }, [initialItem, initialIssue, mode, availableCategoryItems, isOpen, issueType, items, employees]);
 
   const selectedEmployee = useMemo(() => {
-    return employees.find((e) => e.employeeId === selectedEmpId) || employees[0];
+    if (!selectedEmpId) return employees[0] || null;
+    return (
+      employees.find(
+        (e) =>
+          String(e.employeeId) === String(selectedEmpId) ||
+          String(e._id) === String(selectedEmpId) ||
+          String(e.id) === String(selectedEmpId)
+      ) ||
+      employees[0] ||
+      null
+    );
   }, [employees, selectedEmpId]);
 
   // Aggregate quantity needed per itemId across all rows
@@ -160,6 +192,22 @@ export default function InventoryIssueModal({
     });
     return map;
   }, [issueItems]);
+
+  // Out of stock guard
+  const hasOutOfStock = useMemo(() => {
+    if (!issueItems.length) return true;
+    return issueItems.some((row) => {
+      if (!row.itemId) return true;
+      const itm = getItemByValue(row.itemId);
+      const originalIssuedQty =
+        mode === 'edit' && initialIssue && (initialIssue.itemId === row.itemId || initialIssue.itemCode === row.itemCode)
+          ? Number(initialIssue.quantity || 0)
+          : 0;
+      const avail = (itm?.availableQuantity ?? 0) + originalIssuedQty;
+      const totalRequested = aggregatedQuantities[row.itemId] || 0;
+      return totalRequested > avail || Number(row.quantity || 0) <= 0;
+    });
+  }, [issueItems, aggregatedQuantities, mode, initialIssue, items]);
 
   // Calculate totals
   const totalItemsCount = issueItems.length;
@@ -240,6 +288,7 @@ export default function InventoryIssueModal({
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     const nextErrors = {};
 
     if (!selectedEmpId) nextErrors.employee = 'Please select an employee.';
@@ -312,14 +361,14 @@ export default function InventoryIssueModal({
         issueDate,
         expectedReturnDate: null,
         issueType,
-        employeeId: selectedEmployee.employeeId,
-        employeeName: selectedEmployee.name || selectedEmployee.employeeName,
-        initials: (selectedEmployee.name || selectedEmployee.employeeName || 'EM').slice(0, 2).toUpperCase(),
-        clientId: selectedEmployee.companyId || (mode === 'edit' ? initialIssue?.clientId : 'c001'),
-        clientName: selectedEmployee.companyName || selectedEmployee.client || (mode === 'edit' ? initialIssue?.clientName : 'ABC Security Services'),
-        site: selectedEmployee.site || selectedEmployee.workLocation || (mode === 'edit' ? initialIssue?.site : 'Main Gate / Site A'),
-        department: selectedEmployee.department || 'Security',
-        designation: selectedEmployee.designation || 'Security Guard',
+        employeeId: selectedEmployee?.employeeId || selectedEmpId,
+        employeeName: selectedEmployee?.name || selectedEmployee?.employeeName || 'Staff Member',
+        initials: (selectedEmployee?.name || selectedEmployee?.employeeName || 'EM').slice(0, 2).toUpperCase(),
+        clientId: selectedEmployee?.clientId || selectedEmployee?.companyId || (mode === 'edit' ? initialIssue?.clientId : ''),
+        clientName: selectedEmployee?.clientName || selectedEmployee?.client || selectedEmployee?.companyName || (mode === 'edit' ? initialIssue?.clientName : 'Direct Deployment'),
+        site: selectedEmployee?.siteLocation || selectedEmployee?.dutyPost || selectedEmployee?.site || selectedEmployee?.workLocation || (mode === 'edit' ? initialIssue?.site : 'Central Deployment'),
+        department: selectedEmployee?.department || (mode === 'edit' ? initialIssue?.department : 'Operations'),
+        designation: selectedEmployee?.designation || (mode === 'edit' ? initialIssue?.designation : 'Staff'),
         itemId: currentItem?.itemId || currentItem?.id || row.itemId,
         itemCode: currentItem?.itemCode || currentItem?.itemId || row.itemCode || '',
         itemName: currentItem?.itemName || 'Asset Item',
@@ -342,7 +391,7 @@ export default function InventoryIssueModal({
         emiAmount: isUniform && deductionMethod === 'monthly-emi' ? effectiveEmi : (isUniform && deductionMethod === 'salary-adjustment' ? rowTotal : 0),
         numberOfMonths: isUniform && deductionMethod === 'monthly-emi' ? Number(numberOfMonths) : 1,
         firstDeductionMonth: isUniform && deductionMethod === 'monthly-emi' ? firstDeductionMonth : null,
-        remarks: remarks.trim() || `Issued for ${selectedEmployee.name || selectedEmployee.employeeName}`
+        remarks: remarks.trim() || `Issued for ${selectedEmployee?.name || selectedEmployee?.employeeName || 'staff'}`
       };
     });
 
@@ -373,7 +422,13 @@ export default function InventoryIssueModal({
               </p>
             </div>
           </div>
-          <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
+          <button
+            type="button"
+            className={styles.closeBtn}
+            onClick={onClose}
+            disabled={isSubmitting}
+            aria-label="Close modal"
+          >
             <X size={18} />
           </button>
         </div>
@@ -390,11 +445,20 @@ export default function InventoryIssueModal({
               value={selectedEmpId}
               onChange={(e) => setSelectedEmpId(e.target.value)}
             >
-              {employees.map((emp) => (
-                <option key={emp.employeeId} value={emp.employeeId}>
-                  {emp.employeeId} — {emp.name || emp.employeeName} ({emp.designation || 'Staff'} • {emp.site || 'Site'})
-                </option>
-              ))}
+              {employees.length === 0 ? (
+                <option value="" disabled>-- No Employees Found in Database --</option>
+              ) : (
+                employees.map((emp, idx) => {
+                  const empId = emp.employeeId || emp.id || emp._id || `EMP-${idx + 1}`;
+                  const empName = emp.name || emp.employeeName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Employee';
+                  const loc = emp.siteLocation || emp.dutyPost || emp.site || emp.workLocation || 'Central';
+                  return (
+                    <option key={empId} value={empId}>
+                      {empId} — {empName} ({emp.designation || 'Staff'} • {loc})
+                    </option>
+                  );
+                })
+              )}
             </select>
             {errors.employee && <span className={styles.errorText}>{errors.employee}</span>}
           </div>
@@ -405,7 +469,7 @@ export default function InventoryIssueModal({
               <input
                 type="text"
                 className={styles.input}
-                value={selectedEmployee?.companyName || selectedEmployee?.client || 'ABC Security Services'}
+                value={selectedEmployee?.clientName || selectedEmployee?.client || selectedEmployee?.companyName || (selectedEmployee ? 'Direct Deployment' : '—')}
                 readOnly
               />
             </div>
@@ -414,7 +478,7 @@ export default function InventoryIssueModal({
               <input
                 type="text"
                 className={styles.input}
-                value={selectedEmployee?.site || selectedEmployee?.workLocation || 'Main Gate / Site A'}
+                value={selectedEmployee?.siteLocation || selectedEmployee?.dutyPost || selectedEmployee?.site || selectedEmployee?.workLocation || (selectedEmployee ? 'Central Deployment' : '—')}
                 readOnly
               />
             </div>
@@ -423,7 +487,7 @@ export default function InventoryIssueModal({
               <input
                 type="text"
                 className={styles.input}
-                value={`${selectedEmployee?.department || 'Security'} • ${selectedEmployee?.designation || 'Guard'}`}
+                value={selectedEmployee ? `${selectedEmployee.department || 'Operations'} • ${selectedEmployee.designation || 'Staff'}` : '—'}
                 readOnly
               />
             </div>
@@ -515,11 +579,14 @@ export default function InventoryIssueModal({
                         value={row.itemId}
                         onChange={(e) => handleRowChange(row.rowId, 'itemId', e.target.value)}
                       >
-                        {availableCategoryItems.map((itm) => (
-                          <option key={itm.id || itm.itemId} value={itm.id || itm.itemId}>
-                            {itm.itemName} [{itm.itemCode || itm.itemId}] {itm.brand ? `• ${itm.brand}` : ''} (Avail: {itm.availableQuantity} {itm.unit || 'Pcs'})
-                          </option>
-                        ))}
+                        {availableCategoryItems.map((itm) => {
+                          const itemKey = itm.id || itm.itemId || itm._id;
+                          return (
+                            <option key={itemKey} value={itemKey}>
+                              {itm.itemName} [{itm.itemCode || itm.itemId}] {itm.brand ? `• ${itm.brand}` : ''} (Avail: {itm.availableQuantity ?? 0} {itm.unit || 'Pcs'})
+                            </option>
+                          );
+                        })}
                       </select>
                       {errors[`item_${row.rowId}`] && (
                         <span className={styles.errorText}>{errors[`item_${row.rowId}`]}</span>
@@ -824,22 +891,43 @@ export default function InventoryIssueModal({
 
         {/* Footer */}
         <div className={styles.footer}>
-          <button type="button" className={styles.cancelBtn} onClick={onClose}>
+          <button
+            type="button"
+            className={styles.cancelBtn}
+            onClick={onClose}
+            disabled={isSubmitting}
+          >
             Cancel
           </button>
           <button
             type="submit"
             form="issueItemForm"
             className={styles.saveBtn}
+            disabled={isSubmitting || hasOutOfStock}
           >
-            <CheckCircle size={15} />
-            <span>
-              {mode === 'edit'
-                ? 'Update Issue Record'
-                : isUniform
-                ? `Confirm & Issue ${totalItemsCount > 1 ? `${totalItemsCount} Uniforms` : 'Uniform'}`
-                : `Confirm & Issue ${totalItemsCount > 1 ? `${totalItemsCount} Assets` : 'Asset'}`}
-            </span>
+            {isSubmitting ? (
+              <>
+                <Loader2 size={15} className={styles.spinner} />
+                <span>
+                  {mode === 'edit'
+                    ? 'Updating Issue Record...'
+                    : isUniform
+                    ? 'Issuing Uniform Item(s)...'
+                    : 'Issuing Asset Item(s)...'}
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle size={15} />
+                <span>
+                  {mode === 'edit'
+                    ? 'Update Issue Record'
+                    : isUniform
+                    ? `Confirm & Issue ${totalItemsCount > 1 ? `${totalItemsCount} Uniforms` : 'Uniform'}`
+                    : `Confirm & Issue ${totalItemsCount > 1 ? `${totalItemsCount} Assets` : 'Asset'}`}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>
