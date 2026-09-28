@@ -144,21 +144,33 @@ function EnhancedSummaryCards({ items, issued, returns, onLowStockClick }) {
 }
 
 // Category Summary Cards
-function CategorySummary({ items, activeCategory, onSelectCategory }) {
-  const categories = INVENTORY_CATEGORIES.slice(0, 6);
-  const rows = categories.map((category) => {
-    const matchingItems = items.filter((item) => item.category === category);
-    const total = matchingItems.reduce((sum, item) => sum + (Number(item.availableQuantity) || 0), 0);
-    return { category, total, count: matchingItems.length };
-  });
+function CategorySummary({ items, activeCategory, onSelectCategory, inventoryType = 'uniform' }) {
+  const categories = inventoryType === 'uniform'
+    ? ['Uniform', 'Accessory', 'Clothing']
+    : ['Equipment', 'ID Card', 'Safety Gear', 'Security Kit', 'Other'];
+
+  const rows = categories
+    .map((category) => {
+      const matchingItems = items.filter((item) => item.category === category);
+      const total = matchingItems.reduce((sum, item) => sum + (Number(item.availableQuantity) || 0), 0);
+      return { category, total, count: matchingItems.length };
+    })
+    .filter((row) => row.count > 0 || (inventoryType === 'uniform' ? ['Uniform', 'Accessory'].includes(row.category) : ['Equipment', 'ID Card', 'Safety Gear'].includes(row.category)));
+
   const max = Math.max(...rows.map((row) => row.total), 1);
 
   return (
     <section className={styles.categoryCard}>
       <div className={styles.sectionHeader}>
         <div>
-          <h2 className={styles.sectionTitle}>Inventory Categories</h2>
-          <p className={styles.sectionSubtext}>Click any category to filter stock list instantly</p>
+          <h2 className={styles.sectionTitle}>
+            {inventoryType === 'uniform' ? 'Uniform & Apparel Categories' : 'Asset & Equipment Categories'}
+          </h2>
+          <p className={styles.sectionSubtext}>
+            {inventoryType === 'uniform'
+              ? 'Click any uniform category to filter stock list instantly'
+              : 'Click any asset category to filter equipment list instantly'}
+          </p>
         </div>
         {activeCategory && (
           <button
@@ -182,7 +194,7 @@ function CategorySummary({ items, activeCategory, onSelectCategory }) {
               tabIndex={0}
             >
               <div>
-                <strong>{row.category}s</strong>
+                <strong>{row.category}</strong>
                 <span>{row.total} units</span>
               </div>
               <div className={styles.progress}>
@@ -197,7 +209,11 @@ function CategorySummary({ items, activeCategory, onSelectCategory }) {
 }
 
 // Filters Bar
-function Filters({ values, setValue, onReset }) {
+function Filters({ values, setValue, onReset, inventoryType = 'uniform' }) {
+  const categories = inventoryType === 'uniform'
+    ? ['Uniform', 'Accessory', 'Clothing']
+    : ['Equipment', 'ID Card', 'Safety Gear', 'Security Kit', 'Other'];
+
   return (
     <div className={styles.filterCard}>
       <div className={styles.filterGrid}>
@@ -209,7 +225,7 @@ function Filters({ values, setValue, onReset }) {
               className={styles.input}
               value={values.search}
               onChange={(e) => setValue('search', e.target.value)}
-              placeholder="Search item name, code, brand, SKU..."
+              placeholder={inventoryType === 'uniform' ? 'Search uniform name, size, brand, code...' : 'Search asset name, serial, brand, code...'}
             />
           </div>
         </div>
@@ -222,7 +238,7 @@ function Filters({ values, setValue, onReset }) {
             onChange={(e) => setValue('category', e.target.value)}
           >
             <option value="">All Categories</option>
-            {INVENTORY_CATEGORIES.map((cat) => (
+            {categories.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
               </option>
@@ -230,21 +246,23 @@ function Filters({ values, setValue, onReset }) {
           </select>
         </div>
 
-        <div className={styles.field}>
-          <label className={styles.fieldLabel}>Size Filter</label>
-          <select
-            className={styles.select}
-            value={values.size}
-            onChange={(e) => setValue('size', e.target.value)}
-          >
-            <option value="">All Sizes</option>
-            {INVENTORY_SIZES.map((sz) => (
-              <option key={sz} value={sz}>
-                {sz}
-              </option>
-            ))}
-          </select>
-        </div>
+        {inventoryType === 'uniform' && (
+          <div className={styles.field}>
+            <label className={styles.fieldLabel}>Size Filter</label>
+            <select
+              className={styles.select}
+              value={values.size}
+              onChange={(e) => setValue('size', e.target.value)}
+            >
+              <option value="">All Sizes</option>
+              {INVENTORY_SIZES.map((sz) => (
+                <option key={sz} value={sz}>
+                  {sz}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className={styles.field}>
           <label className={styles.fieldLabel}>Stock Status</label>
@@ -270,30 +288,52 @@ function Filters({ values, setValue, onReset }) {
 }
 
 // 1. Enhanced Stock Table
-function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus }) {
+function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, inventoryType = 'uniform' }) {
   const [openMenuId, setOpenMenuId] = useState(null);
+  const isUniform = inventoryType === 'uniform';
 
   return (
     <div className={styles.tableCard}>
       <div className={styles.tableWrapper}>
         <table className={styles.table}>
           <thead>
-            <tr>
-              <th>Item Code</th>
-              <th>Item Name</th>
-              <th>Category</th>
-              <th>Size / Color</th>
-              <th>Unit & Brand</th>
-              <th>Opening</th>
-              <th>Current Stock</th>
-              <th>Issued</th>
-              <th>Returned</th>
-              <th>Min. Stock</th>
-              <th>Purchase Rate</th>
-              <th>Stock Value</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
+            {isUniform ? (
+              <tr>
+                <th>Uniform Code</th>
+                <th>Uniform Item Name</th>
+                <th>Category</th>
+                <th>Size</th>
+                <th>Color</th>
+                <th>Unit & Brand</th>
+                <th>Opening Qty</th>
+                <th>Available Stock</th>
+                <th>Issued</th>
+                <th>Returned</th>
+                <th>Min. Stock</th>
+                <th>Purchase Rate</th>
+                <th>Stock Value</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            ) : (
+              <tr>
+                <th>Item Identity No.</th>
+                <th>Asset Item Name</th>
+                <th>Brand</th>
+                <th>Category</th>
+                <th>Unit</th>
+                <th>Opening Qty</th>
+                <th>Available Stock</th>
+                <th>Issued</th>
+                <th>Returned</th>
+                <th>Min. Stock</th>
+                <th>Purchase Rate</th>
+                <th>Stock Value</th>
+                <th>Warranty Period</th>
+                <th>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            )}
           </thead>
           <tbody>
             {rows.map((item) => {
@@ -302,6 +342,7 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus }) {
               const rate = Number(item.purchaseRate ?? 0);
               const stockValue = currentStock * rate;
               const isLow = currentStock <= (item.minimumStock ?? 0);
+              const opening = item.openingStock ?? item.totalQuantity ?? item.quantity ?? 0;
 
               return (
                 <tr key={item.id || item.itemId}>
@@ -309,27 +350,47 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus }) {
                   <td>
                     <div className={styles.itemCell}>
                       <span className={styles.itemIcon}>
-                        <Package size={16} />
+                        {isUniform ? <Shirt size={16} /> : <Shield size={16} />}
                       </span>
                       <div>
                         <strong>{item.itemName}</strong>
-                        {item.location && <span className={styles.cellSub}>{item.location}</span>}
+                        {item.billNumber && <span className={styles.cellSub}>Bill: {item.billNumber}</span>}
                       </div>
                     </div>
                   </td>
-                  <td>
-                    <span className={styles.categoryBadge}>{item.category}</span>
-                  </td>
-                  <td>
-                    <span className={styles.sizeTag}>{item.size || 'Free Size'}</span>
-                    {item.color && <span className={styles.colorTag}>{item.color}</span>}
-                  </td>
-                  <td>
-                    <span className={styles.unitBrand}>
-                      {item.unit || 'Pcs'} • {item.brand || 'NovaGear'}
-                    </span>
-                  </td>
-                  <td>{item.openingStock ?? item.totalQuantity ?? 0}</td>
+
+                  {isUniform ? (
+                    <>
+                      <td>
+                        <span className={styles.categoryBadge}>{item.category}</span>
+                      </td>
+                      <td>
+                        <span className={styles.sizeTag}>{item.size || 'Free Size'}</span>
+                      </td>
+                      <td>
+                        {item.color ? <span className={styles.colorTag}>{item.color}</span> : '—'}
+                      </td>
+                      <td>
+                        <span className={styles.unitBrand}>
+                          {item.unit || 'Pcs'} • {item.brand || 'NovaGear'}
+                        </span>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td>
+                        <strong>{item.brand || '—'}</strong>
+                      </td>
+                      <td>
+                        <span className={styles.categoryBadge}>{item.category}</span>
+                      </td>
+                      <td>
+                        <span className={styles.unitBrand}>{item.unit || 'Pcs'}</span>
+                      </td>
+                    </>
+                  )}
+
+                  <td>{opening} {item.unit || 'Pcs'}</td>
                   <td>
                     <strong className={isLow ? styles.textDanger : styles.available}>
                       {currentStock} {item.unit || 'Pcs'}
@@ -342,6 +403,20 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus }) {
                   <td>
                     <strong>₹{stockValue.toLocaleString('en-IN')}</strong>
                   </td>
+
+                  {!isUniform && (
+                    <td>
+                      {item.warrantyStartDate || item.warrantyEndDate ? (
+                        <div className={styles.warrantyCell}>
+                          <span>{formatDate(item.warrantyStartDate)} to</span>
+                          <small>{formatDate(item.warrantyEndDate)}</small>
+                        </div>
+                      ) : (
+                        <span className={styles.cellMuted}>N/A</span>
+                      )}
+                    </td>
+                  )}
+
                   <td>
                     <span className={`${styles.statusBadge} ${getStatusBadgeClass(status)}`}>
                       {formatStatusText(status)}
@@ -726,6 +801,7 @@ export default function Inventory() {
   // Navigation & filter state
   const initialTab = searchParams.get('tab') || 'stock';
   const [tab, setTab] = useState(initialTab); // 'stock' | 'issued' | 'returns' | 'movement' | 'clearance'
+  const [inventoryType, setInventoryType] = useState('uniform'); // 'uniform' | 'asset'
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
@@ -817,9 +893,38 @@ export default function Inventory() {
     setFilters({ search: '', category: '', size: '', status: '' });
   };
 
+  const isUniformItem = (item) => {
+    if (!item) return false;
+    if (item.itemType === 'uniform') return true;
+    if (item.itemType === 'asset') return false;
+    const cat = (item.category || '').toLowerCase().trim();
+    const code = (item.itemCode || item.itemId || item.id || '').toLowerCase();
+    if (code.startsWith('uni-') || code.startsWith('acc-')) return true;
+    if (code.startsWith('eqp-') || code.startsWith('idc-') || code.startsWith('saf-') || code.startsWith('sec-')) return false;
+    return cat === 'uniform' || cat === 'accessory' || cat === 'clothing' || cat.includes('uniform');
+  };
+
+  const isAssetItem = (item) => !isUniformItem(item);
+
+  const uniformItemsCount = useMemo(() => items.filter(isUniformItem).length, [items]);
+  const assetItemsCount = useMemo(() => items.filter(isAssetItem).length, [items]);
+
+  // Partitioned datasets based on inventoryType
+  const currentBaseItems = useMemo(() => {
+    return items.filter((i) => (inventoryType === 'uniform' ? isUniformItem(i) : isAssetItem(i)));
+  }, [items, inventoryType]);
+
+  const currentBaseIssued = useMemo(() => {
+    return issued.filter((i) => (inventoryType === 'uniform' ? isUniformItem(i) : isAssetItem(i)));
+  }, [issued, inventoryType]);
+
+  const currentBaseReturns = useMemo(() => {
+    return returns.filter((i) => (inventoryType === 'uniform' ? isUniformItem(i) : isAssetItem(i)));
+  }, [returns, inventoryType]);
+
   // Filtered Stock rows
   const filteredStock = useMemo(() => {
-    return items.filter((item) => {
+    return currentBaseItems.filter((item) => {
       const q = filters.search.toLowerCase().trim();
       if (q && !`${item.itemName} ${item.itemCode || item.itemId} ${item.category} ${item.brand}`.toLowerCase().includes(q)) {
         return false;
@@ -829,11 +934,11 @@ export default function Inventory() {
       if (filters.status && stockStatus(item) !== filters.status) return false;
       return true;
     });
-  }, [items, filters]);
+  }, [currentBaseItems, filters]);
 
   // Filtered Issued rows
   const filteredIssued = useMemo(() => {
-    return issued.filter((item) => {
+    return currentBaseIssued.filter((item) => {
       const q = filters.search.toLowerCase().trim();
       if (q && !`${item.employeeName} ${item.employeeId} ${item.itemName} ${item.id} ${item.clientName}`.toLowerCase().includes(q)) {
         return false;
@@ -841,11 +946,11 @@ export default function Inventory() {
       if (filters.category && item.category !== filters.category) return false;
       return true;
     });
-  }, [issued, filters]);
+  }, [currentBaseIssued, filters]);
 
   // Filtered Return rows
   const filteredReturns = useMemo(() => {
-    return returns.filter((item) => {
+    return currentBaseReturns.filter((item) => {
       const q = filters.search.toLowerCase().trim();
       if (q && !`${item.employeeName} ${item.employeeId} ${item.itemName} ${item.id}`.toLowerCase().includes(q)) {
         return false;
@@ -853,7 +958,7 @@ export default function Inventory() {
       if (filters.category && item.category !== filters.category) return false;
       return true;
     });
-  }, [returns, filters]);
+  }, [currentBaseReturns, filters]);
 
   // Active rows & pagination
   const activeRows = tab === 'stock' ? filteredStock : tab === 'issued' ? filteredIssued : tab === 'returns' ? filteredReturns : clearances;
@@ -1233,16 +1338,18 @@ export default function Inventory() {
             </p>
           </div>
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => {
-                setDrawerTargetItem(items[0]);
-                setDetailsDrawerOpen(true);
-              }}
-            >
-              <Package size={16} /> View Stock
-            </button>
+            {tab === 'stock' && (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => {
+                  setDrawerTargetItem(currentBaseItems[0] || items[0]);
+                  setDetailsDrawerOpen(true);
+                }}
+              >
+                <Package size={16} /> View Stock
+              </button>
+            )}
             <button
               type="button"
               className={styles.secondaryButton}
@@ -1250,36 +1357,73 @@ export default function Inventory() {
             >
               <FileSpreadsheet size={16} /> Export Report
             </button>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => {
-                setItemModalType('uniform');
-                setEditItem(null);
-                setItemModalOpen(true);
-              }}
-            >
-              <Plus size={16} /> Add Uniform
-            </button>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => {
-                setItemModalType('asset');
-                setEditItem(null);
-                setItemModalOpen(true);
-              }}
-            >
-              <Plus size={16} /> Add Asset
-            </button>
+            {tab === 'stock' && (
+              inventoryType === 'uniform' ? (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => {
+                    setItemModalType('uniform');
+                    setEditItem(null);
+                    setItemModalOpen(true);
+                  }}
+                >
+                  <Plus size={16} /> Add Uniform
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => {
+                    setItemModalType('asset');
+                    setEditItem(null);
+                    setItemModalOpen(true);
+                  }}
+                >
+                  <Plus size={16} /> Add Asset
+                </button>
+              )
+            )}
           </div>
         </header>
 
+        {/* Sub-tabs Switcher: Uniform vs Asset */}
+        {(tab === 'stock' || tab === 'issued' || tab === 'returns') && (
+          <div className={styles.typeSwitcherCard}>
+            <div className={styles.subTabs}>
+              <button
+                type="button"
+                className={inventoryType === 'uniform' ? styles.subTabActive : styles.subTab}
+                onClick={() => {
+                  setInventoryType('uniform');
+                  setPage(1);
+                  setFilters((prev) => ({ ...prev, category: '', size: '' }));
+                }}
+              >
+                <Shirt size={16} />
+                <span>Uniforms ({uniformItemsCount})</span>
+              </button>
+              <button
+                type="button"
+                className={inventoryType === 'asset' ? styles.subTabActive : styles.subTab}
+                onClick={() => {
+                  setInventoryType('asset');
+                  setPage(1);
+                  setFilters((prev) => ({ ...prev, category: '', size: '' }));
+                }}
+              >
+                <Shield size={16} />
+                <span>Assets ({assetItemsCount})</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* 6 Responsive Summary KPIs */}
         <EnhancedSummaryCards
-          items={items}
-          issued={issued}
-          returns={returns}
+          items={currentBaseItems}
+          issued={currentBaseIssued}
+          returns={currentBaseReturns}
           onLowStockClick={() => {
             setTab('stock');
             setFilter('status', 'low-stock');
@@ -1289,9 +1433,10 @@ export default function Inventory() {
         {/* Dynamic Interactive Category Cards */}
         {tab === 'stock' && (
           <CategorySummary
-            items={items}
+            items={currentBaseItems}
             activeCategory={filters.category}
             onSelectCategory={(cat) => setFilter('category', cat)}
+            inventoryType={inventoryType}
           />
         )}
 
@@ -1300,22 +1445,28 @@ export default function Inventory() {
           <div>
             <h2 className={styles.sectionTitle}>
               {tab === 'stock'
-                ? 'Inventory Stock Register'
+                ? (inventoryType === 'uniform' ? 'Uniform Stock Register' : 'Asset Stock Register')
                 : tab === 'issued'
-                ? 'Uniform & Asset Issue Register'
+                ? (inventoryType === 'uniform' ? 'Uniform Issue Register' : 'Asset Issue Register')
                 : tab === 'returns'
-                ? 'Uniform & Asset Return History'
+                ? (inventoryType === 'uniform' ? 'Uniform Return History' : 'Asset Return History')
                 : tab === 'movement'
                 ? 'Stock Movement & Audit Trail'
                 : 'Employee Exit Asset Clearance'}
             </h2>
             <p className={styles.sectionSubtext}>
               {tab === 'stock'
-                ? 'Real-time stock valuation, unit metrics, reorder levels, and SKU actions.'
+                ? (inventoryType === 'uniform'
+                    ? 'Real-time uniform stock valuation, unit metrics, sizes, reorder levels, and SKU actions.'
+                    : 'Real-time company asset valuation, equipment tracking, reorder levels, and SKU actions.')
                 : tab === 'issued'
-                ? 'Personnel asset custody, issue rates, total amounts, and pending return tracking.'
+                ? (inventoryType === 'uniform'
+                    ? 'Personnel uniform custody, issue rates, sizes, total amounts, and pending return tracking.'
+                    : 'Personnel asset & equipment custody, issue rates, serial numbers, and pending return tracking.')
                 : tab === 'returns'
-                ? 'Returned item logs with condition assessment (Good, Damaged, Lost).'
+                ? (inventoryType === 'uniform'
+                    ? 'Uniform return inspection logs, returned condition grading, and recovery charges.'
+                    : 'Asset return inspection logs, returned condition grading, and recovery charges.')
                 : tab === 'movement'
                 ? 'Complete chronological ledger of all inward, outward, and adjustment movements.'
                 : 'Mandatory asset verification and clearance certificate sign-off for exiting personnel.'}
@@ -1323,60 +1474,62 @@ export default function Inventory() {
           </div>
           <div className={styles.introActions}>
             {tab === 'stock' && (
-              <>
+              inventoryType === 'uniform' ? (
                 <button
                   type="button"
                   className={styles.primaryButton}
                   onClick={() => {
                     setIssueType('uniform');
-                    const firstUniform = items.find((i) => (i.category === 'Uniform' || i.category === 'Accessory') && (i.availableQuantity || 0) > 0) || items.find((i) => i.category === 'Uniform' || i.category === 'Accessory') || items[0];
+                    const firstUniform = currentBaseItems.find((i) => (i.availableQuantity || 0) > 0) || currentBaseItems[0] || items[0];
                     setIssueTargetItem(firstUniform);
                     setIssueModalOpen(true);
                   }}
                 >
                   <Shirt size={16} /> Issue Uniform
                 </button>
+              ) : (
                 <button
                   type="button"
                   className={styles.primaryButton}
                   onClick={() => {
                     setIssueType('asset');
-                    const firstAsset = items.find((i) => i.category !== 'Uniform' && (i.availableQuantity || 0) > 0) || items.find((i) => i.category !== 'Uniform') || items[0];
+                    const firstAsset = currentBaseItems.find((i) => (i.availableQuantity || 0) > 0) || currentBaseItems[0] || items[0];
                     setIssueTargetItem(firstAsset);
                     setIssueModalOpen(true);
                   }}
                 >
                   <Shield size={16} /> Issue Asset
                 </button>
-              </>
+              )
             )}
             {tab === 'issued' && (
-              <>
+              inventoryType === 'uniform' ? (
                 <button
                   type="button"
-                  className={styles.secondaryButton}
+                  className={styles.primaryButton}
                   onClick={() => {
                     setIssueType('uniform');
-                    const firstUniform = items.find((i) => (i.category === 'Uniform' || i.category === 'Accessory') && (i.availableQuantity || 0) > 0) || items.find((i) => i.category === 'Uniform' || i.category === 'Accessory') || items[0];
+                    const firstUniform = currentBaseItems.find((i) => (i.availableQuantity || 0) > 0) || currentBaseItems[0] || items[0];
                     setIssueTargetItem(firstUniform);
                     setIssueModalOpen(true);
                   }}
                 >
                   <Shirt size={16} /> Issue Uniform
                 </button>
+              ) : (
                 <button
                   type="button"
                   className={styles.primaryButton}
                   onClick={() => {
                     setIssueType('asset');
-                    const firstAsset = items.find((i) => i.category !== 'Uniform' && (i.availableQuantity || 0) > 0) || items.find((i) => i.category !== 'Uniform') || items[0];
+                    const firstAsset = currentBaseItems.find((i) => (i.availableQuantity || 0) > 0) || currentBaseItems[0] || items[0];
                     setIssueTargetItem(firstAsset);
                     setIssueModalOpen(true);
                   }}
                 >
                   <Shield size={16} /> Issue Asset
                 </button>
-              </>
+              )
             )}
             {tab === 'returns' && (
               <button
@@ -1395,7 +1548,12 @@ export default function Inventory() {
 
         {/* Filters for Stock, Issued, Returns */}
         {tab !== 'movement' && tab !== 'clearance' && (
-          <Filters values={filters} setValue={setFilter} onReset={resetFilters} />
+          <Filters
+            values={filters}
+            setValue={setFilter}
+            onReset={resetFilters}
+            inventoryType={inventoryType}
+          />
         )}
 
         {/* Tab Content Tables */}
@@ -1404,18 +1562,19 @@ export default function Inventory() {
             {pageRows.length ? (
               <StockTable
                 rows={pageRows}
+                inventoryType={inventoryType}
                 onView={(item) => {
                   setDrawerTargetItem(item);
                   setDetailsDrawerOpen(true);
                 }}
                 onEdit={(item) => {
-                  const isUniform = item.category === 'Uniform' || item.category === 'Accessory';
+                  const isUniform = isUniformItem(item);
                   setItemModalType(isUniform ? 'uniform' : 'asset');
                   setEditItem(item);
                   setItemModalOpen(true);
                 }}
                 onIssue={(item) => {
-                  const isUniform = item.category === 'Uniform' || item.category === 'Accessory' || item.category === 'Clothing';
+                  const isUniform = isUniformItem(item);
                   setIssueType(isUniform ? 'uniform' : 'asset');
                   setIssueTargetItem(item);
                   setIssueModalOpen(true);
@@ -1425,7 +1584,7 @@ export default function Inventory() {
             ) : (
               <div className={styles.emptyWrap}>
                 <EmptyState
-                  title="No inventory items found matching filters."
+                  title={`No ${inventoryType === 'uniform' ? 'uniform' : 'asset'} items found matching filters.`}
                   description="Try adjusting your category, size, or search query."
                   actionLabel="Reset Filters"
                   onAction={resetFilters}
