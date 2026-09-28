@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit2, CheckSquare, MoreVertical } from 'lucide-react';
+import { Eye, Edit2, CheckSquare, Trash2, MoreVertical } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './AttendanceActionMenu.module.css';
 
@@ -50,9 +50,20 @@ function AttendanceActionMenu({ record, onAction }) {
             </button>
           </li>
         )}
+        <li>
+          <button
+            type="button"
+            className={`${styles.menuItem} ${styles.deleteItem}`}
+            onClick={() => onAction('delete', record)}
+          >
+            <Trash2 size={14} />
+            <span>Delete Attendance</span>
+          </button>
+        </li>
       </ul>
     </Dropdown>
   );
 }
 
 export default AttendanceActionMenu;
+

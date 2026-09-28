@@ -68,3 +68,21 @@
 .reviewItem svg {
   color: var(--primary);
 }
+
+.deleteItem {
+  color: #dc2626;
+}
+
+.deleteItem:hover {
+  background-color: #fef2f2;
+  color: #b91c1c;
+}
+
+.deleteItem svg {
+  color: #dc2626;
+}
+
+.deleteItem:hover svg {
+  color: #b91c1c;
+}
+

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   CalendarDays,
@@ -8,20 +8,15 @@ import {
   Download,
   Search,
   X,
-  MoreVertical,
-  Check,
-  Ban,
-  Filter,
-  CalendarRange,
-  Building2,
   Plus,
   ShieldAlert,
   RotateCcw,
   CheckCircle2,
-  Users,
   Eye,
-  Settings,
-  UserCheck,
+  Edit3,
+  Trash2,
+  AlertTriangle,
+  Loader2,
   FileSpreadsheet
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -39,19 +34,14 @@ import LeaveReasonModal from '../../components/leave/LeaveReasonModal';
 import LeaveApplicationModal from '../../components/leave/LeaveApplicationModal';
 
 import {
-  INITIAL_LEAVE_TYPES,
-  INITIAL_EMPLOYEE_BALANCES,
   INITIAL_LEAVE_POLICIES,
-  ENHANCED_LEAVE_REQUESTS,
-  INITIAL_SITE_MANPOWER
 } from '../../data/leaveMasterData';
-import { mockCompanies } from '../../data/companyData';
-import { mockDepartments } from '../../data/employeeData';
+import { useCompany } from '../../context/CompanyContext';
+import leaveService from '../../services/leaveService';
+import authService from '../../services/authService';
 import styles from './Leave.module.css';
 
-const REQUESTS_STORAGE_KEY = 'novaspark_leave_requests';
-const TYPES_STORAGE_KEY = 'novaspark_leave_types';
-const BALANCES_STORAGE_KEY = 'novaspark_employee_balances';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
 const PAGE_SIZE = 8;
 
 const formatDate = (dateString) => {
@@ -64,8 +54,6 @@ const formatDate = (dateString) => {
     year: 'numeric'
   }).format(date);
 };
-
-const getDaysLabel = (days) => `${days} ${days === 1 ? 'Day' : 'Days'}`;
 
 const getDateRange = (fromDate, toDate) => {
   if (!fromDate || !toDate) return [];
@@ -83,19 +71,39 @@ const getDateRange = (fromDate, toDate) => {
   return dates;
 };
 
+const sanitizeLeaveRequests = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map((l) => ({
+    ...l,
+    id: l.leaveId || l.id || l._id,
+    employeeCode: l.employeeId || l.employeeCode,
+    from: l.fromDate || l.from,
+    to: l.toDate || l.to,
+  }));
+};
+
+const sanitizeBalances = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map((b) => ({
+    ...b,
+    id: b._id || b.employeeId || b.id,
+    employeeCode: b.employeeId || b.employeeCode,
+  }));
+};
+
 function LeaveSummaryCards({ requests }) {
   const total = requests.length;
-  const pendingSup = requests.filter((r) => r.status === 'Pending Supervisor Approval' || r.status === 'pending').length;
+  const pendingSup = requests.filter((r) => r.status === 'Pending Supervisor Approval' || r.status === 'Pending' || r.status === 'pending').length;
   const pendingHr = requests.filter((r) => r.status === 'Pending HR Approval').length;
   const approved = requests.filter((r) => r.status === 'Approved' || r.status === 'approved').length;
-  const rejected = requests.filter((r) => r.status === 'Rejected' || r.status === 'rejected').length;
+  const rejected = requests.filter((r) => r.status === 'Rejected' || r.status === 'rejected' || r.status === 'Cancelled').length;
 
   const cards = [
     { label: 'Total Requests', value: total, sub: 'All submissions', icon: CalendarDays, style: styles.blue },
     { label: 'Pending Supervisor', value: pendingSup, sub: 'Site-level review', icon: Clock3, style: styles.yellow },
     { label: 'Pending HR', value: pendingHr, sub: 'Final sanction', icon: Clock3, style: styles.purple },
     { label: 'Approved & Synced', value: approved, sub: 'Attendance linked', icon: CircleCheck, style: styles.green },
-    { label: 'Rejected / Sent Back', value: rejected, sub: 'Actioned', icon: CircleX, style: styles.red }
+    { label: 'Rejected / Cancelled', value: rejected, sub: 'Actioned', icon: CircleX, style: styles.red }
   ];
 
   return (
@@ -117,7 +125,7 @@ function LeaveSummaryCards({ requests }) {
 }
 
 function LeaveCalendar({ requests }) {
-  const month = new Date('2026-09-01');
+  const month = new Date();
   const year = month.getFullYear();
   const monthIndex = month.getMonth();
   const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
@@ -138,7 +146,7 @@ function LeaveCalendar({ requests }) {
   const leaveMap = new Map();
   requests.forEach((item) => {
     if (item.status === 'Cancelled' || item.status === 'Rejected') return;
-    const dates = getDateRange(item.fromDate, item.toDate);
+    const dates = getDateRange(item.fromDate || item.from, item.toDate || item.to);
     dates.forEach((date) => {
       const key = date.slice(8, 10);
       leaveMap.set(key, (leaveMap.get(key) || 0) + 1);
@@ -152,7 +160,7 @@ function LeaveCalendar({ requests }) {
       <div className={styles.sectionHeader}>
         <div>
           <h3 className={styles.sectionTitle}>Monthly Leave & Duty Roster Calendar</h3>
-          <p className={styles.sectionSubtext}>September 2026 • Live on-site personnel availability snapshot</p>
+          <p className={styles.sectionSubtext}>Live on-site personnel availability snapshot</p>
         </div>
       </div>
       <div className={styles.calendarGrid}>
@@ -275,11 +283,168 @@ function LeaveExportModal({ open, filters, onClose, onExport, setExportFilters, 
   );
 }
 
+function DeleteLeaveConfirmModal({ isOpen, request, isDeleting, onClose, onConfirm }) {
+  if (!isOpen || !request) return null;
+
+  return (
+    <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+      <div className={styles.modalCard} style={{ maxWidth: 480 }}>
+        <div className={styles.modalHeader} style={{ borderBottom: '1px solid #fee2e2' }}>
+          <div className={styles.modalHeaderTitleWrap}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={18} />
+            </div>
+            <div>
+              <h3 className={styles.modalTitle} style={{ color: '#991b1b' }}>Delete Leave Record</h3>
+              <p className={styles.modalSub}>Permanent deletion & balance restoration</p>
+            </div>
+          </div>
+          <button type="button" className={styles.closeBtn} onClick={onClose} disabled={isDeleting}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className={styles.modalBody} style={{ gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+            Are you sure you want to permanently delete the leave record for <strong>{request.employeeName}</strong> (ID: <code>{request.id || request.leaveId}</code>)?
+          </p>
+          <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px', fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div><strong>Leave Type:</strong> {request.leaveType} ({request.leaveCode})</div>
+            <div><strong>Duration:</strong> {request.days} Day(s) — {request.fromDate || request.from} to {request.toDate || request.to || request.fromDate || request.from}</div>
+            <div><strong>Status:</strong> {request.status}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#dc2626', background: '#fef2f2', padding: '8px 10px', borderRadius: 6 }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <span>This will delete the leave, restore the employee's leave quota in MongoDB, and remove the On Leave attendance entry.</span>
+          </div>
+        </div>
+
+        <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 20px', borderTop: '1px solid var(--border-light)' }}>
+          <button type="button" className={styles.secondaryBtn} onClick={onClose} disabled={isDeleting}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#dc2626',
+              color: '#ffffff',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: 'var(--radius-sm)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: isDeleting ? 'not-allowed' : 'pointer',
+              opacity: isDeleting ? 0.75 : 1
+            }}
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 size={15} className={styles.spinner} />
+                <span>Deleting...</span>
+              </>
+            ) : (
+              <>
+                <Trash2 size={15} />
+                <span>Delete Permanently</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteLeaveTypeConfirmModal({ isOpen, typeData, isDeleting, onClose, onConfirm }) {
+  if (!isOpen || !typeData) return null;
+
+  return (
+    <div className={styles.modalOverlay} role="dialog" aria-modal="true">
+      <div className={styles.modalCard} style={{ maxWidth: 480 }}>
+        <div className={styles.modalHeader} style={{ borderBottom: '1px solid #fee2e2' }}>
+          <div className={styles.modalHeaderTitleWrap}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#fef2f2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Trash2 size={18} />
+            </div>
+            <div>
+              <h3 className={styles.modalTitle} style={{ color: '#991b1b' }}>Delete Leave Type</h3>
+              <p className={styles.modalSub}>Permanent removal from leave masters and policy quotas</p>
+            </div>
+          </div>
+          <button type="button" className={styles.closeBtn} onClick={onClose} disabled={isDeleting}>
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className={styles.modalBody} style={{ gap: 12 }}>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary)', lineHeight: 1.5 }}>
+            Are you sure you want to permanently delete the leave type <strong>{typeData.name} ({typeData.code})</strong>?
+          </p>
+          <div style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 6, padding: '10px 12px', fontSize: 12, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div><strong>Leave Code:</strong> {typeData.code}</div>
+            <div><strong>Leave Name:</strong> {typeData.name}</div>
+            <div><strong>Category:</strong> {typeData.category || 'Paid'} Leave</div>
+            <div><strong>Annual Quota:</strong> {typeData.annualQuota ?? typeData.quota ?? 12} Days</div>
+            <div><strong>Status:</strong> {typeData.status || 'Active'}</div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#dc2626', background: '#fef2f2', padding: '8px 10px', borderRadius: 6 }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <span>This will delete the leave type from database. It will no longer appear in Leave Applications or employee leave balances.</span>
+          </div>
+        </div>
+
+        <div className={styles.modalFooter} style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 20px', borderTop: '1px solid var(--border-light)' }}>
+          <button type="button" className={styles.secondaryBtn} onClick={onClose} disabled={isDeleting}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              background: '#dc2626',
+              color: '#ffffff',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: 'var(--radius-sm)',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: isDeleting ? 'not-allowed' : 'pointer',
+              opacity: isDeleting ? 0.75 : 1
+            }}
+            onClick={onConfirm}
+            disabled={isDeleting}
+          >
+            {isDeleting ? (
+              <>
+                <Loader2 size={15} className={styles.spinner} />
+                <span>Deleting...</span>
+              </>
+            ) : (
+              <>
+                <Trash2 size={15} />
+                <span>Delete Leave Type</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Leave() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
-  const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
+  const { activeCompany } = useCompany();
+  const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
   const initialTab = searchParams.get('tab') || 'requests';
   const [activeTab, setActiveTab] = useState(initialTab); // 'requests' | 'balances' | 'master' | 'calendar'
@@ -293,33 +458,12 @@ export default function Leave() {
     }
   }, [searchParams]);
 
-  // Master State
-  const [leaveRequests, setLeaveRequests] = useState(() => {
-    try {
-      const saved = localStorage.getItem(REQUESTS_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : ENHANCED_LEAVE_REQUESTS;
-    } catch {
-      return ENHANCED_LEAVE_REQUESTS;
-    }
-  });
-
-  const [leaveTypes, setLeaveTypes] = useState(() => {
-    try {
-      const saved = localStorage.getItem(TYPES_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_LEAVE_TYPES;
-    } catch {
-      return INITIAL_LEAVE_TYPES;
-    }
-  });
-
-  const [employeeBalances, setEmployeeBalances] = useState(() => {
-    try {
-      const saved = localStorage.getItem(BALANCES_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : INITIAL_EMPLOYEE_BALANCES;
-    } catch {
-      return INITIAL_EMPLOYEE_BALANCES;
-    }
-  });
+  // Master State from MongoDB Atlas Database
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveTypes, setLeaveTypes] = useState([]);
+  const [employeeBalances, setEmployeeBalances] = useState([]);
+  const [employeesList, setEmployeesList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   // Filters state
   const [searchTerm, setSearchTerm] = useState('');
@@ -334,12 +478,14 @@ export default function Leave() {
   // Modals & Drawers state
   const [selectedLeave, setSelectedLeave] = useState(null);
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [editModalState, setEditModalState] = useState({ isOpen: false, request: null });
+  const [deleteModalState, setDeleteModalState] = useState({ isOpen: false, request: null, isDeleting: false });
+  const [deleteLeaveTypeModalState, setDeleteLeaveTypeModalState] = useState({ isOpen: false, typeData: null, isDeleting: false });
   const [leaveTypeModalState, setLeaveTypeModalState] = useState({ isOpen: false, mode: 'add', data: null });
   const [policyAssignModalState, setPolicyAssignModalState] = useState({ isOpen: false, employee: null });
   const [reasonModalState, setReasonModalState] = useState({ isOpen: false, type: 'reject', request: null });
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   const [exportFilters, setExportFilters] = useState({
     fromDate: '',
@@ -351,28 +497,88 @@ export default function Leave() {
     format: 'excel'
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => setLoading(false), 300);
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    localStorage.setItem(REQUESTS_STORAGE_KEY, JSON.stringify(leaveRequests));
-  }, [leaveRequests]);
-
-  useEffect(() => {
-    localStorage.setItem(TYPES_STORAGE_KEY, JSON.stringify(leaveTypes));
-  }, [leaveTypes]);
-
-  useEffect(() => {
-    localStorage.setItem(BALANCES_STORAGE_KEY, JSON.stringify(employeeBalances));
-  }, [employeeBalances]);
-
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
 
-  const clients = mockCompanies.map((c) => ({ id: c.id, name: c.name }));
+  // Fetch all Leave Data directly from Database
+  const fetchAllLeaveData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const token = authService.getToken();
+
+      const [fetchedLeaves, fetchedTypes, fetchedBalances] = await Promise.all([
+        leaveService.getLeaveRequests(compId),
+        leaveService.getLeaveTypes(compId).catch(() => []),
+        leaveService.getEmployeeBalances(compId).catch(() => []),
+      ]);
+
+      // Fetch dynamic registered employees
+      let dynamicEmps = [];
+      try {
+        const empRes = await fetch(`${API_BASE_URL}/employees`, {
+          headers: {
+            Authorization: `Bearer ${token || ''}`,
+            'x-company-id': compId,
+          },
+        });
+        const empData = await empRes.json();
+        if (empData.success && Array.isArray(empData.employees) && empData.employees.length > 0) {
+          dynamicEmps = empData.employees;
+        }
+      } catch (err) {
+        console.warn('Could not fetch employees directly:', err);
+      }
+
+      setLeaveRequests(sanitizeLeaveRequests(fetchedLeaves));
+      setLeaveTypes(Array.isArray(fetchedTypes) ? fetchedTypes : []);
+      setEmployeeBalances(sanitizeBalances(fetchedBalances));
+
+      if (dynamicEmps.length > 0) {
+        setEmployeesList(dynamicEmps);
+      } else if (fetchedBalances && fetchedBalances.length > 0) {
+        setEmployeesList(sanitizeBalances(fetchedBalances));
+      }
+    } catch (err) {
+      console.error('Error fetching leaves from MongoDB:', err);
+      showToast('Could not load leave data from database.', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }, [compId]);
+
+  useEffect(() => {
+    fetchAllLeaveData();
+  }, [fetchAllLeaveData]);
+
+  const clients = useMemo(() => {
+    const list = new Set();
+    employeesList.forEach((e) => {
+      if (e.clientName) list.add(e.clientName);
+      if (e.client) list.add(e.client);
+    });
+    employeeBalances.forEach((b) => {
+      if (b.client) list.add(b.client);
+    });
+    leaveRequests.forEach((l) => {
+      if (l.clientName) list.add(l.clientName);
+    });
+    if (list.size === 0) {
+      list.add('RR Security');
+    }
+    return Array.from(list).map((name) => ({ id: name, name }));
+  }, [employeesList, employeeBalances, leaveRequests]);
+
+  const departments = useMemo(() => {
+    const list = new Set(['Security', 'Operations', 'Control Room', 'Administration', 'Patrolling']);
+    employeesList.forEach((e) => {
+      if (e.department) list.add(e.department);
+    });
+    employeeBalances.forEach((b) => {
+      if (b.department) list.add(b.department);
+    });
+    return Array.from(list);
+  }, [employeesList, employeeBalances]);
 
   // Filter requests
   const filteredRequests = useMemo(() => {
@@ -381,7 +587,7 @@ export default function Leave() {
     return leaveRequests.filter((item) => {
       if (query) {
         const hitsEmployee = item.employeeName?.toLowerCase().includes(query);
-        const hitsId = (item.employeeId || item.id)?.toLowerCase().includes(query);
+        const hitsId = (item.employeeId || item.id || item.leaveId)?.toLowerCase().includes(query);
         const hitsCode = item.leaveCode?.toLowerCase().includes(query);
         if (!hitsEmployee && !hitsId && !hitsCode) return false;
       }
@@ -391,11 +597,12 @@ export default function Leave() {
       if (leaveTypeFilter && item.leaveType !== leaveTypeFilter) return false;
 
       if (statusFilter) {
-        if (item.status !== statusFilter) return false;
+        if (statusFilter === 'Pending' && !item.status.includes('Pending')) return false;
+        if (statusFilter !== 'Pending' && item.status !== statusFilter) return false;
       }
 
-      if (fromDate && item.fromDate < fromDate) return false;
-      if (toDate && item.toDate > toDate) return false;
+      if (fromDate && (item.fromDate || item.from) < fromDate) return false;
+      if (toDate && (item.toDate || item.to) > toDate) return false;
 
       return true;
     });
@@ -419,268 +626,167 @@ export default function Leave() {
     setCurrentPage(1);
   };
 
-  // Workflow Handlers
-  const handleSupervisorApprove = (request) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) => {
-        if (r.id === request.id) {
-          const updatedTimeline = [...(r.timeline || [])];
-          if (updatedTimeline[1]) {
-            updatedTimeline[1] = {
-              stage: 'Site Supervisor Approval',
-              actor: 'Site Supervisor (Amit Kumar)',
-              status: 'Approved',
-              timestamp: new Date().toLocaleString(),
-              remarks: 'Site manpower checked. Reliever arranged. Forwarded to HR.'
-            };
-          }
-          if (updatedTimeline[2]) {
-            updatedTimeline[2] = {
-              ...updatedTimeline[2],
-              status: 'Pending'
-            };
-          }
-
-          return {
-            ...r,
-            status: 'Pending HR Approval',
-            currentApprover: 'HR Manager (Priya Nair)',
-            workflowStage: 3,
-            timeline: updatedTimeline,
-            rejectionReason: null,
-            sendBackReason: null
-          };
-        }
-        return r;
-      })
-    );
-
-    setSelectedLeave(null);
-    showToast('✓ Approved by Site Supervisor. Forwarded to HR for final sanction.');
+  // Workflow Handlers via MongoDB Atlas Backend API
+  const handleSupervisorApprove = async (request) => {
+    try {
+      const leaveId = request._id || request.id || request.leaveId;
+      await leaveService.reviewLeaveRequest(compId, leaveId, 'approve', 'Approved by Site Supervisor.');
+      await fetchAllLeaveData();
+      setSelectedLeave(null);
+      showToast('✓ Approved by Site Supervisor & synced to Attendance.');
+    } catch (err) {
+      showToast(err.message || 'Failed to approve leave.', 'danger');
+    }
   };
 
-  const handleHrApprove = (request) => {
-    setLeaveRequests((prev) =>
-      prev.map((r) => {
-        if (r.id === request.id) {
-          const updatedTimeline = [...(r.timeline || [])];
-          if (updatedTimeline[2]) {
-            updatedTimeline[2] = {
-              stage: 'HR Approval',
-              actor: 'HR Manager (Priya Nair)',
-              status: 'Approved',
-              timestamp: new Date().toLocaleString(),
-              remarks: 'Leave verified and approved as per enterprise policy.'
-            };
-          }
-          if (updatedTimeline[3]) {
-            updatedTimeline[3] = {
-              stage: 'Attendance Update',
-              actor: 'Automated System',
-              status: 'Completed',
-              timestamp: new Date().toLocaleString(),
-              remarks: `Attendance marked as ${r.attendanceImpact?.status || 'Leave'}`
-            };
-          }
-          if (updatedTimeline[4]) {
-            updatedTimeline[4] = {
-              stage: 'Payroll Calculation',
-              actor: 'Payroll Engine',
-              status: 'Completed',
-              timestamp: new Date().toLocaleString(),
-              remarks: r.category === 'Paid' ? 'Paid leave credited: No salary deduction.' : '1 Day LWP salary deduction scheduled.'
-            };
-          }
-
-          return {
-            ...r,
-            status: 'Approved',
-            currentApprover: 'Fully Processed',
-            workflowStage: 5,
-            timeline: updatedTimeline,
-            processedOn: new Date().toISOString().slice(0, 10),
-            processedBy: 'HR Manager'
-          };
-        }
-        return r;
-      })
-    );
-
-    // Update Employee Balance
-    setEmployeeBalances((prev) =>
-      prev.map((b) => {
-        if (b.employeeCode === request.employeeId && b.balances && b.balances[request.leaveCode]) {
-          const currentBal = b.balances[request.leaveCode];
-          const newUsed = currentBal.used + request.days;
-          const newPending = Math.max(0, currentBal.pending - request.days);
-          return {
-            ...b,
-            balances: {
-              ...b.balances,
-              [request.leaveCode]: {
-                ...currentBal,
-                used: newUsed,
-                pending: newPending
-              }
-            }
-          };
-        }
-        return b;
-      })
-    );
-
-    setSelectedLeave(null);
-    showToast('✓ Leave request approved & synchronized with Attendance & Payroll.');
+  const handleHrApprove = async (request) => {
+    try {
+      const leaveId = request._id || request.id || request.leaveId;
+      await leaveService.reviewLeaveRequest(compId, leaveId, 'approve', 'Leave verified and approved as per enterprise policy.');
+      await fetchAllLeaveData();
+      setSelectedLeave(null);
+      showToast('✓ Leave request approved & synchronized with Attendance & Payroll.');
+    } catch (err) {
+      showToast(err.message || 'Failed to approve leave.', 'danger');
+    }
   };
 
-  const handleConfirmReject = (reasonText) => {
+  const handleConfirmReject = async (reasonText) => {
     const { request } = reasonModalState;
     if (!request) return;
 
-    setLeaveRequests((prev) =>
-      prev.map((r) => {
-        if (r.id === request.id) {
-          const updatedTimeline = [...(r.timeline || [])];
-          const activeIdx = r.workflowStage === 2 ? 1 : 2;
-          if (updatedTimeline[activeIdx]) {
-            updatedTimeline[activeIdx] = {
-              ...updatedTimeline[activeIdx],
-              status: 'Rejected',
-              timestamp: new Date().toLocaleString(),
-              remarks: reasonText
-            };
-          }
-
-          return {
-            ...r,
-            status: 'Rejected',
-            currentApprover: 'Rejected',
-            rejectionReason: reasonText,
-            timeline: updatedTimeline
-          };
-        }
-        return r;
-      })
-    );
-
-    setReasonModalState({ isOpen: false, type: 'reject', request: null });
-    setSelectedLeave(null);
-    showToast('✓ Leave request rejected.', 'danger');
+    try {
+      const leaveId = request._id || request.id || request.leaveId;
+      await leaveService.reviewLeaveRequest(compId, leaveId, 'reject', reasonText);
+      await fetchAllLeaveData();
+      setReasonModalState({ isOpen: false, type: 'reject', request: null });
+      setSelectedLeave(null);
+      showToast('✓ Leave request rejected.', 'danger');
+    } catch (err) {
+      showToast(err.message || 'Failed to reject leave.', 'danger');
+    }
   };
 
-  const handleConfirmSendBack = (reasonText) => {
+  const handleConfirmSendBack = async (reasonText) => {
     const { request } = reasonModalState;
     if (!request) return;
 
-    setLeaveRequests((prev) =>
-      prev.map((r) => {
-        if (r.id === request.id) {
-          const updatedTimeline = [...(r.timeline || [])];
-          updatedTimeline.push({
-            stage: 'Sent Back for Clarification',
-            actor: 'Reviewer',
-            status: 'Sent Back',
-            timestamp: new Date().toLocaleString(),
-            remarks: reasonText
-          });
-
-          return {
-            ...r,
-            status: 'Sent Back',
-            currentApprover: `Employee (${r.employeeName})`,
-            sendBackReason: reasonText,
-            timeline: updatedTimeline
-          };
-        }
-        return r;
-      })
-    );
-
-    setReasonModalState({ isOpen: false, type: 'send_back', request: null });
-    setSelectedLeave(null);
-    showToast('✓ Leave request sent back to employee for revision.', 'warning');
+    try {
+      const leaveId = request._id || request.id || request.leaveId;
+      await leaveService.reviewLeaveRequest(compId, leaveId, 'send_back', reasonText);
+      await fetchAllLeaveData();
+      setReasonModalState({ isOpen: false, type: 'send_back', request: null });
+      setSelectedLeave(null);
+      showToast('✓ Leave request sent back to employee for revision.', 'warning');
+    } catch (err) {
+      showToast(err.message || 'Failed to send back leave.', 'danger');
+    }
   };
 
   // Leave Master Type Save
-  const handleSaveLeaveType = (typeData) => {
-    if (leaveTypeModalState.mode === 'edit') {
-      setLeaveTypes((prev) =>
-        prev.map((t) => (t.code === typeData.code ? { ...t, ...typeData } : t))
-      );
-      showToast('✓ Leave type updated successfully.');
-    } else {
-      const exists = leaveTypes.some((t) => t.code.toUpperCase() === typeData.code.toUpperCase());
-      if (exists) {
-        showToast('Leave code already exists.', 'danger');
-        return;
-      }
-      const newType = {
-        ...typeData,
-        id: `LT-${Math.floor(10 + Math.random() * 90)}`
-      };
-      setLeaveTypes((prev) => [...prev, newType]);
-      showToast('✓ New leave type added successfully.');
+  const handleSaveLeaveType = async (typeData) => {
+    try {
+      await leaveService.saveLeaveType(compId, typeData);
+      await fetchAllLeaveData();
+      setLeaveTypeModalState({ isOpen: false, mode: 'add', data: null });
+      showToast(`✓ Leave type ${typeData.code} saved successfully in database.`);
+    } catch (err) {
+      showToast(err.message || 'Failed to save leave type.', 'danger');
     }
-    setLeaveTypeModalState({ isOpen: false, mode: 'add', data: null });
   };
 
-  const handleToggleLeaveTypeStatus = (item) => {
-    const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
-    setLeaveTypes((prev) =>
-      prev.map((t) => (t.id === item.id ? { ...t, status: newStatus } : t))
-    );
-    showToast(`Leave type ${item.code} marked as ${newStatus}.`);
+  const handleToggleLeaveTypeStatus = async (item) => {
+    try {
+      const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
+      await leaveService.saveLeaveType(compId, { ...item, status: newStatus });
+      await fetchAllLeaveData();
+      showToast(`Leave type ${item.code} marked as ${newStatus}.`);
+    } catch (err) {
+      showToast(err.message || 'Failed to update status.', 'danger');
+    }
+  };
+
+  // Leave Master Type Delete
+  const handleDeleteLeaveTypeConfirm = async () => {
+    if (!deleteLeaveTypeModalState.typeData) return;
+    try {
+      setDeleteLeaveTypeModalState((prev) => ({ ...prev, isDeleting: true }));
+      const idOrCode =
+        deleteLeaveTypeModalState.typeData._id ||
+        deleteLeaveTypeModalState.typeData.id ||
+        deleteLeaveTypeModalState.typeData.code;
+      await leaveService.deleteLeaveType(compId, idOrCode);
+      setDeleteLeaveTypeModalState({ isOpen: false, typeData: null, isDeleting: false });
+      showToast(`✓ Leave type ${deleteLeaveTypeModalState.typeData.code} permanently deleted from database.`);
+      await fetchAllLeaveData();
+    } catch (err) {
+      setDeleteLeaveTypeModalState((prev) => ({ ...prev, isDeleting: false }));
+      showToast(err.message || 'Failed to delete leave type.', 'danger');
+    }
   };
 
   // Policy Assignment Save
-  const handleSavePolicyAssign = ({ employeeCode, policyName, openingBalances }) => {
-    setEmployeeBalances((prev) =>
-      prev.map((emp) => {
-        if (emp.employeeCode === employeeCode) {
-          return {
-            ...emp,
-            policyName,
-            balances: {
-              CL: { ...emp.balances?.CL, opening: openingBalances.CL },
-              SL: { ...emp.balances?.SL, opening: openingBalances.SL },
-              EL: { ...emp.balances?.EL, opening: openingBalances.EL },
-              LWP: { ...emp.balances?.LWP, opening: openingBalances.LWP }
-            }
-          };
-        }
-        return emp;
-      })
-    );
-    setPolicyAssignModalState({ isOpen: false, employee: null });
-    showToast('✓ Employee leave policy & opening balances assigned.');
+  const handleSavePolicyAssign = async ({ employeeCode, policyName, openingBalances }) => {
+    try {
+      await leaveService.assignPolicy(compId, { employeeCode, policyName, openingBalances });
+      await fetchAllLeaveData();
+      setPolicyAssignModalState({ isOpen: false, employee: null });
+      showToast('✓ Employee leave policy & opening balances stored in database.');
+    } catch (err) {
+      showToast(err.message || 'Failed to assign policy.', 'danger');
+    }
   };
 
   // Apply Leave Submission Handler
-  const handleApplyLeaveSubmit = (newRequest) => {
-    setLeaveRequests((prev) => [newRequest, ...prev]);
-    setEmployeeBalances((prev) =>
-      prev.map((emp) => {
-        if (emp.employeeCode === newRequest.employeeCode) {
-          const currentBal = emp.balances?.[newRequest.leaveCode];
-          if (currentBal) {
-            return {
-              ...emp,
-              balances: {
-                ...emp.balances,
-                [newRequest.leaveCode]: {
-                  ...currentBal,
-                  pending: (currentBal.pending || 0) + (newRequest.requestedDays || newRequest.days || 1)
-                }
-              }
-            };
-          }
-        }
-        return emp;
-      })
-    );
-    setIsApplyModalOpen(false);
-    showToast('✓ Leave application submitted successfully and sent for approval.');
+  // RULE: Admin applying leave -> Directly Approved & synced to Attendance in MongoDB Atlas
+  const handleApplyLeaveSubmit = async (newRequest) => {
+    try {
+      await leaveService.createLeaveRequest(compId, {
+        ...newRequest,
+        employeeId: newRequest.employeeId || newRequest.employeeCode,
+      });
+      setIsApplyModalOpen(false);
+      showToast(`✓ Leave directly applied & approved for ${newRequest.employeeName || 'employee'}. Attendance synced.`);
+      await fetchAllLeaveData();
+    } catch (err) {
+      showToast(err.message || 'Failed to submit leave application.', 'danger');
+      throw err;
+    }
   };
+
+  // Edit Leave Submission Handler
+  const handleEditLeaveSubmit = async (updatedRequest) => {
+    try {
+      const leaveId = updatedRequest._id || updatedRequest.id || updatedRequest.leaveId;
+      await leaveService.updateLeaveRequest(compId, leaveId, {
+        ...updatedRequest,
+        employeeId: updatedRequest.employeeId || updatedRequest.employeeCode,
+      });
+      setEditModalState({ isOpen: false, request: null });
+      showToast(`✓ Leave record updated for ${updatedRequest.employeeName || 'employee'}. Attendance synchronized.`);
+      await fetchAllLeaveData();
+    } catch (err) {
+      showToast(err.message || 'Failed to update leave record.', 'danger');
+      throw err;
+    }
+  };
+
+  // Delete Leave Confirmation Handler
+  const handleDeleteLeaveConfirm = async () => {
+    if (!deleteModalState.request) return;
+    try {
+      setDeleteModalState((prev) => ({ ...prev, isDeleting: true }));
+      const leaveId = deleteModalState.request._id || deleteModalState.request.id || deleteModalState.request.leaveId;
+      await leaveService.deleteLeaveRequest(compId, leaveId);
+      setDeleteModalState({ isOpen: false, request: null, isDeleting: false });
+      showToast(`✓ Leave record ${leaveId} deleted and balance restored.`);
+      await fetchAllLeaveData();
+    } catch (err) {
+      setDeleteModalState((prev) => ({ ...prev, isDeleting: false }));
+      showToast(err.message || 'Failed to delete leave record.', 'danger');
+    }
+  };
+
 
   const onExport = (payload) => {
     if (payload.fromDate && payload.toDate && payload.fromDate > payload.toDate) {
@@ -702,8 +808,8 @@ export default function Leave() {
 
         {/* Breadcrumb */}
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <button 
-            type="button" 
+          <button
+            type="button"
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary)', font: 'inherit' }}
             onClick={() => navigate('/admin/dashboard')}
           >
@@ -722,7 +828,7 @@ export default function Leave() {
               {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : 'Enterprise Leave Management'}
             </h1>
             <p className={styles.subtitle}>
-              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Leave Master rules, employee quotas, review site manpower, and approvals with Attendance & Payroll.'}
+              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments in MongoDB database.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Live database leave records, employee quotas, approvals with instant Attendance synchronization.'}
             </p>
           </div>
 
@@ -798,7 +904,7 @@ export default function Leave() {
                   <label className={styles.fieldLabel}>Department</label>
                   <select className={styles.select} value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}>
                     <option value="">All Departments</option>
-                    {mockDepartments.map((department) => (
+                    {departments.map((department) => (
                       <option key={department} value={department}>{department}</option>
                     ))}
                   </select>
@@ -850,8 +956,8 @@ export default function Leave() {
               <div className={styles.tableCard}>
                 <div className={styles.emptyWrap}>
                   <EmptyState
-                    title="No leave requests found."
-                    description="Try adjusting your search criteria or date filters."
+                    title="No leave requests found in database."
+                    description="Try adjusting your search criteria or apply for a new leave."
                     actionLabel="Reset Filters"
                     onAction={resetFilters}
                   />
@@ -877,13 +983,13 @@ export default function Leave() {
                     </thead>
                     <tbody>
                       {paginatedRequests.map((request) => {
-                        const siteSnapshot = request.siteManpower || INITIAL_SITE_MANPOWER[request.site];
-                        const isShortage = siteSnapshot && (siteSnapshot.onDuty - 1) < siteSnapshot.minimumRequired;
+                        const siteSnapshot = request.siteManpower;
+                        const isShortage = siteSnapshot && (siteSnapshot.onDuty - 1) < (siteSnapshot.minimumRequired || 0);
 
                         return (
-                          <tr key={request.id}>
+                          <tr key={request.id || request.leaveId || request._id}>
                             <td>
-                              <span className={styles.leaveIdText}>{request.id}</span>
+                              <span className={styles.leaveIdText}>{request.id || request.leaveId}</span>
                             </td>
                             <td>
                               <div className={styles.employeeCell}>
@@ -892,7 +998,7 @@ export default function Leave() {
                                 </div>
                                 <div className={styles.empInfo}>
                                   <span className={styles.employeeName}>{request.employeeName}</span>
-                                  <span className={styles.employeeId}>{request.employeeId}</span>
+                                  <span className={styles.employeeId}>{request.employeeId || request.employeeCode}</span>
                                 </div>
                               </div>
                             </td>
@@ -912,7 +1018,7 @@ export default function Leave() {
                             </td>
                             <td>
                               <div className={styles.durationCell}>
-                                <span className={styles.dateText}>{formatDate(request.fromDate)} - {formatDate(request.toDate)}</span>
+                                <span className={styles.dateText}>{formatDate(request.fromDate || request.from)} - {formatDate(request.toDate || request.to)}</span>
                                 <span className={styles.durationTypeText}>{request.durationType || 'Full Day'}</span>
                               </div>
                             </td>
@@ -948,8 +1054,26 @@ export default function Leave() {
                                   onClick={() => setSelectedLeave(request)}
                                   title="Review Details & Timeline"
                                 >
-                                  <Eye size={14} />
+                                  <Eye size={13} />
                                   <span>Review</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.editBtn}
+                                  onClick={() => setEditModalState({ isOpen: true, request })}
+                                  title="Edit Leave Details"
+                                >
+                                  <Edit3 size={13} />
+                                  <span>Edit</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.deleteBtn}
+                                  onClick={() => setDeleteModalState({ isOpen: true, request, isDeleting: false })}
+                                  title="Delete Leave Record"
+                                >
+                                  <Trash2 size={13} />
+                                  <span>Delete</span>
                                 </button>
                               </div>
                             </td>
@@ -977,7 +1101,7 @@ export default function Leave() {
           <EmployeeLeavePolicySection
             employeeBalances={employeeBalances}
             clients={clients}
-            departments={mockDepartments}
+            departments={departments}
             onAssignPolicyClick={(emp) => setPolicyAssignModalState({ isOpen: true, employee: emp })}
             onViewEmployeeLedger={(emp) => showToast(`Opening ledger for ${emp.employeeName}`)}
           />
@@ -991,6 +1115,7 @@ export default function Leave() {
             onEditClick={(type) => setLeaveTypeModalState({ isOpen: true, mode: 'edit', data: type })}
             onViewClick={(type) => setLeaveTypeModalState({ isOpen: true, mode: 'view', data: type })}
             onToggleStatus={handleToggleLeaveTypeStatus}
+            onDeleteClick={(type) => setDeleteLeaveTypeModalState({ isOpen: true, typeData: type, isDeleting: false })}
           />
         )}
 
@@ -1037,17 +1162,50 @@ export default function Leave() {
           onAssign={handleSavePolicyAssign}
         />
 
-        {/* Apply Leave Modal */}
+        {/* Apply Leave Modal (Create) */}
         {isApplyModalOpen && (
           <LeaveApplicationModal
             isOpen={isApplyModalOpen}
+            mode="create"
             onClose={() => setIsApplyModalOpen(false)}
             onSubmit={handleApplyLeaveSubmit}
-            employees={employeeBalances}
+            employees={employeesList.length > 0 ? employeesList : employeeBalances}
             leaveTypes={leaveTypes}
             employeeBalances={employeeBalances}
           />
         )}
+
+        {/* Edit Leave Modal */}
+        {editModalState.isOpen && (
+          <LeaveApplicationModal
+            isOpen={editModalState.isOpen}
+            mode="edit"
+            initialData={editModalState.request}
+            onClose={() => setEditModalState({ isOpen: false, request: null })}
+            onSubmit={handleEditLeaveSubmit}
+            employees={employeesList.length > 0 ? employeesList : employeeBalances}
+            leaveTypes={leaveTypes}
+            employeeBalances={employeeBalances}
+          />
+        )}
+
+        {/* Delete Leave Confirmation Modal */}
+        <DeleteLeaveConfirmModal
+          isOpen={deleteModalState.isOpen}
+          request={deleteModalState.request}
+          isDeleting={deleteModalState.isDeleting}
+          onClose={() => setDeleteModalState({ isOpen: false, request: null, isDeleting: false })}
+          onConfirm={handleDeleteLeaveConfirm}
+        />
+
+        {/* Delete Leave Type Confirmation Modal */}
+        <DeleteLeaveTypeConfirmModal
+          isOpen={deleteLeaveTypeModalState.isOpen}
+          typeData={deleteLeaveTypeModalState.typeData}
+          isDeleting={deleteLeaveTypeModalState.isDeleting}
+          onClose={() => setDeleteLeaveTypeModalState({ isOpen: false, typeData: null, isDeleting: false })}
+          onConfirm={handleDeleteLeaveTypeConfirm}
+        />
 
         {/* Export Modal */}
         <LeaveExportModal
@@ -1057,7 +1215,7 @@ export default function Leave() {
           onExport={onExport}
           setExportFilters={setExportFilters}
           clients={clients}
-          departments={mockDepartments}
+          departments={departments}
           leaveTypes={leaveTypes}
         />
       </div>

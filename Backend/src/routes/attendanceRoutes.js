@@ -3,6 +3,7 @@ import {
   getAttendanceRecords,
   bulkImportAttendance,
   saveAttendanceRecord,
+  deleteAttendanceRecord,
   getCorrectionRequests,
   submitCorrectionRequest,
   reviewCorrectionRequest,
@@ -17,6 +18,8 @@ router
   .route('/')
   .get(getAttendanceRecords)
   .post(adminOnly, saveAttendanceRecord);
+
+router.delete('/:id', adminOnly, deleteAttendanceRecord);
 
 router.post('/bulk-import', adminOnly, bulkImportAttendance);
 

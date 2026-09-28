@@ -25,14 +25,19 @@ export default function LeaveTypeModal({
 
   useEffect(() => {
     if (initialData) {
+      const quotaVal = initialData.annualQuota ?? initialData.quota ?? (initialData.category === 'Unpaid' ? 0 : 12);
+      const cfVal = (initialData.carryForward === true || initialData.carryForward === 'Yes') ? 'Yes' : 'No';
+      const maxAccVal = initialData.maxAccumulation ?? initialData.maxCarryForward ?? 0;
+      const encashVal = (initialData.encashment === true || initialData.encashment === 'Yes') ? 'Yes' : 'No';
+
       setFormData({
         code: initialData.code || '',
         name: initialData.name || '',
         category: initialData.category || 'Paid',
-        annualQuota: initialData.annualQuota ?? 12,
-        carryForward: initialData.carryForward || 'No',
-        maxAccumulation: initialData.maxAccumulation ?? 0,
-        encashment: initialData.encashment || 'No',
+        annualQuota: quotaVal,
+        carryForward: cfVal,
+        maxAccumulation: maxAccVal,
+        encashment: encashVal,
         status: initialData.status || 'Active',
         description: initialData.description || ''
       });

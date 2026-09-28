@@ -78,6 +78,20 @@
   gap: 16px;
 }
 
+.instantNotice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: #166534;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
 .infoNote {
   display: flex;
   align-items: flex-start;

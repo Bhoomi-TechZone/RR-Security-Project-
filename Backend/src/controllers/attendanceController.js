@@ -2,8 +2,10 @@ import Attendance from '../models/attendanceModel.js';
 import AttendanceCorrection from '../models/attendanceCorrectionModel.js';
 import Employee from '../models/employeeModel.js';
 
+
+
 /**
- * @desc    Get attendance records (filtered by date, client, site, dept, status)
+ * @desc    Get attendance records (filtered by date, client, site, dept, status) directly from MongoDB
  * @route   GET /api/attendance
  * @access  Private
  */
@@ -13,10 +15,8 @@ export const getAttendanceRecords = async (req, res) => {
     const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
     const { date, month, clientName, site, department, status, search } = req.query;
 
-    const query = {
-      $or: [{ adminEmail }, { isDefault: true }],
-      companyId,
-    };
+    const query = { companyId };
+
 
     if (date) {
       query.date = date;
@@ -44,9 +44,10 @@ export const getAttendanceRecords = async (req, res) => {
     }
 
     if (search) {
+      const searchRegex = new RegExp(search, 'i');
       query.$or = [
-        { employeeName: { $regex: new RegExp(search, 'i') } },
-        { employeeId: { $regex: new RegExp(search, 'i') } },
+        { employeeName: { $regex: searchRegex } },
+        { employeeId: { $regex: searchRegex } },
       ];
     }
 
@@ -55,20 +56,20 @@ export const getAttendanceRecords = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: records.length,
-      records: records.map(r => r.toJSON()),
+      records: records.map((r) => r.toJSON()),
     });
   } catch (error) {
-    console.error('Error fetching attendance:', error);
+    console.error('Error fetching attendance from database:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to retrieve attendance records.',
+      message: 'Failed to retrieve attendance records from database.',
       error: error.message,
     });
   }
 };
 
 /**
- * @desc    Import/bulk upsert attendance records from Excel or CSV
+ * @desc    Import/bulk upsert attendance records into MongoDB Atlas
  * @route   POST /api/attendance/bulk-import
  * @access  Private (Admin)
  */
@@ -92,7 +93,7 @@ export const bulkImportAttendance = async (req, res) => {
       const recordDate = rec.date || defaultDate || new Date().toISOString().split('T')[0];
       const empId = (rec.employeeId || `EMP${String(i + 1).padStart(3, '0')}`).trim();
       const empName = (rec.employeeName || 'Employee').trim();
-      const client = (rec.clientName || rec.companyName || '').trim();
+      const client = (rec.clientName || rec.companyName || 'RR Security').trim();
       const site = (rec.site || 'Main Site').trim();
       const department = (rec.department || 'Security').trim();
 
@@ -100,13 +101,13 @@ export const bulkImportAttendance = async (req, res) => {
         rec.initials ||
         empName
           .split(' ')
-          .map(n => n[0])
+          .map((n) => n[0])
           .join('')
           .substring(0, 2)
           .toUpperCase() ||
         'EM';
 
-      // Upsert by companyId, employeeId, and date
+      // Upsert directly into MongoDB by companyId, employeeId, and date
       const updated = await Attendance.findOneAndUpdate(
         {
           companyId,
@@ -131,7 +132,7 @@ export const bulkImportAttendance = async (req, res) => {
             companyId,
           },
         },
-        { upsert: true, new: true }
+        { upsert: true, new: true, setDefaultsOnInsert: true }
       );
 
       savedRecords.push(updated.toJSON());
@@ -139,22 +140,22 @@ export const bulkImportAttendance = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Successfully imported ${savedRecords.length} attendance records into database!`,
+      message: `Successfully stored ${savedRecords.length} attendance records directly in MongoDB database!`,
       count: savedRecords.length,
       records: savedRecords,
     });
   } catch (error) {
-    console.error('Error importing attendance bulk:', error);
+    console.error('Error importing attendance bulk to database:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to import attendance records.',
+      message: 'Failed to import attendance records to database.',
       error: error.message,
     });
   }
 };
 
 /**
- * @desc    Save/update single attendance record
+ * @desc    Save/update single attendance record in MongoDB
  * @route   POST /api/attendance
  * @access  Private (Admin)
  */
@@ -185,10 +186,38 @@ export const saveAttendanceRecord = async (req, res) => {
       });
     }
 
+    let computedHours = workingHours;
+    if (!computedHours && checkIn && checkOut) {
+      try {
+        const parseMins = (t) => {
+          const clean = String(t).trim().toUpperCase();
+          const isPM = clean.includes('PM');
+          const isAM = clean.includes('AM');
+          const numbers = clean.replace(/[^0-9:]/g, '');
+          let [h, m] = numbers.split(':').map(Number);
+          if (isNaN(h)) return null;
+          if (isNaN(m)) m = 0;
+          if (isPM && h < 12) h += 12;
+          if (isAM && h === 12) h = 0;
+          return h * 60 + m;
+        };
+        const inM = parseMins(checkIn);
+        const outM = parseMins(checkOut);
+        if (inM !== null && outM !== null && outM >= inM) {
+          const diff = outM - inM;
+          const h = Math.floor(diff / 60);
+          const m = diff % 60;
+          computedHours = `${h}h ${String(m).padStart(2, '0')}m`;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     const initials =
       (employeeName || 'EM')
         .split(' ')
-        .map(n => n[0])
+        .map((n) => n[0])
         .join('')
         .substring(0, 2)
         .toUpperCase();
@@ -199,50 +228,89 @@ export const saveAttendanceRecord = async (req, res) => {
         $set: {
           employeeName: employeeName || 'Employee',
           initials,
-          clientName: clientName || companyName || '',
-          companyName: clientName || companyName || '',
+          clientName: clientName || companyName || 'RR Security',
+          companyName: clientName || companyName || 'RR Security',
           site: site || 'Main Site',
           department: department || 'Security',
           checkIn: checkIn || null,
           checkOut: checkOut || null,
-          workingHours: workingHours || null,
+          workingHours: computedHours || (status === 'absent' || status === 'onLeave' ? null : '8h 00m'),
           status: status || 'present',
-          lateMinutes: lateMinutes || 0,
-          earlyOutMinutes: earlyOutMinutes || 0,
+          lateMinutes: Number(lateMinutes) || 0,
+          earlyOutMinutes: Number(earlyOutMinutes) || 0,
           adminEmail,
           companyId,
         },
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
     return res.status(200).json({
       success: true,
-      message: 'Attendance record saved successfully.',
+      message: 'Attendance record stored in database successfully.',
       record: record.toJSON(),
     });
   } catch (error) {
-    console.error('Error saving attendance record:', error);
+    console.error('Error saving attendance record to database:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to save attendance record.',
+      message: 'Failed to save attendance record to database.',
       error: error.message,
     });
   }
 };
 
 /**
- * @desc    Get all correction requests
+ * @desc    Delete attendance record permanently from MongoDB
+ * @route   DELETE /api/attendance/:id
+ * @access  Private (Admin)
+ */
+export const deleteAttendanceRecord = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+
+    let record = null;
+    try {
+      record = await Attendance.findById(id);
+    } catch {
+      record = await Attendance.findOne({ companyId, $or: [{ id }, { employeeId: id }] });
+    }
+
+    if (!record) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attendance record not found in database.',
+      });
+    }
+
+    await Attendance.deleteOne({ _id: record._id });
+
+    return res.status(200).json({
+      success: true,
+      message: `Attendance record for ${record.employeeName || record.employeeId} (${record.date}) deleted successfully from database.`,
+    });
+  } catch (error) {
+    console.error('Error deleting attendance record from database:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete attendance record.',
+      error: error.message,
+    });
+  }
+};
+
+
+/**
+ * @desc    Get all correction requests from MongoDB
  * @route   GET /api/attendance/corrections
  * @access  Private
  */
 export const getCorrectionRequests = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
 
     const corrections = await AttendanceCorrection.find({
-      $or: [{ adminEmail }, { isDefault: true }],
       companyId,
       status: 'pendingCorrection',
     }).sort({ createdAt: -1 });
@@ -250,7 +318,7 @@ export const getCorrectionRequests = async (req, res) => {
     return res.status(200).json({
       success: true,
       count: corrections.length,
-      corrections: corrections.map(c => c.toJSON()),
+      corrections: corrections.map((c) => c.toJSON()),
     });
   } catch (error) {
     console.error('Error fetching correction requests:', error);
@@ -289,7 +357,7 @@ export const submitCorrectionRequest = async (req, res) => {
     const initials =
       (employeeName || 'EM')
         .split(' ')
-        .map(n => n[0])
+        .map((n) => n[0])
         .join('')
         .substring(0, 2)
         .toUpperCase();
@@ -316,14 +384,19 @@ export const submitCorrectionRequest = async (req, res) => {
       adminEmail,
     });
 
-    // Mark attendance record as pendingCorrection
+    // Mark attendance record as pendingCorrection in MongoDB
     if (attendanceId) {
-      await Attendance.findByIdAndUpdate(attendanceId, { status: 'pendingCorrection' });
+      await Attendance.findByIdAndUpdate(attendanceId, { status: 'pendingCorrection' }).catch(() => {});
+    } else if (employeeId && date) {
+      await Attendance.findOneAndUpdate(
+        { companyId, employeeId, date },
+        { status: 'pendingCorrection' }
+      ).catch(() => {});
     }
 
     return res.status(201).json({
       success: true,
-      message: 'Correction request submitted for review.',
+      message: 'Correction request submitted for review and stored in database.',
       correction: correction.toJSON(),
     });
   } catch (error) {
@@ -346,11 +419,19 @@ export const reviewCorrectionRequest = async (req, res) => {
     const { id } = req.params;
     const { action, rejectReason } = req.body; // 'approve' or 'reject'
 
-    const correction = await AttendanceCorrection.findById(id);
+    let correction = null;
+    try {
+      correction = await AttendanceCorrection.findById(id);
+    } catch {
+      correction = await AttendanceCorrection.findOne({
+        $or: [{ correctionId: id }, { id }],
+      });
+    }
+
     if (!correction) {
       return res.status(404).json({
         success: false,
-        message: 'Correction request not found.',
+        message: 'Correction request not found in database.',
       });
     }
 
@@ -362,9 +443,17 @@ export const reviewCorrectionRequest = async (req, res) => {
       let workingHours = null;
       if (correction.requestedCheckIn && correction.requestedCheckOut) {
         try {
-          const [inH, inM] = correction.requestedCheckIn.split(':').map(Number);
-          const [outH, outM] = correction.requestedCheckOut.split(':').map(Number);
-          const totalMins = outH * 60 + outM - (inH * 60 + inM);
+          const parseMins = (t) => {
+            const clean = t.trim().toUpperCase();
+            const isPM = clean.includes('PM');
+            const isAM = clean.includes('AM');
+            const [h, m] = clean.replace(/[^0-9:]/g, '').split(':').map(Number);
+            let hours = h || 0;
+            if (isPM && hours < 12) hours += 12;
+            if (isAM && hours === 12) hours = 0;
+            return hours * 60 + (m || 0);
+          };
+          const totalMins = parseMins(correction.requestedCheckOut) - parseMins(correction.requestedCheckIn);
           if (totalMins > 0) {
             const h = Math.floor(totalMins / 60);
             const m = totalMins % 60;
@@ -385,7 +474,7 @@ export const reviewCorrectionRequest = async (req, res) => {
           $set: {
             checkIn: correction.requestedCheckIn,
             checkOut: correction.requestedCheckOut,
-            workingHours,
+            workingHours: workingHours || '8h 00m',
             status: 'present',
             lateMinutes: 0,
             earlyOutMinutes: 0,
@@ -395,7 +484,7 @@ export const reviewCorrectionRequest = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: `Correction request approved for ${correction.employeeName}. Attendance updated.`,
+        message: `Correction request approved for ${correction.employeeName}. Attendance updated in database.`,
       });
     } else {
       correction.status = 'rejected';
@@ -429,3 +518,4 @@ export const reviewCorrectionRequest = async (req, res) => {
     });
   }
 };
+

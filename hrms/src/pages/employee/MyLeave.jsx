@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
   CalendarDays,
   CalendarCheck,
@@ -23,7 +23,8 @@ import {
   Briefcase,
   User,
   ArrowRight,
-  Info
+  Info,
+  Loader2
 } from 'lucide-react';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
@@ -33,9 +34,9 @@ import {
   policyLeaveTypes,
   employeeLeaveHistory
 } from '../../data/employeeLeaveData';
+import leaveService from '../../services/leaveService';
+import authService from '../../services/authService';
 import styles from './MyLeave.module.css';
-
-const STORAGE_KEY = 'novaspark_emp_my_leave_requests';
 
 const formatDate = (value) => {
   if (!value) return '—';
@@ -177,37 +178,39 @@ function ApplyLeaveModal({
   const [remarks, setRemarks] = useState('');
   const [attachedFile, setAttachedFile] = useState(null);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialData) {
-      setLeaveCode(initialData.leaveCode || 'CL');
+      setLeaveCode(initialData.leaveCode || balances[0]?.code || 'CL');
       setDurationType(initialData.durationType || 'Full Day');
       setHalfDayType(initialData.halfDayType || 'First Half');
       if (initialData.shortLeaveTime) {
         setShortStartTime(initialData.shortLeaveTime.start || '10:00');
         setShortEndTime(initialData.shortLeaveTime.end || '12:00');
       }
-      setFromDate(initialData.from || '2026-09-10');
-      setToDate(initialData.to || '2026-09-10');
+      setFromDate(initialData.from || new Date().toISOString().slice(0, 10));
+      setToDate(initialData.to || new Date().toISOString().slice(0, 10));
       setReason(initialData.reason || '');
       setRemarks(initialData.remarks || '');
       if (initialData.supportingDocName) {
         setAttachedFile({ name: initialData.supportingDocName, size: initialData.supportingDocSize || '1.2 MB' });
       }
     } else {
-      setLeaveCode('CL');
+      setLeaveCode(balances[0]?.code || 'CL');
       setDurationType('Full Day');
       setHalfDayType('First Half');
       setShortStartTime('10:00');
       setShortEndTime('12:00');
-      setFromDate('2026-09-10');
-      setToDate('2026-09-10');
+      setFromDate(new Date().toISOString().slice(0, 10));
+      setToDate(new Date().toISOString().slice(0, 10));
       setReason('');
       setRemarks('');
       setAttachedFile(null);
     }
     setErrors({});
-  }, [initialData, isOpen]);
+    setIsSubmitting(false);
+  }, [initialData, isOpen, balances]);
 
   const selectedBalance = useMemo(() => {
     return balances.find(b => b.code === leaveCode) || balances[0];
@@ -282,8 +285,10 @@ function ApplyLeaveModal({
     setAttachedFile(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     const nextErrors = {};
     if (!reason.trim()) nextErrors.reason = 'Please provide a reason for leave.';
     if (durationType === 'Multiple Days' && fromDate > toDate) {
@@ -373,7 +378,14 @@ function ApplyLeaveModal({
       sendBackReason: null
     };
 
-    onSubmit(newRequest, !!initialData);
+    setIsSubmitting(true);
+    try {
+      await onSubmit(newRequest, !!initialData);
+    } catch (err) {
+      console.error('Submission error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -419,9 +431,9 @@ function ApplyLeaveModal({
               value={leaveCode}
               onChange={(e) => setLeaveCode(e.target.value)}
             >
-              {policyLeaveTypes.map((t) => (
+              {balances.map((t) => (
                 <option key={t.code} value={t.code}>
-                  {t.code} — {t.name} ({t.quotaNote})
+                  {t.code} — {t.name} ({t.category === 'Unpaid' ? 'Unpaid / LWP' : `${t.available}d Available`})
                 </option>
               ))}
             </select>
@@ -642,17 +654,33 @@ function ApplyLeaveModal({
 
         {/* Fixed Footer */}
         <div className={styles.modalFooter}>
-          <button type="button" className={styles.secondaryButton} onClick={onClose}>
+          <button 
+            type="button" 
+            className={styles.secondaryButton} 
+            onClick={onClose}
+            disabled={isSubmitting}
+            style={isSubmitting ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+          >
             Cancel
           </button>
           <button
             type="submit"
             form="applyLeaveForm"
             className={styles.primaryButton}
-            disabled={isExceeded}
+            disabled={isExceeded || isSubmitting}
+            style={(isExceeded || isSubmitting) ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
           >
-            <Plus size={16} />
-            <span>{initialData ? 'Resubmit Leave Request' : 'Submit Leave Request'}</span>
+            {isSubmitting ? (
+              <>
+                <Loader2 size={16} className={styles.spinner} style={{ animation: 'spin 0.8s linear infinite' }} />
+                <span>Applying Leave...</span>
+              </>
+            ) : (
+              <>
+                <Plus size={16} />
+                <span>{initialData ? 'Resubmit Leave Request' : 'Submit Leave Request'}</span>
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -989,18 +1017,64 @@ function EmployeeLeaveDetailsDrawer({
   );
 }
 
+const sanitizeEmpRequests = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map((l) => ({
+    ...l,
+    id: l.leaveId || l.id || l._id,
+    type: l.leaveType || l.type || 'Casual Leave',
+    from: l.fromDate || l.from,
+    to: l.toDate || l.to,
+    appliedOn: (l.createdAt ? new Date(l.createdAt).toISOString().slice(0, 10) : l.appliedOn) || new Date().toISOString().slice(0, 10),
+    currentStage: l.currentApprover || l.currentStage || 'Supervisor Review',
+  }));
+};
+
+const deriveEmployeeBalances = (balanceDoc, leaveTypes) => {
+  const activeTypes = Array.isArray(leaveTypes) && leaveTypes.length > 0
+    ? leaveTypes.filter(t => (t.status || 'Active').toLowerCase() === 'active')
+    : [
+        { code: 'CL', name: 'Casual Leave', category: 'Paid', quota: 12 },
+        { code: 'SL', name: 'Sick / Medical Leave', category: 'Paid', quota: 8 },
+        { code: 'EL', name: 'Earned / Privilege Leave', category: 'Paid', quota: 15 },
+        { code: 'LWP', name: 'Leave Without Pay', category: 'Unpaid', quota: 30 },
+      ];
+
+  const bMap = balanceDoc?.balances || {};
+  return activeTypes.map((typeInfo) => {
+    const code = typeInfo.code;
+    const defaultQuota = typeInfo.category === 'Unpaid' ? 0 : Number(typeInfo.annualQuota ?? typeInfo.quota) || 12;
+    const b = bMap[code] || { opening: defaultQuota, accrued: 0, used: 0, pending: 0 };
+    const opening = Number(b.opening) || 0;
+    const accrued = Number(b.accrued) || 0;
+    const used = Number(b.used) || 0;
+    const pending = Number(b.pending) || 0;
+    const available = Math.max(0, opening + accrued - used - pending);
+    return {
+      id: `bal_${code}`,
+      code,
+      name: typeInfo.name || (code === 'CL' ? 'Casual Leave' : code === 'SL' ? 'Sick Leave' : code === 'EL' ? 'Earned Leave' : 'Leave Without Pay'),
+      category: typeInfo.category || (code === 'LWP' ? 'Unpaid' : 'Paid'),
+      opening,
+      accrued,
+      used,
+      pending,
+      available: (typeInfo.category === 'Unpaid' || code === 'LWP') ? 0 : available,
+      carryForward: !!typeInfo.carryForward,
+      maxCarryForward: typeInfo.maxCarryForward || 0,
+      description: typeInfo.description || '',
+    };
+  });
+};
+
 // Main Page Component
 function MyLeave() {
-  const [requests, setRequests] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : employeeLeaveHistory;
-    } catch {
-      return employeeLeaveHistory;
-    }
-  });
+  const currentUser = authService.getUser() || {};
+  const companyId = currentUser.companyId || 'RRS8392014SEC';
+  const employeeId = currentUser.employeeId || currentUser.employeeCode || 'EMP001';
 
-  const [balances, setBalances] = useState(employeeLeaveBalances);
+  const [requests, setRequests] = useState([]);
+  const [balances, setBalances] = useState([]);
   const [filterType, setFilterType] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterYear, setFilterYear] = useState('2026');
@@ -1010,14 +1084,40 @@ function MyLeave() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [cancelModalState, setCancelModalState] = useState({ isOpen: false, request: null });
   const [toast, setToast] = useState(null);
-
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(requests));
-  }, [requests]);
+  const [loading, setLoading] = useState(true);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
+
+  const fetchEmployeeLeaveData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [fetchedLeaves, fetchedBalances, fetchedTypes] = await Promise.all([
+        leaveService.getLeaveRequests(companyId),
+        leaveService.getEmployeeBalances(companyId).catch(() => []),
+        leaveService.getLeaveTypes(companyId).catch(() => []),
+      ]);
+
+      setRequests(sanitizeEmpRequests(fetchedLeaves));
+      
+      const myBalanceDoc = (fetchedBalances || []).find(
+        (b) => b.employeeId === employeeId || b.employeeCode === employeeId
+      ) || (fetchedBalances || [])[0];
+
+      if (myBalanceDoc) {
+        setBalances(deriveEmployeeBalances(myBalanceDoc, fetchedTypes));
+      }
+    } catch (err) {
+      console.error('Error fetching employee leave data from MongoDB Atlas:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, employeeId]);
+
+  useEffect(() => {
+    fetchEmployeeLeaveData();
+  }, [fetchEmployeeLeaveData]);
 
   const filteredRequests = useMemo(() => {
     return requests.filter((r) => {
@@ -1026,79 +1126,45 @@ function MyLeave() {
         if (filterStatus === 'Pending' && !r.status.includes('Pending')) return false;
         if (filterStatus !== 'Pending' && r.status !== filterStatus) return false;
       }
-      if (filterYear && !r.from.startsWith(filterYear)) return false;
+      if (filterYear && !String(r.from || '').startsWith(filterYear)) return false;
       return true;
     });
   }, [requests, filterType, filterStatus, filterYear]);
 
   // Add / Resubmit Leave handler
-  const handleApplyLeaveSubmit = (newReq, isEditing) => {
-    if (isEditing) {
-      setRequests((prev) => prev.map((r) => (r.id === newReq.id ? newReq : r)));
-      showToast('✓ Leave request resubmitted for Site Supervisor review.');
-    } else {
-      setRequests((prev) => [newReq, ...prev]);
+  // RULE: When Employee applies, status is Pending (requires supervisor & HR approval)
+  const handleApplyLeaveSubmit = async (newReq, isEditing) => {
+    try {
+      await leaveService.createLeaveRequest(companyId, {
+        ...newReq,
+        employeeId: currentUser.employeeId || currentUser.employeeCode || 'EMP001',
+        employeeName: currentUser.name || currentEmployeeProfile.employeeName,
+        department: currentUser.department || currentEmployeeProfile.department,
+        site: currentEmployeeProfile.site,
+        clientName: currentEmployeeProfile.client,
+      });
 
-      // Update balance pending count
-      setBalances((prev) =>
-        prev.map((b) => {
-          if (b.code === newReq.leaveCode) {
-            return {
-              ...b,
-              pending: b.pending + newReq.days
-            };
-          }
-          return b;
-        })
-      );
-      showToast('✓ Leave application submitted successfully.');
+      await fetchEmployeeLeaveData();
+      setIsApplyModalOpen(false);
+      setEditingRequest(null);
+      showToast('✓ Leave application submitted successfully and sent for supervisor approval.');
+    } catch (err) {
+      showToast(err.message || 'Failed to submit leave application.', 'danger');
     }
-
-    setIsApplyModalOpen(false);
-    setEditingRequest(null);
   };
 
   // Cancel leave handler
-  const handleConfirmCancel = (request) => {
-    setRequests((prev) =>
-      prev.map((r) => {
-        if (r.id === request.id) {
-          return {
-            ...r,
-            status: 'Cancelled',
-            currentStage: 'Cancelled by Employee',
-            timeline: [
-              ...(r.timeline || []),
-              {
-                stage: 'Cancelled by Employee',
-                status: 'Cancelled',
-                actor: `${currentEmployeeProfile.employeeName} (Self)`,
-                timestamp: new Date().toLocaleString(),
-                remarks: 'Request withdrawn by employee'
-              }
-            ]
-          };
-        }
-        return r;
-      })
-    );
-
-    // Revert pending balance
-    setBalances((prev) =>
-      prev.map((b) => {
-        if (b.code === request.leaveCode) {
-          return {
-            ...b,
-            pending: Math.max(0, b.pending - request.days)
-          };
-        }
-        return b;
-      })
-    );
-
-    setCancelModalState({ isOpen: false, request: null });
-    setSelectedRequest(null);
-    showToast('✓ Leave request cancelled.', 'warning');
+  const handleConfirmCancel = async (request) => {
+    try {
+      const leaveId = request.id || request.leaveId || request._id;
+      await leaveService.cancelLeaveRequest(companyId, leaveId);
+      await fetchEmployeeLeaveData();
+      setCancelModalState({ isOpen: false, request: null });
+      setSelectedRequest(null);
+      showToast('✓ Leave request cancelled successfully.', 'warning');
+    } catch (err) {
+      showToast(err.message || 'Failed to cancel leave request.', 'danger');
+    }
   };
 
   const handleEditResubmit = (request) => {

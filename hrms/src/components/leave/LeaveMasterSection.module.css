@@ -321,6 +321,16 @@
   color: var(--text-muted);
 }
 
+.btnDelete {
+  color: var(--text-secondary);
+}
+
+.btnDelete:hover {
+  border-color: #fca5a5;
+  color: #dc2626;
+  background: #fef2f2;
+}
+
 @media (max-width: 992px) {
   .summaryGrid {
     grid-template-columns: repeat(2, 1fr);
