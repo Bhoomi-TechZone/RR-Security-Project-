@@ -1,28 +1,23 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Download, MoreVertical, Package, PackageCheck, PackageOpen, Plus,
   RotateCcw, Search, X, AlertTriangle, ShieldCheck, DollarSign,
   ArrowRightLeft, FileSpreadsheet, User, Eye, Edit3, ArrowUpRight, ShieldAlert, CheckCircle,
-  Shirt, Shield, Trash2
+  Shirt, Shield, Trash2, Loader2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
-import { mockEmployees } from '../../data/employeeData';
-import { mockCompanies } from '../../data/companyData';
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_SIZES,
   INVENTORY_COLORS,
-  INVENTORY_UNITS,
-  mockInventoryMasterItems,
-  mockIssuedUniforms,
-  mockReturnRecords,
-  mockStockMovements,
-  mockExitClearances
+  INVENTORY_UNITS
 } from '../../data/inventoryMasterData';
+import { useCompany } from '../../context/CompanyContext';
+import inventoryService from '../../services/inventoryService';
 
 import InventoryItemModal from '../../components/inventory/InventoryItemModal';
 import InventoryIssueModal from '../../components/inventory/InventoryIssueModal';
@@ -35,11 +30,6 @@ import InventoryDetailsDrawer from '../../components/inventory/InventoryDetailsD
 
 import styles from './Inventory.module.css';
 
-const STORAGE_KEY = 'novaspark_inventory_master_items_v2';
-const ISSUED_KEY = 'novaspark_inventory_issued_v2';
-const RETURNS_KEY = 'novaspark_inventory_returns_v2';
-const MOVEMENTS_KEY = 'novaspark_inventory_movements_v2';
-const CLEARANCE_KEY = 'novaspark_inventory_clearances_v2';
 const PAGE_SIZE = 8;
 
 const formatDate = (value) => {
@@ -287,8 +277,110 @@ function Filters({ values, setValue, onReset, inventoryType = 'uniform' }) {
   );
 }
 
+function DeleteItemConfirmModal({ isOpen, item, isDeleting, onClose, onConfirm }) {
+  if (!isOpen || !item) return null;
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1060,
+        padding: 16
+      }}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        style={{
+          background: 'var(--surface, #ffffff)',
+          borderRadius: 14,
+          padding: '24px',
+          maxWidth: 440,
+          width: '100%',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          border: '1px solid var(--border-color, #e2e8f0)'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: '50%',
+              background: '#fef2f2',
+              color: '#ef4444',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <Trash2 size={22} />
+          </div>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 600, color: 'var(--text-main, #0f172a)' }}>
+              Delete Inventory Item
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted, #64748b)' }}>
+              Permanent database deletion
+            </p>
+          </div>
+        </div>
+
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary, #334155)', lineHeight: 1.5, marginBottom: 20 }}>
+          Are you sure you want to delete <strong>"{item.itemName}"</strong> ({item.itemCode || item.itemId}) from the database? This action cannot be undone.
+        </p>
+
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={isDeleting}
+            style={{
+              padding: '8px 16px',
+              borderRadius: 8,
+              border: '1px solid var(--border-color, #e2e8f0)',
+              background: '#fff',
+              color: 'var(--text-main, #334155)',
+              fontWeight: 500,
+              cursor: isDeleting ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isDeleting}
+            style={{
+              padding: '8px 18px',
+              borderRadius: 8,
+              border: 'none',
+              background: '#ef4444',
+              color: '#fff',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: isDeleting ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isDeleting && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
+            {isDeleting ? 'Deleting...' : 'Delete Master Item'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // 1. Enhanced Stock Table
-function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, inventoryType = 'uniform' }) {
+function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, onDelete, inventoryType = 'uniform' }) {
   const [openMenuId, setOpenMenuId] = useState(null);
   const isUniform = inventoryType === 'uniform';
 
@@ -471,6 +563,18 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, inventoryTy
                         >
                           {item.status === 'Inactive' ? 'Activate Item' : 'Deactivate Item'}
                         </button>
+                        {onDelete && (
+                          <button
+                            type="button"
+                            style={{ color: '#ef4444' }}
+                            onClick={() => {
+                              onDelete(item);
+                              setOpenMenuId(null);
+                            }}
+                          >
+                            <Trash2 size={14} style={{ marginRight: 6 }} /> Delete Item Master
+                          </button>
+                        )}
                       </div>
                     )}
                   </td>
@@ -483,6 +587,7 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, inventoryTy
     </div>
   );
 }
+
 
 // 2. Enhanced Issued Items Register Table
 function IssuedTable({ rows, onViewEmployee, onReturn, onEdit, onDelete, onReceipt }) {
@@ -749,51 +854,16 @@ function ClearanceTable({ rows, onInspectClearance }) {
 
 // Main Inventory Component
 export default function Inventory() {
-  // State initialization with master data fallback
-  const [items, setItems] = useState(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored ? JSON.parse(stored) : mockInventoryMasterItems;
-    } catch {
-      return mockInventoryMasterItems;
-    }
-  });
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || 'RRS8392014SEC';
 
-  const [issued, setIssued] = useState(() => {
-    try {
-      const stored = localStorage.getItem(ISSUED_KEY);
-      return stored ? JSON.parse(stored) : mockIssuedUniforms;
-    } catch {
-      return mockIssuedUniforms;
-    }
-  });
-
-  const [returns, setReturns] = useState(() => {
-    try {
-      const stored = localStorage.getItem(RETURNS_KEY);
-      return stored ? JSON.parse(stored) : mockReturnRecords;
-    } catch {
-      return mockReturnRecords;
-    }
-  });
-
-  const [movements, setMovements] = useState(() => {
-    try {
-      const stored = localStorage.getItem(MOVEMENTS_KEY);
-      return stored ? JSON.parse(stored) : mockStockMovements;
-    } catch {
-      return mockStockMovements;
-    }
-  });
-
-  const [clearances, setClearances] = useState(() => {
-    try {
-      const stored = localStorage.getItem(CLEARANCE_KEY);
-      return stored ? JSON.parse(stored) : mockExitClearances;
-    } catch {
-      return mockExitClearances;
-    }
-  });
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState([]);
+  const [issued, setIssued] = useState([]);
+  const [returns, setReturns] = useState([]);
+  const [movements, setMovements] = useState([]);
+  const [clearances, setClearances] = useState([]);
+  const [employees, setEmployees] = useState([]);
 
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -820,68 +890,65 @@ export default function Inventory() {
   const [itemModalOpen, setItemModalOpen] = useState(false);
   const [itemModalType, setItemModalType] = useState('uniform'); // 'uniform' | 'asset'
   const [editItem, setEditItem] = useState(null);
+  const [isSavingItem, setIsSavingItem] = useState(false);
+
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
 
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [issueType, setIssueType] = useState('uniform'); // 'uniform' | 'asset'
   const [issueTargetItem, setIssueTargetItem] = useState(null);
   const [editIssue, setEditIssue] = useState(null);
+  const [isSavingIssue, setIsSavingIssue] = useState(false);
 
   const [returnModalOpen, setReturnModalOpen] = useState(false);
   const [returnTargetIssue, setReturnTargetIssue] = useState(null);
+  const [isSavingReturn, setIsSavingReturn] = useState(false);
 
   const [employeeAssetModalOpen, setEmployeeAssetModalOpen] = useState(false);
   const [selectedEmployeeForAssets, setSelectedEmployeeForAssets] = useState(null);
 
   const [clearanceModalOpen, setClearanceModalOpen] = useState(false);
   const [selectedClearanceRecord, setSelectedClearanceRecord] = useState(null);
+  const [isApprovingClearance, setIsApprovingClearance] = useState(false);
 
   const [reportsModalOpen, setReportsModalOpen] = useState(false);
 
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [drawerTargetItem, setDrawerTargetItem] = useState(null);
 
-  // Save to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [items]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(ISSUED_KEY, JSON.stringify(issued));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [issued]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(RETURNS_KEY, JSON.stringify(returns));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [returns]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(MOVEMENTS_KEY, JSON.stringify(movements));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [movements]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(CLEARANCE_KEY, JSON.stringify(clearances));
-    } catch (e) {
-      console.error(e);
-    }
-  }, [clearances]);
-
   const notify = (message, type = 'success') => setToast({ message, type });
+
+  // Fetch all inventory data from MongoDB backend API
+  const fetchInventoryData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [itemsRes, issuedRes, returnsRes, movementsRes, clearancesRes, empRes] = await Promise.all([
+        inventoryService.getItems(companyId),
+        inventoryService.getIssuedItems(companyId),
+        inventoryService.getReturnRecords(companyId),
+        inventoryService.getMovements(companyId),
+        inventoryService.getClearances(companyId),
+        inventoryService.getEmployees(companyId)
+      ]);
+      setItems(itemsRes);
+      setIssued(issuedRes);
+      setReturns(returnsRes);
+      setMovements(movementsRes);
+      setClearances(clearancesRes);
+      setEmployees(empRes || []);
+    } catch (err) {
+      console.error('Failed to load inventory data:', err);
+      notify(err.message || 'Failed to load inventory from server', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    fetchInventoryData();
+  }, [fetchInventoryData]);
 
   const setFilter = (key, value) => {
     setPage(1);
@@ -964,342 +1031,141 @@ export default function Inventory() {
   const activeRows = tab === 'stock' ? filteredStock : tab === 'issued' ? filteredIssued : tab === 'returns' ? filteredReturns : clearances;
   const pageRows = activeRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  // 1. Save or Update Item Master
-  const handleSaveItemMaster = (itemData) => {
-    if (editItem) {
-      setItems((prev) =>
-        prev.map((i) => (i.id === editItem.id || i.itemId === editItem.itemId ? { ...i, ...itemData } : i))
-      );
-      notify(`✓ Item "${itemData.itemName}" updated successfully.`);
-    } else {
-      // Check code uniqueness
-      if (items.some((i) => (i.itemCode || i.itemId || '').toLowerCase() === (itemData.itemCode || '').toLowerCase())) {
-        notify(`Item Code "${itemData.itemCode}" already exists. Please choose a unique code.`, 'danger');
-        return;
+  // 1. Save or Update Item Master in Backend
+  const handleSaveItemMaster = async (itemData) => {
+    if (isSavingItem) return;
+    try {
+      setIsSavingItem(true);
+      if (editItem) {
+        await inventoryService.updateItem(companyId, editItem.id || editItem.itemId, itemData);
+        notify(`✓ Item "${itemData.itemName}" updated successfully.`);
+      } else {
+        await inventoryService.createItem(companyId, itemData);
+        notify(`✓ New inventory item "${itemData.itemName}" created with ${itemData.openingStock || 0} initial stock.`);
       }
-      const newItem = {
-        ...itemData,
-        id: `ITM-2026-${Math.floor(100 + Math.random() * 900)}`,
-        availableQuantity: Number(itemData.openingStock || 0),
-        issuedQuantity: 0,
-        returnedQuantity: 0,
-        damagedQuantity: 0,
-        lostQuantity: 0
-      };
-      setItems((prev) => [newItem, ...prev]);
-
-      // Add movement log for opening stock
-      if (Number(itemData.openingStock) > 0) {
-        const mv = {
-          id: `MOV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-          date: new Date().toISOString().split('T')[0],
-          itemId: newItem.id,
-          itemCode: newItem.itemCode,
-          itemName: newItem.itemName,
-          movementType: 'Opening Stock',
-          quantityChange: Number(itemData.openingStock),
-          balanceBefore: 0,
-          balanceAfter: Number(itemData.openingStock),
-          location: newItem.location || 'Central Warehouse',
-          reference: 'MASTER-INIT',
-          performedBy: 'Store Admin'
-        };
-        setMovements((prev) => [mv, ...prev]);
-      }
-      notify(`✓ New inventory item "${itemData.itemName}" created with ${itemData.openingStock} initial stock.`);
+      setItemModalOpen(false);
+      setEditItem(null);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to save item master', 'danger');
+    } finally {
+      setIsSavingItem(false);
     }
-    setItemModalOpen(false);
-    setEditItem(null);
   };
 
-  // Toggle active/inactive
-  const handleToggleItemStatus = (item) => {
-    const nextStatus = item.status === 'Inactive' ? 'Active' : 'Inactive';
-    setItems((prev) =>
-      prev.map((i) => (i.id === item.id || i.itemId === item.itemId ? { ...i, status: nextStatus } : i))
-    );
-    notify(`Item status changed to ${nextStatus}.`);
+  // Toggle active/inactive in Backend
+  const handleToggleItemStatus = async (item) => {
+    try {
+      const res = await inventoryService.toggleItemStatus(companyId, item.id || item.itemId);
+      notify(res.message || `Item status updated.`);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to toggle item status', 'danger');
+    }
   };
 
-  // 2. Handle Issue Item Out (Create or Edit)
-  const handleSaveIssue = (issuePayloadOrList, isEdit = false) => {
+  // Delete Item Master in Backend
+  const handleDeleteItemMaster = (item) => {
+    setItemToDelete(item);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDeleteItem = async () => {
+    if (!itemToDelete || isDeletingItem) return;
+    try {
+      setIsDeletingItem(true);
+      await inventoryService.deleteItem(companyId, itemToDelete.id || itemToDelete.itemId);
+      notify(`✓ Inventory item "${itemToDelete.itemName}" deleted successfully.`);
+      setDeleteConfirmOpen(false);
+      setItemToDelete(null);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to delete item', 'danger');
+    } finally {
+      setIsDeletingItem(false);
+    }
+  };
+
+  // 2. Handle Issue Item Out (Create or Edit in Backend)
+  const handleSaveIssue = async (issuePayloadOrList, isEdit = false) => {
+    if (isSavingIssue) return;
     const list = Array.isArray(issuePayloadOrList) ? issuePayloadOrList : [issuePayloadOrList];
     if (!list.length) return;
 
-    if (isEdit || editIssue) {
-      const issuePayload = list[0];
-      const original = issued.find((i) => i.id === issuePayload.id) || editIssue;
-      const oldQty = Number(original?.quantity || 0);
-      const newQty = Number(issuePayload.quantity || 0);
-      const diff = newQty - oldQty; // positive: extra units deducted from available stock
-
-      // Update inventory stock
-      setItems((prev) =>
-        prev.map((i) => {
-          if (
-            i.id === issuePayload.itemId ||
-            i.itemId === issuePayload.itemId ||
-            i.itemCode === issuePayload.itemCode
-          ) {
-            const avail = (i.availableQuantity ?? 0) - diff;
-            const iss = (i.issuedQuantity ?? 0) + diff;
-            return {
-              ...i,
-              availableQuantity: Math.max(0, avail),
-              issuedQuantity: Math.max(0, iss)
-            };
-          }
-          return i;
-        })
-      );
-
-      // Update issue record in issued array
-      setIssued((prev) =>
-        prev.map((iss) =>
-          iss.id === issuePayload.id
-            ? {
-                ...iss,
-                ...issuePayload,
-                pendingQuantity: Math.max(0, newQty - (iss.returnedQuantity || 0)),
-                totalAmount: Number((newQty * (issuePayload.rate || issuePayload.issueRate || 450)).toFixed(2))
-              }
-            : iss
-        )
-      );
-
-      // Log movement if quantity changed
-      if (diff !== 0) {
-        const mv = {
-          id: `MOV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-          date: issuePayload.issueDate || new Date().toISOString().split('T')[0],
-          itemId: issuePayload.itemId,
-          itemCode: issuePayload.itemCode,
-          itemName: issuePayload.itemName,
-          movementType: 'Issue Modification',
-          quantityChange: -diff,
-          employeeName: issuePayload.employeeName,
-          employeeId: issuePayload.employeeId,
-          site: issuePayload.site,
-          reference: issuePayload.id,
-          performedBy: issuePayload.issuedBy || 'Store Admin'
-        };
-        setMovements((prev) => [mv, ...prev]);
+    try {
+      setIsSavingIssue(true);
+      if (isEdit || editIssue) {
+        const issuePayload = list[0];
+        await inventoryService.updateIssuedItem(companyId, editIssue?.id || issuePayload.id, issuePayload);
+        notify(`✓ Issue record "${editIssue?.id || issuePayload.id}" updated successfully.`);
+      } else {
+        await inventoryService.issueItems(companyId, list);
+        if (list.length === 1) {
+          notify(`✓ Issued ${list[0].quantity} ${list[0].unit || 'Pcs'} of ${list[0].itemName} to ${list[0].employeeName}.`);
+        } else {
+          notify(`✓ Successfully issued ${list.length} items to ${list[0].employeeName}.`);
+        }
       }
-
-      notify(`✓ Issue record "${issuePayload.id}" updated successfully.`);
       setIssueModalOpen(false);
       setEditIssue(null);
-      return;
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to issue inventory items', 'danger');
+    } finally {
+      setIsSavingIssue(false);
     }
-
-    let updatedItems = [...items];
-    const newIssuedRecords = [];
-    const newMovements = [];
-
-    list.forEach((issuePayload) => {
-      const target = updatedItems.find(
-        (i) =>
-          i.id === issuePayload.itemId ||
-          i.itemId === issuePayload.itemId ||
-          i.itemCode === issuePayload.itemCode
-      );
-      if (!target) return;
-
-      const qty = Number(issuePayload.quantity);
-      const balanceBefore = target.availableQuantity;
-      const balanceAfter = Math.max(0, balanceBefore - qty);
-
-      updatedItems = updatedItems.map((i) =>
-        i.id === target.id || i.itemId === target.itemId
-          ? {
-              ...i,
-              availableQuantity: balanceAfter,
-              issuedQuantity: (i.issuedQuantity || 0) + qty
-            }
-          : i
-      );
-
-      newIssuedRecords.push(issuePayload);
-
-      newMovements.push({
-        id: `MOV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        date: issuePayload.issueDate,
-        itemId: target.id || target.itemId,
-        itemCode: target.itemCode || target.itemId,
-        itemName: target.itemName,
-        movementType: 'Issue OUT',
-        quantityChange: -qty,
-        balanceBefore,
-        balanceAfter,
-        employeeName: issuePayload.employeeName,
-        employeeId: issuePayload.employeeId,
-        site: issuePayload.site,
-        reference: issuePayload.id,
-        performedBy: issuePayload.issuedBy
-      });
-    });
-
-    setItems(updatedItems);
-    setIssued((prev) => [...newIssuedRecords, ...prev]);
-    setMovements((prev) => [...newMovements, ...prev]);
-
-    if (list.length === 1) {
-      notify(`✓ Issued ${list[0].quantity} ${list[0].unit || 'Pcs'} of ${list[0].itemName} to ${list[0].employeeName}.`);
-    } else {
-      notify(`✓ Successfully issued ${list.length} items to ${list[0].employeeName}.`);
-    }
-    setIssueModalOpen(false);
-    setEditIssue(null);
   };
 
-  // Delete Issue Record and restore stock
-  const handleDeleteIssue = (issueItem) => {
+  // Delete Issue Record and restore stock in Backend
+  const handleDeleteIssue = async (issueItem) => {
     const isConfirmed = window.confirm(
       `Are you sure you want to delete issue record "${issueItem.id}" for ${issueItem.employeeName}?\n\nThe issued quantity (${issueItem.quantity}) will be restored back to available stock.`
     );
     if (!isConfirmed) return;
 
-    const unreturnedQty = Number(issueItem.quantity || 0) - Number(issueItem.returnedQuantity || 0);
-
-    // Restore stock
-    setItems((prev) =>
-      prev.map((i) => {
-        if (i.id === issueItem.itemId || i.itemId === issueItem.itemId || i.itemCode === issueItem.itemCode) {
-          return {
-            ...i,
-            availableQuantity: (i.availableQuantity ?? 0) + unreturnedQty,
-            issuedQuantity: Math.max(0, (i.issuedQuantity ?? 0) - Number(issueItem.quantity || 0))
-          };
-        }
-        return i;
-      })
-    );
-
-    // Remove from issued
-    setIssued((prev) => prev.filter((iss) => iss.id !== issueItem.id));
-
-    // Add movement log
-    const mv = {
-      id: `MOV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: new Date().toISOString().split('T')[0],
-      itemId: issueItem.itemId,
-      itemCode: issueItem.itemCode,
-      itemName: issueItem.itemName,
-      movementType: 'Issue Deleted / Cancelled',
-      quantityChange: +unreturnedQty,
-      employeeName: issueItem.employeeName,
-      employeeId: issueItem.employeeId,
-      site: issueItem.site,
-      reference: issueItem.id,
-      performedBy: 'Store Admin'
-    };
-    setMovements((prev) => [mv, ...prev]);
-
-    notify(`✓ Issue record "${issueItem.id}" deleted. Restored ${unreturnedQty} units back to stock.`);
-  };
-
-  // 3. Handle Return Item In
-  const handleSaveReturn = (returnPayload) => {
-    const { issueId, itemId, returnedQuantity, condition, returnedBy, totalReturnValue } = returnPayload;
-    const qty = Number(returnedQuantity);
-
-    // 1. Update issue record
-    setIssued((prev) =>
-      prev.map((iss) => {
-        if (iss.id === issueId) {
-          const newReturnedQty = (iss.returnedQuantity || 0) + qty;
-          const newPending = Math.max(0, iss.quantity - newReturnedQty);
-          let newStatus = 'Issued';
-          if (condition === 'Damaged') newStatus = 'Damaged';
-          else if (condition === 'Lost') newStatus = 'Lost';
-          else if (newPending === 0) newStatus = 'Returned';
-          else newStatus = 'Partially Returned';
-
-          return {
-            ...iss,
-            returnedQuantity: newReturnedQty,
-            pendingQuantity: newPending,
-            status: newStatus
-          };
-        }
-        return iss;
-      })
-    );
-
-    // 2. Update stock only if Good / New
-    const target = items.find((i) => i.id === itemId || i.itemId === itemId || i.itemCode === returnPayload.itemCode);
-    const balanceBefore = target?.availableQuantity ?? 0;
-    let balanceAfter = balanceBefore;
-
-    if (target) {
-      if (condition === 'Good' || condition === 'New') {
-        balanceAfter = balanceBefore + qty;
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === target.id || i.itemId === target.itemId
-              ? {
-                  ...i,
-                  availableQuantity: balanceAfter,
-                  returnedQuantity: (i.returnedQuantity || 0) + qty
-                }
-              : i
-          )
-        );
-      } else if (condition === 'Damaged') {
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === target.id || i.itemId === target.itemId
-              ? { ...i, damagedQuantity: (i.damagedQuantity || 0) + qty }
-              : i
-          )
-        );
-      } else if (condition === 'Lost') {
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === target.id || i.itemId === target.itemId
-              ? { ...i, lostQuantity: (i.lostQuantity || 0) + qty }
-              : i
-          )
-        );
-      }
+    try {
+      const res = await inventoryService.deleteIssuedItem(companyId, issueItem.id);
+      notify(res.message || `✓ Issue record "${issueItem.id}" deleted.`);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to delete issue record', 'danger');
     }
-
-    // 3. Append to Return History
-    setReturns((prev) => [returnPayload, ...prev]);
-
-    // 4. Append to Movement Log
-    const movementType = condition === 'Damaged' ? 'Damaged' : condition === 'Lost' ? 'Lost' : 'Return IN';
-    const mv = {
-      id: `MOV-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      date: returnPayload.returnDate,
-      itemId: target?.id || itemId,
-      itemCode: target?.itemCode || returnPayload.itemCode,
-      itemName: target?.itemName || returnPayload.itemName,
-      movementType,
-      quantityChange: condition === 'Good' || condition === 'New' ? +qty : 0,
-      balanceBefore,
-      balanceAfter,
-      employeeName: returnPayload.employeeName,
-      employeeId: returnPayload.employeeId,
-      reference: returnPayload.id,
-      performedBy: returnedBy
-    };
-    setMovements((prev) => [mv, ...prev]);
-
-    notify(
-      condition === 'Good' || condition === 'New'
-        ? `✓ Return received: +${qty} units added back to available stock.`
-        : `✓ Return processed: ${qty} units recorded under ${condition} status.`
-    );
   };
 
-  // 4. Handle Employee Exit Clearance approval
-  const handleApproveClearance = (clearedData) => {
-    setClearances((prev) =>
-      prev.map((c) => (c.id === clearedData.id ? { ...c, ...clearedData } : c))
-    );
-    notify(`✓ Exit clearance signed off for ${clearedData.employeeName}. Certificate: ${clearedData.certificateNo}`);
+  // 3. Handle Return Item In in Backend
+  const handleSaveReturn = async (returnPayload) => {
+    if (isSavingReturn) return;
+    try {
+      setIsSavingReturn(true);
+      const res = await inventoryService.processReturn(companyId, returnPayload);
+      notify(res.message || '✓ Return processed successfully.');
+      setReturnModalOpen(false);
+      setReturnTargetIssue(null);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to process return', 'danger');
+    } finally {
+      setIsSavingReturn(false);
+    }
   };
+
+  // 4. Handle Employee Exit Clearance approval in Backend
+  const handleApproveClearance = async (clearedData) => {
+    if (isApprovingClearance) return;
+    try {
+      setIsApprovingClearance(true);
+      const res = await inventoryService.approveClearance(companyId, clearedData.id, clearedData);
+      notify(res.message || `✓ Exit clearance signed off for ${clearedData.employeeName}.`);
+      setClearanceModalOpen(false);
+      setSelectedClearanceRecord(null);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to approve clearance', 'danger');
+    } finally {
+      setIsApprovingClearance(false);
+    }
+  };
+
 
   return (
     <AdminLayout>
@@ -1556,140 +1422,152 @@ export default function Inventory() {
           />
         )}
 
-        {/* Tab Content Tables */}
-        {tab === 'stock' && (
+        {/* Loading Spinner or Tab Content Tables */}
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 320, gap: 14, background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border-color, #e2e8f0)', padding: 32, margin: '16px 0' }}>
+            <Loader2 size={34} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary, #2563eb)' }} />
+            <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.95rem', margin: 0, fontWeight: 500 }}>
+              Loading inventory records from MongoDB Atlas...
+            </p>
+          </div>
+        ) : (
           <>
-            {pageRows.length ? (
-              <StockTable
-                rows={pageRows}
-                inventoryType={inventoryType}
-                onView={(item) => {
-                  setDrawerTargetItem(item);
-                  setDetailsDrawerOpen(true);
+            {tab === 'stock' && (
+              <>
+                {pageRows.length ? (
+                  <StockTable
+                    rows={pageRows}
+                    inventoryType={inventoryType}
+                    onView={(item) => {
+                      setDrawerTargetItem(item);
+                      setDetailsDrawerOpen(true);
+                    }}
+                    onEdit={(item) => {
+                      const isUniform = isUniformItem(item);
+                      setItemModalType(isUniform ? 'uniform' : 'asset');
+                      setEditItem(item);
+                      setItemModalOpen(true);
+                    }}
+                    onIssue={(item) => {
+                      const isUniform = isUniformItem(item);
+                      setIssueType(isUniform ? 'uniform' : 'asset');
+                      setIssueTargetItem(item);
+                      setIssueModalOpen(true);
+                    }}
+                    onToggleStatus={handleToggleItemStatus}
+                    onDelete={handleDeleteItemMaster}
+                  />
+                ) : (
+                  <div className={styles.emptyWrap}>
+                    <EmptyState
+                      title={`No ${inventoryType === 'uniform' ? 'uniform' : 'asset'} items found matching filters.`}
+                      description="Try adjusting your category, size, or search query."
+                      actionLabel="Reset Filters"
+                      onAction={resetFilters}
+                    />
+                  </div>
+                )}
+                <Pagination
+                  currentPage={page}
+                  totalItems={filteredStock.length}
+                  itemsPerPage={PAGE_SIZE}
+                  onPageChange={setPage}
+                  label="SKUs"
+                />
+              </>
+            )}
+
+            {tab === 'issued' && (
+              <>
+                {pageRows.length ? (
+                  <IssuedTable
+                    rows={pageRows}
+                    onViewEmployee={(iss) => {
+                      const emp = employees.find((e) => e.employeeId === iss.employeeId) || {
+                        employeeId: iss.employeeId,
+                        name: iss.employeeName,
+                        client: iss.clientName,
+                        site: iss.site,
+                        department: iss.department || 'Security',
+                        designation: iss.designation || 'Security Guard'
+                      };
+                      setSelectedEmployeeForAssets(emp);
+                      setEmployeeAssetModalOpen(true);
+                    }}
+                    onReturn={(iss) => {
+                      setReturnTargetIssue(iss);
+                      setReturnModalOpen(true);
+                    }}
+                    onEdit={(iss) => {
+                      const isUniform = iss.category === 'Uniform' || iss.category === 'Accessory' || iss.issueType === 'uniform';
+                      setIssueType(isUniform ? 'uniform' : 'asset');
+                      setEditIssue(iss);
+                      setIssueTargetItem(null);
+                      setIssueModalOpen(true);
+                    }}
+                    onDelete={handleDeleteIssue}
+                    onReceipt={(iss) => {
+                      notify(`Receipt generated for ${iss.id}`);
+                    }}
+                  />
+                ) : (
+                  <div className={styles.emptyWrap}>
+                    <EmptyState
+                      title="No issued items found."
+                      description="Issue inventory to active employees to see records here."
+                      actionLabel="Issue First Item"
+                      onAction={() => setIssueModalOpen(true)}
+                    />
+                  </div>
+                )}
+                <Pagination
+                  currentPage={page}
+                  totalItems={filteredIssued.length}
+                  itemsPerPage={PAGE_SIZE}
+                  onPageChange={setPage}
+                  label="Issued Records"
+                />
+              </>
+            )}
+
+            {tab === 'returns' && (
+              <>
+                {pageRows.length ? (
+                  <ReturnTable rows={pageRows} />
+                ) : (
+                  <div className={styles.emptyWrap}>
+                    <EmptyState
+                      title="No return history records found."
+                      description="Items returned by employees will appear here with condition logs."
+                      actionLabel="Reset Filters"
+                      onAction={resetFilters}
+                    />
+                  </div>
+                )}
+                <Pagination
+                  currentPage={page}
+                  totalItems={filteredReturns.length}
+                  itemsPerPage={PAGE_SIZE}
+                  onPageChange={setPage}
+                  label="Returns"
+                />
+              </>
+            )}
+
+            {tab === 'movement' && (
+              <StockMovementTable movements={movements} items={items} />
+            )}
+
+            {tab === 'clearance' && (
+              <ClearanceTable
+                rows={clearances}
+                onInspectClearance={(c) => {
+                  setSelectedClearanceRecord(c);
+                  setClearanceModalOpen(true);
                 }}
-                onEdit={(item) => {
-                  const isUniform = isUniformItem(item);
-                  setItemModalType(isUniform ? 'uniform' : 'asset');
-                  setEditItem(item);
-                  setItemModalOpen(true);
-                }}
-                onIssue={(item) => {
-                  const isUniform = isUniformItem(item);
-                  setIssueType(isUniform ? 'uniform' : 'asset');
-                  setIssueTargetItem(item);
-                  setIssueModalOpen(true);
-                }}
-                onToggleStatus={handleToggleItemStatus}
               />
-            ) : (
-              <div className={styles.emptyWrap}>
-                <EmptyState
-                  title={`No ${inventoryType === 'uniform' ? 'uniform' : 'asset'} items found matching filters.`}
-                  description="Try adjusting your category, size, or search query."
-                  actionLabel="Reset Filters"
-                  onAction={resetFilters}
-                />
-              </div>
             )}
-            <Pagination
-              currentPage={page}
-              totalItems={filteredStock.length}
-              itemsPerPage={PAGE_SIZE}
-              onPageChange={setPage}
-              label="SKUs"
-            />
           </>
-        )}
-
-        {tab === 'issued' && (
-          <>
-            {pageRows.length ? (
-              <IssuedTable
-                rows={pageRows}
-                onViewEmployee={(iss) => {
-                  const emp = mockEmployees.find((e) => e.employeeId === iss.employeeId) || {
-                    employeeId: iss.employeeId,
-                    name: iss.employeeName,
-                    client: iss.clientName,
-                    site: iss.site,
-                    department: iss.department || 'Security',
-                    designation: iss.designation || 'Security Guard'
-                  };
-                  setSelectedEmployeeForAssets(emp);
-                  setEmployeeAssetModalOpen(true);
-                }}
-                onReturn={(iss) => {
-                  setReturnTargetIssue(iss);
-                  setReturnModalOpen(true);
-                }}
-                onEdit={(iss) => {
-                  const isUniform = iss.category === 'Uniform' || iss.category === 'Accessory' || iss.issueType === 'uniform';
-                  setIssueType(isUniform ? 'uniform' : 'asset');
-                  setEditIssue(iss);
-                  setIssueTargetItem(null);
-                  setIssueModalOpen(true);
-                }}
-                onDelete={handleDeleteIssue}
-                onReceipt={(iss) => {
-                  notify(`Receipt generated for ${iss.id}`);
-                }}
-              />
-            ) : (
-              <div className={styles.emptyWrap}>
-                <EmptyState
-                  title="No issued items found."
-                  description="Issue inventory to active employees to see records here."
-                  actionLabel="Issue First Item"
-                  onAction={() => setIssueModalOpen(true)}
-                />
-              </div>
-            )}
-            <Pagination
-              currentPage={page}
-              totalItems={filteredIssued.length}
-              itemsPerPage={PAGE_SIZE}
-              onPageChange={setPage}
-              label="Issued Records"
-            />
-          </>
-        )}
-
-        {tab === 'returns' && (
-          <>
-            {pageRows.length ? (
-              <ReturnTable rows={pageRows} />
-            ) : (
-              <div className={styles.emptyWrap}>
-                <EmptyState
-                  title="No return history records found."
-                  description="Items returned by employees will appear here with condition logs."
-                  actionLabel="Reset Filters"
-                  onAction={resetFilters}
-                />
-              </div>
-            )}
-            <Pagination
-              currentPage={page}
-              totalItems={filteredReturns.length}
-              itemsPerPage={PAGE_SIZE}
-              onPageChange={setPage}
-              label="Returns"
-            />
-          </>
-        )}
-
-        {tab === 'movement' && (
-          <StockMovementTable movements={movements} items={items} />
-        )}
-
-        {tab === 'clearance' && (
-          <ClearanceTable
-            rows={clearances}
-            onInspectClearance={(c) => {
-              setSelectedClearanceRecord(c);
-              setClearanceModalOpen(true);
-            }}
-          />
         )}
 
         {/* Low Stock Alert Footer Ribbon */}
@@ -1727,12 +1605,24 @@ export default function Inventory() {
         </div>
 
         {/* All Enhanced Modals & Drawers */}
+        <DeleteItemConfirmModal
+          isOpen={deleteConfirmOpen}
+          item={itemToDelete}
+          isDeleting={isDeletingItem}
+          onClose={() => {
+            setDeleteConfirmOpen(false);
+            setItemToDelete(null);
+          }}
+          onConfirm={handleConfirmDeleteItem}
+        />
+
         <InventoryItemModal
           isOpen={itemModalOpen}
           mode={editItem ? 'edit' : 'add'}
           itemType={itemModalType}
           initialData={editItem}
           existingItems={items}
+          isSubmitting={isSavingItem}
           onClose={() => {
             setItemModalOpen(false);
             setEditItem(null);
@@ -1747,7 +1637,8 @@ export default function Inventory() {
           initialItem={issueTargetItem}
           initialIssue={editIssue}
           items={items}
-          employees={mockEmployees}
+          employees={employees}
+          isSubmitting={isSavingIssue}
           onClose={() => {
             setIssueModalOpen(false);
             setIssueTargetItem(null);
@@ -1760,6 +1651,7 @@ export default function Inventory() {
           isOpen={returnModalOpen}
           issueRecord={returnTargetIssue}
           issuedList={issued}
+          isSubmitting={isSavingReturn}
           onClose={() => {
             setReturnModalOpen(false);
             setReturnTargetIssue(null);
@@ -1784,6 +1676,7 @@ export default function Inventory() {
         <AssetClearanceModal
           isOpen={clearanceModalOpen}
           clearanceRecord={selectedClearanceRecord}
+          isSubmitting={isApprovingClearance}
           onClose={() => {
             setClearanceModalOpen(false);
             setSelectedClearanceRecord(null);
@@ -1819,6 +1712,7 @@ export default function Inventory() {
             setIssueModalOpen(true);
           }}
         />
+
       </div>
     </AdminLayout>
   );

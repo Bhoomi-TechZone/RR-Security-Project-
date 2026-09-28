@@ -214,6 +214,14 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
+.input:read-only,
+.readOnlyInput {
+  background: var(--surface-alt, #f8fafc) !important;
+  color: var(--text-secondary, #64748b) !important;
+  cursor: not-allowed;
+  border-color: var(--border, #e2e8f0);
+}
+
 .inputError {
   border-color: var(--danger) !important;
 }
@@ -321,8 +329,14 @@
   transition: all 0.15s ease;
 }
 
-.btnCancel:hover {
+.btnCancel:hover:not(:disabled) {
   background: var(--surface-alt);
+}
+
+.btnCancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .btnSubmit {
@@ -340,8 +354,28 @@
   gap: 6px;
 }
 
-.btnSubmit:hover {
+.btnSubmit:hover:not(:disabled) {
   background: #15803d;
+}
+
+.btnSubmit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #94a3b8;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @media (max-width: 640px) {

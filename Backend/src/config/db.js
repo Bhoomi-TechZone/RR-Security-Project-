@@ -55,10 +55,14 @@ const ensureCoreCollections = async () => {
   try {
     const currentCollections = await mongoose.connection.db.listCollections().toArray();
     const collNames = currentCollections.map(c => c.name);
-    for (const coreColl of ['users', 'companies', 'clients', 'employees']) {
+    for (const coreColl of ['users', 'companies', 'clients', 'employees', 'inventories']) {
       if (!collNames.includes(coreColl)) {
-        await mongoose.connection.db.createCollection(coreColl);
-        console.log(`📦 Ensured "${coreColl}" collection exists in RR_Security.`);
+        try {
+          await mongoose.connection.db.createCollection(coreColl);
+          console.log(`📦 Ensured "${coreColl}" collection exists in RR_Security.`);
+        } catch (colErr) {
+          console.warn(`Notice initializing collection "${coreColl}":`, colErr.message);
+        }
       }
     }
   } catch (err) {
