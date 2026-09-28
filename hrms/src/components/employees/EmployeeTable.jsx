@@ -93,7 +93,14 @@ function EmployeeTable({
                   <span role="text" className={styles.employeeId}>{employee.employeeId}</span>
                 </td>
                 <td>
-                  <div className={String(employee.status || '').toLowerCase() === 'inactive' ? `${styles.employeeCell} ${styles.inactiveRow}` : styles.employeeCell}>
+                  <div className={String(employee.status || '').toLowerCase() === 'inactive' ? `${styles.employeeCell} ${styles.inactiveRow}` : styles.employeeCell} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {employee.employeePhoto || employee.photo ? (
+                      <img
+                        src={employee.employeePhoto || employee.photo}
+                        alt={employee.name}
+                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                      />
+                    ) : null}
                     <span className={styles.employeeName}>{employee.name}</span>
                   </div>
                 </td>

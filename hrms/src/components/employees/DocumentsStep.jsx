@@ -202,9 +202,15 @@ function DocumentsStep({ data, onChange }) {
                 <label htmlFor={`lic-photo-${idx}`} className={styles.label}>Attached Copy of License</label>
                 <div className={styles.fileUploadWrapper}>
                   <div className={styles.fileUploadBox}>
-                    <span className={styles.fileUploadText}>
-                      {license.photo || 'Choose File'}
-                    </span>
+                    {license.photo && license.photo.startsWith('data:') ? (
+                      <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
+                        License File Attached ✓
+                      </span>
+                    ) : (
+                      <span className={styles.fileUploadText}>
+                        {license.photo || 'Choose File'}
+                      </span>
+                    )}
                   </div>
                   <label className={styles.fileUploadButton} htmlFor={`lic-photo-${idx}`}>
                     Choose File
@@ -214,7 +220,16 @@ function DocumentsStep({ data, onChange }) {
                     type="file"
                     accept="image/*,.pdf"
                     className={styles.fileInputHidden}
-                    onChange={(e) => handleLicenseChange(idx, 'photo', e.target.files?.[0]?.name || '')}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          handleLicenseChange(idx, 'photo', reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
                 </div>
               </div>
@@ -271,9 +286,15 @@ function DocumentsStep({ data, onChange }) {
                 <label htmlFor={`doc-photo-${idx}`} className={styles.label}>Document Photo / File</label>
                 <div className={styles.fileUploadWrapper}>
                   <div className={styles.fileUploadBox}>
-                    <span className={styles.fileUploadText}>
-                      {doc.photo || 'Choose File'}
-                    </span>
+                    {doc.photo && doc.photo.startsWith('data:') ? (
+                      <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
+                        Document Attached ✓
+                      </span>
+                    ) : (
+                      <span className={styles.fileUploadText}>
+                        {doc.photo || 'Choose File'}
+                      </span>
+                    )}
                   </div>
                   <label className={styles.fileUploadButton} htmlFor={`doc-photo-${idx}`}>
                     Choose File
@@ -283,7 +304,16 @@ function DocumentsStep({ data, onChange }) {
                     type="file"
                     accept="image/*,.pdf"
                     className={styles.fileInputHidden}
-                    onChange={(e) => handleDocChange(idx, 'photo', e.target.files?.[0]?.name || '')}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          handleDocChange(idx, 'photo', reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
                 </div>
               </div>

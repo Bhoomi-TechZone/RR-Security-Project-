@@ -269,9 +269,15 @@ function AddressFamilyStep({ data, onChange }) {
                 <label htmlFor={`fam-photo-${idx}`} className={styles.label}>Aadhaar Photo</label>
                 <div className={styles.fileUploadWrapper}>
                   <div className={styles.fileUploadBox}>
-                    <span className={styles.fileUploadText}>
-                      {member.aadhaarPhoto || 'Choose File'}
-                    </span>
+                    {member.aadhaarPhoto && member.aadhaarPhoto.startsWith('data:') ? (
+                      <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
+                        Photo Uploaded ✓
+                      </span>
+                    ) : (
+                      <span className={styles.fileUploadText}>
+                        {member.aadhaarPhoto || 'Choose File'}
+                      </span>
+                    )}
                   </div>
                   <label className={styles.fileUploadButton} htmlFor={`fam-photo-${idx}`}>
                     Choose File
@@ -281,7 +287,16 @@ function AddressFamilyStep({ data, onChange }) {
                     type="file"
                     accept="image/*,.pdf"
                     className={styles.fileInputHidden}
-                    onChange={(e) => handleMemberChange(idx, 'aadhaarPhoto', e.target.files?.[0]?.name || '')}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          handleMemberChange(idx, 'aadhaarPhoto', reader.result);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
                 </div>
               </div>

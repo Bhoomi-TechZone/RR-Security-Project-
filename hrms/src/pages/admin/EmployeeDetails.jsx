@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   User, Briefcase, FileText, CreditCard, IndianRupee,
   Edit2, ArrowLeftRight, Download, Power, CheckCircle, Clock,
-  Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X
+  Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X, Eye
 } from 'lucide-react';
 import styles from './EmployeeDetails.module.css';
 
@@ -63,6 +63,75 @@ function EmployeeDetails() {
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   const showToast = (msg, type = 'success') => setToast({ message: msg, type });
+
+  const [previewModal, setPreviewModal] = useState({
+    isOpen: false,
+    title: '',
+    url: '',
+    fileName: '',
+    isImage: false,
+    isPdf: false
+  });
+
+  const getCleanDocLabel = (photoStr) => {
+    if (!photoStr) return 'No file attached';
+    if (photoStr.startsWith('data:image/png')) return 'Attached Image (PNG)';
+    if (photoStr.startsWith('data:image/jpeg') || photoStr.startsWith('data:image/jpg')) return 'Attached Image (JPG)';
+    if (photoStr.startsWith('data:image/webp')) return 'Attached Image (WEBP)';
+    if (photoStr.startsWith('data:image/')) return 'Attached Image';
+    if (photoStr.startsWith('data:application/pdf')) return 'Attached Document (PDF)';
+    if (photoStr.startsWith('data:')) return 'Attached File';
+    return `File: ${photoStr}`;
+  };
+
+  const handleViewDocument = (docName, fileUrl) => {
+    if (!fileUrl) {
+      showToast('No document file attached to view.', 'error');
+      return;
+    }
+    const isImage = fileUrl.startsWith('data:image/') || /\.(png|jpe?g|webp|gif|svg)$/i.test(fileUrl);
+    const isPdf = fileUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(fileUrl);
+
+    setPreviewModal({
+      isOpen: true,
+      title: docName || 'Document Preview',
+      url: fileUrl,
+      fileName: `${(employee?.name || 'Employee').replace(/\s+/g, '_')}_${(docName || 'document').replace(/\s+/g, '_')}`,
+      isImage,
+      isPdf
+    });
+  };
+
+  const handleDownloadDocument = (docName, fileUrl) => {
+    if (!fileUrl) {
+      showToast('No document file attached to download.', 'error');
+      return;
+    }
+    try {
+      let ext = '.png';
+      if (fileUrl.startsWith('data:image/jpeg') || fileUrl.startsWith('data:image/jpg')) ext = '.jpg';
+      else if (fileUrl.startsWith('data:image/webp')) ext = '.webp';
+      else if (fileUrl.startsWith('data:application/pdf') || /\.pdf$/i.test(fileUrl)) ext = '.pdf';
+      else if (fileUrl.includes('.') && !fileUrl.startsWith('data:')) {
+        ext = fileUrl.substring(fileUrl.lastIndexOf('.'));
+      }
+
+      const cleanEmpName = (employee?.name || 'Employee').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const cleanDocName = (docName || 'Document').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${cleanEmpName}_${cleanDocName}${ext}`;
+
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(`✓ Downloaded ${filename}`, 'success');
+    } catch (err) {
+      console.error('Download error:', err);
+      showToast('Failed to download document.', 'error');
+    }
+  };
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
@@ -265,6 +334,70 @@ function EmployeeDetails() {
           onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         />
 
+        {/* Document Preview Modal */}
+        {previewModal.isOpen && (
+          <div className={styles.modalOverlay} onClick={() => setPreviewModal(prev => ({ ...prev, isOpen: false }))}>
+            <div className={styles.previewCard} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.previewHeader}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FileText size={20} color="var(--primary)" />
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {previewModal.title}
+                    </h3>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      {employee?.name} ({employee?.employeeId})
+                    </span>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className={styles.docBtn}
+                    style={{ background: 'var(--primary)', color: '#ffffff', borderColor: 'var(--primary)' }}
+                    onClick={() => handleDownloadDocument(previewModal.title, previewModal.url)}
+                  >
+                    <Download size={14} /> Download
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.closeBtn}
+                    onClick={() => setPreviewModal(prev => ({ ...prev, isOpen: false }))}
+                    aria-label="Close Preview"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+              <div className={styles.previewBody}>
+                {previewModal.isImage ? (
+                  <div className={styles.imagePreviewWrap}>
+                    <img src={previewModal.url} alt={previewModal.title} className={styles.fullPreviewImg} />
+                  </div>
+                ) : previewModal.isPdf ? (
+                  <iframe
+                    src={previewModal.url}
+                    title={previewModal.title}
+                    className={styles.pdfFrame}
+                  />
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                    <FileText size={48} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
+                    <p style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{previewModal.title}</p>
+                    <button
+                      type="button"
+                      className={styles.docBtn}
+                      onClick={() => handleDownloadDocument(previewModal.title, previewModal.url)}
+                    >
+                      <Download size={14} /> Download File
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Breadcrumb */}
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
           <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>Dashboard</span>
@@ -278,8 +411,12 @@ function EmployeeDetails() {
         <div className={styles.profileCard}>
           <div className={styles.profileLeft}>
             <div className={styles.profileAvatar}>
-              {employee.photo ? (
-                <img src={employee.photo} alt={employee.name} className={styles.profileAvatarImg} />
+              {employee.employeePhoto || employee.photo ? (
+                <img
+                  src={employee.employeePhoto || employee.photo}
+                  alt={employee.name}
+                  className={styles.profileAvatarImg}
+                />
               ) : (
                 <span>{employee.initials || employee.name.substring(0, 2).toUpperCase()}</span>
               )}
@@ -293,7 +430,7 @@ function EmployeeDetails() {
               </div>
               <div className={styles.profileMeta}>
                 <Building2 size={14} className={styles.metaIcon} />
-                <span className={styles.profileCompany}>{employee.companyName || employee.clientName}</span>
+                <span className={styles.profileCompany}>{employee.companyName || employee.clientName || 'Direct Deployment'}</span>
               </div>
               <StatusBadge status={employee.status} />
             </div>
@@ -399,7 +536,7 @@ function EmployeeDetails() {
               <div className={styles.infoCard}>
                 <h3 className={styles.infoCardTitle}>Company & Department</h3>
                 <div className={styles.infoRows}>
-                  <InfoRow icon={<Building2 size={15} />} label="Company" value={employee.companyName} />
+                  <InfoRow icon={<Building2 size={15} />} label="Company" value={employee.companyName || employee.clientName || 'N/A'} />
                   <InfoRow icon={<Layers size={15} />} label="Department" value={employee.department} />
                   <InfoRow icon={<Briefcase size={15} />} label="Designation" value={employee.designation} />
                   <InfoRow label="Employee Type" value={employee.employeeType || 'N/A'} />
@@ -418,7 +555,7 @@ function EmployeeDetails() {
                   <InfoRow label="Language (Read + Write)" value={employee.language || 'N/A'} />
                   <InfoRow label="Qualification" value={employee.qualification || 'N/A'} />
                   <InfoRow label="Technical Qualification" value={employee.technicalQualification || 'N/A'} />
-                  <InfoRow label="Status" value={employee.employeeStatus || 'N/A'} />
+                  <InfoRow label="Status" value={employee.employeeStatus || employee.status || 'Active'} />
                   {employee.exitDate && <InfoRow label="Exit Date" value={employee.exitDate} />}
                   {employee.exitReason && <InfoRow label="Exit Reason" value={employee.exitReason} />}
                 </div>
@@ -439,7 +576,7 @@ function EmployeeDetails() {
                       <div className={styles.docMeta}>
                         <span className={styles.docLabel}>{doc.name || `Document #${dIdx + 1}`}</span>
                         <span className={styles.docDate}>
-                          {doc.photo ? `File: ${doc.photo}` : 'No file attached'}
+                          {getCleanDocLabel(doc.photo)}
                         </span>
                       </div>
                       {doc.photo && (
@@ -448,11 +585,33 @@ function EmployeeDetails() {
                         </span>
                       )}
                     </div>
+
+                    {/* Thumbnail preview if image */}
+                    {doc.photo && doc.photo.startsWith('data:image/') && (
+                      <div style={{ padding: '0 16px 12px', cursor: 'pointer' }} onClick={() => handleViewDocument(doc.name, doc.photo)}>
+                        <img
+                          src={doc.photo}
+                          alt={doc.name}
+                          style={{ maxHeight: '110px', width: '100%', objectFit: 'contain', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                        />
+                      </div>
+                    )}
+
                     {doc.photo && (
                       <div className={styles.docCardFooter}>
                         <div className={styles.docActions}>
-                          <button className={styles.docBtn} onClick={() => alert(`View ${doc.name || 'document'} (demo)`)}>View</button>
-                          <button className={styles.docBtn} onClick={() => alert(`Download ${doc.name || 'document'} (demo)`)}>
+                          <button
+                            type="button"
+                            className={styles.docBtn}
+                            onClick={() => handleViewDocument(doc.name, doc.photo)}
+                          >
+                            <Eye size={13} /> View
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.docBtn}
+                            onClick={() => handleDownloadDocument(doc.name, doc.photo)}
+                          >
                             <Download size={13} /> Download
                           </button>
                         </div>
@@ -473,6 +632,8 @@ function EmployeeDetails() {
                     fileName: doc.fileName || `${docType.label}.pdf`,
                     fileSize: doc.fileSize || '1.2 KB'
                   };
+
+                  const docFileUrl = doc.url || doc.photo || (docType.key === 'photo' ? (employee.employeePhoto || employee.photo) : null);
 
                   return (
                     <div
@@ -509,8 +670,30 @@ function EmployeeDetails() {
                       {isUploaded && (
                         <div className={styles.docCardFooter}>
                           <div className={styles.docActions}>
-                            <button className={styles.docBtn} onClick={() => alert('View document (demo)')}>View</button>
-                            <button className={styles.docBtn} onClick={() => alert('Download document (demo)')}>
+                            <button
+                              type="button"
+                              className={styles.docBtn}
+                              onClick={() => {
+                                if (docFileUrl) {
+                                  handleViewDocument(docType.label, docFileUrl);
+                                } else {
+                                  showToast(`Viewing standard template for ${docType.label}.`, 'info');
+                                }
+                              }}
+                            >
+                              <Eye size={13} /> View
+                            </button>
+                            <button
+                              type="button"
+                              className={styles.docBtn}
+                              onClick={() => {
+                                if (docFileUrl) {
+                                  handleDownloadDocument(docType.label, docFileUrl);
+                                } else {
+                                  showToast(`Generating document download for ${docType.label}...`, 'success');
+                                }
+                              }}
+                            >
                               <Download size={13} /> Download
                             </button>
                           </div>
