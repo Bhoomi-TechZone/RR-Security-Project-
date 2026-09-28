@@ -218,35 +218,68 @@ export const createEmployee = async (req, res) => {
       resolvedEmpId = `${companyPrefix}${separator}${formattedSeq}`;
     }
 
-    const numBasic = Number(basic) || 0;
-    const numVda = Number(vda) || 0;
-    const numHra = Number(hra) || 0;
-    const numConveyance = Number(conveyance) || 0;
-    const numOtherAllowance = Number(otherAllowance) || 0;
-    const numSpecialAllowance = Number(specialAllowance) || 0;
-    const computedGross = Number(grossSalary) || (numBasic + numVda + numHra + numConveyance + numOtherAllowance + numSpecialAllowance);
+    const numBasic = Number(req.body.basic) || 0;
+    const numVda = Number(req.body.vda) || 0;
+    const numHra = Number(req.body.hra) || 0;
+    const numConveyance = Number(req.body.conveyance) || 0;
+    const numOtherAllowance = Number(req.body.otherAllowance) || 0;
+    const numSpecialAllowance = Number(req.body.specialAllowance) || 0;
+    const computedGross = Number(req.body.grossSalary) || (numBasic + numVda + numHra + numConveyance + numOtherAllowance + numSpecialAllowance);
 
-    const newEmployee = await Employee.create({
+    const clientCompName = (req.body.clientName || req.body.companyName || '').trim();
+    const photoUrl = req.body.employeePhoto || req.body.photo || '';
+
+    const employeeData = {
+      ...req.body,
       employeeId: resolvedEmpId,
+      employeeCode: resolvedEmpId,
       companyId,
-      clientId: clientId || '',
-      clientName: clientName || companyName || '',
+      companyName: clientCompName,
+      clientId: req.body.clientId || '',
+      clientName: clientCompName,
       adminEmail,
-      name: name.trim(),
-      contact: contact || mobile || '',
-      email: email || '',
-      gender: gender || 'Male',
-      dob: dob || '',
-      joiningDate: joiningDate || '',
-      employeeType: employeeType || 'Permanent',
-      department: department || 'Security',
-      designation: designation || 'Security Guard',
-      siteLocation: siteLocation || site || '',
-      dutyPost: dutyPost || '',
-      shift: shift || '',
-      status: status || employeeStatus || 'Active',
-      salaryType: salaryType || 'Monthly',
-      salaryStructureType: salaryStructureType || 'Regular',
+      name: (req.body.name || '').trim(),
+      fatherHusbandName: req.body.fatherHusbandName || '',
+      fatherHusbandRelation: req.body.fatherHusbandRelation || '',
+      gender: req.body.gender || 'Male',
+      dob: req.body.dob || '',
+      contact: req.body.contact || req.body.mobile || '',
+      mobile: req.body.mobile || req.body.contact || '',
+      alternateMobile: req.body.alternateMobile || req.body.emergencyMobile || '',
+      emergencyMobile: req.body.emergencyMobile || req.body.alternateMobile || '',
+      email: req.body.email || '',
+      maritalStatus: req.body.maritalStatus || '',
+      spouseName: req.body.spouseName || '',
+      bloodGroup: req.body.bloodGroup || '',
+      religion: req.body.religion || '',
+      nationality: req.body.nationality || 'Indian',
+      employeePhoto: photoUrl,
+      photo: photoUrl,
+
+      // Employment Details
+      employeeType: req.body.employeeType || 'Permanent',
+      department: req.body.department || 'Security',
+      designation: req.body.designation || 'Security Guard',
+      siteLocation: req.body.siteLocation || req.body.site || '',
+      site: req.body.siteLocation || req.body.site || '',
+      dutyPost: req.body.dutyPost || '',
+      shift: req.body.shift || '',
+      joiningDate: req.body.joiningDate || '',
+      reportingSupervisor: req.body.reportingSupervisor || '',
+      joiningLocation: req.body.joiningLocation || '',
+      previousExperience: req.body.previousExperience || '',
+      language: req.body.language || '',
+      qualification: req.body.qualification || '',
+      technicalQualification: req.body.technicalQualification || '',
+      employeeStatus: req.body.employeeStatus || req.body.status || 'Active',
+      status: req.body.status || req.body.employeeStatus || 'Active',
+      exitDate: req.body.exitDate || '',
+      exitReason: req.body.exitReason || '',
+      exitDateReason: req.body.exitDateReason || '',
+
+      // Salary & Statutory
+      salaryType: req.body.salaryType || 'Monthly',
+      salaryStructureType: req.body.salaryStructureType || 'Regular',
       basic: numBasic,
       vda: numVda,
       hra: numHra,
@@ -254,21 +287,60 @@ export const createEmployee = async (req, res) => {
       otherAllowance: numOtherAllowance,
       specialAllowance: numSpecialAllowance,
       grossSalary: computedGross,
-      pan: (pan || '').toUpperCase(),
-      aadhaar: aadhaar || '',
-      uan: uan || '',
-      pfNo: pfNo || '',
-      esicNo: esicNo || '',
-      bankName: bankName || '',
-      branchName: branchName || '',
-      accountNumber: accountNumber || '',
-      ifsc: (ifsc || '').toUpperCase(),
-      accountHolder: accountHolder || name,
-      presentAddress: presentAddress || '',
-      permanentAddress: permanentAddress || '',
-      familyMembers: familyMembers || [],
-      documents: documents || {}
-    });
+      minimumWageCategory: req.body.minimumWageCategory || '',
+      overtimeRate: Number(req.body.overtimeRate) || 0,
+      bonus: Number(req.body.bonus) || 0,
+      gratuity: Number(req.body.gratuity) || 0,
+      salaryEffectiveFrom: req.body.salaryEffectiveFrom || '',
+      pan: (req.body.pan || '').toUpperCase(),
+      aadhaar: req.body.aadhaar || '',
+      uan: req.body.uan || '',
+      pfNo: req.body.pfNo || '',
+      esicNo: req.body.esicNo || '',
+      dispensaryNo: req.body.dispensaryNo || '',
+      pfApplicable: req.body.pfApplicable,
+      esiApplicable: req.body.esiApplicable,
+      lwf: req.body.lwf || '',
+      lwfApplicable: req.body.lwfApplicable,
+      tdsApplicable: req.body.tdsApplicable,
+
+      // Licenses
+      licenseList: req.body.licenseList || [],
+      licenseType: req.body.licenseType || '',
+      drivingLicenseType: req.body.drivingLicenseType || '',
+      drivingLicenseNo: req.body.drivingLicenseNo || '',
+      dlExpiryDate: req.body.dlExpiryDate || '',
+      drivingLicenseCopy: req.body.drivingLicenseCopy || '',
+      armedLicenseNo: req.body.armedLicenseNo || '',
+      alExpiryDate: req.body.alExpiryDate || '',
+
+      // Bank Details
+      bankName: req.body.bankName || '',
+      branchName: req.body.branchName || '',
+      accountNumber: req.body.accountNumber || '',
+      ifsc: (req.body.ifsc || '').toUpperCase(),
+      accountHolder: req.body.accountHolder || req.body.name || '',
+      paymentMode: req.body.paymentMode || '',
+
+      // Address & Family
+      presentAddress: req.body.presentAddress || '',
+      permanentAddress: req.body.permanentAddress || '',
+      sameAsPresentAddress: !!req.body.sameAsPresentAddress,
+      familyMembers: req.body.familyMembers || [],
+      familyMemberName: req.body.familyMemberName || '',
+      relation: req.body.relation || '',
+      dobAge: req.body.dobAge || '',
+      address: req.body.address || '',
+      nomineeYesNo: req.body.nomineeYesNo || '',
+      nomineeSharePercent: req.body.nomineeSharePercent || '',
+
+      // Documents & Remarks
+      documentList: req.body.documentList || [],
+      documents: req.body.documents || {},
+      remarks: req.body.remarks || ''
+    };
+
+    const newEmployee = await Employee.create(employeeData);
 
     return res.status(201).json({
       success: true,
@@ -316,10 +388,19 @@ export const updateEmployee = async (req, res) => {
       employee.clientId = req.body.clientId;
     }
     if (req.body.clientName !== undefined || req.body.companyName !== undefined) {
-      employee.clientName = req.body.clientName || req.body.companyName;
+      const compName = req.body.clientName || req.body.companyName;
+      employee.clientName = compName;
+      employee.companyName = compName;
     }
     if (req.body.siteLocation !== undefined || req.body.site !== undefined) {
-      employee.siteLocation = req.body.siteLocation || req.body.site;
+      const siteLoc = req.body.siteLocation || req.body.site;
+      employee.siteLocation = siteLoc;
+      employee.site = siteLoc;
+    }
+    if (req.body.employeePhoto !== undefined || req.body.photo !== undefined) {
+      const p = req.body.employeePhoto || req.body.photo;
+      employee.employeePhoto = p;
+      employee.photo = p;
     }
 
     Object.assign(employee, req.body);

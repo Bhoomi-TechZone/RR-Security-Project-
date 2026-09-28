@@ -269,7 +269,20 @@ function PersonalInfoStep({ data, onChange, errors }) {
           <label htmlFor="emp-photo" className={styles.label}>Employee Photo</label>
           <div className={styles.fileUploadWrapper}>
             <div className={styles.fileUploadBox}>
-              <span className={styles.fileUploadText}>{data.employeePhoto || 'Choose File'}</span>
+              {data.employeePhoto && data.employeePhoto.startsWith('data:') ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <img
+                    src={data.employeePhoto}
+                    alt="Preview"
+                    style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }}
+                  />
+                  <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
+                    Photo Selected ✓
+                  </span>
+                </div>
+              ) : (
+                <span className={styles.fileUploadText}>{data.employeePhoto || 'Choose File'}</span>
+              )}
             </div>
             <label className={styles.fileUploadButton} htmlFor="emp-photo">
               Choose File
@@ -277,8 +290,18 @@ function PersonalInfoStep({ data, onChange, errors }) {
             <input
               id="emp-photo"
               type="file"
+              accept="image/*"
               className={styles.fileInputHidden}
-              onChange={(e) => handleChange('employeePhoto', e.target.files?.[0]?.name || '')}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                    handleChange('employeePhoto', reader.result);
+                  };
+                  reader.readAsDataURL(file);
+                }
+              }}
             />
           </div>
         </div>

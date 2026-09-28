@@ -8,10 +8,20 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       index: true,
     },
+    employeeCode: {
+      type: String,
+      trim: true,
+      index: true,
+    },
     companyId: {
       type: String,
       required: [true, 'Admin Company ID is required for employee association'],
       index: true,
+      trim: true,
+    },
+    companyName: {
+      type: String,
+      default: '',
       trim: true,
     },
     clientId: {
@@ -41,27 +51,41 @@ const employeeSchema = new mongoose.Schema(
     gender: { type: String, default: 'Male' },
     dob: { type: String, default: '' },
     contact: { type: String, default: '' },
+    mobile: { type: String, default: '' },
+    alternateMobile: { type: String, default: '' },
+    emergencyMobile: { type: String, default: '' },
     email: { type: String, default: '' },
     maritalStatus: { type: String, default: '' },
+    spouseName: { type: String, default: '' },
     bloodGroup: { type: String, default: '' },
+    religion: { type: String, default: '' },
     nationality: { type: String, default: 'Indian' },
     employeePhoto: { type: String, default: '' },
+    photo: { type: String, default: '' },
 
     // Employment
     employeeType: { type: String, default: 'Permanent' },
     department: { type: String, default: 'Security' },
     designation: { type: String, default: 'Security Guard' },
     siteLocation: { type: String, default: '' },
+    site: { type: String, default: '' },
     dutyPost: { type: String, default: '' },
     shift: { type: String, default: '' },
     joiningDate: { type: String, default: '' },
     reportingSupervisor: { type: String, default: '' },
+    joiningLocation: { type: String, default: '' },
+    previousExperience: { type: String, default: '' },
+    language: { type: String, default: '' },
     qualification: { type: String, default: '' },
+    technicalQualification: { type: String, default: '' },
+    employeeStatus: { type: String, default: 'Active' },
     status: {
       type: String,
-      enum: ['Active', 'Inactive', 'On Leave', 'Terminated'],
       default: 'Active',
     },
+    exitDate: { type: String, default: '' },
+    exitReason: { type: String, default: '' },
+    exitDateReason: { type: String, default: '' },
 
     // Salary & Statutory
     salaryType: { type: String, default: 'Monthly' },
@@ -73,11 +97,32 @@ const employeeSchema = new mongoose.Schema(
     conveyance: { type: Number, default: 0 },
     otherAllowance: { type: Number, default: 0 },
     specialAllowance: { type: Number, default: 0 },
+    minimumWageCategory: { type: String, default: '' },
+    overtimeRate: { type: Number, default: 0 },
+    bonus: { type: Number, default: 0 },
+    gratuity: { type: Number, default: 0 },
+    salaryEffectiveFrom: { type: String, default: '' },
     pan: { type: String, default: '' },
     aadhaar: { type: String, default: '' },
     uan: { type: String, default: '' },
     pfNo: { type: String, default: '' },
     esicNo: { type: String, default: '' },
+    dispensaryNo: { type: String, default: '' },
+    pfApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
+    esiApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
+    lwf: { type: String, default: '' },
+    lwfApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
+    tdsApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
+
+    // Licenses
+    licenseList: { type: Array, default: [] },
+    licenseType: { type: String, default: '' },
+    drivingLicenseType: { type: String, default: '' },
+    drivingLicenseNo: { type: String, default: '' },
+    dlExpiryDate: { type: String, default: '' },
+    drivingLicenseCopy: { type: String, default: '' },
+    armedLicenseNo: { type: String, default: '' },
+    alExpiryDate: { type: String, default: '' },
 
     // Bank Details
     bankName: { type: String, default: '' },
@@ -85,18 +130,39 @@ const employeeSchema = new mongoose.Schema(
     accountNumber: { type: String, default: '' },
     ifsc: { type: String, default: '' },
     accountHolder: { type: String, default: '' },
+    paymentMode: { type: String, default: '' },
 
-    // Addresses
+    // Addresses & Family
     presentAddress: { type: String, default: '' },
     permanentAddress: { type: String, default: '' },
+    sameAsPresentAddress: { type: Boolean, default: false },
     familyMembers: { type: Array, default: [] },
+    familyMemberName: { type: String, default: '' },
+    relation: { type: String, default: '' },
+    dobAge: { type: String, default: '' },
+    address: { type: String, default: '' },
+    nomineeYesNo: { type: String, default: '' },
+    nomineeSharePercent: { type: String, default: '' },
+
+    // Documents & Notes
+    documentList: { type: Array, default: [] },
     documents: { type: mongoose.Schema.Types.Mixed, default: {} },
+    remarks: { type: String, default: '' },
   },
   {
     timestamps: true,
+    strict: false,
     toJSON: {
       transform: function (doc, ret) {
         ret.id = ret.employeeId || ret._id.toString();
+        ret.photo = ret.employeePhoto || ret.photo || '';
+        ret.employeePhoto = ret.employeePhoto || ret.photo || '';
+        ret.companyName = ret.companyName || ret.clientName || '';
+        ret.clientName = ret.clientName || ret.companyName || '';
+        ret.siteLocation = ret.siteLocation || ret.site || '';
+        ret.site = ret.siteLocation || ret.site || '';
+        ret.contact = ret.contact || ret.mobile || '';
+        ret.mobile = ret.mobile || ret.contact || '';
         delete ret.__v;
         return ret;
       },

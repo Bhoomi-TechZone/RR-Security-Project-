@@ -66,7 +66,23 @@ function EmployeeReview({ data, onEditStep }) {
             <ReviewRow label="Mobile" value={data.mobile || data.contact || '—'} />
             <ReviewRow label="Emergency Mobile No." value={data.emergencyMobile || data.alternateMobile || '—'} />
             <ReviewRow label="Email" value={data.email || '—'} />
-            <ReviewRow label="Photo" value={data.employeePhoto || '—'} />
+            <ReviewRow
+              label="Employee Photo"
+              value={
+                data.employeePhoto && data.employeePhoto.startsWith('data:') ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <img
+                      src={data.employeePhoto}
+                      alt="Review Preview"
+                      style={{ width: '36px', height: '36px', borderRadius: '4px', objectFit: 'cover' }}
+                    />
+                    <span style={{ color: '#16a34a', fontWeight: 600 }}>Uploaded ✓</span>
+                  </div>
+                ) : (
+                  data.employeePhoto || '—'
+                )
+              }
+            />
           </div>
         </div>
 
@@ -89,7 +105,7 @@ function EmployeeReview({ data, onEditStep }) {
             )}
           </div>
           <div className={styles.reviewBody}>
-            <ReviewRow label="Client / Company" value={data.companyName || data.companyId || '—'} />
+            <ReviewRow label="Client / Company" value={data.clientName || data.companyName || data.companyId || '—'} />
             <ReviewRow label="Employee Type" value={data.employeeType || '—'} />
             <ReviewRow label="Designation" value={data.designation || '—'} />
             <ReviewRow label="Department" value={data.department || '—'} />
