@@ -15,6 +15,8 @@ import shiftRoutes from './routes/shiftRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import leaveRoutes from './routes/leaveRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
+import userRoutes from './routes/userRoutes.js';
+import preferenceRoutes from './routes/preferenceRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -137,6 +139,9 @@ app.use('/api/work-locations', workLocationRoutes);
 // Roles
 app.use('/api/roles', roleRoutes);
 
+// Users (HRMS Login Users / System Users)
+app.use('/api/users', userRoutes);
+
 // Shifts & Roster Management
 app.use('/api/shifts', shiftRoutes);
 
@@ -148,6 +153,9 @@ app.use('/api/leaves', leaveRoutes);
 
 // Inventory & Uniform / Asset Management
 app.use('/api/inventory', inventoryRoutes);
+
+// Company Preferences (Employee Portal, Manager Permissions, etc.)
+app.use('/api/preferences', preferenceRoutes);
 
 
 // ===========================================

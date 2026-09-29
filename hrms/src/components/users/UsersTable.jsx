@@ -41,7 +41,7 @@ function UsersTable({
   React.useEffect(() => {
     if (externalStatusFilter === 'active' || externalStatusFilter === 'inactive') {
       setStatusFilter(externalStatusFilter);
-    } else if (externalStatusFilter === 'all') {
+    } else {
       setStatusFilter('all');
     }
   }, [externalStatusFilter]);
@@ -49,13 +49,17 @@ function UsersTable({
   const filteredUsers = users.filter(user => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
-      user.name.toLowerCase().includes(term) ||
-      user.email.toLowerCase().includes(term) ||
-      user.userId.toLowerCase().includes(term) ||
-      (user.username && user.username.toLowerCase().includes(term));
+      (user.name && user.name.toLowerCase().includes(term)) ||
+      (user.email && user.email.toLowerCase().includes(term)) ||
+      (user.userId && user.userId.toLowerCase().includes(term));
 
-    const matchesRole = roleFilter === 'all' || user.roleId === roleFilter;
-    const matchesStatus = statusFilter === 'all' || user.status.toLowerCase() === statusFilter.toLowerCase();
+    const matchesRole = roleFilter === 'all'
+      ? (externalStatusFilter === 'roles' ? Boolean(user.roleId || user.roleName) : true)
+      : (user.roleId === roleFilter || (user.roleName && roles.find(r => r.id === roleFilter)?.name === user.roleName));
+
+    const matchesStatus = statusFilter === 'all' 
+      ? true 
+      : (user.status && user.status.toLowerCase() === statusFilter.toLowerCase());
 
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -157,15 +161,27 @@ function UsersTable({
                   <td colSpan={7} className={styles.emptyTd}>
                     <div className={styles.emptyState}>
                       <Users size={36} className={styles.emptyIcon} />
-                      <h3>No users found</h3>
-                      <p>Try adjusting your search query or filter parameters.</p>
-                      {hasActiveFilters && (
+                      <h3>{hasActiveFilters ? 'No matching users found' : 'No User Accounts Found'}</h3>
+                      <p>
+                        {hasActiveFilters
+                          ? 'Try adjusting your search query or filter parameters.'
+                          : 'No login user accounts have been created for this company yet in the database.'}
+                      </p>
+                      {hasActiveFilters ? (
                         <button
                           type="button"
                           className={styles.emptyResetBtn}
                           onClick={handleResetFilters}
                         >
                           Clear Filters
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className={styles.emptyResetBtn}
+                          onClick={onAddUser}
+                        >
+                          + Add New User
                         </button>
                       )}
                     </div>
@@ -180,13 +196,12 @@ function UsersTable({
 
                   return (
                     <tr key={user.id} className={styles.row}>
-                      {/* User Avatar + Name + Username */}
+                      {/* User Avatar + Name */}
                       <td>
                         <div className={styles.userCell}>
                           <Avatar initials={user.initials} name={user.name} size="md" />
                           <div className={styles.userInfo}>
                             <strong className={styles.userName}>{user.name}</strong>
-                            <span className={styles.userUsername}>@{user.username || user.userId.toLowerCase()}</span>
                           </div>
                         </div>
                       </td>
@@ -205,8 +220,8 @@ function UsersTable({
 
                       {/* Email */}
                       <td>
-                        <span className={styles.emailText} title={user.email}>
-                          {user.email}
+                        <span className={styles.emailText} title={user.email || ''}>
+                          {user.email || '—'}
                         </span>
                       </td>
 

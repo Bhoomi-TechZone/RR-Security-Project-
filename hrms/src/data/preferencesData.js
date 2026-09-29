@@ -6,14 +6,10 @@ export const mockEmployeePortalConfig = {
   enabled: true,
   allowDashboard: true,
   allowAttendance: true,
-  allowApplyLeave: true,
-  allowLeaveBalance: true,
-  allowOvertime: true,
+  allowLeaves: true,
   allowSalarySlips: true,
-  allowNotifications: true,
   allowProfile: true,
-  announcementBanner: true,
-  mobileAppAccess: true,
+  allowNotifications: true,
   lastUpdated: '2026-03-01 10:30 AM'
 };
 

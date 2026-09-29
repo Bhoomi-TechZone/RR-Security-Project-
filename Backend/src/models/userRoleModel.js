@@ -1,16 +1,23 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const userRoleSchema = new mongoose.Schema(
   {
     userId: {
       type: String,
+      required: [true, 'User ID is required'],
       trim: true,
       index: true,
     },
     companyId: {
       type: String,
-      required: [true, 'Admin Company ID is required for user role association'],
+      required: [true, 'Company ID is required'],
+      trim: true,
       index: true,
+    },
+    companyName: {
+      type: String,
+      default: '',
       trim: true,
     },
     adminEmail: {
@@ -27,13 +34,27 @@ const userRoleSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, 'User email is required'],
+      default: '',
       lowercase: true,
       trim: true,
     },
-    employeeId: {
+    mobile: {
       type: String,
       default: '',
+      trim: true,
+    },
+    password: {
+      type: String,
+      default: '',
+      select: false,
+    },
+    isExistingEmployee: {
+      type: Boolean,
+      default: false,
+    },
+    employeeId: {
+      type: String,
+      default: null,
       trim: true,
     },
     roleId: {
@@ -54,8 +75,17 @@ const userRoleSchema = new mongoose.Schema(
     },
     status: {
       type: String,
+      enum: ['Active', 'Inactive', 'Suspended'],
       default: 'Active',
       trim: true,
+    },
+    createdOn: {
+      type: String,
+      default: () => new Date().toISOString().split('T')[0],
+    },
+    lastLogin: {
+      type: String,
+      default: null,
     },
     assignedOn: {
       type: String,
@@ -66,12 +96,21 @@ const userRoleSchema = new mongoose.Schema(
       default: 'Admin',
       trim: true,
     },
+    initials: {
+      type: String,
+      default: '',
+    },
+    avatarTone: {
+      type: String,
+      default: 'primary',
+    },
   },
   {
     timestamps: true,
     toJSON: {
       transform: function (doc, ret) {
-        ret.id = ret.userId || ret._id.toString();
+        ret.id = ret._id ? ret._id.toString() : ret.userId;
+        delete ret.password;
         delete ret.__v;
         return ret;
       },
@@ -79,11 +118,29 @@ const userRoleSchema = new mongoose.Schema(
   }
 );
 
-userRoleSchema.pre('save', function () {
-  if (!this.userId) {
-    this.userId = `USR-${Date.now().toString().slice(-6)}`;
+// Auto-calculate initials & hash password before saving
+userRoleSchema.pre('save', async function () {
+  if (this.name && !this.initials) {
+    this.initials = this.name
+      .split(' ')
+      .filter(Boolean)
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  }
+
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
 });
 
-const UserRole = mongoose.model('UserRole', userRoleSchema);
+userRoleSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) return false;
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// Use existing 'userroles' collection so no new Atlas collection is created
+const UserRole = mongoose.model('UserRole', userRoleSchema, 'userroles');
 export default UserRole;

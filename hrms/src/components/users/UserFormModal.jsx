@@ -24,17 +24,23 @@ function UserFormModal({
   initialUser = null,
   isEditing = false,
   roles = [],
+  employees = [],
+  nextUserId = '',
   onNavigateToRoles
 }) {
+  const [userType, setUserType] = useState('new'); // 'new' | 'employee'
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     mobile: '',
-    username: '',
     password: '',
     confirmPassword: '',
     roleId: '',
-    status: 'Active'
+    status: 'Active',
+    employeeId: null,
+    isExistingEmployee: false
   });
 
   const [errors, setErrors] = useState({});
@@ -44,27 +50,35 @@ function UserFormModal({
   useEffect(() => {
     if (isOpen) {
       if (initialUser) {
+        const isLinkedEmp = Boolean(initialUser.isExistingEmployee || initialUser.employeeId);
+        setUserType(isLinkedEmp ? 'employee' : 'new');
+        setSelectedEmployeeId(initialUser.employeeId || '');
+
         setFormData({
           name: initialUser.name || '',
           email: initialUser.email || '',
           mobile: initialUser.mobile || '',
-          username: initialUser.username || '',
           password: '',
           confirmPassword: '',
           roleId: initialUser.roleId || (roles[0]?.id || ''),
-          status: initialUser.status || 'Active'
+          status: initialUser.status || 'Active',
+          employeeId: initialUser.employeeId || null,
+          isExistingEmployee: isLinkedEmp
         });
       } else {
+        setUserType('new');
+        setSelectedEmployeeId('');
         const defaultRole = roles.find(r => r.name === 'Supervisor') || roles[0];
         setFormData({
           name: '',
           email: '',
           mobile: '',
-          username: '',
           password: '',
           confirmPassword: '',
           roleId: defaultRole?.id || '',
-          status: 'Active'
+          status: 'Active',
+          employeeId: null,
+          isExistingEmployee: false
         });
       }
       setErrors({});
@@ -80,37 +94,76 @@ function UserFormModal({
   const permissionOverview = selectedRole ? getRolePermissionsOverview(selectedRole) : [];
   const enabledModules = permissionOverview.filter(m => m.isEnabled);
 
+  const handleUserTypeChange = (type) => {
+    setUserType(type);
+    if (type === 'new') {
+      setSelectedEmployeeId('');
+      setFormData(prev => ({
+        ...prev,
+        isExistingEmployee: false,
+        employeeId: null,
+        name: '',
+        email: '',
+        mobile: ''
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        isExistingEmployee: true
+      }));
+    }
+    setErrors({});
+  };
+
+  const handleEmployeeSelect = (empId) => {
+    setSelectedEmployeeId(empId);
+    if (!empId) {
+      setFormData(prev => ({
+        ...prev,
+        employeeId: null,
+        name: '',
+        email: '',
+        mobile: ''
+      }));
+      return;
+    }
+
+    const emp = employees.find(e => (e.employeeId === empId || e._id === empId || e.id === empId));
+    if (emp) {
+      setFormData(prev => ({
+        ...prev,
+        employeeId: emp.employeeId || emp._id,
+        isExistingEmployee: true,
+        name: emp.name || '',
+        email: emp.email || prev.email || '',
+        mobile: emp.mobile || emp.contact || prev.mobile || ''
+      }));
+      setErrors(prev => ({ ...prev, name: null, employeeId: null }));
+    }
+  };
+
   const handleNameChange = (val) => {
-    setFormData(prev => {
-      const updated = { ...prev, name: val };
-      // Auto-suggest username if user hasn't typed a custom one yet
-      if (!isEditing && (!prev.username || prev.username === prev.name.toLowerCase().replace(/\s+/g, '.'))) {
-        updated.username = val.toLowerCase().trim().replace(/\s+/g, '.');
-      }
-      return updated;
-    });
+    setFormData(prev => ({ ...prev, name: val }));
     if (errors.name) setErrors(prev => ({ ...prev, name: null }));
   };
 
   const validate = () => {
     const newErrors = {};
 
+    if (userType === 'employee' && !selectedEmployeeId && !formData.name.trim()) {
+      newErrors.employeeId = 'Please select an existing employee.';
+    }
+
     if (!formData.name.trim()) {
       newErrors.name = 'Full Name is required.';
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email address is required.';
-    } else if (!/^[^\ s@]+@[^\ s@]+\.[^\ s@]+$/.test(formData.email.trim())) {
+    if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
       newErrors.email = 'Please enter a valid email address.';
     }
 
     if (!formData.mobile.trim()) {
       newErrors.mobile = 'Mobile number is required.';
-    }
-
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required.';
     }
 
     // Password validation only on create (not edit)
@@ -142,17 +195,19 @@ function UserFormModal({
 
     const roleObj = roles.find(r => r.id === formData.roleId);
 
-    // IMPORTANT: Password is intentionally excluded from the submitted data object.
-    // It is never stored in localStorage, never passed to the user list,
-    // and never displayed anywhere outside this form.
+    // IMPORTANT: Password is intentionally excluded from the submitted data object unless creating.
     const { password, confirmPassword, ...safeFormData } = formData;
+    const finalUserId = isEditing ? initialUser?.userId : (nextUserId || '');
 
     onSubmit({
       ...safeFormData,
+      password: !isEditing ? password : undefined,
+      userId: finalUserId,
       name: safeFormData.name.trim(),
       email: safeFormData.email.trim(),
       mobile: safeFormData.mobile.trim(),
-      username: safeFormData.username.trim(),
+      isExistingEmployee: userType === 'employee' && Boolean(selectedEmployeeId || safeFormData.employeeId),
+      employeeId: userType === 'employee' ? (selectedEmployeeId || safeFormData.employeeId) : null,
       roleName: roleObj ? roleObj.name : 'Custom Role'
     });
   };
@@ -195,7 +250,72 @@ function UserFormModal({
               <span>Personal Information</span>
             </h3>
 
+            {/* User Account Source Selector (New Standalone User vs Existing Employee) */}
+            {!isEditing && (
+              <div className={styles.fieldGroupFull}>
+                <label className={styles.label}>
+                  Is this an Existing Employee or New User?
+                </label>
+                <div className={styles.sourceSelector}>
+                  <label className={`${styles.sourceOption} ${userType === 'new' ? styles.sourceOptionActive : ''}`}>
+                    <input
+                      type="radio"
+                      name="userType"
+                      value="new"
+                      checked={userType === 'new'}
+                      onChange={() => handleUserTypeChange('new')}
+                    />
+                    <span>New User (Standalone)</span>
+                  </label>
+
+                  <label className={`${styles.sourceOption} ${userType === 'employee' ? styles.sourceOptionActive : ''}`}>
+                    <input
+                      type="radio"
+                      name="userType"
+                      value="employee"
+                      checked={userType === 'employee'}
+                      onChange={() => handleUserTypeChange('employee')}
+                    />
+                    <span>Existing Employee</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
             <div className={styles.fieldsGrid}>
+              {/* If Existing Employee: Show Employee Dropdown */}
+              {userType === 'employee' && !isEditing && (
+                <div className={styles.fieldGroupFull}>
+                  <label htmlFor="user-employee-select" className={styles.label}>
+                    Select Existing Employee <span className={styles.required}>*</span>
+                  </label>
+                  <select
+                    id="user-employee-select"
+                    className={`${styles.select} ${errors.employeeId ? styles.inputError : ''}`}
+                    value={selectedEmployeeId}
+                    onChange={(e) => handleEmployeeSelect(e.target.value)}
+                  >
+                    <option value="">-- Choose an Employee ({employees.length} available) --</option>
+                    {employees.map(emp => (
+                      <option key={emp._id || emp.employeeId} value={emp.employeeId || emp._id}>
+                        {emp.name} ({emp.employeeId || 'EMP'}) {emp.designation ? `• ${emp.designation}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.employeeId && (
+                    <span className={styles.errorText}>
+                      <AlertCircle size={12} /> {errors.employeeId}
+                    </span>
+                  )}
+                  {selectedEmployeeId && (
+                    <div className={styles.linkedBadge}>
+                      <Check size={13} />
+                      <span>Linked to Employee: {formData.name} ({selectedEmployeeId})</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className={styles.fieldGroupFull}>
                 <label htmlFor="user-fullname" className={styles.label}>
                   Full Name <span className={styles.required}>*</span>
@@ -207,7 +327,7 @@ function UserFormModal({
                   placeholder="e.g. Amit Kumar"
                   value={formData.name}
                   onChange={(e) => handleNameChange(e.target.value)}
-                  autoFocus={!isEditing}
+                  autoFocus={!isEditing && userType === 'new'}
                 />
                 {errors.name && (
                   <span className={styles.errorText}>
@@ -218,7 +338,7 @@ function UserFormModal({
 
               <div className={styles.fieldGroup}>
                 <label htmlFor="user-email" className={styles.label}>
-                  Email Address <span className={styles.required}>*</span>
+                  Email Address
                 </label>
                 <input
                   id="user-email"
@@ -271,25 +391,17 @@ function UserFormModal({
 
             <div className={styles.fieldsGrid}>
               <div className={styles.fieldGroup}>
-                <label htmlFor="user-username" className={styles.label}>
-                  Username <span className={styles.required}>*</span>
+                <label htmlFor="user-id" className={styles.label}>
+                  User ID
                 </label>
                 <input
-                  id="user-username"
+                  id="user-id"
                   type="text"
-                  className={`${styles.input} ${errors.username ? styles.inputError : ''}`}
-                  placeholder="e.g. amit.kumar"
-                  value={formData.username}
-                  onChange={(e) => {
-                    setFormData(prev => ({ ...prev, username: e.target.value }));
-                    if (errors.username) setErrors(prev => ({ ...prev, username: null }));
-                  }}
+                  className={`${styles.input} ${styles.inputReadOnly}`}
+                  value={isEditing ? (initialUser?.userId || '') : (nextUserId || 'Auto-generated')}
+                  readOnly
+                  disabled
                 />
-                {errors.username && (
-                  <span className={styles.errorText}>
-                    <AlertCircle size={12} /> {errors.username}
-                  </span>
-                )}
               </div>
 
               <div className={styles.fieldGroup}>

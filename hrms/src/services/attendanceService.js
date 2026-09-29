@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 class AttendanceService {
   getHeaders(companyId) {
@@ -8,7 +8,7 @@ class AttendanceService {
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'x-company-id': companyId || 'RRS8392014SEC',
+      'x-company-id': companyId,
     };
   }
 

@@ -67,12 +67,8 @@ const roleSchema = new mongoose.Schema(
   }
 );
 
-// Auto-assign unique roleId before save if not present
-roleSchema.pre('save', function () {
-  if (!this.roleId) {
-    this.roleId = `ROLE-${Date.now().toString().slice(-6)}`;
-  }
-});
+// Ensure roleId is unique within each company
+roleSchema.index({ companyId: 1, adminEmail: 1, roleId: 1 }, { unique: true });
 
 const Role = mongoose.model('Role', roleSchema);
 export default Role;

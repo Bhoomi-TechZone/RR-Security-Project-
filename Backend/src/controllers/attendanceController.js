@@ -12,7 +12,7 @@ import Employee from '../models/employeeModel.js';
 export const getAttendanceRecords = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
     const { date, month, clientName, site, department, status, search } = req.query;
 
     const query = { companyId };
@@ -76,7 +76,7 @@ export const getAttendanceRecords = async (req, res) => {
 export const bulkImportAttendance = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
     const { records, defaultDate } = req.body;
 
     if (!Array.isArray(records) || records.length === 0) {
@@ -162,7 +162,7 @@ export const bulkImportAttendance = async (req, res) => {
 export const saveAttendanceRecord = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
     const {
       employeeId,
       employeeName,
@@ -268,7 +268,7 @@ export const saveAttendanceRecord = async (req, res) => {
 export const deleteAttendanceRecord = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     let record = null;
     try {
@@ -308,7 +308,7 @@ export const deleteAttendanceRecord = async (req, res) => {
  */
 export const getCorrectionRequests = async (req, res) => {
   try {
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     const corrections = await AttendanceCorrection.find({
       companyId,
@@ -337,7 +337,7 @@ export const getCorrectionRequests = async (req, res) => {
 export const submitCorrectionRequest = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
     const {
       attendanceId,
       employeeId,
@@ -386,12 +386,12 @@ export const submitCorrectionRequest = async (req, res) => {
 
     // Mark attendance record as pendingCorrection in MongoDB
     if (attendanceId) {
-      await Attendance.findByIdAndUpdate(attendanceId, { status: 'pendingCorrection' }).catch(() => {});
+      await Attendance.findByIdAndUpdate(attendanceId, { status: 'pendingCorrection' }).catch(() => { });
     } else if (employeeId && date) {
       await Attendance.findOneAndUpdate(
         { companyId, employeeId, date },
         { status: 'pendingCorrection' }
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     return res.status(201).json({

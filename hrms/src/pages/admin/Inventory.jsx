@@ -855,7 +855,7 @@ function ClearanceTable({ rows, onInspectClearance }) {
 // Main Inventory Component
 export default function Inventory() {
   const { activeCompany } = useCompany();
-  const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || 'RRS8392014SEC';
+  const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id;
 
   const [loading, setLoading] = useState(true);
   const [items, setItems] = useState([]);
@@ -1180,8 +1180,8 @@ export default function Inventory() {
 
         {/* Breadcrumb */}
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <button 
-            type="button" 
+          <button
+            type="button"
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: 'var(--primary)', font: 'inherit' }}
             onClick={() => navigate('/admin/dashboard')}
           >
@@ -1313,29 +1313,29 @@ export default function Inventory() {
               {tab === 'stock'
                 ? (inventoryType === 'uniform' ? 'Uniform Stock Register' : 'Asset Stock Register')
                 : tab === 'issued'
-                ? (inventoryType === 'uniform' ? 'Uniform Issue Register' : 'Asset Issue Register')
-                : tab === 'returns'
-                ? (inventoryType === 'uniform' ? 'Uniform Return History' : 'Asset Return History')
-                : tab === 'movement'
-                ? 'Stock Movement & Audit Trail'
-                : 'Employee Exit Asset Clearance'}
+                  ? (inventoryType === 'uniform' ? 'Uniform Issue Register' : 'Asset Issue Register')
+                  : tab === 'returns'
+                    ? (inventoryType === 'uniform' ? 'Uniform Return History' : 'Asset Return History')
+                    : tab === 'movement'
+                      ? 'Stock Movement & Audit Trail'
+                      : 'Employee Exit Asset Clearance'}
             </h2>
             <p className={styles.sectionSubtext}>
               {tab === 'stock'
                 ? (inventoryType === 'uniform'
-                    ? 'Real-time uniform stock valuation, unit metrics, sizes, reorder levels, and SKU actions.'
-                    : 'Real-time company asset valuation, equipment tracking, reorder levels, and SKU actions.')
+                  ? 'Real-time uniform stock valuation, unit metrics, sizes, reorder levels, and SKU actions.'
+                  : 'Real-time company asset valuation, equipment tracking, reorder levels, and SKU actions.')
                 : tab === 'issued'
-                ? (inventoryType === 'uniform'
+                  ? (inventoryType === 'uniform'
                     ? 'Personnel uniform custody, issue rates, sizes, total amounts, and pending return tracking.'
                     : 'Personnel asset & equipment custody, issue rates, serial numbers, and pending return tracking.')
-                : tab === 'returns'
-                ? (inventoryType === 'uniform'
-                    ? 'Uniform return inspection logs, returned condition grading, and recovery charges.'
-                    : 'Asset return inspection logs, returned condition grading, and recovery charges.')
-                : tab === 'movement'
-                ? 'Complete chronological ledger of all inward, outward, and adjustment movements.'
-                : 'Mandatory asset verification and clearance certificate sign-off for exiting personnel.'}
+                  : tab === 'returns'
+                    ? (inventoryType === 'uniform'
+                      ? 'Uniform return inspection logs, returned condition grading, and recovery charges.'
+                      : 'Asset return inspection logs, returned condition grading, and recovery charges.')
+                    : tab === 'movement'
+                      ? 'Complete chronological ledger of all inward, outward, and adjustment movements.'
+                      : 'Mandatory asset verification and clearance certificate sign-off for exiting personnel.'}
             </p>
           </div>
           <div className={styles.introActions}>

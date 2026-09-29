@@ -17,14 +17,14 @@ import authService from '../../services/authService';
 import { mockCompanies } from '../../data/companyData';
 import { mockEmployees } from '../../data/employeeData';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function CompanyDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
 
-  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
 
   const [company, setCompany] = useState(null);
   const [employees, setEmployees] = useState([]);

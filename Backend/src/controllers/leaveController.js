@@ -124,7 +124,7 @@ const syncLeaveToAttendance = async (companyId, adminEmail, leaveDoc) => {
  */
 export const getLeaveRequests = async (req, res) => {
   try {
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
     const { status, search, department, clientName, leaveType, fromDate, toDate } = req.query;
 
     const query = { companyId };
@@ -203,7 +203,7 @@ export const getLeaveRequests = async (req, res) => {
 export const createLeaveRequest = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
     const isAdmin = req.user.role === 'admin' || req.user.role === 'superadmin';
 
     const {
@@ -618,7 +618,7 @@ export const updateLeaveRequest = async (req, res) => {
   try {
     const { id } = req.params;
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
 
     let leaveDoc = null;
     try {
@@ -833,7 +833,7 @@ export const deleteLeaveRequest = async (req, res) => {
 export const getLeaveTypes = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     let types = await LeaveType.find({ companyId }).sort({ code: 1 });
 
@@ -869,7 +869,7 @@ export const getLeaveTypes = async (req, res) => {
 export const saveLeaveType = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
     const {
       code,
       name,
@@ -895,8 +895,8 @@ export const saveLeaveType = async (req, res) => {
       maxAccumulation !== undefined
         ? Number(maxAccumulation)
         : maxCarryForward !== undefined
-        ? Number(maxCarryForward)
-        : 0;
+          ? Number(maxCarryForward)
+          : 0;
     const carryForwardBool =
       typeof carryForward === 'string' ? carryForward.toLowerCase() === 'yes' : !!carryForward;
 
@@ -943,7 +943,7 @@ export const saveLeaveType = async (req, res) => {
 export const deleteLeaveType = async (req, res) => {
   try {
     const { id } = req.params;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     let deletedDoc = null;
     try {
@@ -968,7 +968,7 @@ export const deleteLeaveType = async (req, res) => {
       await LeaveBalance.updateMany(
         { companyId },
         { $unset: { [`balances.${deletedDoc.code}`]: '' } }
-      ).catch(() => {});
+      ).catch(() => { });
     }
 
     return res.status(200).json({
@@ -994,7 +994,7 @@ export const deleteLeaveType = async (req, res) => {
 export const getEmployeeLeaveBalances = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.query.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     // Fetch registered employees, active leave types, and active leave requests from MongoDB database
     const [employees, companyLeaveTypes, allLeaves] = await Promise.all([
@@ -1117,7 +1117,7 @@ export const getEmployeeLeaveBalances = async (req, res) => {
 
       b.balances = balObj;
       b.markModified('balances');
-      await b.save().catch(() => {});
+      await b.save().catch(() => { });
     }
 
     // Attach dynamic employee info (clientName, siteLocation, designation) to the balances
@@ -1163,7 +1163,7 @@ export const getEmployeeLeaveBalances = async (req, res) => {
 export const assignLeavePolicy = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId || 'RRS8392014SEC';
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
     const { employeeId, employeeCode, policyName, openingBalances } = req.body;
 
     const empId = employeeId || employeeCode;

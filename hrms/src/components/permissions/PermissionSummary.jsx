@@ -1,13 +1,13 @@
 import React from 'react';
 import { Shield, CheckCircle2, Layers, KeyRound, Eye, Plus, Edit3, Trash2, CheckSquare } from 'lucide-react';
 import styles from './PermissionSummary.module.css';
-import { PERMISSION_MODULES, getActionCounts } from '../../data/rolesPermissionsData';
+import { PERMISSION_MODULES, getActionCounts, getEnabledModulesCount } from '../../data/rolesPermissionsData';
 
 function PermissionSummary({ role, permissions = {} }) {
   const tempRole = { ...role, permissions };
   const actionCounts = getActionCounts(tempRole);
   const totalModules = PERMISSION_MODULES.length;
-  const enabledModules = Object.values(permissions).filter(actions => Array.isArray(actions) && actions.length > 0).length;
+  const enabledModules = getEnabledModulesCount(tempRole);
   const totalPossiblePerms = PERMISSION_MODULES.reduce((sum, mod) => sum + mod.actions.length, 0);
   const percentage = Math.round((actionCounts.total / totalPossiblePerms) * 100) || 0;
 

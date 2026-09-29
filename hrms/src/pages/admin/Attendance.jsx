@@ -223,7 +223,7 @@ const sanitizeRecords = (list) => {
 
 function Attendance() {
   const { activeCompany } = useCompany();
-  const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const compId = activeCompany?.companyId || activeCompany?.id;
 
   // --- Dynamic State Loaded directly from MongoDB Atlas (NO LocalStorage) ---
   const [records, setRecords] = useState([]);

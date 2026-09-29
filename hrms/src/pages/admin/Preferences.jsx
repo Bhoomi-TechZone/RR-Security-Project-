@@ -4,7 +4,7 @@ import {
   SlidersHorizontal, UserCheck, ShieldCheck, Mail, Bell, 
   GitMerge, CheckCircle2, AlertCircle, Save, RotateCcw, 
   Send, Eye, EyeOff, Plus, Trash2, ArrowUp, ArrowDown, 
-  ArrowRight, Info, ShieldAlert, Sparkles, X, Check
+  ArrowRight, Info, ShieldAlert, Sparkles, X, Check, Loader2
 } from 'lucide-react';
 import styles from './Preferences.module.css';
 
@@ -12,6 +12,8 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import { useCompany } from '../../context/CompanyContext';
+import preferenceService from '../../services/preferenceService';
 
 // Initial Mock data
 import { 
@@ -36,11 +38,15 @@ function Preferences() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
 
   // Active Tab from query param or default 'overview'
   const initialTab = searchParams.get('tab') || 'overview';
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [isLoadingPrefs, setIsLoadingPrefs] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Sync tab with URL
   useEffect(() => {
@@ -58,38 +64,74 @@ function Preferences() {
   };
 
   // 1. Employee Portal State
-  const [employeePortal, setEmployeePortal] = useState(() => {
-    const saved = localStorage.getItem('novaspark_preferences_employee_portal');
-    return saved ? JSON.parse(saved) : mockEmployeePortalConfig;
-  });
+  const [employeePortal, setEmployeePortal] = useState(mockEmployeePortalConfig);
 
   // 2. Reporting Manager Permissions State
-  const [reportingManager, setReportingManager] = useState(() => {
-    const saved = localStorage.getItem('novaspark_preferences_reporting_manager');
-    return saved ? JSON.parse(saved) : mockReportingManagerConfig;
-  });
+  const [reportingManager, setReportingManager] = useState(mockReportingManagerConfig);
 
   // 3. Email Settings State
-  const [emailConfig, setEmailConfig] = useState(() => {
-    const saved = localStorage.getItem('novaspark_preferences_email');
-    return saved ? JSON.parse(saved) : mockEmailConfig;
-  });
+  const [emailConfig, setEmailConfig] = useState(mockEmailConfig);
   const [showPassword, setShowPassword] = useState(false);
   const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
   const [testEmailRecipient, setTestEmailRecipient] = useState('');
   const [isSendingTest, setIsSendingTest] = useState(false);
 
   // 4. Notification Settings State
-  const [notificationConfig, setNotificationConfig] = useState(() => {
-    const saved = localStorage.getItem('novaspark_preferences_notifications');
-    return saved ? JSON.parse(saved) : mockNotificationConfig;
-  });
+  const [notificationConfig, setNotificationConfig] = useState(mockNotificationConfig);
 
   // 5. Approval Settings State
-  const [approvalConfig, setApprovalConfig] = useState(() => {
-    const saved = localStorage.getItem('novaspark_preferences_approvals');
-    return saved ? JSON.parse(saved) : mockApprovalConfig;
-  });
+  const [approvalConfig, setApprovalConfig] = useState(mockApprovalConfig);
+
+  // Load Preferences dynamically from MongoDB for the active company
+  useEffect(() => {
+    async function loadCompanyPreferences() {
+      if (!companyId) return;
+      try {
+        setIsLoadingPrefs(true);
+        const prefs = await preferenceService.getPreferences(companyId);
+        if (prefs) {
+          if (prefs.employeePortal && typeof prefs.employeePortal === 'object') {
+            setEmployeePortal(prev => ({ ...prev, ...prefs.employeePortal }));
+          }
+          if (prefs.reportingManager && typeof prefs.reportingManager === 'object') {
+            setReportingManager(prev => ({ ...prev, ...prefs.reportingManager }));
+          }
+          if (prefs.emailConfig && typeof prefs.emailConfig === 'object') {
+            setEmailConfig(prev => ({ ...prev, ...prefs.emailConfig }));
+          }
+          if (prefs.notificationConfig && typeof prefs.notificationConfig === 'object') {
+            setNotificationConfig(prev => ({
+              ...prev,
+              ...prefs.notificationConfig,
+              channels: {
+                ...prev.channels,
+                ...(prefs.notificationConfig.channels || {})
+              },
+              events: {
+                ...prev.events,
+                ...(prefs.notificationConfig.events || {})
+              }
+            }));
+          }
+          if (prefs.approvalConfig && typeof prefs.approvalConfig === 'object') {
+            setApprovalConfig(prev => ({
+              ...prev,
+              ...prefs.approvalConfig,
+              leave: { ...prev.leave, ...(prefs.approvalConfig.leave || {}) },
+              overtime: { ...prev.overtime, ...(prefs.approvalConfig.overtime || {}) },
+              reimbursement: { ...prev.reimbursement, ...(prefs.approvalConfig.reimbursement || {}) },
+              employeeRequests: { ...prev.employeeRequests, ...(prefs.approvalConfig.employeeRequests || {}) }
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load preferences from backend, using defaults:', err);
+      } finally {
+        setIsLoadingPrefs(false);
+      }
+    }
+    loadCompanyPreferences();
+  }, [companyId]);
 
   // Toast State
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
@@ -106,11 +148,19 @@ function Preferences() {
   });
 
   // --- SAVE HANDLERS ---
-  const saveEmployeePortal = () => {
-    const updated = { ...employeePortal, lastUpdated: new Date().toLocaleString() };
-    setEmployeePortal(updated);
-    localStorage.setItem('novaspark_preferences_employee_portal', JSON.stringify(updated));
-    showToast('Employee Portal preferences saved successfully!');
+  const saveEmployeePortal = async () => {
+    try {
+      setIsSaving(true);
+      const updated = { ...employeePortal, lastUpdated: new Date().toLocaleString() };
+      const savedPortal = await preferenceService.updateEmployeePortalPreferences(companyId, updated);
+      setEmployeePortal(savedPortal || updated);
+      showToast('Employee Portal preferences saved to database successfully!');
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'Failed to save employee portal preferences.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetEmployeePortal = () => {
@@ -118,19 +168,33 @@ function Preferences() {
       isOpen: true,
       title: 'Reset Employee Portal Settings?',
       message: 'This will revert Employee Portal preferences to system defaults.',
-      onConfirm: () => {
-        setEmployeePortal(mockEmployeePortalConfig);
-        localStorage.setItem('novaspark_preferences_employee_portal', JSON.stringify(mockEmployeePortalConfig));
-        showToast('Employee Portal preferences reset to default.', 'info');
+      onConfirm: async () => {
+        try {
+          setIsSaving(true);
+          const saved = await preferenceService.updateEmployeePortalPreferences(companyId, mockEmployeePortalConfig);
+          setEmployeePortal(saved || mockEmployeePortalConfig);
+          showToast('Employee Portal preferences reset to default in database.', 'info');
+        } catch (err) {
+          showToast(err.message || 'Failed to reset employee portal preferences.', 'error');
+        } finally {
+          setIsSaving(false);
+        }
       }
     });
   };
 
-  const saveReportingManager = () => {
-    const updated = { ...reportingManager, lastUpdated: new Date().toLocaleString() };
-    setReportingManager(updated);
-    localStorage.setItem('novaspark_preferences_reporting_manager', JSON.stringify(updated));
-    showToast('Reporting Manager permissions saved successfully!');
+  const saveReportingManager = async () => {
+    try {
+      setIsSaving(true);
+      const updated = { ...reportingManager, lastUpdated: new Date().toLocaleString() };
+      await preferenceService.updatePreferences(companyId, { reportingManager: updated });
+      setReportingManager(updated);
+      showToast('Reporting Manager permissions saved to database successfully!');
+    } catch (err) {
+      showToast(err.message || 'Failed to save reporting manager permissions.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetReportingManager = () => {
@@ -138,24 +202,38 @@ function Preferences() {
       isOpen: true,
       title: 'Reset Reporting Manager Permissions?',
       message: 'This will revert manager default permissions to system defaults.',
-      onConfirm: () => {
-        setReportingManager(mockReportingManagerConfig);
-        localStorage.setItem('novaspark_preferences_reporting_manager', JSON.stringify(mockReportingManagerConfig));
-        showToast('Reporting Manager permissions reset to default.', 'info');
+      onConfirm: async () => {
+        try {
+          setIsSaving(true);
+          await preferenceService.updatePreferences(companyId, { reportingManager: mockReportingManagerConfig });
+          setReportingManager(mockReportingManagerConfig);
+          showToast('Reporting Manager permissions reset to default in database.', 'info');
+        } catch (err) {
+          showToast(err.message || 'Failed to reset permissions.', 'error');
+        } finally {
+          setIsSaving(false);
+        }
       }
     });
   };
 
-  const saveEmailConfig = (e) => {
+  const saveEmailConfig = async (e) => {
     if (e) e.preventDefault();
     if (!emailConfig.smtpHost || !emailConfig.smtpPort || !emailConfig.fromEmail) {
       showToast('Please fill all required SMTP fields.', 'error');
       return;
     }
-    const updated = { ...emailConfig, lastUpdated: new Date().toLocaleString() };
-    setEmailConfig(updated);
-    localStorage.setItem('novaspark_preferences_email', JSON.stringify(updated));
-    showToast('Email & SMTP settings saved successfully!');
+    try {
+      setIsSaving(true);
+      const updated = { ...emailConfig, lastUpdated: new Date().toLocaleString() };
+      await preferenceService.updatePreferences(companyId, { emailConfig: updated });
+      setEmailConfig(updated);
+      showToast('Email & SMTP settings saved to database successfully!');
+    } catch (err) {
+      showToast(err.message || 'Failed to save email settings.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetEmailConfig = () => {
@@ -163,10 +241,17 @@ function Preferences() {
       isOpen: true,
       title: 'Reset Email Configuration?',
       message: 'This will reset SMTP server and sender settings to defaults.',
-      onConfirm: () => {
-        setEmailConfig(mockEmailConfig);
-        localStorage.setItem('novaspark_preferences_email', JSON.stringify(mockEmailConfig));
-        showToast('Email settings reset to default.', 'info');
+      onConfirm: async () => {
+        try {
+          setIsSaving(true);
+          await preferenceService.updatePreferences(companyId, { emailConfig: mockEmailConfig });
+          setEmailConfig(mockEmailConfig);
+          showToast('Email settings reset to default in database.', 'info');
+        } catch (err) {
+          showToast(err.message || 'Failed to reset email settings.', 'error');
+        } finally {
+          setIsSaving(false);
+        }
       }
     });
   };
@@ -186,11 +271,18 @@ function Preferences() {
     }, 1200);
   };
 
-  const saveNotificationConfig = () => {
-    const updated = { ...notificationConfig, lastUpdated: new Date().toLocaleString() };
-    setNotificationConfig(updated);
-    localStorage.setItem('novaspark_preferences_notifications', JSON.stringify(updated));
-    showToast('Notification settings saved successfully!');
+  const saveNotificationConfig = async () => {
+    try {
+      setIsSaving(true);
+      const updated = { ...notificationConfig, lastUpdated: new Date().toLocaleString() };
+      await preferenceService.updatePreferences(companyId, { notificationConfig: updated });
+      setNotificationConfig(updated);
+      showToast('Notification settings saved to database successfully!');
+    } catch (err) {
+      showToast(err.message || 'Failed to save notification settings.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetNotificationConfig = () => {
@@ -198,19 +290,33 @@ function Preferences() {
       isOpen: true,
       title: 'Reset Notification Settings?',
       message: 'This will reset notification events and channels to system defaults.',
-      onConfirm: () => {
-        setNotificationConfig(mockNotificationConfig);
-        localStorage.setItem('novaspark_preferences_notifications', JSON.stringify(mockNotificationConfig));
-        showToast('Notification settings reset to default.', 'info');
+      onConfirm: async () => {
+        try {
+          setIsSaving(true);
+          await preferenceService.updatePreferences(companyId, { notificationConfig: mockNotificationConfig });
+          setNotificationConfig(mockNotificationConfig);
+          showToast('Notification settings reset to default in database.', 'info');
+        } catch (err) {
+          showToast(err.message || 'Failed to reset notification settings.', 'error');
+        } finally {
+          setIsSaving(false);
+        }
       }
     });
   };
 
-  const saveApprovalConfig = () => {
-    const updated = { ...approvalConfig, lastUpdated: new Date().toLocaleString() };
-    setApprovalConfig(updated);
-    localStorage.setItem('novaspark_preferences_approvals', JSON.stringify(updated));
-    showToast('Approval workflow chains saved successfully!');
+  const saveApprovalConfig = async () => {
+    try {
+      setIsSaving(true);
+      const updated = { ...approvalConfig, lastUpdated: new Date().toLocaleString() };
+      await preferenceService.updatePreferences(companyId, { approvalConfig: updated });
+      setApprovalConfig(updated);
+      showToast('Approval workflow chains saved to database successfully!');
+    } catch (err) {
+      showToast(err.message || 'Failed to save approval workflows.', 'error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetApprovalConfig = () => {
@@ -218,10 +324,17 @@ function Preferences() {
       isOpen: true,
       title: 'Reset Approval Workflows?',
       message: 'This will reset all module approval hierarchies to system defaults.',
-      onConfirm: () => {
-        setApprovalConfig(mockApprovalConfig);
-        localStorage.setItem('novaspark_preferences_approvals', JSON.stringify(mockApprovalConfig));
-        showToast('Approval workflows reset to default.', 'info');
+      onConfirm: async () => {
+        try {
+          setIsSaving(true);
+          await preferenceService.updatePreferences(companyId, { approvalConfig: mockApprovalConfig });
+          setApprovalConfig(mockApprovalConfig);
+          showToast('Approval workflows reset to default in database.', 'info');
+        } catch (err) {
+          showToast(err.message || 'Failed to reset approval workflows.', 'error');
+        } finally {
+          setIsSaving(false);
+        }
       }
     });
   };
@@ -410,13 +523,11 @@ function Preferences() {
                       {[
                         employeePortal.allowDashboard,
                         employeePortal.allowAttendance,
-                        employeePortal.allowApplyLeave,
-                        employeePortal.allowLeaveBalance,
-                        employeePortal.allowOvertime,
+                        employeePortal.allowLeaves !== undefined ? employeePortal.allowLeaves : (employeePortal.allowApplyLeave || employeePortal.allowLeaveBalance),
                         employeePortal.allowSalarySlips,
-                        employeePortal.allowNotifications,
-                        employeePortal.allowProfile
-                      ].filter(Boolean).length} / 8 Allowed
+                        employeePortal.allowProfile,
+                        employeePortal.allowNotifications
+                      ].filter(Boolean).length} / 6 Allowed
                     </span>
                   </div>
                 </div>
@@ -524,12 +635,12 @@ function Preferences() {
                   <div className={styles.metaSummaryRow}>
                     <span className={styles.metaLabel}>Active Channels:</span>
                     <span className={styles.metaValue}>
-                      {[notificationConfig.channels.inApp && 'In-App', notificationConfig.channels.email && 'Email'].filter(Boolean).join(' + ')}
+                      {notificationConfig?.channels?.email ? 'Email' : 'None'}
                     </span>
                   </div>
                   <div className={styles.metaSummaryRow}>
                     <span className={styles.metaLabel}>Configured Events:</span>
-                    <span className={styles.metaValue}>{Object.keys(notificationConfig.events).length} Event Rules</span>
+                    <span className={styles.metaValue}>{Object.keys(notificationConfig?.events || {}).length} Event Rules</span>
                   </div>
                 </div>
                 <div className={styles.overviewCardFooter}>
@@ -558,11 +669,11 @@ function Preferences() {
                 <div className={styles.cardMetaSummary}>
                   <div className={styles.metaSummaryRow}>
                     <span className={styles.metaLabel}>Reimbursement Chain:</span>
-                    <span className={styles.metaValue}>{approvalConfig.reimbursement.levels.map(l => l.role).join(' → ')}</span>
+                    <span className={styles.metaValue}>{(approvalConfig?.reimbursement?.levels || []).map(l => l.role).join(' → ') || 'Not configured'}</span>
                   </div>
                   <div className={styles.metaSummaryRow}>
                     <span className={styles.metaLabel}>Leave Workflow:</span>
-                    <span className={styles.metaValue}>{approvalConfig.leave.levels.length} Tier Hierarchy</span>
+                    <span className={styles.metaValue}>{(approvalConfig?.leave?.levels || []).length} Tier Hierarchy</span>
                   </div>
                 </div>
                 <div className={styles.overviewCardFooter}>
@@ -613,121 +724,104 @@ function Preferences() {
                 </div>
 
                 <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '20px 0 12px', color: '#0f172a' }}>
-                  Allow Employees To:
+                  Allow Employees To Access:
                 </h3>
 
-                {/* 8 Feature Checkboxes */}
+                {/* 6 Feature Checkboxes matching Employee Panel Tabs */}
                 <div className={styles.checklistGrid}>
                   
+                  {/* 1. Dashboard */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowDashboard ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
                       className={styles.checkboxInput}
-                      checked={employeePortal.allowDashboard}
+                      checked={Boolean(employeePortal.allowDashboard)}
                       disabled={!employeePortal.enabled}
                       onChange={(e) => setEmployeePortal({ ...employeePortal, allowDashboard: e.target.checked })}
                     />
                     <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Dashboard</span>
+                      <span className={styles.checklistLabel}>Dashboard</span>
                       <span className={styles.checklistDesc}>Access self-service summary metrics, quick attendance & shift status.</span>
                     </div>
                   </label>
 
+                  {/* 2. Attendance */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowAttendance ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
                       className={styles.checkboxInput}
-                      checked={employeePortal.allowAttendance}
+                      checked={Boolean(employeePortal.allowAttendance)}
                       disabled={!employeePortal.enabled}
                       onChange={(e) => setEmployeePortal({ ...employeePortal, allowAttendance: e.target.checked })}
                     />
                     <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Attendance</span>
+                      <span className={styles.checklistLabel}>Attendance</span>
                       <span className={styles.checklistDesc}>View monthly punch logs, daily work hours and check-in timeline.</span>
                     </div>
                   </label>
 
-                  <label className={`${styles.checklistItem} ${employeePortal.allowApplyLeave ? styles.checklistItemActive : ''}`}>
+                  {/* 3. Leaves */}
+                  <label className={`${styles.checklistItem} ${(employeePortal.allowLeaves !== undefined ? employeePortal.allowLeaves : (employeePortal.allowApplyLeave || employeePortal.allowLeaveBalance)) ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
                       className={styles.checkboxInput}
-                      checked={employeePortal.allowApplyLeave}
+                      checked={Boolean(employeePortal.allowLeaves !== undefined ? employeePortal.allowLeaves : (employeePortal.allowApplyLeave || employeePortal.allowLeaveBalance))}
                       disabled={!employeePortal.enabled}
-                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowApplyLeave: e.target.checked })}
+                      onChange={(e) => setEmployeePortal({ 
+                        ...employeePortal, 
+                        allowLeaves: e.target.checked,
+                        allowApplyLeave: e.target.checked,
+                        allowLeaveBalance: e.target.checked 
+                      })}
                     />
                     <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>Apply Leave</span>
-                      <span className={styles.checklistDesc}>Submit new leave requests with reason and attachments for supervisor review.</span>
+                      <span className={styles.checklistLabel}>Leaves</span>
+                      <span className={styles.checklistDesc}>Apply for leave requests, track approvals and view leave balance quotas.</span>
                     </div>
                   </label>
 
-                  <label className={`${styles.checklistItem} ${employeePortal.allowLeaveBalance ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={employeePortal.allowLeaveBalance}
-                      disabled={!employeePortal.enabled}
-                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowLeaveBalance: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Leave Balance</span>
-                      <span className={styles.checklistDesc}>Track available Casual, Sick, Paid and Earned leave quotas.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${employeePortal.allowOvertime ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={employeePortal.allowOvertime}
-                      disabled={!employeePortal.enabled}
-                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowOvertime: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Overtime</span>
-                      <span className={styles.checklistDesc}>Track extra duty hours, compensatory off credits & OT claims.</span>
-                    </div>
-                  </label>
-
+                  {/* 4. Salary Slip */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowSalarySlips ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
                       className={styles.checkboxInput}
-                      checked={employeePortal.allowSalarySlips}
+                      checked={Boolean(employeePortal.allowSalarySlips)}
                       disabled={!employeePortal.enabled}
                       onChange={(e) => setEmployeePortal({ ...employeePortal, allowSalarySlips: e.target.checked })}
                     />
                     <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Salary Slips</span>
+                      <span className={styles.checklistLabel}>Salary Slip</span>
                       <span className={styles.checklistDesc}>View and download monthly generated payslips in secure PDF format.</span>
                     </div>
                   </label>
 
-                  <label className={`${styles.checklistItem} ${employeePortal.allowNotifications ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={employeePortal.allowNotifications}
-                      disabled={!employeePortal.enabled}
-                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowNotifications: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Notifications</span>
-                      <span className={styles.checklistDesc}>Receive organisation bulletins, leave updates and system broadcasts.</span>
-                    </div>
-                  </label>
-
+                  {/* 5. Profile */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowProfile ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
                       className={styles.checkboxInput}
-                      checked={employeePortal.allowProfile}
+                      checked={Boolean(employeePortal.allowProfile)}
                       disabled={!employeePortal.enabled}
                       onChange={(e) => setEmployeePortal({ ...employeePortal, allowProfile: e.target.checked })}
                     />
                     <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Profile</span>
+                      <span className={styles.checklistLabel}>Profile</span>
                       <span className={styles.checklistDesc}>View personal details, bank data, statutory numbers and assigned post.</span>
+                    </div>
+                  </label>
+
+                  {/* 6. Notification */}
+                  <label className={`${styles.checklistItem} ${employeePortal.allowNotifications ? styles.checklistItemActive : ''}`}>
+                    <input 
+                      type="checkbox" 
+                      className={styles.checkboxInput}
+                      checked={Boolean(employeePortal.allowNotifications)}
+                      disabled={!employeePortal.enabled}
+                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowNotifications: e.target.checked })}
+                    />
+                    <div className={styles.checklistText}>
+                      <span className={styles.checklistLabel}>Notification</span>
+                      <span className={styles.checklistDesc}>Receive organization bulletins, leave updates and system broadcasts.</span>
                     </div>
                   </label>
 
@@ -1166,21 +1260,22 @@ function Preferences() {
               <div className={styles.cardBody}>
                 {/* Global Channel Switches */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px', marginBottom: '24px' }}>
-                  <div className={styles.toggleRow} style={{ margin: 0 }}>
+                  <div className={styles.toggleRow} style={{ margin: 0, opacity: 0.65, cursor: 'not-allowed' }}>
                     <div className={styles.toggleInfo}>
-                      <span className={styles.toggleTitle}>In-App Notifications</span>
-                      <span className={styles.toggleDesc}>Show alerts in top header bell and notifications drawer.</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className={styles.toggleTitle}>In-App Notifications</span>
+                        <span style={{ fontSize: '10px', background: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>Disabled</span>
+                      </div>
+                      <span className={styles.toggleDesc}>Show alerts in top header bell and notifications drawer (Currently disabled).</span>
                     </div>
-                    <label className={styles.switch}>
+                    <label className={styles.switch} style={{ cursor: 'not-allowed' }}>
                       <input 
                         type="checkbox" 
-                        checked={notificationConfig.channels.inApp} 
-                        onChange={(e) => setNotificationConfig({
-                          ...notificationConfig,
-                          channels: { ...notificationConfig.channels, inApp: e.target.checked }
-                        })} 
+                        checked={false} 
+                        disabled={true}
+                        style={{ cursor: 'not-allowed' }}
                       />
-                      <span className={styles.slider}></span>
+                      <span className={styles.slider} style={{ cursor: 'not-allowed' }}></span>
                     </label>
                   </div>
 
@@ -1192,10 +1287,10 @@ function Preferences() {
                     <label className={styles.switch}>
                       <input 
                         type="checkbox" 
-                        checked={notificationConfig.channels.email} 
+                        checked={Boolean(notificationConfig?.channels?.email)} 
                         onChange={(e) => setNotificationConfig({
                           ...notificationConfig,
-                          channels: { ...notificationConfig.channels, email: e.target.checked }
+                          channels: { ...(notificationConfig?.channels || {}), email: e.target.checked }
                         })} 
                       />
                       <span className={styles.slider}></span>
@@ -1219,7 +1314,7 @@ function Preferences() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(notificationConfig.events).map(([key, event]) => (
+                      {Object.entries(notificationConfig?.events || {}).map(([key, event]) => (
                         <tr key={key}>
                           <td>
                             <strong style={{ color: '#0f172a' }}>{event.name}</strong>
@@ -1231,30 +1326,23 @@ function Preferences() {
                             <input 
                               type="checkbox" 
                               className={styles.checkboxInput}
-                              checked={event.inApp}
-                              disabled={!notificationConfig.channels.inApp}
-                              onChange={(e) => {
-                                setNotificationConfig({
-                                  ...notificationConfig,
-                                  events: {
-                                    ...notificationConfig.events,
-                                    [key]: { ...event, inApp: e.target.checked }
-                                  }
-                                });
-                              }}
+                              checked={false}
+                              disabled={true}
+                              title="In-App notifications are currently disabled"
+                              style={{ cursor: 'not-allowed', opacity: 0.5 }}
                             />
                           </td>
                           <td style={{ textAlign: 'center' }}>
                             <input 
                               type="checkbox" 
                               className={styles.checkboxInput}
-                              checked={event.email}
-                              disabled={!notificationConfig.channels.email}
+                              checked={Boolean(event.email)}
+                              disabled={!notificationConfig?.channels?.email}
                               onChange={(e) => {
                                 setNotificationConfig({
                                   ...notificationConfig,
                                   events: {
-                                    ...notificationConfig.events,
+                                    ...(notificationConfig?.events || {}),
                                     [key]: { ...event, email: e.target.checked }
                                   }
                                 });

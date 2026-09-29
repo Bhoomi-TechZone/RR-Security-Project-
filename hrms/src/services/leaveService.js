@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 class LeaveService {
   getHeaders(companyId) {
@@ -8,7 +8,7 @@ class LeaveService {
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'x-company-id': companyId || 'RRS8392014SEC',
+      'x-company-id': companyId,
     };
   }
 
@@ -48,7 +48,7 @@ class LeaveService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...payload,
-        companyId: companyId || 'RRS8392014SEC',
+        companyId: companyId,
       }),
     });
 
@@ -101,7 +101,7 @@ class LeaveService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...payload,
-        companyId: companyId || 'RRS8392014SEC',
+        companyId: companyId,
       }),
     });
 
@@ -154,7 +154,7 @@ class LeaveService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...payload,
-        companyId: companyId || 'RRS8392014SEC',
+        companyId: companyId,
       }),
     });
 
@@ -206,7 +206,7 @@ class LeaveService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...payload,
-        companyId: companyId || 'RRS8392014SEC',
+        companyId: companyId,
       }),
     });
 

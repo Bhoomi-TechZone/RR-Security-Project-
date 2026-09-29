@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getRoles,
   createRole,
+  getNextRoleId,
   updateRole,
   updateRolePermissions,
   deleteRole,
@@ -15,6 +16,10 @@ const router = express.Router();
 
 // All role and permission routes require JWT authentication
 router.use(protect);
+
+// Next Role ID route (must be before /:id)
+router.route('/next-id')
+  .get(getNextRoleId);
 
 // User assignment endpoints
 router.route('/users/assignments')

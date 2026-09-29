@@ -107,79 +107,23 @@ const seedDefaultCompany = async () => {
 
 const seedDefaultUsers = async () => {
   try {
-    const seedList = [
-      {
-        name: 'RR Security Administrator',
-        email: 'rrsecurity@gmail.com',
-        password: 'Security@123',
-        role: 'admin',
-        redirect: '/admin/dashboard',
-        label: 'Admin',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
-        department: 'Executive Administration',
-        status: 'Active'
-      },
-      {
-        name: 'System Administrator (Backup)',
-        email: 'admin@novaspark.com',
-        password: 'Admin@123',
-        role: 'admin',
-        redirect: '/admin/dashboard',
-        label: 'Admin',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=256',
-        department: 'Executive Management',
-        status: 'Active'
-      },
-      {
-        name: 'Amit Kumar',
-        email: 'user@novaspark.com',
-        password: 'User@123',
-        role: 'user',
-        redirect: '/user/dashboard',
-        label: 'User',
-        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=256',
-        department: 'Operations',
-        status: 'Active'
-      },
-      {
-        name: 'Apex Infotech Solutions',
-        email: 'client@novaspark.com',
-        password: 'Client@123',
-        role: 'client',
-        redirect: '/client/dashboard',
-        label: 'Client',
-        avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=256',
-        department: 'Client Portal',
-        status: 'Active'
-      },
-      {
-        name: 'Rajesh Sharma',
-        email: 'employee@novaspark.com',
-        password: 'Employee@123',
-        role: 'employee',
-        redirect: '/employee/dashboard',
-        label: 'Employee',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=256',
-        department: 'Field Operations',
-        status: 'Active'
-      }
-    ];
+    const adminAccount = {
+      name: 'RR Security Administrator',
+      email: 'rrsecurity@gmail.com',
+      password: 'Security@123',
+      role: 'admin',
+      redirect: '/admin/dashboard',
+      label: 'Admin',
+      department: 'Executive Administration',
+      status: 'Active'
+    };
 
-    for (const u of seedList) {
-      let existingUser = await User.findOne({ email: u.email.toLowerCase() });
-      if (!existingUser) {
-        await User.create(u);
-        console.log(`🌱 Created user: ${u.email} (${u.role})`);
-      } else {
-        // If password needs update or user exists
-        existingUser.password = u.password;
-        existingUser.status = 'Active';
-        existingUser.role = u.role;
-        await existingUser.save();
-      }
+    let existingAdmin = await User.findOne({ email: adminAccount.email.toLowerCase() });
+    if (!existingAdmin) {
+      await User.create(adminAccount);
+      console.log(`🌱 Verified Master Admin: ${adminAccount.email}`);
     }
-    console.log('✅ Admin (rrsecurity@gmail.com) and seed users verified in RR_Security.');
   } catch (err) {
-    console.error('Error during initial user seeding:', err.message);
+    console.error('Error during initial admin verification:', err.message);
   }
 };

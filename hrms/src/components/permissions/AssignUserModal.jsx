@@ -10,9 +10,10 @@ function AssignUserModal({
   roles = [],
   user = null, // if provided, we are in 'Change Role' mode for this specific user
   defaultRoleId = '',
-  mockDirectoryUsers = []
+  directoryUsers = []
 }) {
   const isChangeRoleMode = Boolean(user);
+  const usersList = directoryUsers || [];
 
   const [selectedUserId, setSelectedUserId] = useState('');
   const [selectedRoleId, setSelectedRoleId] = useState(defaultRoleId || '');
@@ -26,13 +27,13 @@ function AssignUserModal({
         setSelectedRoleId(user.roleId || '');
         setUserStatus(user.status || 'Active');
       } else {
-        setSelectedUserId(mockDirectoryUsers[0]?.id || '');
+        setSelectedUserId(usersList[0]?.id || '');
         setSelectedRoleId(defaultRoleId || roles[0]?.id || '');
         setUserStatus('Active');
       }
       setError(null);
     }
-  }, [isOpen, user, defaultRoleId, roles, mockDirectoryUsers]);
+  }, [isOpen, user, defaultRoleId, roles, usersList]);
 
   if (!isOpen) return null;
 
@@ -41,7 +42,7 @@ function AssignUserModal({
 
   const selectedDirectoryUser = isChangeRoleMode 
     ? user 
-    : mockDirectoryUsers.find(u => u.id === selectedUserId);
+    : usersList.find(u => u.id === selectedUserId);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -52,7 +53,7 @@ function AssignUserModal({
     }
 
     if (!isChangeRoleMode && !selectedUserId) {
-      setError('Please select a user from the directory.');
+      setError('Please select a user account from the directory.');
       return;
     }
 
@@ -67,7 +68,7 @@ function AssignUserModal({
   const title = isChangeRoleMode ? 'Change User Role' : 'Assign Role to User';
   const subtitle = isChangeRoleMode 
     ? `Update role permissions for ${user?.name}`
-    : 'Grant role-based module permissions to an employee';
+    : 'Grant role-based module permissions to a company user account';
 
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="assign-user-title">
@@ -101,19 +102,21 @@ function AssignUserModal({
               <Avatar initials={user.initials} name={user.name} size="md" />
               <div className={styles.selectedUserInfo}>
                 <strong className={styles.selectedUserName}>{user.name}</strong>
-                <span className={styles.selectedUserEmail}>{user.email}</span>
+                <span className={styles.selectedUserEmail}>{user.email || 'No email provided'}</span>
                 <span className={styles.selectedUserMeta}>
-                  {user.employeeId} • {user.company}
+                  {user.userId ? `User ID: ${user.userId}` : ''}
+                  {user.userId && user.employeeId ? ' • ' : ''}
+                  {user.employeeId ? `Employee ID: ${user.employeeId}` : (!user.userId ? 'Standalone User' : '')}
                 </span>
                 <div className={styles.currentRoleTag}>
-                  Current Role: <b>{user.roleName}</b>
+                  Current Role: <b>{user.roleName || 'Unassigned'}</b>
                 </div>
               </div>
             </div>
           ) : (
             <div className={styles.fieldGroup}>
               <label htmlFor="select-user" className={styles.label}>
-                Select Employee / User <span className={styles.required}>*</span>
+                Select User Account <span className={styles.required}>*</span>
               </label>
               <select
                 id="select-user"
@@ -121,12 +124,21 @@ function AssignUserModal({
                 value={selectedUserId}
                 onChange={(e) => setSelectedUserId(e.target.value)}
               >
-                {mockDirectoryUsers.map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.name} ({u.employeeId}) — {u.company} [{u.designation || 'Staff'}]
-                  </option>
-                ))}
+                {usersList.length === 0 ? (
+                  <option value="">-- No User Accounts Available --</option>
+                ) : (
+                  usersList.map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({u.userId || 'USR'}) {u.email ? `— ${u.email}` : ''} {u.employeeId ? `[Linked: ${u.employeeId}]` : '[Standalone User]'}
+                    </option>
+                  ))
+                )}
               </select>
+              {usersList.length === 0 && (
+                <span className={styles.errorText} style={{ color: '#64748b', marginTop: '6px' }}>
+                  No user accounts found. Create users under <b>User Management</b> first.
+                </span>
+              )}
             </div>
           )}
 

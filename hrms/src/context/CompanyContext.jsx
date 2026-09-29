@@ -43,7 +43,7 @@ export const DEFAULT_PRIMARY_COMPANY = {
   activeShifts: 3
 };
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export function CompanyProvider({ children }) {
   // 1. All registered companies for the admin
@@ -79,17 +79,16 @@ export function CompanyProvider({ children }) {
     localStorage.setItem('novaspark_active_company_id', activeCompanyId);
   }, [activeCompanyId]);
 
-  // Fetch companies from backend API if user is authenticated
+  // Fetch companies from backend API dynamically
   const refreshFromBackend = useCallback(async () => {
     const token = authService.getToken();
-    if (!token) return;
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
 
     try {
-      const res = await fetch(`${API_BASE_URL}/companies`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      const res = await fetch(`${API_BASE_URL}/companies`, { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.companies && data.companies.length > 0) {

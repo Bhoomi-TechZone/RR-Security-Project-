@@ -2,96 +2,8 @@ import mongoose from 'mongoose';
 import Role from '../models/roleModel.js';
 import UserRole from '../models/userRoleModel.js';
 
-// Default standard module permissions for new company onboarding
-const DEFAULT_SYSTEM_ROLES = [
-  {
-    roleId: 'role-admin',
-    name: 'Admin',
-    type: 'system',
-    description: 'Full administrative access across all system modules and configurations',
-    status: 'Active',
-    permissions: {
-      employees: ['view', 'add', 'edit', 'delete', 'export'],
-      attendance: ['view', 'add', 'edit', 'delete', 'approve'],
-      leave: ['view', 'add', 'edit', 'delete', 'approve'],
-      overtime: ['view', 'add', 'edit', 'delete', 'approve'],
-      shifts: ['view', 'add', 'edit', 'delete'],
-      inventory: ['view', 'add', 'edit', 'delete', 'issue', 'return'],
-      advances_loans: ['view', 'add', 'edit', 'delete', 'approve'],
-      payroll: ['view', 'generate', 'process', 'download'],
-      reports: ['view', 'generate', 'export', 'print'],
-      notifications: ['view', 'post', 'edit', 'delete'],
-      companies: ['view', 'add', 'edit', 'delete'],
-      masters: ['view', 'add', 'edit', 'delete'],
-    },
-  },
-  {
-    roleId: 'role-hr-manager',
-    name: 'HR Manager',
-    type: 'system',
-    description: 'Employee lifecycle, onboarding, muster roll, leave approvals and payroll access',
-    status: 'Active',
-    permissions: {
-      employees: ['view', 'add', 'edit', 'export'],
-      attendance: ['view', 'add', 'edit', 'approve'],
-      leave: ['view', 'add', 'edit', 'approve'],
-      overtime: ['view', 'add', 'edit', 'approve'],
-      shifts: ['view', 'add', 'edit'],
-      inventory: ['view', 'issue', 'return'],
-      advances_loans: ['view', 'add', 'approve'],
-      payroll: ['view', 'generate', 'download'],
-      reports: ['view', 'generate', 'export'],
-      notifications: ['view', 'post'],
-      companies: ['view'],
-      masters: ['view'],
-    },
-  },
-  {
-    roleId: 'role-field-officer',
-    name: 'Field Officer',
-    type: 'system',
-    description: 'Site-level operations, shift scheduling, daily biometric checks and inventory dispatch',
-    status: 'Active',
-    permissions: {
-      employees: ['view'],
-      attendance: ['view', 'add', 'edit'],
-      leave: ['view', 'add'],
-      overtime: ['view', 'add'],
-      shifts: ['view', 'add', 'edit'],
-      inventory: ['view', 'issue', 'return'],
-      advances_loans: ['view', 'add'],
-      payroll: [],
-      reports: ['view'],
-      notifications: ['view'],
-      companies: ['view'],
-      masters: ['view'],
-    },
-  },
-  {
-    roleId: 'role-auditor',
-    name: 'Auditor',
-    type: 'system',
-    description: 'Read-only compliance reporting, statutory deductions, registers and muster verification',
-    status: 'Active',
-    permissions: {
-      employees: ['view', 'export'],
-      attendance: ['view'],
-      leave: ['view'],
-      overtime: ['view'],
-      shifts: ['view'],
-      inventory: ['view'],
-      advances_loans: ['view'],
-      payroll: ['view', 'download'],
-      reports: ['view', 'generate', 'export', 'print'],
-      notifications: ['view'],
-      companies: ['view'],
-      masters: ['view'],
-    },
-  },
-];
-
 /**
- * @desc    Get all roles for the active company profile (auto-seeds defaults if empty)
+ * @desc    Get all roles for the active company profile strictly from MongoDB
  * @route   GET /api/roles
  * @access  Private
  */
@@ -107,23 +19,24 @@ export const getRoles = async (req, res) => {
       });
     }
 
-    let roles = await Role.find({ companyId, adminEmail }).sort({ createdAt: 1 });
+    // Clean up any legacy auto-seeded static system mock roles if requested/existing
+    await Role.deleteMany({
+      companyId,
+      adminEmail,
+      roleId: { $in: ['role-admin', 'role-hr-manager', 'role-field-officer', 'role-auditor'] }
+    });
 
-    // If company has no roles yet, seed the default system roles
-    if (roles.length === 0) {
-      const seeded = DEFAULT_SYSTEM_ROLES.map((r) => ({
-        ...r,
-        companyId,
-        adminEmail,
-        createdOn: new Date().toISOString().split('T')[0],
-      }));
-      roles = await Role.insertMany(seeded);
-    }
+    const roles = await Role.find({ companyId, adminEmail }).sort({ createdAt: 1 });
 
     // Update user counts dynamically
     const userRoles = await UserRole.find({ companyId, adminEmail });
     const rolesWithCounts = roles.map((r) => {
-      const count = userRoles.filter((u) => u.roleId === (r.roleId || r.id)).length;
+      const count = userRoles.filter((u) => 
+        u.roleId === r.roleId || 
+        u.roleId === r.id || 
+        u.roleId === r._id?.toString() || 
+        (u.roleName && r.name && u.roleName.toLowerCase() === r.name.toLowerCase())
+      ).length;
       const json = r.toJSON();
       json.usersCount = count;
       return json;
@@ -139,6 +52,72 @@ export const getRoles = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to retrieve roles.',
+    });
+  }
+};
+
+/**
+ * Helper to compute the next sequential unique Role ID for a given company
+ */
+export const calculateNextRoleId = async (companyId, adminEmail) => {
+  const roles = await Role.find(
+    { companyId, adminEmail },
+    { roleId: 1 }
+  ).lean();
+
+  let maxNum = 0;
+  for (const r of roles) {
+    if (r.roleId) {
+      const match = r.roleId.match(/(?:role|rol)[-_]?(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    }
+  }
+
+  let nextNum = maxNum + 1;
+  let candidateId = `ROLE-${String(nextNum).padStart(3, '0')}`;
+
+  // Double check uniqueness within this company and increment if needed
+  while (await Role.exists({ companyId, adminEmail, roleId: candidateId })) {
+    nextNum += 1;
+    candidateId = `ROLE-${String(nextNum).padStart(3, '0')}`;
+  }
+
+  return candidateId;
+};
+
+/**
+ * @desc    Get next sequential unique role ID for company
+ * @route   GET /api/roles/next-id
+ * @access  Private
+ */
+export const getNextRoleId = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company ID is required.',
+      });
+    }
+
+    const nextRoleId = await calculateNextRoleId(companyId, adminEmail);
+
+    return res.status(200).json({
+      success: true,
+      nextRoleId,
+    });
+  } catch (error) {
+    console.error('Error computing next role ID:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate next role ID.',
     });
   }
 };
@@ -160,7 +139,7 @@ export const createRole = async (req, res) => {
       });
     }
 
-    const { name, description, status, permissions } = req.body;
+    const { name, description, status, permissions, roleId: customRoleId } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({
@@ -170,21 +149,41 @@ export const createRole = async (req, res) => {
     }
 
     // Check for duplicate name within this company
-    const existing = await Role.findOne({
+    const existingName = await Role.findOne({
       companyId,
       adminEmail,
       name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
     });
 
-    if (existing) {
+    if (existingName) {
       return res.status(400).json({
         success: false,
         message: `A role named "${name.trim()}" already exists for this company.`,
       });
     }
 
+    // Determine unique roleId for this company
+    let assignedRoleId = customRoleId ? customRoleId.trim() : null;
+
+    if (assignedRoleId) {
+      const existingId = await Role.findOne({
+        companyId,
+        adminEmail,
+        roleId: assignedRoleId,
+      });
+
+      if (existingId) {
+        return res.status(400).json({
+          success: false,
+          message: `Role ID "${assignedRoleId}" already exists for this company.`,
+        });
+      }
+    } else {
+      assignedRoleId = await calculateNextRoleId(companyId, adminEmail);
+    }
+
     const newRole = await Role.create({
-      roleId: `role-${Date.now().toString().slice(-6)}`,
+      roleId: assignedRoleId,
       companyId,
       adminEmail,
       name: name.trim(),
@@ -341,13 +340,6 @@ export const deleteRole = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Role not found.',
-      });
-    }
-
-    if (role.type === 'system') {
-      return res.status(400).json({
-        success: false,
-        message: 'System roles cannot be deleted.',
       });
     }
 

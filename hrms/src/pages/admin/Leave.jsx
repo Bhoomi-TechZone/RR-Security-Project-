@@ -41,7 +41,7 @@ import leaveService from '../../services/leaveService';
 import authService from '../../services/authService';
 import styles from './Leave.module.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 8;
 
 const formatDate = (dateString) => {
@@ -444,7 +444,7 @@ export default function Leave() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { activeCompany } = useCompany();
-  const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const compId = activeCompany?.companyId || activeCompany?.id;
 
   const initialTab = searchParams.get('tab') || 'requests';
   const [activeTab, setActiveTab] = useState(initialTab); // 'requests' | 'balances' | 'master' | 'calendar'
