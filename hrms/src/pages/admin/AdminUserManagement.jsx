@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus } from 'lucide-react';
+import { UserPlus, Loader2 } from 'lucide-react';
 import styles from './AdminUserManagement.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -12,72 +12,33 @@ import ChangeRoleModal from '../../components/users/ChangeRoleModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Toast from '../../components/common/Toast';
 
-import { INITIAL_ADMIN_USERS } from '../../data/adminUsersData';
-import { INITIAL_ROLES } from '../../data/rolesPermissionsData';
+import { useCompany } from '../../context/CompanyContext';
+import { authService } from '../../services/authService';
+import userService from '../../services/userService';
+import roleService from '../../services/roleService';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function AdminUserManagement() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const statusParam = searchParams.get('status');
   const filterParam = searchParams.get('filter');
 
   const initialFilter = statusParam === 'active' ? 'active' : statusParam === 'inactive' ? 'inactive' : filterParam === 'roles' ? 'roles' : 'all';
 
-  // Users State with LocalStorage Persistence
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem('novaspark_admin_users_data');
-    return saved ? JSON.parse(saved) : INITIAL_ADMIN_USERS;
-  });
-
-  // Roles State (pulled from roles & permissions storage or initial, cleanses any legacy dashboard key)
-  const [roles] = useState(() => {
-    const savedRoles = localStorage.getItem('novaspark_roles_data');
-    const rawRoles = savedRoles ? JSON.parse(savedRoles) : INITIAL_ROLES;
-    return rawRoles.map(r => {
-      if (r.permissions && r.permissions.dashboard) {
-        const { dashboard, ...cleanPerms } = r.permissions;
-        return { ...r, permissions: cleanPerms };
-      }
-      return r;
-    });
-  });
-
-  // Sync users to LocalStorage
-  useEffect(() => {
-    localStorage.setItem('novaspark_admin_users_data', JSON.stringify(users));
-  }, [users]);
+  // Dynamic state from backend
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [nextUserId, setNextUserId] = useState('USR001');
+  const [loading, setLoading] = useState(true);
 
   // Card filter state
   const [cardFilter, setCardFilter] = useState(initialFilter);
-
-  // Sync cardFilter with URL search parameters
-  useEffect(() => {
-    const currentStatus = searchParams.get('status');
-    const currentFilter = searchParams.get('filter');
-    if (currentStatus === 'active') {
-      setCardFilter('active');
-    } else if (currentStatus === 'inactive') {
-      setCardFilter('inactive');
-    } else if (currentFilter === 'roles' || currentStatus === 'roles') {
-      setCardFilter('roles');
-    } else {
-      setCardFilter('all');
-    }
-  }, [searchParams]);
-
-  const handleCardFilterClick = (filterType) => {
-    setCardFilter(filterType);
-    if (filterType === 'active') {
-      setSearchParams({ status: 'active' });
-    } else if (filterType === 'inactive') {
-      setSearchParams({ status: 'inactive' });
-    } else if (filterType === 'roles') {
-      setSearchParams({ filter: 'roles' });
-    } else {
-      setSearchParams({});
-    }
-  };
 
   // Modals & Drawers State
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -110,9 +71,119 @@ function AdminUserManagement() {
     setToast({ show: true, message, type });
   };
 
+  // Sync cardFilter with URL search parameters
+  useEffect(() => {
+    const currentStatus = searchParams.get('status');
+    const currentFilter = searchParams.get('filter');
+    if (currentStatus === 'active') {
+      setCardFilter('active');
+    } else if (currentStatus === 'inactive') {
+      setCardFilter('inactive');
+    } else if (currentFilter === 'roles' || currentStatus === 'roles') {
+      setCardFilter('roles');
+    } else {
+      setCardFilter('all');
+    }
+  }, [searchParams]);
+
+  // Fetch all users, roles, and employees for the active company
+  const loadCompanyData = useCallback(async () => {
+    if (!currentCompanyId) return;
+    setLoading(true);
+    try {
+      // Clear any legacy static local storage keys
+      localStorage.removeItem('novaspark_admin_users_data');
+      localStorage.removeItem(`novaspark_users_${currentCompanyId}`);
+
+      // 1. Fetch Users strictly from Database
+      let fetchedUsers = [];
+      try {
+        fetchedUsers = await userService.getUsers(currentCompanyId);
+      } catch (err) {
+        console.warn('Backend users fetch error:', err);
+        fetchedUsers = [];
+      }
+
+      // 2. Fetch Roles strictly from Database
+      let fetchedRoles = [];
+      try {
+        fetchedRoles = await roleService.getRoles(currentCompanyId);
+      } catch (err) {
+        console.warn('Backend roles fetch error:', err);
+        fetchedRoles = [];
+      }
+
+      // 3. Fetch Next User ID
+      let dynamicNextId = 'USR001';
+      try {
+        dynamicNextId = await userService.getNextUserId(currentCompanyId);
+      } catch (err) {
+        // compute from fetched users
+        const maxNum = (fetchedUsers || []).reduce((max, u) => {
+          const match = u.userId && String(u.userId).match(/USR(\d+)/i);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            return Math.max(max, num);
+          }
+          return max;
+        }, 0);
+        dynamicNextId = `USR${String(maxNum + 1).padStart(3, '0')}`;
+      }
+
+      // 4. Fetch Employees (for dropdown)
+      try {
+        const token = authService.getToken();
+        const empRes = await fetch(`${API_BASE_URL}/employees`, {
+          headers: {
+            'Authorization': `Bearer ${token || ''}`,
+            'x-company-id': currentCompanyId,
+          },
+        });
+        if (empRes.ok) {
+          const empData = await empRes.json();
+          setEmployees(empData.employees || []);
+        }
+      } catch (err) {
+        console.warn('Employees fetch for user modal dropdown error:', err);
+      }
+
+      setUsers(fetchedUsers || []);
+      setRoles(fetchedRoles || []);
+      setNextUserId(dynamicNextId);
+    } catch (error) {
+      console.error('Failed to load user management data:', error);
+      showToast('Error loading company users from database', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentCompanyId]);
+
+  useEffect(() => {
+    loadCompanyData();
+  }, [loadCompanyData]);
+
+  const handleCardFilterClick = (filterType) => {
+    setCardFilter(filterType);
+    if (filterType === 'active') {
+      setSearchParams({ status: 'active' });
+    } else if (filterType === 'inactive') {
+      setSearchParams({ status: 'inactive' });
+    } else if (filterType === 'roles') {
+      setSearchParams({ filter: 'roles' });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   // Handlers
-  const handleOpenAddUser = () => {
+  const handleOpenAddUser = async () => {
     setEditingUser(null);
+    try {
+      const nextId = await userService.getNextUserId(currentCompanyId);
+      setNextUserId(nextId);
+    } catch {
+      // ignore
+    }
     setIsFormModalOpen(true);
   };
 
@@ -121,55 +192,43 @@ function AdminUserManagement() {
     setIsFormModalOpen(true);
   };
 
-  const handleFormModalSubmit = (userData) => {
+  const handleFormModalSubmit = async (userData) => {
     setIsFormModalOpen(false);
 
-    if (editingUser) {
-      // Update existing user
-      setUsers(prev => prev.map(u => {
-        if (u.id === editingUser.id) {
-          return { ...u, ...userData };
+    try {
+      if (editingUser) {
+        // Update existing user on database
+        const targetId = editingUser._id || editingUser.id || editingUser.userId;
+        const updated = await userService.updateUser(currentCompanyId, targetId, {
+          ...userData,
+          companyName: activeCompany?.name || ''
+        });
+
+        setUsers(prev => prev.map(u => (u.id === editingUser.id || u._id === editingUser._id) ? { ...u, ...updated } : u));
+        if (selectedUserForDetails && (selectedUserForDetails.id === editingUser.id || selectedUserForDetails._id === editingUser._id)) {
+          setSelectedUserForDetails(prev => ({ ...prev, ...updated }));
         }
-        return u;
-      }));
 
-      // Update selected drawer user if open
-      if (selectedUserForDetails && selectedUserForDetails.id === editingUser.id) {
-        setSelectedUserForDetails(prev => ({ ...prev, ...userData }));
+        showToast(`User ${userData.name} updated successfully.`);
+      } else {
+        // Create new user on database
+        const created = await userService.createUser(currentCompanyId, {
+          ...userData,
+          companyName: activeCompany?.name || ''
+        });
+
+        setUsers(prev => [created, ...prev]);
+        showToast(`User account ${created.name} (${created.userId}) created successfully.`);
+
+        // Refresh next user id
+        const nextId = await userService.getNextUserId(currentCompanyId);
+        setNextUserId(nextId);
       }
-
-      showToast(`User ${userData.name} updated successfully.`);
-    } else {
-      // Create new user
-      const nextUserNum = users.length + 1;
-      const formattedUserId = `USR${String(nextUserNum).padStart(3, '0')}`;
-      const initials = userData.name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
-
-      const today = new Date().toISOString().split('T')[0];
-
-      const newUser = {
-        id: `usr-${Date.now()}`,
-        userId: formattedUserId,
-        name: userData.name,
-        initials,
-        email: userData.email,
-        mobile: userData.mobile,
-        username: userData.username,
-        roleId: userData.roleId,
-        roleName: userData.roleName,
-        status: userData.status || 'Active',
-        createdOn: today,
-        lastLogin: null,
-        avatarTone: 'primary'
-      };
-
-      setUsers(prev => [newUser, ...prev]);
-      showToast(`User ${userData.name} (${formattedUserId}) created successfully.`);
+    } catch (error) {
+      console.error('Error saving user to database:', error);
+      showToast(error.message || 'Failed to save user account', 'error');
+      // reload from server to maintain consistency
+      loadCompanyData();
     }
   };
 
@@ -183,25 +242,22 @@ function AdminUserManagement() {
     setIsChangeRoleModalOpen(true);
   };
 
-  const handleChangeRoleSubmit = ({ userId, roleId, roleName }) => {
+  const handleChangeRoleSubmit = async ({ userId, roleId, roleName }) => {
     setIsChangeRoleModalOpen(false);
 
-    setUsers(prev => prev.map(u => {
-      if (u.id === userId) {
-        return {
-          ...u,
-          roleId,
-          roleName
-        };
+    try {
+      const updated = await userService.changeUserRole(currentCompanyId, userId, { roleId, roleName });
+      setUsers(prev => prev.map(u => (u.id === userId || u._id === userId || u.userId === userId) ? { ...u, ...updated, roleId, roleName } : u));
+
+      if (selectedUserForDetails && (selectedUserForDetails.id === userId || selectedUserForDetails._id === userId || selectedUserForDetails.userId === userId)) {
+        setSelectedUserForDetails(prev => ({ ...prev, roleId, roleName }));
       }
-      return u;
-    }));
 
-    if (selectedUserForDetails && selectedUserForDetails.id === userId) {
-      setSelectedUserForDetails(prev => ({ ...prev, roleId, roleName }));
+      showToast(`Role updated to "${roleName}" for user.`);
+    } catch (error) {
+      console.error('Error changing role:', error);
+      showToast(error.message || 'Failed to change role on database.', 'error');
     }
-
-    showToast(`Role updated to "${roleName}" for user.`);
   };
 
   const handleToggleUserStatus = (user) => {
@@ -215,14 +271,21 @@ function AdminUserManagement() {
         : `This user will regain access to log in with their assigned role (${user.roleName}).`,
       confirmLabel: isDeactivating ? 'Deactivate User' : 'Activate User',
       variant: isDeactivating ? 'warning' : 'primary',
-      onConfirm: () => {
+      onConfirm: async () => {
         const newStatus = isDeactivating ? 'Inactive' : 'Active';
-        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
-        if (selectedUserForDetails && selectedUserForDetails.id === user.id) {
-          setSelectedUserForDetails(prev => ({ ...prev, status: newStatus }));
+        try {
+          const targetId = user._id || user.id || user.userId;
+          await userService.toggleUserStatus(currentCompanyId, targetId, newStatus);
+          setUsers(prev => prev.map(u => (u.id === user.id || u._id === user._id) ? { ...u, status: newStatus } : u));
+          if (selectedUserForDetails && (selectedUserForDetails.id === user.id || selectedUserForDetails._id === user._id)) {
+            setSelectedUserForDetails(prev => ({ ...prev, status: newStatus }));
+          }
+          showToast(`User account ${user.name} is now ${newStatus}.`);
+        } catch (error) {
+          showToast(error.message || 'Failed to update user status', 'error');
+        } finally {
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         }
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-        showToast(`User account ${user.name} is now ${newStatus}.`);
       }
     });
   };
@@ -238,14 +301,21 @@ function AdminUserManagement() {
         : `This user account will be temporarily suspended and blocked from logging in.`,
       confirmLabel: isSuspended ? 'Unsuspend User' : 'Suspend User',
       variant: isSuspended ? 'primary' : 'danger',
-      onConfirm: () => {
+      onConfirm: async () => {
         const newStatus = isSuspended ? 'Active' : 'Suspended';
-        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, status: newStatus } : u));
-        if (selectedUserForDetails && selectedUserForDetails.id === user.id) {
-          setSelectedUserForDetails(prev => ({ ...prev, status: newStatus }));
+        try {
+          const targetId = user._id || user.id || user.userId;
+          await userService.toggleUserStatus(currentCompanyId, targetId, newStatus);
+          setUsers(prev => prev.map(u => (u.id === user.id || u._id === user._id) ? { ...u, status: newStatus } : u));
+          if (selectedUserForDetails && (selectedUserForDetails.id === user.id || selectedUserForDetails._id === user._id)) {
+            setSelectedUserForDetails(prev => ({ ...prev, status: newStatus }));
+          }
+          showToast(`User ${user.name} is now ${newStatus}.`);
+        } catch (error) {
+          showToast(error.message || 'Failed to update suspension status', 'error');
+        } finally {
+          setConfirmDialog(prev => ({ ...prev, isOpen: false }));
         }
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-        showToast(`User ${user.name} is now ${newStatus}.`);
       }
     });
   };
@@ -254,7 +324,7 @@ function AdminUserManagement() {
     setConfirmDialog({
       isOpen: true,
       title: `Reset Login Access for ${user.name}?`,
-      description: `This will invalidate active login sessions and generate new access credentials for ${user.email}.`,
+      description: `This will invalidate active login sessions and generate new access credentials for ${user.email || user.name}.`,
       confirmLabel: 'Reset Access',
       variant: 'primary',
       onConfirm: () => {
@@ -276,8 +346,8 @@ function AdminUserManagement() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-muted, #64748b)' }}>
             <span onClick={() => navigate('/admin/dashboard')} style={{ cursor: 'pointer' }}>Dashboard</span>
             <span>/</span>
-            <span 
-              onClick={() => handleCardFilterClick('all')} 
+            <span
+              onClick={() => handleCardFilterClick('all')}
               style={{ cursor: cardFilter !== 'all' ? 'pointer' : 'default', color: cardFilter !== 'all' ? 'var(--primary-color, #2563eb)' : 'inherit', fontWeight: cardFilter !== 'all' ? 500 : 600 }}
             >
               User Management
@@ -307,7 +377,7 @@ function AdminUserManagement() {
             <div>
               <h1 className={styles.pageTitle}>User Management</h1>
               <p className={styles.pageDescription}>
-                Manage HRMS login users, assign roles and control account access.
+                Manage HRMS login users, assign roles and control account access for <strong>{activeCompany?.name || 'Active Company'}</strong>.
               </p>
             </div>
 
@@ -357,6 +427,8 @@ function AdminUserManagement() {
           initialUser={editingUser}
           isEditing={Boolean(editingUser)}
           roles={roles}
+          employees={employees}
+          nextUserId={nextUserId}
           onNavigateToRoles={handleNavigateToRoles}
         />
 
@@ -387,15 +459,15 @@ function AdminUserManagement() {
           confirmLabel={confirmDialog.confirmLabel}
           variant={confirmDialog.variant}
           onConfirm={confirmDialog.onConfirm}
-          onCancel={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
+          onClose={() => setConfirmDialog(prev => ({ ...prev, isOpen: false }))}
         />
 
-        {/* Toast Notification */}
+        {/* Toast Alerts */}
         <Toast
-          show={toast.show}
+          isOpen={toast.show}
           message={toast.message}
           type={toast.type}
-          onClose={() => setToast({ show: false, message: '', type: 'success' })}
+          onClose={() => setToast(prev => ({ ...prev, show: false }))}
         />
       </div>
     </AdminLayout>

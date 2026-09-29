@@ -27,7 +27,7 @@ import { shiftService } from '../../services/shiftService';
 import { authService } from '../../services/authService';
 import styles from './ShiftManagement.module.css';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const PAGE_SIZE = 10;
 const getTodayDate = () => new Date().toISOString().split('T')[0];
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -18,8 +18,13 @@ import {
 } from 'lucide-react';
 import styles from './EmployeeDashboard.module.css';
 import { employeeDashboardData } from '../../data/employeeDashboardData';
+import { useCompany } from '../../context/CompanyContext';
+import authService from '../../services/authService';
+import preferenceService from '../../services/preferenceService';
+import leaveService from '../../services/leaveService';
+import attendanceService from '../../services/attendanceService';
 
-const formatCurrency = (value) => `₹${value.toLocaleString('en-IN')}`;
+const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
 function EmployeeProfileCard({ employee }) {
   return (
@@ -538,23 +543,109 @@ function EmployeeNotifications({ notifications }) {
 }
 
 function EmployeeDashboard() {
-  const data = employeeDashboardData;
-  const today = new Date('2026-08-25T00:00:00');
+  const { activeCompany } = useCompany();
+  const currentUser = authService.getCurrentUser();
+  const companyId = activeCompany?.companyId || activeCompany?.id || currentUser?.companyId || 'RRS8392014SEC';
+
+  const [portalAccess, setPortalAccess] = useState({
+    enabled: true,
+    allowDashboard: true,
+    allowAttendance: true,
+    allowLeaves: true,
+    allowSalarySlips: true,
+    allowProfile: true,
+    allowNotifications: true,
+  });
+
+  const [leaveRequests, setLeaveRequests] = useState([]);
+  const [leaveBalances, setLeaveBalances] = useState([]);
+  const [attendanceRecords, setAttendanceRecords] = useState([]);
+
+  // Dynamic Employee info from logged-in user or active company
+  const employeeName = currentUser?.name || currentUser?.employeeName || 'Workforce Member';
+  const employeeInitials = employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  const dynamicEmployee = {
+    name: employeeName,
+    employeeId: currentUser?.employeeId || currentUser?.userId || 'EMP-10024',
+    designation: currentUser?.designation || currentUser?.role || 'Security Supervisor',
+    department: currentUser?.department || 'Operations',
+    company: activeCompany?.name || 'RR Security & Facilities',
+    initials: employeeInitials,
+  };
+
+  // Fetch live portal permissions, leaves, and attendance
+  useEffect(() => {
+    let isMounted = true;
+    async function loadDynamicDashboard() {
+      try {
+        const [access, leaves, balances, attendance] = await Promise.allSettled([
+          preferenceService.getEmployeePortalAccess(companyId),
+          leaveService.getMyLeaveRequests(companyId),
+          leaveService.getMyLeaveBalances(companyId),
+          attendanceService.getAttendanceRecords(companyId, { search: dynamicEmployee.employeeId }),
+        ]);
+
+        if (isMounted) {
+          if (access.status === 'fulfilled' && access.value) {
+            setPortalAccess(access.value);
+          }
+          if (leaves.status === 'fulfilled' && Array.isArray(leaves.value)) {
+            setLeaveRequests(leaves.value);
+          }
+          if (balances.status === 'fulfilled' && Array.isArray(balances.value)) {
+            setLeaveBalances(balances.value);
+          }
+          if (attendance.status === 'fulfilled' && Array.isArray(attendance.value)) {
+            setAttendanceRecords(attendance.value);
+          }
+        }
+      } catch (err) {
+        console.warn('Dashboard data fetch warning:', err);
+      }
+    }
+
+    loadDynamicDashboard();
+    return () => { isMounted = false; };
+  }, [companyId, dynamicEmployee.employeeId]);
+
+  const today = new Date();
   const dateLabel = new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric'
   }).format(today);
 
+  const totalLeaveBalance = leaveBalances.reduce((sum, b) => sum + (b.available || 0), 0) || employeeDashboardData.summary.leaveBalance;
+  const pendingLeaves = leaveRequests.filter(r => r.status && r.status.toLowerCase().includes('pending')).length;
+
+  const data = {
+    ...employeeDashboardData,
+    employee: dynamicEmployee,
+    summary: {
+      ...employeeDashboardData.summary,
+      leaveBalance: totalLeaveBalance,
+      totalLeaveRequests: leaveRequests.length || employeeDashboardData.summary.totalLeaveRequests,
+      pendingLeaveRequests: pendingLeaves,
+    },
+    leaveRequests: leaveRequests.length > 0 ? leaveRequests.slice(0, 5).map(r => ({
+      id: r._id || r.id || `req-${Math.random()}`,
+      type: r.leaveType?.name || r.leaveType || 'Leave',
+      from: r.startDate ? new Date(r.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
+      to: r.endDate ? new Date(r.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
+      days: r.days || 1,
+      status: r.status || 'Pending',
+    })) : employeeDashboardData.leaveRequests,
+  };
+
   return (
     <main className={styles.page}>
       <div className={styles.container}>
         <header className={styles.pageHeader}>
           <div className={styles.welcomeSection}>
-            {/* <p className={styles.kicker}>Employee Dashboard</p> */}
-            <h1 className={styles.heading}>Welcome, Rahul </h1>
+            <h1 className={styles.heading}>Welcome, {employeeName.split(' ')[0]}</h1>
             <p className={styles.subheading}>
-              Here&apos;s your attendance, leave and salary overview.
+              Here&apos;s your live attendance, leave and salary self-service portal.
             </p>
           </div>
 
@@ -565,33 +656,57 @@ function EmployeeDashboard() {
         </header>
 
         <div className={styles.profileStatsRow}>
-          <EmployeeProfileCard employee={data.employee} />
+          {portalAccess.allowProfile !== false && (
+            <EmployeeProfileCard employee={data.employee} />
+          )}
 
           <section className={styles.kpiGrid} aria-label="Employee summary cards">
-            <SummaryCard icon={CalendarCheck} label="Present Days" value={data.summary.presentDays} meta={data.summary.presentMonth} />
-            <SummaryCard icon={CalendarX} label="Absent Days" value={data.attendance.absentDays} meta={data.summary.presentMonth} tone="danger" />
-            <SummaryCard icon={CalendarDays} label="Leave Balance" value={`${data.summary.leaveBalance} Days`} meta="Available" tone="warning" />
-            <SummaryCard icon={FileText} label="Total Leave Requests" value={data.summary.totalLeaveRequests || data.leaveRequests?.length || 3} meta={`${data.summary.pendingLeaveRequests || 1} Pending`} tone="purple" />
+            {portalAccess.allowAttendance !== false && (
+              <>
+                <SummaryCard icon={CalendarCheck} label="Present Days" value={data.summary.presentDays} meta={data.summary.presentMonth} />
+                <SummaryCard icon={CalendarX} label="Absent Days" value={data.attendance.absentDays} meta={data.summary.presentMonth} tone="danger" />
+              </>
+            )}
+            {portalAccess.allowLeaves !== false && (
+              <>
+                <SummaryCard icon={CalendarDays} label="Leave Balance" value={`${data.summary.leaveBalance} Days`} meta="Available" tone="warning" />
+                <SummaryCard icon={FileText} label="Total Leave Requests" value={data.summary.totalLeaveRequests} meta={`${data.summary.pendingLeaveRequests} Pending`} tone="purple" />
+              </>
+            )}
             <SummaryCard icon={Clock3} label="Overtime" value={`${data.summary.overtimeHours} hrs`} meta="This Month" tone="info" />
-            <SummaryCard icon={IndianRupee} label="Last Salary" value={formatCurrency(data.summary.lastSalary)} meta={data.summary.presentMonth} tone="success" />
+            {portalAccess.allowSalarySlips !== false && (
+              <SummaryCard icon={IndianRupee} label="Last Salary" value={formatCurrency(data.summary.lastSalary)} meta={data.summary.presentMonth} tone="success" />
+            )}
           </section>
         </div>
 
         <div className={styles.contentGrid}>
           <div className={styles.primaryColumn}>
-            <AttendanceStatusCard attendance={data.todayAttendance} />
-            <LatestSalaryCard salary={data.salary} />
+            {portalAccess.allowAttendance !== false && (
+              <AttendanceStatusCard attendance={data.todayAttendance} />
+            )}
+            {portalAccess.allowSalarySlips !== false && (
+              <LatestSalaryCard salary={data.salary} />
+            )}
           </div>
 
           <div className={styles.secondaryColumn}>
-            <AttendanceOverviewCard attendance={data.attendance} />
-            <AttendanceCalendar items={data.attendanceCalendar} />
+            {portalAccess.allowAttendance !== false && (
+              <>
+                <AttendanceOverviewCard attendance={data.attendance} />
+                <AttendanceCalendar items={data.attendanceCalendar} />
+              </>
+            )}
           </div>
         </div>
 
         <div className={styles.twoColumnGrid}>
-          <RecentLeaveRequests requests={data.leaveRequests} />
-          <EmployeeNotifications notifications={data.notifications} />
+          {portalAccess.allowLeaves !== false && (
+            <RecentLeaveRequests requests={data.leaveRequests} />
+          )}
+          {portalAccess.allowNotifications !== false && (
+            <EmployeeNotifications notifications={data.notifications} />
+          )}
         </div>
       </div>
     </main>

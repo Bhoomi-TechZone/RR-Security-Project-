@@ -6,7 +6,9 @@ function RoleSummaryCards({ roles = [], users = [], onCardClick, activeFilter })
   const totalRoles = roles.length;
   const activeRoles = roles.filter(r => r.status === 'Active').length;
   const customRoles = roles.filter(r => r.type === 'custom').length;
-  const assignedUsers = users.filter(u => u.status === 'Active').length;
+  const totalAssignedUsers = users.length;
+  const activeAssignedUsers = users.filter(u => u.status === 'Active').length;
+  const inactiveAssignedUsers = totalAssignedUsers - activeAssignedUsers;
 
   const cards = [
     {
@@ -30,8 +32,10 @@ function RoleSummaryCards({ roles = [], users = [], onCardClick, activeFilter })
     {
       id: 'users',
       title: 'Assigned Users',
-      value: assignedUsers,
-      subtext: `${users.length} total users in directory`,
+      value: totalAssignedUsers,
+      subtext: totalAssignedUsers > 0
+        ? `${activeAssignedUsers} active${inactiveAssignedUsers > 0 ? `, ${inactiveAssignedUsers} inactive` : ''}`
+        : '0 total users in directory',
       icon: Users,
       tone: 'info',
       filterType: 'users'

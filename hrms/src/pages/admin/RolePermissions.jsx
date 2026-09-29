@@ -32,7 +32,10 @@ import {
 
 import { useCompany } from '../../context/CompanyContext';
 import roleService from '../../services/roleService';
-import { mockEmployees } from '../../data/employeeData';
+import authService from '../../services/authService';
+import userService from '../../services/userService';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function RolePermissions() {
   const navigate = useNavigate();
@@ -101,6 +104,8 @@ function RolePermissions() {
   const [roles, setRoles] = useState([]);
   // Assigned Users state from Backend
   const [users, setUsers] = useState([]);
+  // Dynamic User Accounts from Backend
+  const [companyUsers, setCompanyUsers] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Toast feedback state
@@ -114,17 +119,19 @@ function RolePermissions() {
     setToast({ show: true, message, type });
   };
 
-  // Fetch Roles and Assigned Users for the active company
+  // Fetch Roles, Assigned Users, and Company User Accounts for the active company
   const fetchData = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
     try {
-      const [fetchedRoles, fetchedUsers] = await Promise.all([
+      const [fetchedRoles, fetchedUsers, fetchedCompanyUsers] = await Promise.all([
         roleService.getRoles(companyId),
         roleService.getAssignedUsers(companyId),
+        userService.getUsers(companyId).catch(() => []),
       ]);
       setRoles(Array.isArray(fetchedRoles) ? fetchedRoles : []);
       setUsers(Array.isArray(fetchedUsers) ? fetchedUsers : []);
+      setCompanyUsers(Array.isArray(fetchedCompanyUsers) ? fetchedCompanyUsers : []);
     } catch (err) {
       console.error('Failed to load roles/permissions from backend:', err);
       showToast('Could not load roles and permissions. Please try again.', 'danger');
@@ -159,17 +166,29 @@ function RolePermissions() {
     onConfirm: null,
   });
 
-  // Directory of employees eligible for user assignment
-  const mockDirectoryUsers = mockEmployees.map((emp) => ({
-    id: `usr-${emp.id}`,
-    employeeId: emp.employeeId,
-    name: emp.name,
-    initials: emp.initials,
-    email: `${emp.name.toLowerCase().replace(/\s+/g, '.')}@novaspark.com`,
-    company: emp.companyName || activeCompany?.name || 'RR Security',
-    designation: emp.designation,
-    department: emp.department,
-  }));
+  // Directory of User Accounts eligible for role assignment from MongoDB
+  const directoryUserAccounts = (companyUsers && companyUsers.length > 0)
+    ? companyUsers.map((u) => ({
+        id: u.id || u._id || u.userId,
+        userId: u.userId,
+        name: u.name,
+        initials: u.initials || (u.name || '')
+          .split(' ')
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase()
+          .slice(0, 2) || 'US',
+        email: u.email || '',
+        mobile: u.mobile || '',
+        employeeId: u.employeeId || null,
+        company: u.companyName || activeCompany?.name || 'RR Security',
+        designation: u.roleName || (u.employeeId ? 'Employee User' : 'Standalone User'),
+        department: u.department || 'General',
+        roleId: u.roleId || '',
+        roleName: u.roleName || '',
+        status: u.status || 'Active',
+      }))
+    : [];
 
   // Handlers for Role Actions
   const handleOpenCreateRole = () => {
@@ -317,24 +336,30 @@ function RolePermissions() {
     });
   };
 
-  // Delete custom role
+  // Delete role handler
   const handleDeleteRole = (role) => {
-    if (role.type === 'system') {
-      showToast('Protected system roles cannot be deleted.', 'danger');
-      return;
-    }
-
     const roleId = role.id || role.roleId;
     const assignedUsersCount = users.filter((u) => u.roleId === roleId).length;
 
     if (assignedUsersCount > 0) {
       setConfirmDialog({
         isOpen: true,
-        title: 'Cannot Delete Role',
-        description: `This role currently has ${assignedUsersCount} active user(s) assigned. You must reassign or remove all users before deleting this role, or deactivate it instead.`,
-        confirmLabel: 'Understood',
-        variant: 'primary',
-        onConfirm: () => setConfirmDialog((prev) => ({ ...prev, isOpen: false })),
+        title: `Delete "${role.name}" Role?`,
+        description: `This role currently has ${assignedUsersCount} active user(s) assigned. Deleting this role will also remove this role assignment for those users. Are you sure you want to proceed?`,
+        confirmLabel: 'Delete Role & Unassign Users',
+        variant: 'danger',
+        onConfirm: async () => {
+          try {
+            await roleService.deleteRole(companyId, roleId);
+            setRoles((prev) => prev.filter((r) => r.id !== roleId && r.roleId !== roleId));
+            setUsers((prev) => prev.filter((u) => u.roleId !== roleId));
+            setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+            showToast(`✓ Role "${role.name}" was permanently deleted.`);
+          } catch (err) {
+            console.error('Error deleting role:', err);
+            showToast(err.message || 'Failed to delete role.', 'danger');
+          }
+        },
       });
       return;
     }
@@ -380,7 +405,8 @@ function RolePermissions() {
     try {
       const payload = {
         name: userObject.name,
-        email: userObject.email,
+        email: userObject.email || '',
+        userId: userObject.userId || userObject.id,
         employeeId: userObject.employeeId || '',
         roleId,
         roleName,
@@ -390,8 +416,14 @@ function RolePermissions() {
 
       const result = await roleService.assignUser(companyId, payload);
 
+      // Sync user role in user management collection if applicable
+      const targetUserId = userObject.id || userObject.userId;
+      if (targetUserId) {
+        userService.changeUserRole(companyId, targetUserId, { roleId, roleName }).catch(console.warn);
+      }
+
       setUsers((prev) => {
-        const existingIdx = prev.findIndex((u) => u.email === userObject.email);
+        const existingIdx = prev.findIndex((u) => u.userId === targetUserId || (u.email && u.email === userObject.email));
         if (existingIdx !== -1) {
           const clone = [...prev];
           clone[existingIdx] = result;
@@ -399,6 +431,14 @@ function RolePermissions() {
         }
         return [result, ...prev];
       });
+
+      // Also update companyUsers list in memory
+      setCompanyUsers((prev) =>
+        prev.map((u) => (u.id === targetUserId || u._id === targetUserId || u.userId === targetUserId)
+          ? { ...u, roleId, roleName, status: status || u.status }
+          : u
+        )
+      );
 
       // Refresh roles to update usersCount
       setRoles((prev) =>
@@ -629,9 +669,11 @@ function RolePermissions() {
                 onEditPermissions={handleEditPermissions}
                 onEditRoleInfo={handleOpenEditRoleInfo}
                 onDuplicateRole={handleOpenDuplicateRole}
+                onViewUsers={() => handleTabChange('users')}
                 onToggleStatus={handleToggleRoleStatus}
                 onDeleteRole={handleDeleteRole}
                 onAssignUsers={handleOpenAssignUserModal}
+                onOpenCreateRole={handleOpenCreateRole}
               />
             ) : (
               <AssignedUsersTable
@@ -664,6 +706,10 @@ function RolePermissions() {
           onClose={() => setIsDetailsDrawerOpen(false)}
           onEditPermissions={handleEditPermissions}
           onEditRoleInfo={handleOpenEditRoleInfo}
+          onDeleteRole={(targetRole) => {
+            setIsDetailsDrawerOpen(false);
+            handleDeleteRole(targetRole);
+          }}
           onAssignUser={(targetRole) => {
             setIsDetailsDrawerOpen(false);
             handleOpenAssignUserModal(targetRole);
@@ -682,7 +728,7 @@ function RolePermissions() {
           roles={roles}
           user={editingUserRole}
           defaultRoleId={defaultRoleForAssignment}
-          mockDirectoryUsers={mockDirectoryUsers}
+          directoryUsers={directoryUserAccounts}
         />
 
         {/* Generic Confirmation Modal */}

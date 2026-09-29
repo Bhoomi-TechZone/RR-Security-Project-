@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import styles from './PermissionMatrix.module.css';
 import PermissionSummary from './PermissionSummary';
-import { PERMISSION_MODULES, createFullPermissions, createEmptyPermissions } from '../../data/rolesPermissionsData';
+import { PERMISSION_MODULES, normalizePermissions, createFullPermissions, createEmptyPermissions } from '../../data/rolesPermissionsData';
 
 // Standard action keys aligned in fixed table columns
 const STANDARD_ACTIONS = [
@@ -28,6 +28,15 @@ const STANDARD_ACTIONS = [
   { key: 'edit', label: 'Edit / Update', headerTip: 'Permission to modify existing records' },
   { key: 'delete', label: 'Delete', headerTip: 'Permission to remove records' },
   { key: 'approve', label: 'Approve', headerTip: 'Permission to authorize workflows' },
+];
+
+// Ordered category list matching sidebar navigation hierarchy
+const SIDEBAR_CATEGORIES = [
+  { id: 'all', label: 'All Modules' },
+  { id: 'Workforce', label: 'Workforce' },
+  { id: 'Payroll Management', label: 'Payroll Management' },
+  { id: 'Management', label: 'Management' },
+  { id: 'Settings', label: 'Settings' }
 ];
 
 function PermissionMatrix({
@@ -60,7 +69,7 @@ function PermissionMatrix({
 
   // Working permissions state
   const [workingPerms, setWorkingPerms] = useState(() => {
-    return currentRole?.permissions ? JSON.parse(JSON.stringify(currentRole.permissions)) : createEmptyPermissions();
+    return currentRole?.permissions ? normalizePermissions(JSON.parse(JSON.stringify(currentRole.permissions))) : createEmptyPermissions();
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -70,7 +79,7 @@ function PermissionMatrix({
   // Sync state if currentRole changes
   useEffect(() => {
     if (currentRole && currentRole.permissions) {
-      setWorkingPerms(JSON.parse(JSON.stringify(currentRole.permissions)));
+      setWorkingPerms(normalizePermissions(JSON.parse(JSON.stringify(currentRole.permissions))));
     } else {
       setWorkingPerms(createEmptyPermissions());
     }
@@ -79,14 +88,9 @@ function PermissionMatrix({
   // Check if permissions have been modified (dirty state)
   const isDirty = useMemo(() => {
     if (!currentRole || !currentRole.permissions) return false;
-    return JSON.stringify(workingPerms) !== JSON.stringify(currentRole.permissions);
+    const normalizedSaved = normalizePermissions(currentRole.permissions);
+    return JSON.stringify(workingPerms) !== JSON.stringify(normalizedSaved);
   }, [workingPerms, currentRole]);
-
-  // Categories list
-  const categories = useMemo(() => {
-    const cats = new Set(PERMISSION_MODULES.map(m => m.category));
-    return ['all', ...Array.from(cats)];
-  }, []);
 
   // Filtered modules list
   const filteredModules = useMemo(() => {
@@ -285,14 +289,14 @@ function PermissionMatrix({
           </div>
 
           <div className={styles.categoryPills}>
-            {categories.map(cat => (
+            {SIDEBAR_CATEGORIES.map(cat => (
               <button
-                key={cat}
+                key={cat.id}
                 type="button"
-                className={`${styles.categoryPill} ${selectedCategory === cat ? styles.categoryActive : ''}`}
-                onClick={() => setSelectedCategory(cat)}
+                className={`${styles.categoryPill} ${selectedCategory === cat.id ? styles.categoryActive : ''}`}
+                onClick={() => setSelectedCategory(cat.id)}
               >
-                {cat === 'all' ? 'All Modules' : cat}
+                {cat.label}
               </button>
             ))}
           </div>

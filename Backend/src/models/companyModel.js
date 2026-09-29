@@ -130,6 +130,27 @@ const companySchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    preferences: {
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({
+        employeePortal: {
+          enabled: true,
+          allowDashboard: true,
+          allowAttendance: true,
+          allowLeaves: true,
+          allowApplyLeave: true,
+          allowLeaveBalance: true,
+          allowSalarySlips: true,
+          allowProfile: true,
+          allowNotifications: true,
+          lastUpdated: new Date().toISOString(),
+        },
+        reportingManager: {},
+        emailConfig: {},
+        notificationConfig: {},
+        approvalConfig: {},
+      }),
+    },
     status: {
       type: String,
       enum: ['Active', 'Inactive'],

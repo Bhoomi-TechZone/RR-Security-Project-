@@ -12,7 +12,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 import styles from './UserAccessSummary.module.css';
-import { PERMISSION_MODULES } from '../../data/rolesPermissionsData';
+import { PERMISSION_MODULES, normalizePermissions } from '../../data/rolesPermissionsData';
 
 function UserAccessSummary({
   role,
@@ -28,11 +28,11 @@ function UserAccessSummary({
     );
   }
 
-  const permissions = role.permissions || {};
+  const permissions = normalizePermissions(role.permissions || {});
   const isSystem = role.type === 'system';
 
-  // Group modules by category
-  const categories = Array.from(new Set(PERMISSION_MODULES.map(m => m.category)));
+  // Group modules by category in sidebar order
+  const categories = ['Workforce', 'Payroll Management', 'Management', 'Settings'];
 
   return (
     <div className={`${styles.container} ${isCompact ? styles.compact : ''}`}>

@@ -191,6 +191,13 @@
   border: 1px solid var(--border-light);
 }
 
+.noEmpDash {
+  color: var(--text-muted, #94a3b8);
+  font-weight: 500;
+  font-size: 13px;
+  padding-left: 6px;
+}
+
 .companyText {
   color: var(--text-secondary);
   font-size: var(--text-xs);

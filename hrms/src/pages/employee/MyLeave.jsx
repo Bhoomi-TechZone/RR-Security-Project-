@@ -654,9 +654,9 @@ function ApplyLeaveModal({
 
         {/* Fixed Footer */}
         <div className={styles.modalFooter}>
-          <button 
-            type="button" 
-            className={styles.secondaryButton} 
+          <button
+            type="button"
+            className={styles.secondaryButton}
             onClick={onClose}
             disabled={isSubmitting}
             style={isSubmitting ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
@@ -770,14 +770,14 @@ function EmployeeLeaveDetailsDrawer({
                 {selectedLeave.status === 'Approved'
                   ? 'Your leave has been sanctioned by HR and synchronized with Attendance.'
                   : selectedLeave.status === 'Pending Supervisor Approval'
-                  ? 'Awaiting site manpower review and sign-off by your Site Supervisor.'
-                  : selectedLeave.status === 'Pending HR Approval'
-                  ? 'Supervisor approved. Awaiting final sanction from HR operations.'
-                  : selectedLeave.status === 'Sent Back'
-                  ? 'Request sent back for correction. Please review reason and resubmit.'
-                  : selectedLeave.status === 'Rejected'
-                  ? 'Your leave application was rejected.'
-                  : 'Leave application cancelled.'}
+                    ? 'Awaiting site manpower review and sign-off by your Site Supervisor.'
+                    : selectedLeave.status === 'Pending HR Approval'
+                      ? 'Supervisor approved. Awaiting final sanction from HR operations.'
+                      : selectedLeave.status === 'Sent Back'
+                        ? 'Request sent back for correction. Please review reason and resubmit.'
+                        : selectedLeave.status === 'Rejected'
+                          ? 'Your leave application was rejected.'
+                          : 'Leave application cancelled.'}
               </span>
             </div>
           </div>
@@ -1034,11 +1034,11 @@ const deriveEmployeeBalances = (balanceDoc, leaveTypes) => {
   const activeTypes = Array.isArray(leaveTypes) && leaveTypes.length > 0
     ? leaveTypes.filter(t => (t.status || 'Active').toLowerCase() === 'active')
     : [
-        { code: 'CL', name: 'Casual Leave', category: 'Paid', quota: 12 },
-        { code: 'SL', name: 'Sick / Medical Leave', category: 'Paid', quota: 8 },
-        { code: 'EL', name: 'Earned / Privilege Leave', category: 'Paid', quota: 15 },
-        { code: 'LWP', name: 'Leave Without Pay', category: 'Unpaid', quota: 30 },
-      ];
+      { code: 'CL', name: 'Casual Leave', category: 'Paid', quota: 12 },
+      { code: 'SL', name: 'Sick / Medical Leave', category: 'Paid', quota: 8 },
+      { code: 'EL', name: 'Earned / Privilege Leave', category: 'Paid', quota: 15 },
+      { code: 'LWP', name: 'Leave Without Pay', category: 'Unpaid', quota: 30 },
+    ];
 
   const bMap = balanceDoc?.balances || {};
   return activeTypes.map((typeInfo) => {
@@ -1070,7 +1070,7 @@ const deriveEmployeeBalances = (balanceDoc, leaveTypes) => {
 // Main Page Component
 function MyLeave() {
   const currentUser = authService.getUser() || {};
-  const companyId = currentUser.companyId || 'RRS8392014SEC';
+  const companyId = currentUser.companyId;
   const employeeId = currentUser.employeeId || currentUser.employeeCode || 'EMP001';
 
   const [requests, setRequests] = useState([]);
@@ -1100,7 +1100,7 @@ function MyLeave() {
       ]);
 
       setRequests(sanitizeEmpRequests(fetchedLeaves));
-      
+
       const myBalanceDoc = (fetchedBalances || []).find(
         (b) => b.employeeId === employeeId || b.employeeCode === employeeId
       ) || (fetchedBalances || [])[0];

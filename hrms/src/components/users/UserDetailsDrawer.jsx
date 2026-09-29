@@ -72,7 +72,6 @@ function UserDetailsDrawer({
             <Avatar initials={user.initials} name={user.name} size="lg" />
             <div className={styles.userIdentityText}>
               <h2 id="drawer-user-title" className={styles.userName}>{user.name}</h2>
-              <span className={styles.userUsername}>@{user.username || user.userId.toLowerCase()}</span>
               <div className={styles.roleTagRow}>
                 <span className={`${styles.roleTag} ${isSystemRole ? styles.badgeSystemRole : styles.badgeCustomRole}`}>
                   {isSystemRole ? <Shield size={12} /> : <KeyRound size={12} />}
@@ -147,10 +146,6 @@ function UserDetailsDrawer({
                     <span className={styles.detailCode}>{user.userId}</span>
                   </div>
                   <div className={styles.detailRow}>
-                    <span className={styles.detailLabel}>Username</span>
-                    <span className={styles.detailValue}>@{user.username || user.userId.toLowerCase()}</span>
-                  </div>
-                  <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Email Address</span>
                     <a href={`mailto:${user.email}`} className={styles.detailLink}>{user.email}</a>
                   </div>
@@ -160,6 +155,20 @@ function UserDetailsDrawer({
                       <span className={styles.detailValue}>{user.mobile}</span>
                     </div>
                   )}
+                  <div className={styles.detailRow}>
+                    <span className={styles.detailLabel}>Account Type</span>
+                    <span className={styles.detailValue}>
+                      {user.isExistingEmployee || user.employeeId ? (
+                        <span style={{ color: '#059669', fontWeight: 600 }}>
+                          Linked Employee ({user.employeeId})
+                        </span>
+                      ) : (
+                        <span style={{ color: '#64748b', fontWeight: 500 }}>
+                          Standalone User (No Employee Account)
+                        </span>
+                      )}
+                    </span>
+                  </div>
                   <div className={styles.detailRow}>
                     <span className={styles.detailLabel}>Assigned Role</span>
                     <span className={styles.detailValue}>

@@ -18,7 +18,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const ITEMS_PER_PAGE = 10;
 
 function Employees() {

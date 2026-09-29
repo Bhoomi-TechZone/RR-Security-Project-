@@ -33,13 +33,13 @@ function AssignedUsersTable({
 
   const filteredUsers = users.filter(user => {
     const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.employeeId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.company.toLowerCase().includes(searchTerm.toLowerCase());
+      (user.name && user.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.email && user.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.employeeId && user.employeeId.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (user.userId && user.userId.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesRole = roleFilter === 'all' || user.roleId === roleFilter;
-    const matchesStatus = statusFilter === 'all' || user.status.toLowerCase() === statusFilter.toLowerCase();
+    const matchesStatus = statusFilter === 'all' || (user.status && user.status.toLowerCase() === statusFilter.toLowerCase());
 
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -59,7 +59,7 @@ function AssignedUsersTable({
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Search users by name, email, employee ID or company..."
+            placeholder="Search users by name, email, employee ID..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             aria-label="Search users"
@@ -131,9 +131,9 @@ function AssignedUsersTable({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>User / Employee</th>
+                <th>User Account</th>
+                <th>User ID</th>
                 <th>Employee ID</th>
-                <th>Company / Org</th>
                 <th>Assigned Role</th>
                 <th>Status</th>
                 <th>Assigned Date</th>
@@ -175,17 +175,25 @@ function AssignedUsersTable({
                           />
                           <div className={styles.userInfo}>
                             <strong className={styles.userName}>{user.name}</strong>
-                            <span className={styles.userEmail}>{user.email}</span>
+                            <span className={styles.userEmail}>{user.email || '—'}</span>
                           </div>
                         </div>
                       </td>
 
                       <td>
-                        <span className={styles.idCode}>{user.employeeId}</span>
+                        {user.userId ? (
+                          <span className={styles.idCode}>{user.userId}</span>
+                        ) : (
+                          <span className={styles.noEmpDash}>—</span>
+                        )}
                       </td>
 
                       <td>
-                        <span className={styles.companyText}>{user.company}</span>
+                        {user.employeeId ? (
+                          <span className={styles.idCode}>{user.employeeId}</span>
+                        ) : (
+                          <span className={styles.noEmpDash}>—</span>
+                        )}
                       </td>
 
                       <td>

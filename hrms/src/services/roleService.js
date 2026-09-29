@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const roleService = {
   /**
@@ -13,7 +13,7 @@ export const roleService = {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
       });
@@ -31,6 +31,33 @@ export const roleService = {
   },
 
   /**
+   * Get next available sequential role ID for the company
+   */
+  async getNextRoleId(companyId) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE_URL}/roles/next-id?companyId=${companyId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': companyId,
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch next role ID');
+      }
+
+      return data.nextRoleId;
+    } catch (error) {
+      console.error('roleService.getNextRoleId error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Create a new custom role
    */
   async createRole(companyId, roleData) {
@@ -40,7 +67,7 @@ export const roleService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
         body: JSON.stringify({ ...roleData, companyId }),
@@ -68,7 +95,7 @@ export const roleService = {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
         body: JSON.stringify({ ...roleData, companyId }),
@@ -96,7 +123,7 @@ export const roleService = {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
         body: JSON.stringify({ permissions, companyId }),
@@ -124,7 +151,7 @@ export const roleService = {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
       });
@@ -151,7 +178,7 @@ export const roleService = {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
       });
@@ -178,7 +205,7 @@ export const roleService = {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
         body: JSON.stringify({ ...userData, companyId }),
@@ -206,7 +233,7 @@ export const roleService = {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || ''}`,
           'x-company-id': companyId,
         },
       });

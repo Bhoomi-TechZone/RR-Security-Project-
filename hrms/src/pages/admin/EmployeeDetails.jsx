@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   User, Briefcase, FileText, CreditCard, IndianRupee,
   Edit2, ArrowLeftRight, Download, Power, CheckCircle, Clock,
-  Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X, Eye
+  Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X, Eye,
+  Shield, Award, MessageSquare, Calendar
 } from 'lucide-react';
 import styles from './EmployeeDetails.module.css';
 
@@ -18,7 +19,7 @@ import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 const INR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
 const DOCUMENT_TYPES = [
@@ -54,6 +55,38 @@ function EmployeeDetails() {
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+
+  // Consolidate all licenses dynamically
+  const activeLicenses = React.useMemo(() => {
+    if (!employee) return [];
+    const list = Array.isArray(employee.licenseList) ? [...employee.licenseList] : [];
+    if (Array.isArray(employee.licenses)) {
+      employee.licenses.forEach(lic => {
+        if (!list.some(l => l.licenseNo && l.licenseNo === lic.licenseNo)) {
+          list.push(lic);
+        }
+      });
+    }
+    // Fallback: Check if armedLicenseNo exists but not in licenseList
+    if (employee.armedLicenseNo && !list.some(l => l.licenseType === 'Arms / Gun License' || l.licenseNo === employee.armedLicenseNo)) {
+      list.push({
+        licenseType: 'Arms / Gun License',
+        licenseNo: employee.armedLicenseNo,
+        expiryDate: employee.alExpiryDate || '',
+        photo: employee.armedLicenseCopy || ''
+      });
+    }
+    // Fallback: Check if drivingLicenseNo exists
+    if (employee.drivingLicenseNo && !list.some(l => (l.licenseType?.includes('Driving') || l.licenseType === 'Driving License') || l.licenseNo === employee.drivingLicenseNo)) {
+      list.push({
+        licenseType: employee.drivingLicenseType || employee.licenseType || 'Driving License',
+        licenseNo: employee.drivingLicenseNo,
+        expiryDate: employee.dlExpiryDate || '',
+        photo: employee.drivingLicenseCopy || ''
+      });
+    }
+    return list.filter(l => l && (l.licenseNo || l.photo || (l.licenseType && l.licenseType !== 'Driving License')));
+  }, [employee]);
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
@@ -565,143 +598,238 @@ function EmployeeDetails() {
 
           {/* DOCUMENTS TAB */}
           {activeTab === 'documents' && (
-            <div className={styles.documentsGridNew}>
-              {Array.isArray(employee.documentList) && employee.documentList.length > 0 ? (
-                employee.documentList.map((doc, dIdx) => (
-                  <div key={dIdx} className={styles.docCard}>
-                    <div className={styles.docCardHeader}>
-                      <div className={styles.docIcon}>
-                        <FileText size={18} />
-                      </div>
-                      <div className={styles.docMeta}>
-                        <span className={styles.docLabel}>{doc.name || `Document #${dIdx + 1}`}</span>
-                        <span className={styles.docDate}>
-                          {getCleanDocLabel(doc.photo)}
-                        </span>
-                      </div>
-                      {doc.photo && (
-                        <span className={styles.uploadedBadge}>
-                          <CheckCircle size={13} /> Uploaded
-                        </span>
-                      )}
+            <div>
+              {/* 1. LICENSES & PERMITS SECTION */}
+              {activeLicenses.length > 0 && (
+                <div style={{ marginBottom: '28px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <Shield size={18} color="var(--primary)" />
+                      <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Licenses & Permits</h3>
                     </div>
-
-                    {/* Thumbnail preview if image */}
-                    {doc.photo && doc.photo.startsWith('data:image/') && (
-                      <div style={{ padding: '0 16px 12px', cursor: 'pointer' }} onClick={() => handleViewDocument(doc.name, doc.photo)}>
-                        <img
-                          src={doc.photo}
-                          alt={doc.name}
-                          style={{ maxHeight: '110px', width: '100%', objectFit: 'contain', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}
-                        />
-                      </div>
-                    )}
-
-                    {doc.photo && (
-                      <div className={styles.docCardFooter}>
-                        <div className={styles.docActions}>
-                          <button
-                            type="button"
-                            className={styles.docBtn}
-                            onClick={() => handleViewDocument(doc.name, doc.photo)}
-                          >
-                            <Eye size={13} /> View
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.docBtn}
-                            onClick={() => handleDownloadDocument(doc.name, doc.photo)}
-                          >
-                            <Download size={13} /> Download
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <span style={{ fontSize: '12px', background: 'var(--surface-alt)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                      {activeLicenses.length} {activeLicenses.length === 1 ? 'License' : 'Licenses'}
+                    </span>
                   </div>
-                ))
-              ) : (
-                DOCUMENT_TYPES.map((docType) => {
-                  const doc = docs[docType.key] || { status: 'uploaded', date: new Date().toISOString().split('T')[0] };
-                  const isGuardDoc = docType.guardOnly;
-                  const isNotApplicable = isGuardDoc && !isSecurityGuard;
-                  const isUploaded = !isNotApplicable;
-                  const normalizedDoc = {
-                    ...doc,
-                    status: isUploaded ? 'uploaded' : 'not_required',
-                    date: doc.date || new Date().toISOString().split('T')[0],
-                    fileName: doc.fileName || `${docType.label}.pdf`,
-                    fileSize: doc.fileSize || '1.2 KB'
-                  };
 
-                  const docFileUrl = doc.url || doc.photo || (docType.key === 'photo' ? (employee.employeePhoto || employee.photo) : null);
-
-                  return (
-                    <div
-                      key={docType.key}
-                      className={`${styles.docCard} ${isNotApplicable ? styles.docCardMuted : ''}`}
-                    >
-                      <div className={styles.docCardHeader}>
-                        <div className={styles.docIcon}>
-                          <FileText size={18} />
-                        </div>
-
-                        <div className={styles.docMeta}>
-                          <span className={styles.docLabel}>{docType.label}</span>
-                          {isUploaded ? (
-                            <span className={styles.docDate}>Uploaded: {normalizedDoc.date}</span>
-                          ) : (
-                            <span className={styles.docDate}>Not required</span>
-                          )}
-                          {isGuardDoc && !isNotApplicable && (
-                            <span className={styles.requiredBadge}>Required</span>
-                          )}
-                          {isNotApplicable && (
-                            <span className={styles.naNote}>Not required</span>
-                          )}
-                        </div>
-
-                        {isUploaded ? (
-                          <span className={styles.uploadedBadge}>
-                            <CheckCircle size={13} /> Uploaded
-                          </span>
-                        ) : null}
-                      </div>
-
-                      {isUploaded && (
-                        <div className={styles.docCardFooter}>
-                          <div className={styles.docActions}>
-                            <button
-                              type="button"
-                              className={styles.docBtn}
-                              onClick={() => {
-                                if (docFileUrl) {
-                                  handleViewDocument(docType.label, docFileUrl);
-                                } else {
-                                  showToast(`Viewing standard template for ${docType.label}.`, 'info');
-                                }
-                              }}
-                            >
-                              <Eye size={13} /> View
-                            </button>
-                            <button
-                              type="button"
-                              className={styles.docBtn}
-                              onClick={() => {
-                                if (docFileUrl) {
-                                  handleDownloadDocument(docType.label, docFileUrl);
-                                } else {
-                                  showToast(`Generating document download for ${docType.label}...`, 'success');
-                                }
-                              }}
-                            >
-                              <Download size={13} /> Download
-                            </button>
+                  <div className={styles.documentsGridNew}>
+                    {activeLicenses.map((lic, lIdx) => (
+                      <div key={lIdx} className={styles.docCard}>
+                        <div className={styles.docCardHeader}>
+                          <div className={styles.docIcon} style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#2563eb' }}>
+                            <Shield size={18} />
                           </div>
+                          <div className={styles.docMeta}>
+                            <span className={styles.docLabel}>{lic.licenseType || `License #${lIdx + 1}`}</span>
+                            <span className={styles.docDate}>
+                              {lic.licenseNo ? `No: ${lic.licenseNo}` : 'No number specified'} {lic.expiryDate ? `• Exp: ${lic.expiryDate}` : ''}
+                            </span>
+                          </div>
+                          {lic.photo && (
+                            <span className={styles.uploadedBadge}>
+                              <CheckCircle size={13} /> Uploaded
+                            </span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  );
-                })
+
+                        {/* Thumbnail preview if image */}
+                        {lic.photo && lic.photo.startsWith('data:image/') && (
+                          <div style={{ padding: '0 16px 12px', cursor: 'pointer' }} onClick={() => handleViewDocument(lic.licenseType || 'License', lic.photo)}>
+                            <img
+                              src={lic.photo}
+                              alt={lic.licenseType}
+                              style={{ maxHeight: '110px', width: '100%', objectFit: 'contain', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            />
+                          </div>
+                        )}
+
+                        {lic.photo && (
+                          <div className={styles.docCardFooter}>
+                            <div className={styles.docActions}>
+                              <button
+                                type="button"
+                                className={styles.docBtn}
+                                onClick={() => handleViewDocument(lic.licenseType || 'License', lic.photo)}
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.docBtn}
+                                onClick={() => handleDownloadDocument(lic.licenseType || 'License', lic.photo)}
+                              >
+                                <Download size={13} /> Download
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 2. IDENTIFICATION & ATTACHED DOCUMENTS SECTION */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', borderBottom: '1px solid var(--border)', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <FileText size={18} color="var(--primary)" />
+                    <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--text-primary)' }}>Identification & Proof Documents</h3>
+                  </div>
+                </div>
+
+                <div className={styles.documentsGridNew}>
+                  {Array.isArray(employee.documentList) && employee.documentList.length > 0 ? (
+                    employee.documentList.map((doc, dIdx) => (
+                      <div key={dIdx} className={styles.docCard}>
+                        <div className={styles.docCardHeader}>
+                          <div className={styles.docIcon}>
+                            <FileText size={18} />
+                          </div>
+                          <div className={styles.docMeta}>
+                            <span className={styles.docLabel}>{doc.name || `Document #${dIdx + 1}`}</span>
+                            <span className={styles.docDate}>
+                              {getCleanDocLabel(doc.photo)}
+                            </span>
+                          </div>
+                          {doc.photo && (
+                            <span className={styles.uploadedBadge}>
+                              <CheckCircle size={13} /> Uploaded
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Thumbnail preview if image */}
+                        {doc.photo && doc.photo.startsWith('data:image/') && (
+                          <div style={{ padding: '0 16px 12px', cursor: 'pointer' }} onClick={() => handleViewDocument(doc.name, doc.photo)}>
+                            <img
+                              src={doc.photo}
+                              alt={doc.name}
+                              style={{ maxHeight: '110px', width: '100%', objectFit: 'contain', background: '#f8fafc', borderRadius: '6px', border: '1px solid #e2e8f0' }}
+                            />
+                          </div>
+                        )}
+
+                        {doc.photo && (
+                          <div className={styles.docCardFooter}>
+                            <div className={styles.docActions}>
+                              <button
+                                type="button"
+                                className={styles.docBtn}
+                                onClick={() => handleViewDocument(doc.name, doc.photo)}
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.docBtn}
+                                onClick={() => handleDownloadDocument(doc.name, doc.photo)}
+                              >
+                                <Download size={13} /> Download
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    DOCUMENT_TYPES.map((docType) => {
+                      const doc = docs[docType.key] || { status: 'uploaded', date: new Date().toISOString().split('T')[0] };
+                      const isGuardDoc = docType.guardOnly;
+                      const isNotApplicable = isGuardDoc && !isSecurityGuard;
+                      const isUploaded = !isNotApplicable;
+                      const normalizedDoc = {
+                        ...doc,
+                        status: isUploaded ? 'uploaded' : 'not_required',
+                        date: doc.date || new Date().toISOString().split('T')[0],
+                        fileName: doc.fileName || `${docType.label}.pdf`,
+                        fileSize: doc.fileSize || '1.2 KB'
+                      };
+
+                      const docFileUrl = doc.url || doc.photo || (docType.key === 'photo' ? (employee.employeePhoto || employee.photo) : null);
+
+                      return (
+                        <div
+                          key={docType.key}
+                          className={`${styles.docCard} ${isNotApplicable ? styles.docCardMuted : ''}`}
+                        >
+                          <div className={styles.docCardHeader}>
+                            <div className={styles.docIcon}>
+                              <FileText size={18} />
+                            </div>
+
+                            <div className={styles.docMeta}>
+                              <span className={styles.docLabel}>{docType.label}</span>
+                              {isUploaded ? (
+                                <span className={styles.docDate}>Uploaded: {normalizedDoc.date}</span>
+                              ) : (
+                                <span className={styles.docDate}>Not required</span>
+                              )}
+                              {isGuardDoc && !isNotApplicable && (
+                                <span className={styles.requiredBadge}>Required</span>
+                              )}
+                              {isNotApplicable && (
+                                <span className={styles.naNote}>Not required</span>
+                              )}
+                            </div>
+
+                            {isUploaded ? (
+                              <span className={styles.uploadedBadge}>
+                                <CheckCircle size={13} /> Uploaded
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {isUploaded && (
+                            <div className={styles.docCardFooter}>
+                              <div className={styles.docActions}>
+                                <button
+                                  type="button"
+                                  className={styles.docBtn}
+                                  onClick={() => {
+                                    if (docFileUrl) {
+                                      handleViewDocument(docType.label, docFileUrl);
+                                    } else {
+                                      showToast(`Viewing standard template for ${docType.label}.`, 'info');
+                                    }
+                                  }}
+                                >
+                                  <Eye size={13} /> View
+                                </button>
+                                <button
+                                  type="button"
+                                  className={styles.docBtn}
+                                  onClick={() => {
+                                    if (docFileUrl) {
+                                      handleDownloadDocument(docType.label, docFileUrl);
+                                    } else {
+                                      showToast(`Generating document download for ${docType.label}...`, 'success');
+                                    }
+                                  }}
+                                >
+                                  <Download size={13} /> Download
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {/* 3. VERIFICATION REMARKS SECTION */}
+              {employee.remarks && (
+                <div style={{ marginTop: '24px', padding: '16px', background: 'var(--surface-alt)', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <MessageSquare size={16} color="var(--text-secondary)" />
+                    <strong style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>Verification Remarks & Notes:</strong>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-primary)', whiteSpace: 'pre-line' }}>
+                    {employee.remarks}
+                  </p>
+                </div>
               )}
             </div>
           )}
@@ -721,6 +849,29 @@ function EmployeeDetails() {
                       <InfoRow label="PF Number" value={employee.pfNo || 'N/A'} />
                     </>
                   )}
+                  {activeLicenses.length > 0 ? (
+                    activeLicenses.map((lic, idx) => (
+                      <React.Fragment key={idx}>
+                        <InfoRow label={`${lic.licenseType || 'License'} No.`} value={lic.licenseNo || 'N/A'} />
+                        {lic.expiryDate && <InfoRow label={`${lic.licenseType || 'License'} Expiry`} value={lic.expiryDate} />}
+                      </React.Fragment>
+                    ))
+                  ) : (
+                    <>
+                      {employee.drivingLicenseNo && (
+                        <>
+                          <InfoRow label="Driving License No." value={employee.drivingLicenseNo} />
+                          <InfoRow label="DL Expiry Date" value={employee.dlExpiryDate || 'N/A'} />
+                        </>
+                      )}
+                      {employee.armedLicenseNo && (
+                        <>
+                          <InfoRow label="Armed License No." value={employee.armedLicenseNo} />
+                          <InfoRow label="AL Expiry Date" value={employee.alExpiryDate || 'N/A'} />
+                        </>
+                      )}
+                    </>
+                  )}
                   <InfoRow label="ESI Applicable" value={employee.esiApplicable ? 'Yes' : 'No'} />
                   {employee.esiApplicable && (
                     <>
@@ -730,18 +881,6 @@ function EmployeeDetails() {
                   )}
                   <InfoRow label="LWF" value={employee.lwf || (employee.lwfApplicable ? 'Yes' : 'N/A')} />
                   <InfoRow label="TDS Applicable" value={employee.tdsApplicable ? 'Yes' : 'No'} />
-                  {employee.drivingLicenseNo && (
-                    <>
-                      <InfoRow label="Driving License No." value={employee.drivingLicenseNo} />
-                      <InfoRow label="DL Expiry Date" value={employee.dlExpiryDate || 'N/A'} />
-                    </>
-                  )}
-                  {employee.armedLicenseNo && (
-                    <>
-                      <InfoRow label="Armed License No." value={employee.armedLicenseNo} />
-                      <InfoRow label="AL Expiry Date" value={employee.alExpiryDate || 'N/A'} />
-                    </>
-                  )}
                 </div>
               </div>
               <div className={styles.infoCard}>

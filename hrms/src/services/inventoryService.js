@@ -1,6 +1,6 @@
 import authService from './authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 class InventoryService {
   getHeaders(companyId) {
@@ -8,7 +8,7 @@ class InventoryService {
     return {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
-      'x-company-id': companyId || 'RRS8392014SEC'
+      'x-company-id': companyId
     };
   }
 
@@ -43,7 +43,7 @@ class InventoryService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...itemData,
-        companyId: companyId || 'RRS8392014SEC'
+        companyId: companyId
       })
     });
 
@@ -60,7 +60,7 @@ class InventoryService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...itemData,
-        companyId: companyId || 'RRS8392014SEC'
+        companyId: companyId
       })
     });
 
@@ -128,7 +128,7 @@ class InventoryService {
       method: 'POST',
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
-        companyId: companyId || 'RRS8392014SEC',
+        companyId: companyId,
         items: list
       })
     });
@@ -146,7 +146,7 @@ class InventoryService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...updateData,
-        companyId: companyId || 'RRS8392014SEC'
+        companyId: companyId
       })
     });
 
@@ -200,7 +200,7 @@ class InventoryService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...returnData,
-        companyId: companyId || 'RRS8392014SEC'
+        companyId: companyId
       })
     });
 
@@ -263,7 +263,7 @@ class InventoryService {
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         ...approvalData,
-        companyId: companyId || 'RRS8392014SEC'
+        companyId: companyId
       })
     });
 

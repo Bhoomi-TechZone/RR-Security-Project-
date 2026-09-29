@@ -15,14 +15,14 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://backendhrmspayroll.bhoomitechzone.shop/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function Companies() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activeCompany } = useCompany();
 
-  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
 
   // 100% Dynamic State — No static mock data
   const [companies, setCompanies] = useState(() => {

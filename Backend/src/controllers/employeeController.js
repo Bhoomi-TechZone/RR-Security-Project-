@@ -397,10 +397,38 @@ export const updateEmployee = async (req, res) => {
       employee.siteLocation = siteLoc;
       employee.site = siteLoc;
     }
-    if (req.body.employeePhoto !== undefined || req.body.photo !== undefined) {
-      const p = req.body.employeePhoto || req.body.photo;
-      employee.employeePhoto = p;
-      employee.photo = p;
+    if (req.body.licenseList !== undefined) {
+      employee.licenseList = Array.isArray(req.body.licenseList) ? req.body.licenseList : [];
+      employee.markModified('licenseList');
+
+      // Sync specific license shortcut fields if present in licenseList
+      const armLic = employee.licenseList.find(l => l.licenseType === 'Arms / Gun License');
+      if (armLic) {
+        employee.armedLicenseNo = armLic.licenseNo || employee.armedLicenseNo;
+        employee.alExpiryDate = armLic.expiryDate || employee.alExpiryDate;
+      }
+      const dlLic = employee.licenseList.find(l => l.licenseType !== 'Arms / Gun License');
+      if (dlLic) {
+        employee.drivingLicenseType = dlLic.licenseType || employee.drivingLicenseType;
+        employee.drivingLicenseNo = dlLic.licenseNo || employee.drivingLicenseNo;
+        employee.dlExpiryDate = dlLic.expiryDate || employee.dlExpiryDate;
+        employee.drivingLicenseCopy = dlLic.photo || employee.drivingLicenseCopy;
+      }
+    }
+
+    if (req.body.documentList !== undefined) {
+      employee.documentList = Array.isArray(req.body.documentList) ? req.body.documentList : [];
+      employee.markModified('documentList');
+    }
+
+    if (req.body.familyMembers !== undefined) {
+      employee.familyMembers = Array.isArray(req.body.familyMembers) ? req.body.familyMembers : [];
+      employee.markModified('familyMembers');
+    }
+
+    if (req.body.documents !== undefined) {
+      employee.documents = req.body.documents;
+      employee.markModified('documents');
     }
 
     Object.assign(employee, req.body);

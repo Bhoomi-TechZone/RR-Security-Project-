@@ -26,13 +26,16 @@ import { countRolePermissions, getEnabledModulesCount } from '../../data/rolesPe
 
 function RolesTable({
   roles = [],
+  users = [],
   onViewRole,
   onEditPermissions,
   onEditRoleInfo,
   onDuplicateRole,
   onViewUsers,
   onToggleStatus,
-  onDeleteRole
+  onDeleteRole,
+  onAssignUsers,
+  onOpenCreateRole
 }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -145,12 +148,31 @@ function RolesTable({
               </tr>
             </thead>
             <tbody>
-              {filteredRoles.length === 0 ? (
+              {roles.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className={styles.emptyTd}>
+                    <div className={styles.emptyState}>
+                      <Shield size={40} className={styles.emptyIcon} />
+                      <h3>No Roles Configured</h3>
+                      <p>No roles have been created for this company yet. Click below to create your first role.</p>
+                      {onOpenCreateRole && (
+                        <button 
+                          type="button" 
+                          className={styles.emptyResetBtn}
+                          onClick={onOpenCreateRole}
+                        >
+                          + Add New Role
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredRoles.length === 0 ? (
                 <tr>
                   <td colSpan={8} className={styles.emptyTd}>
                     <div className={styles.emptyState}>
                       <ShieldAlert size={36} className={styles.emptyIcon} />
-                      <h3>No roles found</h3>
+                      <h3>No Matching Roles Found</h3>
                       <p>Try adjusting your search criteria or filter selections.</p>
                       <button 
                         type="button" 
@@ -168,6 +190,9 @@ function RolesTable({
                   const isActive = role.status === 'Active';
                   const totalPerms = countRolePermissions(role);
                   const enabledMods = getEnabledModulesCount(role);
+                  const roleUsersCount = Array.isArray(users) && users.length > 0
+                    ? users.filter(u => u.roleId === role.id || u.roleId === role.roleId || (u.roleName && u.roleName.toLowerCase() === role.name.toLowerCase())).length
+                    : (role.usersCount || 0);
 
                   return (
                     <tr key={role.id} className={styles.row}>
@@ -204,10 +229,10 @@ function RolesTable({
                           type="button"
                           className={styles.userCountBtn}
                           onClick={() => onViewUsers && onViewUsers(role)}
-                          title={`View ${role.usersCount || 0} users assigned to ${role.name}`}
+                          title={`View ${roleUsersCount} users assigned to ${role.name}`}
                         >
                           <Users size={14} />
-                          <span>{role.usersCount || 0} Users</span>
+                          <span>{roleUsersCount} {roleUsersCount === 1 ? 'User' : 'Users'}</span>
                         </button>
                       </td>
 
@@ -282,7 +307,7 @@ function RolesTable({
                                 <button
                                   type="button"
                                   className={styles.dropdownBtn}
-                                  onClick={() => onViewRole(role)}
+                                  onClick={() => onViewRole && onViewRole(role)}
                                 >
                                   <Eye size={14} />
                                   <span>View Details</span>
@@ -293,31 +318,29 @@ function RolesTable({
                                 <button
                                   type="button"
                                   className={styles.dropdownBtn}
-                                  onClick={() => onEditPermissions(role)}
+                                  onClick={() => onEditPermissions && onEditPermissions(role)}
                                 >
                                   <KeyRound size={14} />
                                   <span>Edit Permissions</span>
                                 </button>
                               </li>
 
-                              {!isSystem && (
-                                <li className={styles.dropdownItem}>
-                                  <button
-                                    type="button"
-                                    className={styles.dropdownBtn}
-                                    onClick={() => onEditRoleInfo(role)}
-                                  >
-                                    <Edit2 size={14} />
-                                    <span>Edit Role Info</span>
-                                  </button>
-                                </li>
-                              )}
+                              <li className={styles.dropdownItem}>
+                                <button
+                                  type="button"
+                                  className={styles.dropdownBtn}
+                                  onClick={() => onEditRoleInfo && onEditRoleInfo(role)}
+                                >
+                                  <Edit2 size={14} />
+                                  <span>Edit Role Info</span>
+                                </button>
+                              </li>
 
                               <li className={styles.dropdownItem}>
                                 <button
                                   type="button"
                                   className={styles.dropdownBtn}
-                                  onClick={() => onDuplicateRole(role)}
+                                  onClick={() => onDuplicateRole && onDuplicateRole(role)}
                                 >
                                   <Copy size={14} />
                                   <span>Duplicate Role</span>
@@ -335,32 +358,29 @@ function RolesTable({
                                 </button>
                               </li>
 
-                              {!isSystem && (
-                                <>
-                                  <li className={styles.dropdownDivider} />
-                                  <li className={styles.dropdownItem}>
-                                    <button
-                                      type="button"
-                                      className={`${styles.dropdownBtn} ${isActive ? styles.btnDeactivate : styles.btnActivate}`}
-                                      onClick={() => onToggleStatus(role)}
-                                    >
-                                      <Power size={14} />
-                                      <span>{isActive ? 'Deactivate Role' : 'Activate Role'}</span>
-                                    </button>
-                                  </li>
+                              <li className={styles.dropdownDivider} />
 
-                                  <li className={styles.dropdownItem}>
-                                    <button
-                                      type="button"
-                                      className={`${styles.dropdownBtn} ${styles.btnDelete}`}
-                                      onClick={() => onDeleteRole(role)}
-                                    >
-                                      <Trash2 size={14} />
-                                      <span>Delete Role</span>
-                                    </button>
-                                  </li>
-                                </>
-                              )}
+                              <li className={styles.dropdownItem}>
+                                <button
+                                  type="button"
+                                  className={`${styles.dropdownBtn} ${isActive ? styles.btnDeactivate : styles.btnActivate}`}
+                                  onClick={() => onToggleStatus && onToggleStatus(role)}
+                                >
+                                  <Power size={14} />
+                                  <span>{isActive ? 'Deactivate Role' : 'Activate Role'}</span>
+                                </button>
+                              </li>
+
+                              <li className={styles.dropdownItem}>
+                                <button
+                                  type="button"
+                                  className={`${styles.dropdownBtn} ${styles.btnDelete}`}
+                                  onClick={() => onDeleteRole && onDeleteRole(role)}
+                                >
+                                  <Trash2 size={14} />
+                                  <span>Delete Role</span>
+                                </button>
+                              </li>
                             </ul>
                           </Dropdown>
                         </div>
@@ -435,6 +455,16 @@ function RolesTable({
                   >
                     <KeyRound size={14} />
                     <span>Permissions</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={styles.mobileBtnDelete || styles.mobileBtnSecondary}
+                    onClick={() => onDeleteRole(role)}
+                    style={{ color: '#ef4444' }}
+                  >
+                    <Trash2 size={14} />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>

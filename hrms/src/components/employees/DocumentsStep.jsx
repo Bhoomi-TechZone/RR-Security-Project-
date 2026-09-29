@@ -202,7 +202,18 @@ function DocumentsStep({ data, onChange }) {
                 <label htmlFor={`lic-photo-${idx}`} className={styles.label}>Attached Copy of License</label>
                 <div className={styles.fileUploadWrapper}>
                   <div className={styles.fileUploadBox}>
-                    {license.photo && license.photo.startsWith('data:') ? (
+                    {license.photo && license.photo.startsWith('data:image/') ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <img
+                          src={license.photo}
+                          alt="License Preview"
+                          style={{ maxHeight: '28px', maxWidth: '40px', objectFit: 'cover', borderRadius: '3px' }}
+                        />
+                        <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
+                          License Image Attached ✓
+                        </span>
+                      </div>
+                    ) : license.photo && license.photo.startsWith('data:') ? (
                       <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
                         License File Attached ✓
                       </span>
@@ -286,7 +297,18 @@ function DocumentsStep({ data, onChange }) {
                 <label htmlFor={`doc-photo-${idx}`} className={styles.label}>Document Photo / File</label>
                 <div className={styles.fileUploadWrapper}>
                   <div className={styles.fileUploadBox}>
-                    {doc.photo && doc.photo.startsWith('data:') ? (
+                    {doc.photo && doc.photo.startsWith('data:image/') ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <img
+                          src={doc.photo}
+                          alt="Document Preview"
+                          style={{ maxHeight: '28px', maxWidth: '40px', objectFit: 'cover', borderRadius: '3px' }}
+                        />
+                        <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
+                          Document Attached ✓
+                        </span>
+                      </div>
+                    ) : doc.photo && doc.photo.startsWith('data:') ? (
                       <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
                         Document Attached ✓
                       </span>

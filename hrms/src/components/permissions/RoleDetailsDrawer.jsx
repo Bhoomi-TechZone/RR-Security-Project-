@@ -13,12 +13,14 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import styles from './RoleDetailsDrawer.module.css';
 import Avatar from '../common/Avatar';
 import {
   PERMISSION_MODULES,
+  normalizePermissions,
   countRolePermissions,
   getEnabledModulesCount,
   getActionCounts
@@ -31,6 +33,7 @@ function RoleDetailsDrawer({
   onClose,
   onEditPermissions,
   onEditRoleInfo,
+  onDeleteRole,
   onAssignUser,
   onChangeUserRole,
   onRemoveUserFromRole
@@ -139,7 +142,7 @@ function RoleDetailsDrawer({
               <span>Assign User</span>
             </button>
 
-            {!isSystem && (
+            {onEditRoleInfo && (
               <button
                 type="button"
                 className={styles.btnSecondary}
@@ -147,6 +150,20 @@ function RoleDetailsDrawer({
                 title="Edit role title and description"
               >
                 <Edit2 size={15} />
+                <span>Edit</span>
+              </button>
+            )}
+
+            {onDeleteRole && (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => onDeleteRole(role)}
+                title="Delete this role"
+                style={{ color: '#ef4444', borderColor: '#fecaca' }}
+              >
+                <Trash2 size={15} />
+                <span>Delete</span>
               </button>
             )}
           </div>
@@ -189,7 +206,8 @@ function RoleDetailsDrawer({
               {/* Module Cards List */}
               <div className={styles.modulesList}>
                 {PERMISSION_MODULES.map((mod) => {
-                  const assignedActions = role.permissions?.[mod.key] || [];
+                  const perms = normalizePermissions(role.permissions);
+                  const assignedActions = perms?.[mod.key] || [];
                   const isEnabled = assignedActions.length > 0;
 
                   return (
@@ -267,9 +285,11 @@ function RoleDetailsDrawer({
                               {user.status}
                             </span>
                           </div>
-                          <span className={styles.userEmail}>{user.email}</span>
+                          <span className={styles.userEmail}>{user.email || '—'}</span>
                           <span className={styles.userMeta}>
-                            {user.employeeId} • {user.company}
+                            {user.userId ? `User ID: ${user.userId}` : ''}
+                            {user.userId && user.employeeId ? ' • ' : ''}
+                            {user.employeeId ? `Employee ID: ${user.employeeId}` : (!user.userId ? 'Standalone User' : '')}
                           </span>
                         </div>
                       </div>

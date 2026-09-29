@@ -9,7 +9,7 @@ import styles from './AttendanceImportModal.module.css';
  * Provides sample template download in both Excel (.xlsx) and CSV formats.
  * Standardizes date formats (DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, Excel date numbers) to standard ISO YYYY-MM-DD.
  */
-function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Security', activeCompanyId = 'RRS8392014SEC', currentDate }) {
+function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', activeCompanyId = '', currentDate }) {
   const defaultMonth = new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().split('T')[0];
 
@@ -65,7 +65,7 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
   // Standardize time format: e.g. "09:05AM" -> "09:05 AM" or 0.378 (Excel decimal time)
   const normalizeTime = (val) => {
     if (!val && val !== 0) return '';
-    
+
     // Excel decimal time fraction (e.g. 0.378472 -> 09:05 AM)
     if (typeof val === 'number' && val >= 0 && val <= 1) {
       const totalMinutes = Math.round(val * 24 * 60);
@@ -261,7 +261,7 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = 'RR Secu
         employeeName: String(empName).trim(),
         initials,
         companyName: String(companyName || activeCompanyName).trim(),
-        companyId: activeCompanyId || 'RRS8392014SEC',
+        companyId: activeCompanyId,
         site: String(site).trim(),
         department: String(department).trim(),
         date: rowDate,
