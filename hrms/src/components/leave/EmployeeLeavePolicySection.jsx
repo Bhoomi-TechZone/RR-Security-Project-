@@ -63,7 +63,7 @@ export default function EmployeeLeavePolicySection({
             onChange={(e) => setClientFilter(e.target.value)}
           >
             <option value="">All Clients</option>
-            {clients.map((c) => (
+            {clients.filter((c) => !c.status || c.status === 'active').map((c) => (
               <option key={c.id || c.name} value={c.name}>{c.name}</option>
             ))}
           </select>

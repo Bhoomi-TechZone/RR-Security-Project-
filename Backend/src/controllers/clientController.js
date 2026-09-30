@@ -142,11 +142,32 @@ export const updateClient = async (req, res) => {
     const adminEmail = req.user.email.toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
 
+    const orConditions = [{ clientId: id }];
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      orConditions.push({ _id: id });
+    }
+
     const query = {
-      $or: [{ _id: id }, { clientId: id }],
+      $or: orConditions,
       adminEmail
     };
-    if (companyId) query.companyId = companyId;
+
+    if (companyId) {
+      let companyIds = [companyId];
+      try {
+        const comp = await Company.findOne({
+          adminEmail,
+          $or: [
+            { companyId },
+            { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+          ]
+        });
+        if (comp) {
+          companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+        }
+      } catch {}
+      query.companyId = { $in: companyIds };
+    }
 
     const client = await Client.findOne(query);
 
@@ -187,6 +208,71 @@ export const updateClient = async (req, res) => {
 };
 
 /**
+ * @desc    Toggle client active / inactive status
+ * @route   PATCH /api/clients/:id/status
+ * @access  Private (Admin)
+ */
+export const toggleClientStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const { status } = req.body;
+
+    const orConditions = [{ clientId: id }];
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      orConditions.push({ _id: id });
+    }
+
+    const query = {
+      $or: orConditions,
+      adminEmail
+    };
+
+    if (companyId) {
+      let companyIds = [companyId];
+      try {
+        const comp = await Company.findOne({
+          adminEmail,
+          $or: [
+            { companyId },
+            { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+          ]
+        });
+        if (comp) {
+          companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+        }
+      } catch {}
+      query.companyId = { $in: companyIds };
+    }
+
+    const client = await Client.findOne(query);
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found.'
+      });
+    }
+
+    client.status = status || (client.status?.toLowerCase() === 'active' ? 'inactive' : 'active');
+    await client.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Client status updated to ${client.status}.`,
+      client: client.toJSON()
+    });
+  } catch (error) {
+    console.error('Error toggling client status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update client status.'
+    });
+  }
+};
+
+/**
  * @desc    Delete a client
  * @route   DELETE /api/clients/:id
  * @access  Private (Admin)
@@ -196,8 +282,13 @@ export const deleteClient = async (req, res) => {
     const { id } = req.params;
     const adminEmail = req.user.email.toLowerCase();
 
+    const orConditions = [{ clientId: id }];
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      orConditions.push({ _id: id });
+    }
+
     const client = await Client.findOneAndDelete({
-      $or: [{ _id: id }, { clientId: id }],
+      $or: orConditions,
       adminEmail
     });
 

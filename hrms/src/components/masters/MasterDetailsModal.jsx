@@ -117,8 +117,31 @@ function MasterDetailsModal({
               </div>
               <div className={styles.detailRow}>
                 <span className={styles.label}>Branches</span>
-                <span className={styles.value}>{item.branches || 0}</span>
+                <span className={styles.value}>{item.branches || item.branchList?.length || 0}</span>
               </div>
+              {Array.isArray(item.branchList) && item.branchList.length > 0 && (
+                <div className={styles.detailRow}>
+                  <span className={styles.label}>Branch Names</span>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '300px' }}>
+                    {item.branchList.map((branch, bIdx) => (
+                      <span
+                        key={bIdx}
+                        style={{
+                          fontSize: '11px',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          color: '#2563eb',
+                          fontWeight: 500,
+                          border: '1px solid rgba(59, 130, 246, 0.2)'
+                        }}
+                      >
+                        {branch}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className={styles.detailRow}>
                 <span className={styles.label}>Status</span>
                 <StatusBadge status={item.status} />

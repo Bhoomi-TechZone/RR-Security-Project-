@@ -3,6 +3,7 @@ import {
   getClients,
   createClient,
   updateClient,
+  toggleClientStatus,
   deleteClient,
 } from '../controllers/clientController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
@@ -16,8 +17,12 @@ router.route('/')
   .get(getClients)
   .post(adminOnly, createClient);
 
+router.route('/:id/status')
+  .patch(adminOnly, toggleClientStatus);
+
 router.route('/:id')
   .put(adminOnly, updateClient)
+  .patch(adminOnly, toggleClientStatus)
   .delete(adminOnly, deleteClient);
 
 export default router;

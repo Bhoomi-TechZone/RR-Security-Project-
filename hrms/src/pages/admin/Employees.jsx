@@ -16,6 +16,9 @@ import EmptyState from '../../components/common/EmptyState';
 
 import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
+import masterService from '../../services/masterService';
+import clientService from '../../services/clientService';
+import workLocationService from '../../services/workLocationService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -27,6 +30,15 @@ function Employees() {
 
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [designations, setDesignations] = useState([]);
+  const [employeeTypes, setEmployeeTypes] = useState([]);
+  const [sites, setSites] = useState([]);
+  const [posts, setPosts] = useState([]);
+  const [shifts, setShifts] = useState([]);
+  const [banks, setBanks] = useState([]);
+  const [documentTypes, setDocumentTypes] = useState([]);
+  const [workLocations, setWorkLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -111,30 +123,42 @@ function Employees() {
     }
   }, [currentCompanyId]);
 
-  // Fetch clients for current active company to populate client dropdowns
-  const fetchClients = useCallback(async () => {
+  // Fetch clients & all masters for current active company to interlink dropdowns
+  const fetchAllMasters = useCallback(async () => {
     if (!currentCompanyId) return;
     try {
-      const token = authService.getToken();
-      const res = await fetch(`${API_BASE_URL}/clients`, {
-        headers: {
-          'Authorization': `Bearer ${token || ''}`,
-          'x-company-id': currentCompanyId,
-        },
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setClients(data.clients || []);
-      }
+      clientService.getClients(currentCompanyId).then(setClients).catch(() => {});
+      masterService.getMasters('departments', currentCompanyId).then(setDepartments).catch(() => {});
+      masterService.getMasters('designations', currentCompanyId).then(setDesignations).catch(() => {});
+      masterService.getMasters('employee-types', currentCompanyId).then(setEmployeeTypes).catch(() => {});
+      masterService.getMasters('sites', currentCompanyId).then(setSites).catch(() => {});
+      masterService.getMasters('posts', currentCompanyId).then(setPosts).catch(() => {});
+      masterService.getMasters('shifts', currentCompanyId).then(setShifts).catch(() => {});
+      masterService.getMasters('banks', currentCompanyId).then(setBanks).catch(() => {});
+      masterService.getMasters('document-types', currentCompanyId).then(setDocumentTypes).catch(() => {});
+      workLocationService.getWorkLocations(currentCompanyId).then(setWorkLocations).catch(() => {});
     } catch (err) {
-      console.error('Error fetching clients for employees page:', err);
+      console.error('Error fetching masters for employees page:', err);
     }
   }, [currentCompanyId]);
 
   useEffect(() => {
     fetchEmployees();
-    fetchClients();
-  }, [fetchEmployees, fetchClients]);
+    fetchAllMasters();
+  }, [fetchEmployees, fetchAllMasters]);
+
+  // Listen to cross-module updates
+  useEffect(() => {
+    const handleSync = () => {
+      fetchAllMasters();
+    };
+    window.addEventListener('clients-updated', handleSync);
+    window.addEventListener('masters-updated', handleSync);
+    return () => {
+      window.removeEventListener('clients-updated', handleSync);
+      window.removeEventListener('masters-updated', handleSync);
+    };
+  }, [fetchAllMasters]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
@@ -344,6 +368,15 @@ function Employees() {
           onSubmit={handleFormSubmit}
           employee={editingEmployee}
           clients={clients}
+          departments={departments}
+          designations={designations}
+          employeeTypes={employeeTypes}
+          sites={sites}
+          posts={posts}
+          shifts={shifts}
+          banks={banks}
+          documentTypes={documentTypes}
+          workLocations={workLocations}
           employeesCount={employees.length}
         />
 
@@ -409,6 +442,8 @@ function Employees() {
           onStatusFilterChange={setStatusFilter}
           onResetFilters={handleResetFilters}
           clients={clients}
+          departments={departments}
+          designations={designations}
         />
 
         {/* Table / Error / Pagination / Empty State */}

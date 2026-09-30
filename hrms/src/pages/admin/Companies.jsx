@@ -138,6 +138,15 @@ function Companies() {
     fetchBackendClients();
   }, [fetchBackendClients]);
 
+  // Sync when clients are modified across modules (e.g. Masters)
+  useEffect(() => {
+    const handleClientsUpdated = () => {
+      fetchBackendClients();
+    };
+    window.addEventListener('clients-updated', handleClientsUpdated);
+    return () => window.removeEventListener('clients-updated', handleClientsUpdated);
+  }, [fetchBackendClients]);
+
   // Handle Toast Trigger helper
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -213,6 +222,7 @@ function Companies() {
         return next;
       });
 
+      window.dispatchEvent(new CustomEvent('clients-updated'));
       showToast(`✓ Client "${formData.name}" updated successfully.`, 'success');
     } else {
       // Add mode
@@ -253,6 +263,7 @@ function Companies() {
         return next;
       });
 
+      window.dispatchEvent(new CustomEvent('clients-updated'));
       showToast(`✓ Client "${newClient.name}" created for ${activeCompany?.name || 'Company'}!`, 'success');
     }
 
@@ -325,6 +336,7 @@ function Companies() {
       return next;
     });
 
+    window.dispatchEvent(new CustomEvent('clients-updated'));
     showToast(`✓ Client ${actionType === 'deactivate' ? 'deactivated' : 'activated'} successfully.`, 'success');
 
     setConfirmModal({

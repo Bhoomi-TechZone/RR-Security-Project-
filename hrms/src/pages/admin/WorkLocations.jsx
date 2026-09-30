@@ -145,11 +145,13 @@ function WorkLocations() {
         setLocations((prev) =>
           prev.map((loc) => (loc.id === updated.id || loc.locationId === updated.id ? updated : loc))
         );
+        window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'work-locations' } }));
         showToast(`✓ Work location "${updated.locationName}" updated successfully.`, 'success');
       } else {
         // Add mode
         const created = await workLocationService.createWorkLocation(companyId, formData);
         setLocations((prev) => [created, ...prev]);
+        window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'work-locations' } }));
         showToast(`✓ Work location "${created.locationName}" created successfully.`, 'success');
       }
 
@@ -205,6 +207,7 @@ function WorkLocations() {
       setLocations((prev) =>
         prev.map((loc) => (loc.id === updated.id || loc.locationId === updated.id ? updated : loc))
       );
+      window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'work-locations' } }));
       showToast(
         `✓ Location "${location.locationName}" ${actionType === 'deactivate' ? 'deactivated' : 'activated'} successfully.`,
         'success'

@@ -18,6 +18,7 @@ function MasterFormModal({
   workLocations = []
 }) {
   const [formData, setFormData] = useState({});
+  const [branchInput, setBranchInput] = useState('');
   const [errors, setErrors] = useState({});
   const modalRef = useRef(null);
 
@@ -26,32 +27,42 @@ function MasterFormModal({
   useEffect(() => {
     if (isOpen) {
       setErrors({});
+      setBranchInput('');
       if (editingItem) {
-        setFormData({ ...editingItem });
+        setFormData({
+          ...editingItem,
+          branchList: Array.isArray(editingItem.branchList) ? editingItem.branchList : []
+        });
       } else {
         // Defaults for Add per activeTab
         const defaultState = { status: 'active' };
 
         if (activeTab === 'banks') {
-          defaultState.branches = 1;
+          defaultState.branches = 0;
+          defaultState.branchList = [];
         } else if (activeTab === 'clients') {
           defaultState.servicesRequired = ['Security Guard Services', 'Security Supervisor Services'];
           defaultState.state = 'Karnataka';
           defaultState.city = 'Bangalore';
         } else if (activeTab === 'designations') {
-          defaultState.department = departments.length > 0 ? departments[0].name : '';
+          const firstDept = departments.find(d => !d.status || d.status === 'active') || (departments.length > 0 ? departments[0] : null);
+          defaultState.department = firstDept ? firstDept.name : '';
         } else if (activeTab === 'sites') {
-          defaultState.clientId = clients.length > 0 ? String(clients[0].id) : '';
-          defaultState.clientName = clients.length > 0 ? clients[0].name : '';
-          defaultState.workLocationId = workLocations.length > 0 ? workLocations[0].id : '';
-          defaultState.workLocationName = workLocations.length > 0 ? workLocations[0].locationName : '';
+          const firstClient = clients.find(c => !c.status || c.status === 'active') || (clients.length > 0 ? clients[0] : null);
+          const firstLoc = workLocations.find(l => !l.status || l.status === 'active') || (workLocations.length > 0 ? workLocations[0] : null);
+          defaultState.clientId = firstClient ? String(firstClient.id || firstClient._id || firstClient.clientId || '') : '';
+          defaultState.clientName = firstClient ? (firstClient.name || firstClient.clientName || '') : '';
+          defaultState.workLocationId = firstLoc ? String(firstLoc.id || firstLoc._id || firstLoc.locationId || '') : '';
+          defaultState.workLocationName = firstLoc ? (firstLoc.locationName || firstLoc.name || '') : '';
           defaultState.minimumManpower = 12;
-          defaultState.state = 'Karnataka';
-          defaultState.city = 'Bangalore';
+          defaultState.state = firstLoc?.state || 'Karnataka';
+          defaultState.city = firstLoc?.city || 'Bangalore';
         } else if (activeTab === 'shifts') {
+          defaultState.shiftType = 'day';
           defaultState.startTime = '06:00';
           defaultState.endTime = '14:00';
           defaultState.breakDuration = 30;
+          defaultState.gracePeriod = 15;
         } else if (activeTab === 'leave-types') {
           defaultState.paidType = 'paid';
           defaultState.annualQuota = 12;
@@ -172,12 +183,36 @@ function MasterFormModal({
     }
   };
 
+  const handleAddBranch = () => {
+    if (!branchInput.trim()) return;
+    const currentList = Array.isArray(formData.branchList) ? formData.branchList : [];
+    if (!currentList.includes(branchInput.trim())) {
+      const nextList = [...currentList, branchInput.trim()];
+      setFormData({
+        ...formData,
+        branchList: nextList,
+        branches: nextList.length
+      });
+    }
+    setBranchInput('');
+  };
+
+  const handleRemoveBranch = (indexToRemove) => {
+    const currentList = Array.isArray(formData.branchList) ? formData.branchList : [];
+    const nextList = currentList.filter((_, idx) => idx !== indexToRemove);
+    setFormData({
+      ...formData,
+      branchList: nextList,
+      branches: nextList.length
+    });
+  };
+
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="master-form-title">
-      <div 
+      <div
         ref={modalRef}
         tabIndex="-1"
-        className={styles.modal} 
+        className={styles.modal}
         onClick={(e) => e.stopPropagation()}
       >
         <header className={styles.header}>
@@ -223,15 +258,106 @@ function MasterFormModal({
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.label}>Number of Branches</label>
+                  <label className={styles.label}>Total Branches Count</label>
                   <input
                     type="number"
                     className={styles.input}
-                    min="1"
-                    value={formData.branches || 1}
-                    onChange={(e) => setFormData({ ...formData, branches: parseInt(e.target.value, 10) || 1 })}
+                    readOnly
+                    tabIndex={-1}
+                    style={{
+                      background: 'var(--surface, #f8fafc)',
+                      color: 'var(--text-secondary, #64748b)',
+                      cursor: 'not-allowed',
+                      fontWeight: 600
+                    }}
+                    value={Array.isArray(formData.branchList) ? formData.branchList.length : (formData.branches || 0)}
                   />
                 </div>
+              </div>
+
+              {/* Multiple Branches Field */}
+              <div className={styles.field}>
+                <label className={styles.label}>
+                  Branch Names (Add multiple branches)
+                </label>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <input
+                    type="text"
+                    className={styles.input}
+                    placeholder="e.g. Connaught Place, Cyber City, MG Road"
+                    value={branchInput}
+                    onChange={(e) => setBranchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddBranch();
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className={styles.addMemberBtn || styles.cancelBtn}
+                    style={{
+                      whiteSpace: 'nowrap',
+                      padding: '0 16px',
+                      height: '42px',
+                      background: 'var(--primary, #2563eb)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 500,
+                      cursor: 'pointer'
+                    }}
+                    onClick={handleAddBranch}
+                  >
+                    + Add Branch
+                  </button>
+                </div>
+
+                {/* Branches Chips */}
+                {Array.isArray(formData.branchList) && formData.branchList.length > 0 ? (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '6px' }}>
+                    {formData.branchList.map((branch, idx) => (
+                      <span
+                        key={idx}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '4px 10px',
+                          background: 'rgba(59, 130, 246, 0.1)',
+                          color: '#2563eb',
+                          borderRadius: '16px',
+                          fontSize: '12.5px',
+                          fontWeight: 500,
+                          border: '1px solid rgba(59, 130, 246, 0.25)'
+                        }}
+                      >
+                        {branch}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBranch(idx)}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center'
+                          }}
+                          title="Remove branch"
+                        >
+                          <X size={13} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+                    No branch names added yet. Type a branch name and click "+ Add Branch" or press Enter.
+                  </span>
+                )}
               </div>
             </>
           )}
@@ -476,9 +602,11 @@ function MasterFormModal({
                   }}
                 >
                   <option value="">Select Department</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.name}>{dept.name}</option>
-                  ))}
+                  {departments
+                    .filter((dept) => !dept.status || dept.status === 'active' || dept.name === formData.department)
+                    .map((dept) => (
+                      <option key={dept.id || dept.name} value={dept.name}>{dept.name}</option>
+                    ))}
                 </select>
                 {errors.department && <span className={styles.errorText}>{errors.department}</span>}
               </div>
@@ -578,19 +706,26 @@ function MasterFormModal({
                     className={`${styles.select} ${errors.clientId ? styles.inputError : ''}`}
                     value={formData.clientId || ''}
                     onChange={(e) => {
-                      const selected = clients.find(c => String(c.id) === e.target.value);
+                      const val = e.target.value;
+                      const selected = clients.find(c => String(c.id || c._id || c.clientId) === String(val));
                       setFormData({
                         ...formData,
-                        clientId: e.target.value,
-                        clientName: selected ? selected.name : ''
+                        clientId: val,
+                        clientName: selected ? (selected.name || selected.clientName || '') : ''
                       });
                       if (errors.clientId) setErrors({ ...errors, clientId: null });
                     }}
                   >
                     <option value="">Select Client</option>
-                    {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
+                    {clients
+                      .filter((c) => !c.status || c.status === 'active' || String(c.id || c._id || c.clientId) === String(formData.clientId))
+                      .map((c) => {
+                        const cId = String(c.id || c._id || c.clientId);
+                        const cName = c.name || c.clientName || 'Unnamed Client';
+                        return (
+                          <option key={cId} value={cId}>{cName}</option>
+                        );
+                      })}
                   </select>
                   {errors.clientId && <span className={styles.errorText}>{errors.clientId}</span>}
                 </div>
@@ -601,18 +736,27 @@ function MasterFormModal({
                     className={styles.select}
                     value={formData.workLocationId || ''}
                     onChange={(e) => {
-                      const selected = workLocations.find(l => l.id === e.target.value);
+                      const val = e.target.value;
+                      const selected = workLocations.find(l => String(l.id || l._id || l.locationId) === String(val));
                       setFormData({
                         ...formData,
-                        workLocationId: e.target.value,
-                        workLocationName: selected ? selected.locationName : ''
+                        workLocationId: val,
+                        workLocationName: selected ? (selected.locationName || selected.name || '') : '',
+                        ...(selected?.city ? { city: selected.city } : {}),
+                        ...(selected?.state ? { state: selected.state } : {})
                       });
                     }}
                   >
                     <option value="">All Branches</option>
-                    {workLocations.map((loc) => (
-                      <option key={loc.id} value={loc.id}>{loc.locationName}</option>
-                    ))}
+                    {workLocations
+                      .filter((loc) => !loc.status || loc.status === 'active' || String(loc.id || loc._id || loc.locationId) === String(formData.workLocationId))
+                      .map((loc) => {
+                        const locId = String(loc.id || loc._id || loc.locationId);
+                        const locName = loc.locationName || loc.name || 'Unnamed Location';
+                        return (
+                          <option key={locId} value={locId}>{locName}</option>
+                        );
+                      })}
                   </select>
                 </div>
               </div>
@@ -755,7 +899,7 @@ function MasterFormModal({
           {/* 8. SHIFTS */}
           {activeTab === 'shifts' && (
             <>
-              <div className={styles.row}>
+              <div className={styles.rowThree}>
                 <div className={styles.field}>
                   <label className={styles.label}>Shift Name <span className={styles.required}>*</span></label>
                   <input
@@ -781,9 +925,22 @@ function MasterFormModal({
                     onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
                   />
                 </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Shift Type <span className={styles.required}>*</span></label>
+                  <select
+                    className={styles.select}
+                    value={formData.shiftType || formData.type || 'day'}
+                    onChange={(e) => setFormData({ ...formData, shiftType: e.target.value, type: e.target.value })}
+                  >
+                    <option value="day">Day Shift</option>
+                    <option value="night">Night Shift</option>
+                    <option value="rotational">Rotational Shift</option>
+                  </select>
+                </div>
               </div>
 
-              <div className={styles.rowThree}>
+              <div className={styles.row}>
                 <div className={styles.field}>
                   <label className={styles.label}>Start Time <span className={styles.required}>*</span></label>
                   <input
@@ -819,8 +976,20 @@ function MasterFormModal({
                     className={styles.input}
                     min="0"
                     step="5"
-                    value={formData.breakDuration || 30}
+                    value={formData.breakDuration ?? 30}
                     onChange={(e) => setFormData({ ...formData, breakDuration: parseInt(e.target.value, 10) || 0 })}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.label}>Grace Period (Mins)</label>
+                  <input
+                    type="number"
+                    className={styles.input}
+                    min="0"
+                    step="5"
+                    value={formData.gracePeriod ?? 15}
+                    onChange={(e) => setFormData({ ...formData, gracePeriod: parseInt(e.target.value, 10) || 0 })}
                   />
                 </div>
               </div>

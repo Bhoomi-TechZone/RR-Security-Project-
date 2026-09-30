@@ -179,7 +179,7 @@ function Filters({ values, setValue, onReset, patterns, clients, sites, departme
         {field(
           'Client',
           'client',
-          clients.map((c) => ({ value: c.name, label: c.name })),
+          clients.filter((c) => !c.status || c.status === 'active').map((c) => ({ value: c.name, label: c.name })),
           'All Clients'
         )}
         {field('Site', 'site', sites, 'All Sites')}
@@ -735,7 +735,7 @@ function AssignModal({ open, editing, patterns, employees, clients, sites, onClo
             disabled={Boolean(editing)}
           >
             <option value="">All Clients / Companies</option>
-            {clients.map((item) => (
+            {clients.filter((item) => !item.status || item.status === 'active').map((item) => (
               <option key={item.id || item._id || item.name} value={item.name}>
                 {item.name}
               </option>
@@ -794,7 +794,7 @@ function AssignModal({ open, editing, patterns, employees, clients, sites, onClo
             onChange={(event) => update('shiftId', event.target.value)}
           >
             <option value="">Select shift</option>
-            {patterns.map((item) => (
+            {patterns.filter(item => !item.status || item.status === 'active').map((item) => (
               <option key={item.id || item._id || item.shiftId} value={item.shiftId || item._id || item.id}>
                 {item.name} — {timeRange(item)}
               </option>
@@ -1353,7 +1353,7 @@ function ExportModal({ open, onClose, onExport, clients, sites, departments, pat
             onChange={(event) => update('client', event.target.value)}
           >
             <option value="">All Clients</option>
-            {clients.map((item) => (
+            {clients.filter((item) => !item.status || item.status === 'active').map((item) => (
               <option key={item.id || item._id || item.name} value={item.name}>{item.name}</option>
             ))}
           </select>
@@ -1467,7 +1467,10 @@ function ShiftManagement() {
 
   const notify = (message, type = 'success') => setToast({ message, type });
 
-  // Fetch shifts, roster, employees, and clients dynamically from MongoDB
+  const [masterSites, setMasterSites] = useState([]);
+  const [masterDepartments, setMasterDepartments] = useState([]);
+
+  // Fetch shifts, roster, employees, clients, sites, departments dynamically from MongoDB
   const fetchData = useCallback(async () => {
     if (!currentCompanyId) return;
     setLoading(true);
@@ -1482,24 +1485,27 @@ function ShiftManagement() {
       setRoster(rosterData.roster || []);
       setStats(statsData);
 
-      // Fetch employees and clients
+      // Fetch employees, clients, and masters in parallel
       const token = authService.getToken();
-      const [empRes, clientRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/employees`, {
-          headers: { 'Authorization': `Bearer ${token || ''}`, 'x-company-id': currentCompanyId }
-        }),
-        fetch(`${API_BASE_URL}/clients`, {
-          headers: { 'Authorization': `Bearer ${token || ''}`, 'x-company-id': currentCompanyId }
-        })
+      const headers = { 'Authorization': `Bearer ${token || ''}`, 'x-company-id': currentCompanyId };
+      const [empRes, clientRes, sitesRes, deptsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/employees`, { headers }),
+        fetch(`${API_BASE_URL}/clients`, { headers }),
+        fetch(`${API_BASE_URL}/masters?tab=sites`, { headers }),
+        fetch(`${API_BASE_URL}/masters?tab=departments`, { headers })
       ]);
 
-      const [empJson, clientJson] = await Promise.all([
+      const [empJson, clientJson, sitesJson, deptsJson] = await Promise.all([
         empRes.json().catch(() => ({})),
-        clientRes.json().catch(() => ({}))
+        clientRes.json().catch(() => ({})),
+        sitesRes.json().catch(() => ({})),
+        deptsRes.json().catch(() => ({}))
       ]);
 
       if (empJson.success) setEmployees(empJson.employees || []);
       if (clientJson.success) setClients(clientJson.clients || []);
+      if (sitesJson.success) setMasterSites(sitesJson.data || []);
+      if (deptsJson.success) setMasterDepartments(deptsJson.data || []);
     } catch (err) {
       console.error('Error fetching shift management data:', err);
       notify('Failed to load shift records from database.', 'error');
@@ -1512,9 +1518,26 @@ function ShiftManagement() {
     fetchData();
   }, [fetchData]);
 
+  // Real-time synchronization when clients or masters are modified elsewhere
+  useEffect(() => {
+    const handleSync = () => {
+      fetchData();
+    };
+    window.addEventListener('clients-updated', handleSync);
+    window.addEventListener('masters-updated', handleSync);
+    return () => {
+      window.removeEventListener('clients-updated', handleSync);
+      window.removeEventListener('masters-updated', handleSync);
+    };
+  }, [fetchData]);
+
   // Derived lists for dropdowns
   const sites = useMemo(() => {
     const s = new Set();
+    masterSites.filter(ms => !ms.status || ms.status === 'active').forEach(ms => {
+      const name = ms.name || ms.siteName;
+      if (name) s.add(name);
+    });
     employees.forEach(e => {
       if (e.siteLocation) s.add(e.siteLocation);
       if (e.site) s.add(e.site);
@@ -1528,10 +1551,14 @@ function ShiftManagement() {
       s.add('Warehouse A');
     }
     return Array.from(s);
-  }, [employees, roster]);
+  }, [masterSites, employees, roster]);
 
   const departments = useMemo(() => {
     const d = new Set();
+    masterDepartments.filter(md => !md.status || md.status === 'active').forEach(md => {
+      const name = md.name || md.departmentName;
+      if (name) d.add(name);
+    });
     employees.forEach(e => {
       if (e.department) d.add(e.department);
     });
@@ -1541,7 +1568,7 @@ function ShiftManagement() {
       d.add('Patrolling');
     }
     return Array.from(d);
-  }, [employees]);
+  }, [masterDepartments, employees]);
 
   const setFilter = (key, value) => {
     setPage(1);
@@ -1602,6 +1629,8 @@ function ShiftManagement() {
         await shiftService.createShift(data, currentCompanyId);
         notify('✓ Shift created successfully.');
       }
+      window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'shifts' } }));
+      window.dispatchEvent(new CustomEvent('shifts-updated'));
       setShiftFormOpen(false);
       setEditingShift(null);
       await fetchData();
@@ -1615,6 +1644,8 @@ function ShiftManagement() {
     if (!window.confirm(`Are you sure you want to delete shift "${shift.name}"?`)) return;
     try {
       await shiftService.deleteShift(shift.id || shift._id, currentCompanyId);
+      window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'shifts' } }));
+      window.dispatchEvent(new CustomEvent('shifts-updated'));
       notify('✓ Shift deleted successfully.');
       await fetchData();
     } catch (err) {

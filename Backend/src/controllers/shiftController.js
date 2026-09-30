@@ -3,6 +3,7 @@ import Shift from '../models/shiftModel.js';
 import ShiftRoster from '../models/shiftRosterModel.js';
 import Employee from '../models/employeeModel.js';
 import Client from '../models/clientModel.js';
+import Master from '../models/masterModel.js';
 
 // Default initial shift patterns to seed if company has none
 const INITIAL_SHIFTS = [
@@ -80,9 +81,43 @@ export const getShifts = async (req, res) => {
       });
     }
 
+    // Two-way sync: Sync any shifts created in Masters module into Shift collection
+    try {
+      const masterShifts = await Master.find({
+        companyId,
+        type: 'shifts'
+      });
+      for (const ms of masterShifts) {
+        const rawType = (ms.shiftType || ms.metadata?.type || (ms.name.toLowerCase().includes('night') ? 'night' : ms.name.toLowerCase().includes('rotat') ? 'rotational' : 'day')).toLowerCase();
+        const cleanType = ['day', 'night', 'rotational'].includes(rawType) ? rawType : 'day';
+        await Shift.findOneAndUpdate(
+          { companyId, name: ms.name },
+          {
+            $setOnInsert: {
+              shiftId: ms.code || `SHF-${Date.now().toString().slice(-4)}`,
+              adminEmail: ms.adminEmail || adminEmail,
+              color: cleanType === 'night' ? '#6366f1' : cleanType === 'rotational' ? '#f59e0b' : '#3b82f6'
+            },
+            $set: {
+              type: cleanType,
+              startTime: ms.startTime || '',
+              endTime: ms.endTime || '',
+              breakDuration: Number(ms.breakDuration) || 30,
+              gracePeriod: Number(ms.gracePeriod) || 15,
+              description: ms.description || '',
+              status: (ms.status || 'active').toLowerCase()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      }
+    } catch (syncErr) {
+      console.warn('Sync master shifts to Shift error:', syncErr.message);
+    }
+
     let shifts = await Shift.find({ companyId, adminEmail }).sort({ createdAt: 1 });
 
-    // If company is brand new and has no shifts configured, auto-seed standard shift patterns
+    // If company is brand new and has no shifts configured in either Shift or Master, auto-seed standard shift patterns
     if (shifts.length === 0) {
       const seedDocs = INITIAL_SHIFTS.map((s, idx) => ({
         ...s,
@@ -92,6 +127,23 @@ export const getShifts = async (req, res) => {
       }));
       try {
         shifts = await Shift.insertMany(seedDocs);
+        // Also seed into Master collection for consistency
+        for (const s of seedDocs) {
+          await Master.create({
+            companyId,
+            adminEmail,
+            type: 'shifts',
+            name: s.name,
+            code: s.shiftId,
+            shiftType: s.type,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            breakDuration: s.breakDuration,
+            gracePeriod: s.gracePeriod,
+            description: s.description,
+            status: s.status
+          }).catch(() => {});
+        }
       } catch (seedErr) {
         console.warn('Shift auto-seed note:', seedErr.message);
         shifts = await Shift.find({ companyId, adminEmail });
@@ -179,6 +231,30 @@ export const createShift = async (req, res) => {
       status: status || 'active'
     });
 
+    // Two-way synchronization: Also save to Master collection
+    try {
+      await Master.findOneAndUpdate(
+        { companyId, adminEmail, type: 'shifts', name: newShift.name },
+        {
+          companyId,
+          adminEmail,
+          type: 'shifts',
+          name: newShift.name,
+          code: newShift.shiftId,
+          shiftType: newShift.type,
+          startTime: newShift.startTime,
+          endTime: newShift.endTime,
+          breakDuration: newShift.breakDuration,
+          gracePeriod: newShift.gracePeriod,
+          description: newShift.description,
+          status: newShift.status
+        },
+        { upsert: true, new: true }
+      );
+    } catch (syncErr) {
+      console.warn('Sync shift to Master error:', syncErr.message);
+    }
+
     return res.status(201).json({
       success: true,
       message: `Shift "${newShift.name}" created successfully.`,
@@ -221,6 +297,7 @@ export const updateShift = async (req, res) => {
       });
     }
 
+    const oldName = shift.name;
     const fields = [
       'name', 'type', 'startTime', 'endTime', 'gracePeriod',
       'breakDuration', 'color', 'description', 'status'
@@ -233,6 +310,27 @@ export const updateShift = async (req, res) => {
     });
 
     await shift.save();
+
+    // Two-way synchronization: Update Master collection
+    try {
+      await Master.findOneAndUpdate(
+        { companyId, adminEmail, type: 'shifts', $or: [{ name: oldName }, { name: shift.name }, { code: shift.shiftId }] },
+        {
+          $set: {
+            name: shift.name,
+            shiftType: shift.type,
+            startTime: shift.startTime,
+            endTime: shift.endTime,
+            breakDuration: shift.breakDuration,
+            gracePeriod: shift.gracePeriod,
+            description: shift.description,
+            status: shift.status
+          }
+        }
+      );
+    } catch (syncErr) {
+      console.warn('Sync shift update to Master error:', syncErr.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -274,6 +372,18 @@ export const deleteShift = async (req, res) => {
         success: false,
         message: 'Shift not found.'
       });
+    }
+
+    // Two-way synchronization: Delete from Master collection
+    try {
+      await Master.findOneAndDelete({
+        companyId,
+        adminEmail,
+        type: 'shifts',
+        $or: [{ name: shift.name }, { code: shift.shiftId }]
+      });
+    } catch (syncErr) {
+      console.warn('Sync shift delete to Master error:', syncErr.message);
     }
 
     return res.status(200).json({

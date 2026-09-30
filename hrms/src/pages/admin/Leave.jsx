@@ -223,7 +223,7 @@ function LeaveExportModal({ open, filters, onClose, onExport, setExportFilters, 
               <label className={styles.fieldLabel}>Client</label>
               <select className={styles.select} value={filters.clientFilter} onChange={(e) => setExportFilters((prev) => ({ ...prev, clientFilter: e.target.value }))}>
                 <option value="">All Clients</option>
-                {clients.map((client) => (
+                {clients.filter((c) => !c.status || c.status === 'active').map((client) => (
                   <option key={client.id || client.name} value={client.name}>{client.name}</option>
                 ))}
               </select>
@@ -551,6 +551,21 @@ export default function Leave() {
     fetchAllLeaveData();
   }, [fetchAllLeaveData]);
 
+  // Real-time synchronization event listeners across Masters & Leave modules
+  useEffect(() => {
+    const handleSync = (e) => {
+      if (!e?.detail?.tab || e.detail.tab === 'leave-types') {
+        fetchAllLeaveData();
+      }
+    };
+    window.addEventListener('masters-updated', handleSync);
+    window.addEventListener('leaves-updated', handleSync);
+    return () => {
+      window.removeEventListener('masters-updated', handleSync);
+      window.removeEventListener('leaves-updated', handleSync);
+    };
+  }, [fetchAllLeaveData]);
+
   const clients = useMemo(() => {
     const list = new Set();
     employeesList.forEach((e) => {
@@ -689,6 +704,8 @@ export default function Leave() {
       await leaveService.saveLeaveType(compId, typeData);
       await fetchAllLeaveData();
       setLeaveTypeModalState({ isOpen: false, mode: 'add', data: null });
+      window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'leave-types' } }));
+      window.dispatchEvent(new CustomEvent('leaves-updated'));
       showToast(`✓ Leave type ${typeData.code} saved successfully in database.`);
     } catch (err) {
       showToast(err.message || 'Failed to save leave type.', 'danger');
@@ -700,6 +717,8 @@ export default function Leave() {
       const newStatus = item.status === 'Active' ? 'Inactive' : 'Active';
       await leaveService.saveLeaveType(compId, { ...item, status: newStatus });
       await fetchAllLeaveData();
+      window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'leave-types' } }));
+      window.dispatchEvent(new CustomEvent('leaves-updated'));
       showToast(`Leave type ${item.code} marked as ${newStatus}.`);
     } catch (err) {
       showToast(err.message || 'Failed to update status.', 'danger');
@@ -717,6 +736,8 @@ export default function Leave() {
         deleteLeaveTypeModalState.typeData.code;
       await leaveService.deleteLeaveType(compId, idOrCode);
       setDeleteLeaveTypeModalState({ isOpen: false, typeData: null, isDeleting: false });
+      window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: 'leave-types' } }));
+      window.dispatchEvent(new CustomEvent('leaves-updated'));
       showToast(`✓ Leave type ${deleteLeaveTypeModalState.typeData.code} permanently deleted from database.`);
       await fetchAllLeaveData();
     } catch (err) {
@@ -896,7 +917,7 @@ export default function Leave() {
                   <label className={styles.fieldLabel}>Client</label>
                   <select className={styles.select} value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
                     <option value="">All Clients</option>
-                    {clients.map((client) => (
+                    {clients.filter((c) => !c.status || c.status === 'active').map((client) => (
                       <option key={client.id || client.name} value={client.name}>{client.name}</option>
                     ))}
                   </select>
