@@ -17,6 +17,7 @@ import leaveRoutes from './routes/leaveRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import preferenceRoutes from './routes/preferenceRoutes.js';
+import masterRoutes from './routes/masterRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -105,8 +106,7 @@ app.use(morgan('dev'));
 
 
 // ===========================================
-// Health Check Endpoint
-// ===========================================
+// Health Check & Collections Status Endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     status: 'online',
@@ -114,6 +114,30 @@ app.get('/api/health', (req, res) => {
     version: '1.0.0',
     timestamp: new Date().toISOString()
   });
+});
+
+app.get('/api/collections-status', async (req, res) => {
+  try {
+    import('mongoose').then(async ({ default: mongoose }) => {
+      if (!mongoose.connection.db) {
+        return res.status(500).json({ success: false, message: 'Database not connected yet.' });
+      }
+      const collections = await mongoose.connection.db.listCollections().toArray();
+      const stats = [];
+      for (const coll of collections) {
+        const count = await mongoose.connection.db.collection(coll.name).countDocuments();
+        stats.push({ collection: coll.name, count });
+      }
+      return res.status(200).json({
+        success: true,
+        database: mongoose.connection.name,
+        totalCollections: collections.length,
+        collections: stats
+      });
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 
@@ -156,6 +180,9 @@ app.use('/api/inventory', inventoryRoutes);
 
 // Company Preferences (Employee Portal, Manager Permissions, etc.)
 app.use('/api/preferences', preferenceRoutes);
+
+// Dynamic Masters (Banks, Departments, Designations, Sites, etc. with Company Isolation)
+app.use('/api/masters', masterRoutes);
 
 
 // ===========================================

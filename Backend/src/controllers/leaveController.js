@@ -3,6 +3,7 @@ import LeaveType from '../models/leaveTypeModel.js';
 import LeaveBalance from '../models/leaveBalanceModel.js';
 import Attendance from '../models/attendanceModel.js';
 import Employee from '../models/employeeModel.js';
+import Master from '../models/masterModel.js';
 
 // Default standard leave types to auto-seed if none exist for a company
 const DEFAULT_LEAVE_TYPES = [
@@ -826,14 +827,72 @@ export const deleteLeaveRequest = async (req, res) => {
 
 
 /**
- * @desc    Get leave types for company (auto-seeds defaults if empty)
+ * @desc    Get leave types for company (auto-seeds defaults if empty and synchronizes with Master)
  * @route   GET /api/leaves/types
  * @access  Private
  */
 export const getLeaveTypes = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = req.user?.email?.toLowerCase() || 'rrsecurity@gmail.com';
     const companyId = req.headers['x-company-id'] || req.query.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: 'Company ID is required.' });
+    }
+
+    // Two-way synchronization with Master collection ('leave-types')
+    try {
+      const masterLeaveTypes = await Master.find({ companyId, type: 'leave-types' });
+      for (const m of masterLeaveTypes) {
+        const leaveCode = m.code ? m.code.toUpperCase() : m.name.slice(0, 3).toUpperCase();
+        await LeaveType.findOneAndUpdate(
+          { companyId, $or: [{ code: leaveCode }, { name: m.name }] },
+          {
+            $set: {
+              name: m.name,
+              code: leaveCode,
+              category: (m.paidType || 'paid').toLowerCase() === 'paid' ? 'Paid' : 'Unpaid',
+              quota: Number(m.annualQuota) || 12,
+              carryForward: Boolean(m.carryForward),
+              maxCarryForward: Number(m.maxAccumulation) || 0,
+              description: m.description || '',
+              status: (m.status || 'active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+              adminEmail: m.adminEmail || adminEmail,
+              companyId,
+            },
+          },
+          { upsert: true, new: true }
+        );
+      }
+
+      // Also ensure any existing LeaveType documents exist in Master collection
+      const existingLeaveTypes = await LeaveType.find({ companyId });
+      for (const lt of existingLeaveTypes) {
+        const existsInMaster = await Master.findOne({
+          companyId,
+          type: 'leave-types',
+          $or: [{ code: lt.code }, { name: lt.name }],
+        });
+        if (!existsInMaster) {
+          await Master.create({
+            companyId: lt.companyId || companyId,
+            adminEmail: lt.adminEmail || adminEmail,
+            type: 'leave-types',
+            name: lt.name,
+            code: lt.code || '',
+            paidType: (lt.category || 'Paid').toLowerCase(),
+            annualQuota: Number(lt.quota) || 12,
+            carryForward: Boolean(lt.carryForward),
+            maxAccumulation: Number(lt.maxCarryForward) || 0,
+            encashment: false,
+            description: lt.description || '',
+            status: (lt.status || 'Active').toLowerCase(),
+          });
+        }
+      }
+    } catch (syncErr) {
+      console.warn('Sync between Master and LeaveType error:', syncErr.message);
+    }
 
     let types = await LeaveType.find({ companyId }).sort({ code: 1 });
 
@@ -844,6 +903,30 @@ export const getLeaveTypes = async (req, res) => {
         adminEmail,
       }));
       types = await LeaveType.insertMany(seedTypes).catch(() => []);
+
+      // Also seed into Master collection
+      for (const st of DEFAULT_LEAVE_TYPES) {
+        await Master.findOneAndUpdate(
+          { companyId, type: 'leave-types', code: st.code },
+          {
+            $set: {
+              companyId,
+              adminEmail,
+              type: 'leave-types',
+              name: st.name,
+              code: st.code,
+              paidType: st.category.toLowerCase(),
+              annualQuota: st.quota,
+              carryForward: st.carryForward,
+              maxAccumulation: st.maxCarryForward,
+              encashment: false,
+              description: st.description,
+              status: st.status.toLowerCase(),
+            },
+          },
+          { upsert: true }
+        ).catch(() => {});
+      }
     }
 
     return res.status(200).json({
@@ -868,7 +951,7 @@ export const getLeaveTypes = async (req, res) => {
  */
 export const saveLeaveType = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = req.user?.email?.toLowerCase() || 'rrsecurity@gmail.com';
     const companyId = req.headers['x-company-id'] || req.body.companyId;
     const {
       code,
@@ -900,25 +983,55 @@ export const saveLeaveType = async (req, res) => {
     const carryForwardBool =
       typeof carryForward === 'string' ? carryForward.toLowerCase() === 'yes' : !!carryForward;
 
+    const normalizedCode = code.trim().toUpperCase();
+    const cleanCategory = category || 'Paid';
+    const cleanStatus = status || 'Active';
+
     const updated = await LeaveType.findOneAndUpdate(
-      { companyId, code: code.toUpperCase() },
+      { companyId, code: normalizedCode },
       {
         $set: {
-          name,
-          category: category || 'Paid',
+          name: name.trim(),
+          category: cleanCategory,
           quota: quotaVal,
           accrual: accrual || 'Annual',
           carryForward: carryForwardBool,
           maxCarryForward: maxCFVal,
           requiresProof: !!requiresProof,
           description: description || '',
-          status: status || 'Active',
+          status: cleanStatus,
           adminEmail,
           companyId,
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+
+    // Synchronize to Master collection ('leave-types')
+    try {
+      await Master.findOneAndUpdate(
+        { companyId, type: 'leave-types', $or: [{ code: normalizedCode }, { name: name.trim() }] },
+        {
+          $set: {
+            companyId,
+            adminEmail,
+            type: 'leave-types',
+            name: name.trim(),
+            code: normalizedCode,
+            paidType: cleanCategory.toLowerCase(),
+            annualQuota: quotaVal,
+            carryForward: carryForwardBool,
+            maxAccumulation: maxCFVal,
+            encashment: !!encashment,
+            description: description || '',
+            status: cleanStatus.toLowerCase() === 'active' ? 'active' : 'inactive',
+          },
+        },
+        { upsert: true, new: true }
+      );
+    } catch (masterSyncErr) {
+      console.warn('Sync to Master collection error:', masterSyncErr.message);
+    }
 
     return res.status(200).json({
       success: true,
@@ -961,6 +1074,21 @@ export const deleteLeaveType = async (req, res) => {
 
     if (!deletedDoc) {
       return res.status(404).json({ success: false, message: 'Leave type not found in database.' });
+    }
+
+    // Synchronize deletion to Master collection
+    try {
+      await Master.findOneAndDelete({
+        companyId,
+        type: 'leave-types',
+        $or: [
+          { code: deletedDoc.code },
+          { name: deletedDoc.name },
+          { _id: deletedDoc._id },
+        ],
+      });
+    } catch (masterDeleteErr) {
+      console.warn('Delete from Master collection error:', masterDeleteErr.message);
     }
 
     // Clean up key in LeaveBalance documents for this company

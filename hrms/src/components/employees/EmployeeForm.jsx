@@ -9,7 +9,7 @@ import AddressFamilyStep from './AddressFamilyStep';
 import DocumentsStep from './DocumentsStep';
 import EmployeeReview from './EmployeeReview';
 import { useCompany } from '../../context/CompanyContext';
-import { generateSeriesPreview, mockNumberSeriesList } from '../../data/numberSeriesData';
+import { generateSeriesPreview } from '../../data/numberSeriesData';
 
 const STEPS = [
   { id: 'basic', label: 'Basic Details', number: '01' },
@@ -322,7 +322,23 @@ const normalizeEmployeeForForm = (employee) => {
  * EmployeeForm — Full 6-step multi-step form for adding or editing an employee.
  * Supports preserving data across steps, validation, and final review.
  */
-function EmployeeForm({ isOpen, onClose, onSubmit, employee, clients = [], employeesCount = 0 }) {
+function EmployeeForm({
+  isOpen,
+  onClose,
+  onSubmit,
+  employee,
+  clients = [],
+  departments = [],
+  designations = [],
+  employeeTypes = [],
+  sites = [],
+  posts = [],
+  shifts = [],
+  banks = [],
+  documentTypes = [],
+  workLocations = [],
+  employeesCount = 0
+}) {
   const { activeCompany } = useCompany();
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
@@ -509,19 +525,41 @@ function EmployeeForm({ isOpen, onClose, onSubmit, employee, clients = [], emplo
             <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
           )}
           {currentStep === 1 && (
-            <EmploymentStep data={formData} onChange={handleFormDataChange} errors={errors} clients={clients} />
+            <EmploymentStep
+              data={formData}
+              onChange={handleFormDataChange}
+              errors={errors}
+              clients={clients}
+              departments={departments}
+              designations={designations}
+              employeeTypes={employeeTypes}
+              sites={sites}
+              posts={posts}
+              shifts={shifts}
+              workLocations={workLocations}
+            />
           )}
           {currentStep === 2 && (
             <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
           )}
           {currentStep === 3 && (
-            <BankDetailsStep data={formData} onChange={handleFormDataChange} errors={errors} />
+            <BankDetailsStep
+              data={formData}
+              onChange={handleFormDataChange}
+              errors={errors}
+              banks={banks}
+            />
           )}
           {currentStep === 4 && (
             <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
           )}
           {currentStep === 5 && (
-            <DocumentsStep data={formData} onChange={handleFormDataChange} designation={formData.designation} />
+            <DocumentsStep
+              data={formData}
+              onChange={handleFormDataChange}
+              designation={formData.designation}
+              documentTypes={documentTypes}
+            />
           )}
           {currentStep === 6 && (
             <EmployeeReview data={formData} onEditStep={(stepIdx) => setCurrentStep(stepIdx)} />

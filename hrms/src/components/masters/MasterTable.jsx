@@ -226,7 +226,7 @@ function MasterTable({
                   <>
                     <td><span className={styles.primaryText}>{item.name}</span></td>
                     <td><span className={styles.codeBadge}>{item.code}</span></td>
-                    <td><span className={styles.countText}>{item.branches || 0} Branches</span></td>
+                    <td><span className={styles.countText}>{item.branches ?? (item.branchList?.length || 0)} Branches</span></td>
                   </>
                 )}
 

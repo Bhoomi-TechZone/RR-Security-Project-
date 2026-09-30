@@ -25,7 +25,7 @@ function AttendanceExportModal({ onClose, onExport, records = [], clients = [], 
   const dynamicClients = Array.from(
     new Set([
       activeCompanyName,
-      ...clients.map(c => c.name),
+      ...clients.filter(c => !c.status || c.status === 'active').map(c => c.name),
       ...records.map(r => r.companyName || r.clientName)
     ].filter(Boolean))
   );

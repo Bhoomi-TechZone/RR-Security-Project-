@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import styles from './EmployeeFormSteps.module.css';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -12,7 +12,17 @@ const LICENSE_TYPE_OPTIONS = [
   'Other License'
 ];
 
-function DocumentsStep({ data, onChange }) {
+function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
+  // Derive list of document types strictly from dynamic master records
+  const documentTypeList = useMemo(() => {
+    if (documentTypes && documentTypes.length > 0) {
+      return documentTypes
+        .filter(d => typeof d === 'string' || !d.status || d.status === 'active')
+        .map(d => (typeof d === 'string' ? d : d.name || d.documentName || d));
+    }
+    return [];
+  }, [documentTypes]);
+
   // Ensure licenseList array exists
   const licenseList = (Array.isArray(data.licenseList) && data.licenseList.length > 0)
     ? data.licenseList
@@ -106,10 +116,11 @@ function DocumentsStep({ data, onChange }) {
   };
 
   const addDocument = () => {
+    const defaultDocName = documentTypeList.length > 0 ? (documentTypeList[documentList.length] || documentTypeList[0] || '') : '';
     const updated = [
       ...documentList,
       {
-        name: '',
+        name: defaultDocName,
         photo: ''
       }
     ];
@@ -279,17 +290,23 @@ function DocumentsStep({ data, onChange }) {
             </div>
 
             <div className={styles.docRowGrid}>
-              {/* Field 1: Document Name */}
+              {/* Field 1: Document Name Dropdown */}
               <div className={styles.fieldGroup}>
                 <label htmlFor={`doc-name-${idx}`} className={styles.label}>Document Name</label>
-                <input
+                <select
                   id={`doc-name-${idx}`}
-                  type="text"
-                  className={styles.input}
-                  placeholder="e.g. Aadhaar Card, PAN Card, Resume"
+                  className={styles.select}
                   value={doc.name || ''}
                   onChange={(e) => handleDocChange(idx, 'name', e.target.value)}
-                />
+                >
+                  <option value="">Select Document Type</option>
+                  {documentTypeList.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                  {doc.name && !documentTypeList.includes(doc.name) && (
+                    <option value={doc.name}>{doc.name}</option>
+                  )}
+                </select>
               </div>
 
               {/* Field 2: Photo / Document File */}

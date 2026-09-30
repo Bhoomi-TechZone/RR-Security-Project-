@@ -137,14 +137,16 @@ function TransferEmployeeModal({
                   required
                 >
                   <option value="">Select Client Company</option>
-                  {clients.map((c) => {
-                    const val = c.clientId || c.id || c._id;
-                    return (
-                      <option key={val} value={val}>
-                        {c.name}
-                      </option>
-                    );
-                  })}
+                  {clients
+                    .filter((c) => !c.status || c.status === 'active')
+                    .map((c) => {
+                      const val = c.clientId || c.id || c._id;
+                      return (
+                        <option key={val} value={val}>
+                          {c.name}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
             ) : (

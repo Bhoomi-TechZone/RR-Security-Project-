@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Search, RotateCcw } from 'lucide-react';
 import styles from './EmployeeFilters.module.css';
-import { mockDepartments, mockDesignations } from '../../data/employeeData';
 
 /**
  * EmployeeFilters Component
@@ -19,8 +18,28 @@ function EmployeeFilters({
   statusFilter,
   onStatusFilterChange,
   onResetFilters,
-  clients = []
+  clients = [],
+  departments = [],
+  designations = []
 }) {
+  const deptList = useMemo(() => {
+    if (departments && departments.length > 0) {
+      return departments
+        .filter(d => typeof d === 'string' || !d.status || d.status === 'active' || d.name === departmentFilter)
+        .map(d => (typeof d === 'string' ? d : d.name || d.label || d));
+    }
+    return [];
+  }, [departments, departmentFilter]);
+
+  const desgList = useMemo(() => {
+    if (designations && designations.length > 0) {
+      return designations
+        .filter(d => typeof d === 'string' || !d.status || d.status === 'active' || d.name === designationFilter)
+        .map(d => (typeof d === 'string' ? d : d.name || d.label || d));
+    }
+    return [];
+  }, [designations, designationFilter]);
+
   return (
     <div className={styles.filtersContainer}>
       <div className={styles.searchWrapper}>
@@ -43,14 +62,16 @@ function EmployeeFilters({
             aria-label="Filter by Company"
           >
             <option value="all">All Companies</option>
-            {clients.map((c) => {
-              const val = c.clientId || c.id || c._id;
-              return (
-                <option key={val} value={val}>
-                  {c.name}
-                </option>
-              );
-            })}
+            {clients
+              .filter((c) => !c.status || c.status === 'active' || (companyFilter !== 'all' && (c.clientId === companyFilter || c.id === companyFilter || c._id === companyFilter)))
+              .map((c) => {
+                const val = c.clientId || c.id || c._id;
+                return (
+                  <option key={val} value={val}>
+                    {c.name}
+                  </option>
+                );
+              })}
           </select>
         </div>
 
@@ -62,7 +83,7 @@ function EmployeeFilters({
             aria-label="Filter by Department"
           >
             <option value="all">All Departments</option>
-            {mockDepartments.map((dept) => (
+            {deptList.map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
               </option>
@@ -78,7 +99,7 @@ function EmployeeFilters({
             aria-label="Filter by Designation"
           >
             <option value="all">All Designations</option>
-            {mockDesignations.map((desg) => (
+            {desgList.map((desg) => (
               <option key={desg} value={desg}>
                 {desg}
               </option>
