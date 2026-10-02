@@ -24,12 +24,10 @@ export const authService = {
 
       // Store session
       if (data.token) {
-        if (rememberMe) {
-          localStorage.setItem('novaspark_auth_token', data.token);
-          localStorage.setItem('novaspark_active_user', JSON.stringify(data.user));
-        } else {
+        localStorage.setItem('novaspark_auth_token', data.token);
+        localStorage.setItem('novaspark_active_user', JSON.stringify(data.user));
+        if (!rememberMe) {
           sessionStorage.setItem('novaspark_auth_token', data.token);
-          localStorage.setItem('novaspark_active_user', JSON.stringify(data.user));
         }
       }
 

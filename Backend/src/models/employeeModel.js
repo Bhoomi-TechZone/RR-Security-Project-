@@ -203,8 +203,15 @@ employeeSchema.pre('save', async function () {
 
 // Method to verify password on employee login
 employeeSchema.methods.comparePassword = async function (enteredPassword) {
-  if (!this.password) return false;
-  return await bcrypt.compare(enteredPassword, this.password);
+  if (!this.password && !this.savedPassword) return false;
+  if (this.password) {
+    try {
+      const isMatch = await bcrypt.compare(enteredPassword, this.password);
+      if (isMatch) return true;
+    } catch (_) {}
+    if (this.password === enteredPassword) return true;
+  }
+  return this.savedPassword === enteredPassword;
 };
 
 const Employee = mongoose.model('Employee', employeeSchema);

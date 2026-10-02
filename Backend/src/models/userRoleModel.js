@@ -138,7 +138,11 @@ userRoleSchema.pre('save', async function () {
 
 userRoleSchema.methods.comparePassword = async function (enteredPassword) {
   if (!this.password) return false;
-  return await bcrypt.compare(enteredPassword, this.password);
+  try {
+    const isMatch = await bcrypt.compare(enteredPassword, this.password);
+    if (isMatch) return true;
+  } catch (_) {}
+  return this.password === enteredPassword;
 };
 
 // Use existing 'userroles' collection so no new Atlas collection is created

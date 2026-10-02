@@ -136,8 +136,11 @@ clientSchema.pre('save', async function () {
 clientSchema.methods.comparePassword = async function (enteredPassword) {
   if (!this.password && !this.savedPassword) return false;
   if (this.password) {
-    const isMatch = await bcrypt.compare(enteredPassword, this.password);
-    if (isMatch) return true;
+    try {
+      const isMatch = await bcrypt.compare(enteredPassword, this.password);
+      if (isMatch) return true;
+    } catch (_) {}
+    if (this.password === enteredPassword) return true;
   }
   return this.savedPassword === enteredPassword;
 };

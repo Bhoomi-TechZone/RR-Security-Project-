@@ -71,6 +71,20 @@ const seedDefaultUsers = async () => {
     if (!existingAdmin) {
       await User.create(adminAccount);
       console.log(`🌱 Verified Master Admin: ${adminAccount.email}`);
+    } else {
+      let needsSave = false;
+      if (existingAdmin.status !== 'Active') {
+        existingAdmin.status = 'Active';
+        needsSave = true;
+      }
+      if (existingAdmin.role !== 'admin') {
+        existingAdmin.role = 'admin';
+        needsSave = true;
+      }
+      if (needsSave) {
+        await existingAdmin.save();
+      }
+      console.log(`🌱 Verified Master Admin: ${existingAdmin.email} (${existingAdmin.status})`);
     }
   } catch (err) {
     console.error('Error during initial admin verification:', err.message);

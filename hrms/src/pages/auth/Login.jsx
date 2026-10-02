@@ -37,7 +37,7 @@ function Login() {
           {/* Heading */}
           <h1 className={styles.heading}>Welcome Back</h1>
           <p className={styles.subheading}>
-            Please sign in to access your HR dashboard
+            Sign in to access your Admin, Employee, or Client dashboard
           </p>
 
           {/* Login Form */}
