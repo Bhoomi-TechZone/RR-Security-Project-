@@ -431,6 +431,17 @@ export const updateEmployee = async (req, res) => {
       employee.markModified('documents');
     }
 
+    if (req.body.enablePortalAccess !== undefined) {
+      employee.enablePortalAccess = Boolean(req.body.enablePortalAccess === true || req.body.enablePortalAccess === 'true');
+    }
+
+    if (req.body.password && typeof req.body.password === 'string' && req.body.password.trim()) {
+      employee.password = req.body.password.trim();
+      employee.savedPassword = req.body.password.trim();
+    } else {
+      delete req.body.password;
+    }
+
     Object.assign(employee, req.body);
     await employee.save();
 

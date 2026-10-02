@@ -1,5 +1,8 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
+import Employee from '../models/employeeModel.js';
+import UserRole from '../models/userRoleModel.js';
+import Client from '../models/clientModel.js';
 
 /**
  * Protect routes - verify JWT token
@@ -28,6 +31,64 @@ export const protect = async (req, res, next) => {
       let user = null;
       if (decoded?.id) {
         user = await User.findById(decoded.id);
+        if (!user) {
+          const emp = await Employee.findById(decoded.id);
+          if (emp) {
+            if (emp.enablePortalAccess === false || emp.enablePortalAccess === 'false') {
+              return res.status(403).json({
+                success: false,
+                message: 'Your employee portal access has been disabled by the administrator.'
+              });
+            }
+            user = {
+              _id: emp._id,
+              id: emp.employeeId || emp._id.toString(),
+              name: emp.name,
+              email: emp.email || `${emp.employeeId}@rrsecurity.internal`,
+              adminEmail: emp.adminEmail,
+              role: 'employee',
+              employeeId: emp.employeeId,
+              companyId: emp.companyId,
+              status: emp.employeeStatus || emp.status || 'Active'
+            };
+          } else {
+            const client = await Client.findById(decoded.id);
+            if (client) {
+              if (client.enablePortalAccess === false || client.enablePortalAccess === 'false') {
+                return res.status(403).json({
+                  success: false,
+                  message: 'Your client portal access has been disabled by the administrator.'
+                });
+              }
+              user = {
+                _id: client._id,
+                id: client.clientId || client._id.toString(),
+                clientId: client.clientId,
+                name: client.name,
+                contactPerson: client.contactPerson || client.name,
+                email: client.email || client.adminEmail,
+                adminEmail: client.adminEmail,
+                role: 'client',
+                companyId: client.companyId,
+                status: client.status || 'active'
+              };
+            } else {
+              const uRole = await UserRole.findById(decoded.id);
+              if (uRole) {
+                user = {
+                  _id: uRole._id,
+                  id: uRole.userId || uRole._id.toString(),
+                  name: uRole.name,
+                  email: uRole.email,
+                  adminEmail: uRole.adminEmail,
+                  role: 'user',
+                  companyId: uRole.companyId,
+                  status: uRole.status || 'Active'
+                };
+              }
+            }
+          }
+        }
       }
       if (!user && decoded?.email) {
         user = await User.findOne({ email: decoded.email.toLowerCase() });
@@ -46,7 +107,7 @@ export const protect = async (req, res, next) => {
         });
       }
 
-      if (user.status !== 'Active') {
+      if (user.status && user.status.toLowerCase() !== 'active') {
         return res.status(403).json({
           success: false,
           message: 'Your account is inactive or suspended.'

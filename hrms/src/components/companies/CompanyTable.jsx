@@ -22,6 +22,7 @@ function CompanyTable({
           <table className={styles.table}>
             <thead>
               <tr>
+                <th>Client ID</th>
                 <th>Client</th>
                 <th>GSTIN</th>
                 <th>Contact Person</th>
@@ -35,6 +36,7 @@ function CompanyTable({
             <tbody>
               {[1, 2, 3, 4, 5].map((idx) => (
                 <tr key={idx} className={styles.skeletonRow}>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '60px' }} /></td>
                   <td>
                     <div className={styles.skeletonCompany}>
                       <div className={styles.skeletonAvatar} />
@@ -96,6 +98,7 @@ function CompanyTable({
         <table className={styles.table}>
           <thead>
             <tr>
+              <th>Client ID</th>
               <th>Client</th>
               <th>GSTIN</th>
               <th>Contact Person</th>
@@ -107,105 +110,123 @@ function CompanyTable({
             </tr>
           </thead>
           <tbody>
-            {companies.map((company) => (
-              <tr key={company._id || company.id || company.clientId}>
-                <td>
-                  <div className={styles.companyCell}>
-                    <div className={styles.avatar}>
-                      {company.initials || (company.name ? company.name.substring(0, 2).toUpperCase() : 'CL')}
+            {companies.map((company, index) => {
+              const displayClientId = company.clientId || `CLI-${String(index + 1).padStart(3, '0')}`;
+              return (
+                <tr key={company._id || company.id || company.clientId}>
+                  <td>
+                    <span className={styles.clientIdBadge}>
+                      {displayClientId}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.companyCell}>
+                      <div className={styles.avatar}>
+                        {company.initials || (company.name ? company.name.substring(0, 2).toUpperCase() : 'CL')}
+                      </div>
+                      <div className={styles.info}>
+                        <span 
+                          className={styles.companyName}
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => onAction && onAction('view', company)}
+                          title="Click to view details"
+                        >
+                          {company.name}
+                        </span>
+                        <span className={styles.companyAddress}>{company.address || 'No address provided'}</span>
+                      </div>
                     </div>
-                    <div className={styles.info}>
-                      <span 
-                        className={styles.companyName}
-                        style={{ cursor: 'pointer' }}
-                        onClick={() => onAction && onAction('view', company)}
-                        title="Click to view details"
-                      >
-                        {company.name}
-                      </span>
-                      <span className={styles.companyAddress}>{company.address || 'No address provided'}</span>
+                  </td>
+                  <td>
+                    <span className={styles.gstin}>{company.gstin || 'N/A'}</span>
+                  </td>
+                  <td>
+                    <div className={styles.contactCell}>
+                      <span className={styles.contactName}>{company.contactPerson || 'N/A'}</span>
+                      <span className={styles.contactPhone}>{company.contactNumber || ''}</span>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <span className={styles.gstin}>{company.gstin || 'N/A'}</span>
-                </td>
-                <td>
-                  <div className={styles.contactCell}>
-                    <span className={styles.contactName}>{company.contactPerson}</span>
-                    <span className={styles.contactPhone}>{company.contactNumber || 'N/A'}</span>
-                  </div>
-                </td>
-                <td>
-                  <span className={styles.date}>{formatDate(company.contractStartDate)}</span>
-                </td>
-                <td>
-                  <span className={styles.date}>{formatDate(company.contractEndDate)}</span>
-                </td>
-                <td>
-                  <span className={styles.employeeCount}>
-                    {company.employees || 0} Employees
-                  </span>
-                </td>
-                <td>
-                  <StatusBadge status={company.status} />
-                </td>
-                <td className={styles.textCenter}>
-                  <CompanyActionMenu company={company} onAction={onAction} />
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <span className={styles.date}>{formatDate(company.contractStartDate)}</span>
+                  </td>
+                  <td>
+                    <span className={styles.date}>{formatDate(company.contractEndDate)}</span>
+                  </td>
+                  <td>
+                    <span className={styles.employeeCount}>
+                      {company.employees || 0} Employees
+                    </span>
+                  </td>
+                  <td>
+                    <StatusBadge status={company.status} />
+                  </td>
+                  <td className={styles.textCenter}>
+                    <CompanyActionMenu company={company} onAction={onAction} />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile Card Layout */}
       <div className={styles.mobileList}>
-        {companies.map((company) => (
-          <div key={company.id} className={styles.mobileCard}>
-            <div className={styles.cardHeader}>
-              <div className={styles.companyInfo}>
-                <div className={styles.avatar}>
-                  {company.initials || company.name.substring(0, 2).toUpperCase()}
+        {companies.map((company, index) => {
+          const displayClientId = company.clientId || `CLI-${String(index + 1).padStart(3, '0')}`;
+          return (
+            <div key={company.id || company._id || index} className={styles.mobileCard}>
+              <div className={styles.cardHeader}>
+                <div className={styles.companyInfo}>
+                  <div className={styles.avatar}>
+                    {company.initials || (company.name ? company.name.substring(0, 2).toUpperCase() : 'CL')}
+                  </div>
+                  <div className={styles.info}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className={styles.clientIdBadge}>{displayClientId}</span>
+                      <h4 className={styles.companyName} style={{ margin: 0 }}>{company.name}</h4>
+                    </div>
+                    <span className={styles.companyAddress}>{company.address}</span>
+                  </div>
                 </div>
-                <div className={styles.info}>
-                  <h4 className={styles.companyName}>{company.name}</h4>
-                  <span className={styles.companyAddress}>{company.address}</span>
+                <div className={styles.cardActions}>
+                  <StatusBadge status={company.status} />
+                  <CompanyActionMenu company={company} onAction={onAction} />
                 </div>
               </div>
-              <div className={styles.cardActions}>
-                <StatusBadge status={company.status} />
-                <CompanyActionMenu company={company} onAction={onAction} />
+              <div className={styles.cardBody}>
+                <div className={styles.cardRow}>
+                  <span className={styles.cardLabel}>Client ID:</span>
+                  <span className={styles.cardValue}>{displayClientId}</span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span className={styles.cardLabel}>GSTIN:</span>
+                  <span className={styles.cardValue}>{company.gstin || 'N/A'}</span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span className={styles.cardLabel}>Contact:</span>
+                  <span className={styles.cardValue}>
+                    {company.contactPerson} {company.contactNumber && `(${company.contactNumber})`}
+                  </span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span className={styles.cardLabel}>Start:</span>
+                  <span className={styles.cardValue}>{formatDate(company.contractStartDate)}</span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span className={styles.cardLabel}>End:</span>
+                  <span className={styles.cardValue}>{formatDate(company.contractEndDate)}</span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span className={styles.cardLabel}>Employees:</span>
+                  <span className={`${styles.cardValue} ${styles.fontWeightBold}`}>
+                    {company.employees || 0} Employees
+                  </span>
+                </div>
               </div>
             </div>
-            <div className={styles.cardBody}>
-              <div className={styles.cardRow}>
-                <span className={styles.cardLabel}>GSTIN:</span>
-                <span className={styles.cardValue}>{company.gstin || 'N/A'}</span>
-              </div>
-              <div className={styles.cardRow}>
-                <span className={styles.cardLabel}>Contact:</span>
-                <span className={styles.cardValue}>
-                  {company.contactPerson} {company.contactNumber && `(${company.contactNumber})`}
-                </span>
-              </div>
-              <div className={styles.cardRow}>
-                <span className={styles.cardLabel}>Start:</span>
-                <span className={styles.cardValue}>{formatDate(company.contractStartDate)}</span>
-              </div>
-              <div className={styles.cardRow}>
-                <span className={styles.cardLabel}>End:</span>
-                <span className={styles.cardValue}>{formatDate(company.contractEndDate)}</span>
-              </div>
-              <div className={styles.cardRow}>
-                <span className={styles.cardLabel}>Employees:</span>
-                <span className={`${styles.cardValue} ${styles.fontWeightBold}`}>
-                  {company.employees || 0} Employees
-                </span>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

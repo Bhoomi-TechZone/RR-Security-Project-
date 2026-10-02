@@ -1,35 +1,124 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { CLIENT_COMPANY_PROFILE } from '../data/clientPortalData';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import authService from '../services/authService';
+import clientPortalService from '../services/clientPortalService';
 
 const ClientAuthContext = createContext(null);
 
 export function ClientAuthProvider({ children }) {
-  // Store currently authenticated client company in localStorage
+  const [loading, setLoading] = useState(true);
+
+  // Initialize client profile dynamically from active session
   const [clientCompany, setClientCompany] = useState(() => {
+    const user = authService.getCurrentUser();
     const saved = localStorage.getItem('novaspark_active_client');
-    if (saved) {
+    if (saved && user) {
       try {
-        return JSON.parse(saved);
-      } catch (e) {
-        // fallback
-      }
+        const parsed = JSON.parse(saved);
+        // Only reuse if matching currently logged in client
+        if (
+          parsed.id === user.id ||
+          parsed.clientId === user.clientId ||
+          parsed.name === user.name
+        ) {
+          return parsed;
+        }
+      } catch (e) {}
     }
-    return CLIENT_COMPANY_PROFILE;
+
+    if (user && (user.role === 'client' || user.clientId)) {
+      return {
+        id: user.clientId || user.id || 'CLI-001',
+        clientId: user.clientId || user.id || 'CLI-001',
+        clientCode: user.clientId || user.id || 'CLI-001',
+        name: user.name || 'Client Organization',
+        legalName: user.name ? `${user.name} Pvt. Ltd.` : 'Client Organization Pvt. Ltd.',
+        contactPerson: user.contactPerson || user.name || 'Authorized Representative',
+        email: user.email || '',
+        contactNumber: user.contactNumber || '',
+        contractStatus: 'Active',
+        registeredAddress: user.address || '',
+        billingAddress: user.address || '',
+        operatingSites: []
+      };
+    }
+
+    return {
+      id: 'CLI-001',
+      clientId: 'CLI-001',
+      clientCode: 'CLI-001',
+      name: 'Client Organization',
+      legalName: 'Client Organization Pvt. Ltd.',
+      contactPerson: 'Authorized Representative',
+      email: '',
+      contactNumber: '',
+      contractStatus: 'Active',
+      registeredAddress: '',
+      billingAddress: '',
+      operatingSites: []
+    };
   });
 
-  const [clientUser] = useState({
-    id: 'usr-client-001',
-    name: 'Rahul Kumar',
-    initials: 'RK',
-    email: 'rahul.kumar@abcsecurity.in',
-    designation: 'Client Representative',
-    companyName: 'ABC Security Services',
-    clientId: 'c001',
-    role: 'Client'
+  const [clientUser, setClientUser] = useState(() => {
+    const user = authService.getCurrentUser();
+    const name = user?.contactPerson || user?.name || 'Client Representative';
+    return {
+      id: user?.id || 'usr-client',
+      name: name,
+      initials: name
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase() || 'CR',
+      email: user?.email || '',
+      designation: 'Client Representative',
+      companyName: user?.name || 'Client Organization',
+      clientId: user?.clientId || user?.id || 'CLI-001',
+      role: 'Client'
+    };
   });
+
+  // Fetch live client profile from backend
+  const refreshProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      const profile = await clientPortalService.getProfile();
+      if (profile) {
+        setClientCompany(profile);
+        localStorage.setItem('novaspark_active_client', JSON.stringify(profile));
+
+        const repName = profile.contactPerson || profile.name || 'Client Representative';
+        setClientUser({
+          id: profile.clientId || 'usr-client',
+          name: repName,
+          initials: repName
+            .split(' ')
+            .map((w) => w[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase() || 'CR',
+          email: profile.email || '',
+          designation: profile.designation || 'Client Representative',
+          companyName: profile.name || 'Client Organization',
+          clientId: profile.clientId || 'CLI-001',
+          role: 'Client'
+        });
+      }
+    } catch (err) {
+      console.warn('Could not refresh client profile from API:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    localStorage.setItem('novaspark_active_client', JSON.stringify(clientCompany));
+    refreshProfile();
+  }, [refreshProfile]);
+
+  useEffect(() => {
+    if (clientCompany) {
+      localStorage.setItem('novaspark_active_client', JSON.stringify(clientCompany));
+    }
   }, [clientCompany]);
 
   return (
@@ -37,8 +126,10 @@ export function ClientAuthProvider({ children }) {
       value={{
         clientCompany,
         clientUser,
-        clientId: clientCompany.clientId || 'c001',
-        companyName: clientCompany.name || 'ABC Security Services',
+        clientId: clientCompany?.clientId || 'CLI-001',
+        companyName: clientCompany?.name || 'Client Organization',
+        loading,
+        refreshProfile,
         setClientCompany
       }}
     >
@@ -50,20 +141,42 @@ export function ClientAuthProvider({ children }) {
 export function useClientAuth() {
   const context = useContext(ClientAuthContext);
   if (!context) {
+    const user = authService.getCurrentUser();
+    const name = user?.name || 'Client Organization';
     return {
-      clientCompany: CLIENT_COMPANY_PROFILE,
+      clientCompany: {
+        id: user?.clientId || 'CLI-001',
+        clientId: user?.clientId || 'CLI-001',
+        clientCode: user?.clientId || 'CLI-001',
+        name: name,
+        legalName: `${name} Pvt. Ltd.`,
+        contactPerson: user?.contactPerson || name,
+        email: user?.email || '',
+        contactNumber: '',
+        contractStatus: 'Active',
+        registeredAddress: '',
+        billingAddress: '',
+        operatingSites: []
+      },
       clientUser: {
-        id: 'usr-client-001',
-        name: 'Rahul Kumar',
-        initials: 'RK',
-        email: 'rahul.kumar@abcsecurity.in',
+        id: 'usr-client',
+        name: user?.contactPerson || name,
+        initials: (user?.contactPerson || name)
+          .split(' ')
+          .map((w) => w[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase() || 'CR',
+        email: user?.email || '',
         designation: 'Client Representative',
-        companyName: 'ABC Security Services',
-        clientId: 'c001',
+        companyName: name,
+        clientId: user?.clientId || 'CLI-001',
         role: 'Client'
       },
-      clientId: 'c001',
-      companyName: 'ABC Security Services',
+      clientId: user?.clientId || 'CLI-001',
+      companyName: name,
+      loading: false,
+      refreshProfile: () => {},
       setClientCompany: () => {}
     };
   }

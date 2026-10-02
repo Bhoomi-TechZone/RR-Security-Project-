@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Bell, ChevronDown, Menu, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
 import ExternalLinksDrawer from './ExternalLinksDrawer';
+import authService from '../../services/authService';
 import styles from './EmployeeHeader.module.css';
 
 function EmployeeHeader({ onToggleSidebar, onLogout }) {
@@ -12,6 +13,44 @@ function EmployeeHeader({ onToggleSidebar, onLogout }) {
   const [isLinksDrawerOpen, setIsLinksDrawerOpen] = useState(false);
   const section = location.pathname.split('/')[2] || 'dashboard';
   const title = section === 'dashboard' ? 'My Dashboard' : section.replace('-', ' ');
+
+  const currentUser = authService.getCurrentUser() || authService.getUser() || {};
+  const userName = currentUser.name || currentUser.employeeName || 'Employee';
+  const userInitials = (userName.split(' ').map((n) => n[0]).join('').substring(0, 2) || 'EM').toUpperCase();
+  const userRole = currentUser.designation || currentUser.role || 'Employee';
+  const employeeId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP-001';
+
+  const [unreadCount, setUnreadCount] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`novaspark_unread_count_${employeeId}`);
+      if (stored !== null) return parseInt(stored, 10) || 0;
+      return 0;
+    } catch {
+      return 0;
+    }
+  });
+
+  useEffect(() => {
+    const updateUnread = (e) => {
+      try {
+        if (e && e.detail && typeof e.detail.unreadCount === 'number') {
+          setUnreadCount(e.detail.unreadCount);
+          return;
+        }
+        const stored = localStorage.getItem(`novaspark_unread_count_${employeeId}`);
+        setUnreadCount(stored !== null ? (parseInt(stored, 10) || 0) : 0);
+      } catch {
+        setUnreadCount(0);
+      }
+    };
+
+    window.addEventListener('storage', updateUnread);
+    window.addEventListener('notif_read_updated', updateUnread);
+    return () => {
+      window.removeEventListener('storage', updateUnread);
+      window.removeEventListener('notif_read_updated', updateUnread);
+    };
+  }, [employeeId]);
 
   return (
     <header className={styles.header} aria-label="Employee header">
@@ -30,17 +69,17 @@ function EmployeeHeader({ onToggleSidebar, onLogout }) {
           aria-label="View notifications"
         >
           <Bell size={19} strokeWidth={2} />
-          <span className={styles.badge}>3</span>
+          {unreadCount > 0 && <span className={styles.badge}>{unreadCount}</span>}
         </button>
         <span className={styles.divider} />
         <Dropdown
           align="right"
           trigger={
             <button className={styles.profileTrigger} aria-label="Profile options menu">
-              <Avatar initials="RS" size="sm" status={null} name="Rahul Sharma" />
+              <Avatar initials={userInitials} size="sm" status={null} name={userName} />
               <div className={styles.profileMeta}>
-                <span className={styles.profileName}>Rahul Sharma</span>
-                <span className={styles.profileRole}>Employee</span>
+                <span className={styles.profileName}>{userName}</span>
+                <span className={styles.profileRole}>{userRole}</span>
               </div>
               <ChevronDown size={14} className={styles.chevron} />
             </button>

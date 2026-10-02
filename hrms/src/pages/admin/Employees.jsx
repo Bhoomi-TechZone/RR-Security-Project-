@@ -9,6 +9,7 @@ import EmployeeFilters from '../../components/employees/EmployeeFilters';
 import EmployeeTable from '../../components/employees/EmployeeTable';
 import EmployeeForm from '../../components/employees/EmployeeForm';
 import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
+import EmployeeCredentialsModal from '../../components/employees/EmployeeCredentialsModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
@@ -58,6 +59,8 @@ function Employees() {
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [transferEmployee, setTransferEmployee] = useState(null);
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
+  const [credentialsEmployee, setCredentialsEmployee] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -265,6 +268,9 @@ function Employees() {
       setIsTransferOpen(true);
     } else if (actionType === 'download') {
       downloadEmployeeProfile(employee, activeCompany);
+    } else if (actionType === 'credentials') {
+      setCredentialsEmployee(employee);
+      setIsCredentialsOpen(true);
     } else if (actionType === 'deactivate') {
       setConfirmModal({
         isOpen: true,
@@ -285,6 +291,35 @@ function Employees() {
         employee,
         actionType: 'activate',
       });
+    }
+  };
+
+  // Save / Update employee portal credentials
+  const handleSaveCredentials = async (employeeId, credentialsData) => {
+    const token = authService.getToken();
+    try {
+      const res = await fetch(`${API_BASE_URL}/employees/${employeeId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': currentCompanyId,
+        },
+        body: JSON.stringify({
+          password: credentialsData.password,
+          enablePortalAccess: credentialsData.enablePortalAccess,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to update credentials');
+      showToast(`✓ Credentials updated successfully for ${credentialsEmployee?.name || 'employee'}.`, 'success');
+      await fetchEmployees();
+      setIsCredentialsOpen(false);
+      setCredentialsEmployee(null);
+    } catch (err) {
+      console.error('Error updating credentials:', err);
+      showToast(err.message || 'Failed to update credentials', 'error');
+      throw err;
     }
   };
 
@@ -378,6 +413,14 @@ function Employees() {
           documentTypes={documentTypes}
           workLocations={workLocations}
           employeesCount={employees.length}
+        />
+
+        {/* Credentials Modal */}
+        <EmployeeCredentialsModal
+          isOpen={isCredentialsOpen}
+          employee={credentialsEmployee}
+          onClose={() => { setIsCredentialsOpen(false); setCredentialsEmployee(null); }}
+          onSave={handleSaveCredentials}
         />
 
         {/* Transfer Modal */}

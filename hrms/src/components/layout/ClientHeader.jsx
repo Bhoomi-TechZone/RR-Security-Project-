@@ -30,6 +30,15 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
     return 'Client Portal';
   };
 
+  const clientInitials = clientUser?.initials ||
+    (clientUser?.name || 'Client')
+      .split(' ')
+      .map(w => w[0])
+      .join('')
+      .slice(0, 2)
+      .toUpperCase();
+  const clientCode = clientCompany?.clientCode || clientCompany?.clientId || 'CLI-001';
+
   return (
     <header className={styles.header} aria-label="Client portal header">
       {/* Left side: Toggle button and breadcrumb */}
@@ -50,10 +59,10 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
         <div className={styles.companyPill} title="Authenticated Client Company">
           <Building size={14} className={styles.companyPillIcon} />
           <span className={styles.companyPillText}>
-            {clientCompany?.name || 'ABC Security Services'}
+            {clientCompany?.name || 'Client Company'}
           </span>
           <span className={styles.clientCodeBadge}>
-            {clientCompany?.clientCode || 'CLT-ABC-001'}
+            {clientCode}
           </span>
         </div>
 
@@ -66,7 +75,6 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
             title="Notifications"
           >
             <Bell size={19} strokeWidth={2} />
-            <span className={styles.badge} aria-label="2 unread notifications">2</span>
           </button>
         </div>
 
@@ -79,13 +87,13 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
           trigger={
             <button className={styles.profileTrigger} aria-label="Client profile options menu">
               <Avatar
-                initials={clientUser?.initials || 'RK'}
+                initials={clientInitials}
                 size="sm"
-                name={clientUser?.name || 'Rahul Kumar'}
+                name={clientUser?.name || 'Client User'}
               />
               <div className={styles.profileMeta}>
                 <span className={styles.profileName}>
-                  {clientUser?.name || 'Rahul Kumar'}
+                  {clientUser?.name || 'Client Representative'}
                 </span>
                 <span className={styles.profileRole}>Client</span>
               </div>
@@ -96,10 +104,10 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
           <ul className={styles.dropdownMenu}>
             <li className={styles.dropdownHeader}>
               <span className={styles.dropdownCompanyName}>
-                {clientCompany?.name || 'ABC Security Services'}
+                {clientCompany?.name || 'Client Company'}
               </span>
               <span className={styles.dropdownClientCode}>
-                Code: {clientCompany?.clientCode || 'CLT-ABC-001'}
+                Code: {clientCode}
               </span>
             </li>
             <li className={styles.dropdownItemDivider} />

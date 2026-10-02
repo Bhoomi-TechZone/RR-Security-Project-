@@ -4,19 +4,58 @@ import Employee from '../models/employeeModel.js';
 
 
 
+const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
 /**
  * @desc    Get attendance records (filtered by date, client, site, dept, status) directly from MongoDB
  * @route   GET /api/attendance
- * @access  Private
+ * @access  Private (Admin & Employee)
  */
 export const getAttendanceRecords = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.query.companyId;
-    const { date, month, clientName, site, department, status, search } = req.query;
+    const user = req.user;
+    const companyId = req.headers['x-company-id'] || req.query.companyId || user.companyId;
+    const { date, month, clientName, site, department, status, search, employeeId } = req.query;
 
-    const query = { companyId };
+    const query = {};
+    if (companyId) {
+      query.companyId = companyId;
+    }
 
+    // Strict Role-based security & isolation:
+    // When an employee logs in, they can ONLY view their own attendance records!
+    if (user.role === 'employee') {
+      const empId = user.employeeId || user.id;
+      const empName = user.name;
+
+      const userConditions = [];
+      if (empId) {
+        userConditions.push({ employeeId: { $regex: new RegExp(`^${escapeRegex(empId)}$`, 'i') } });
+      }
+      if (empName) {
+        userConditions.push({ employeeName: { $regex: new RegExp(`^${escapeRegex(empName)}$`, 'i') } });
+      }
+      if (user._id) {
+        userConditions.push({ employeeId: user._id.toString() });
+      }
+
+      if (userConditions.length > 0) {
+        query.$or = userConditions;
+      }
+    } else {
+      // Admin / Manager query filtering
+      if (employeeId) {
+        query.employeeId = { $regex: new RegExp(`^${escapeRegex(employeeId)}$`, 'i') };
+      }
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        query.$or = [
+          { employeeName: { $regex: searchRegex } },
+          { employeeId: { $regex: searchRegex } },
+        ];
+      }
+    }
 
     if (date) {
       query.date = date;
@@ -25,10 +64,18 @@ export const getAttendanceRecords = async (req, res) => {
     }
 
     if (clientName) {
-      query.$or = [
-        { clientName: { $regex: new RegExp(clientName, 'i') } },
-        { companyName: { $regex: new RegExp(clientName, 'i') } },
-      ];
+      const clientRegex = new RegExp(clientName, 'i');
+      if (query.$or && user.role !== 'employee') {
+        query.$and = query.$and || [];
+        query.$and.push({
+          $or: [
+            { clientName: { $regex: clientRegex } },
+            { companyName: { $regex: clientRegex } },
+          ],
+        });
+      } else {
+        query.clientName = { $regex: clientRegex };
+      }
     }
 
     if (site) {
@@ -39,19 +86,18 @@ export const getAttendanceRecords = async (req, res) => {
       query.department = { $regex: new RegExp(department, 'i') };
     }
 
-    if (status) {
+    if (status && status !== 'All') {
       query.status = status;
     }
 
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { employeeName: { $regex: searchRegex } },
-        { employeeId: { $regex: searchRegex } },
-      ];
-    }
-
     let records = await Attendance.find(query).sort({ date: -1, employeeId: 1 });
+
+    // Fallback for employee if companyId was strictly filtered but records exist without matching companyId
+    if (user.role === 'employee' && records.length === 0 && companyId) {
+      const fallbackQuery = { ...query };
+      delete fallbackQuery.companyId;
+      records = await Attendance.find(fallbackQuery).sort({ date: -1, employeeId: 1 });
+    }
 
     return res.status(200).json({
       success: true,
@@ -76,7 +122,7 @@ export const getAttendanceRecords = async (req, res) => {
 export const bulkImportAttendance = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const companyId = req.headers['x-company-id'] || req.body.companyId || req.user.companyId || 'RRS8392014SEC';
     const { records, defaultDate } = req.body;
 
     if (!Array.isArray(records) || records.length === 0) {
@@ -91,11 +137,24 @@ export const bulkImportAttendance = async (req, res) => {
     for (let i = 0; i < records.length; i++) {
       const rec = records[i];
       const recordDate = rec.date || defaultDate || new Date().toISOString().split('T')[0];
-      const empId = (rec.employeeId || `EMP${String(i + 1).padStart(3, '0')}`).trim();
-      const empName = (rec.employeeName || 'Employee').trim();
-      const client = (rec.clientName || rec.companyName || 'RR Security').trim();
-      const site = (rec.site || 'Main Site').trim();
-      const department = (rec.department || 'Security').trim();
+      const rawEmpId = (rec.employeeId || `EMP${String(i + 1).padStart(3, '0')}`).trim();
+      const rawEmpName = (rec.employeeName || 'Employee').trim();
+
+      // Look up corresponding employee in system to align employeeId and employeeName
+      const matchedEmp = await Employee.findOne({
+        $or: [
+          { employeeId: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
+          { employeeCode: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
+          { name: { $regex: new RegExp(`^${escapeRegex(rawEmpName)}$`, 'i') } },
+        ],
+      });
+
+      const empId = matchedEmp?.employeeId || rawEmpId;
+      const empName = matchedEmp?.name || rawEmpName;
+      const targetCompanyId = matchedEmp?.companyId || companyId;
+      const client = (rec.clientName || rec.companyName || matchedEmp?.clientName || 'RR Security').trim();
+      const site = (rec.site || matchedEmp?.site || 'Main Site').trim();
+      const department = (rec.department || matchedEmp?.department || 'Security').trim();
 
       const initials =
         rec.initials ||
@@ -110,7 +169,7 @@ export const bulkImportAttendance = async (req, res) => {
       // Upsert directly into MongoDB by companyId, employeeId, and date
       const updated = await Attendance.findOneAndUpdate(
         {
-          companyId,
+          companyId: targetCompanyId,
           employeeId: empId,
           date: recordDate,
         },
@@ -129,7 +188,7 @@ export const bulkImportAttendance = async (req, res) => {
             lateMinutes: rec.lateMinutes || (rec.status === 'late' ? 15 : 0),
             earlyOutMinutes: rec.earlyOutMinutes || 0,
             adminEmail,
-            companyId,
+            companyId: targetCompanyId,
           },
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -214,8 +273,23 @@ export const saveAttendanceRecord = async (req, res) => {
       }
     }
 
+    const rawEmpId = String(employeeId).trim();
+    const rawEmpName = String(employeeName || 'Employee').trim();
+
+    const matchedEmp = await Employee.findOne({
+      $or: [
+        { employeeId: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
+        { employeeCode: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
+        { name: { $regex: new RegExp(`^${escapeRegex(rawEmpName)}$`, 'i') } },
+      ],
+    });
+
+    const finalEmpId = matchedEmp?.employeeId || rawEmpId;
+    const finalEmpName = matchedEmp?.name || rawEmpName;
+    const finalCompanyId = matchedEmp?.companyId || companyId || 'RRS8392014SEC';
+
     const initials =
-      (employeeName || 'EM')
+      (finalEmpName || 'EM')
         .split(' ')
         .map((n) => n[0])
         .join('')
@@ -223,15 +297,15 @@ export const saveAttendanceRecord = async (req, res) => {
         .toUpperCase();
 
     const record = await Attendance.findOneAndUpdate(
-      { companyId, employeeId, date },
+      { companyId: finalCompanyId, employeeId: finalEmpId, date },
       {
         $set: {
-          employeeName: employeeName || 'Employee',
+          employeeName: finalEmpName,
           initials,
-          clientName: clientName || companyName || 'RR Security',
-          companyName: clientName || companyName || 'RR Security',
-          site: site || 'Main Site',
-          department: department || 'Security',
+          clientName: clientName || companyName || matchedEmp?.clientName || 'RR Security',
+          companyName: clientName || companyName || matchedEmp?.clientName || 'RR Security',
+          site: site || matchedEmp?.site || 'Main Site',
+          department: department || matchedEmp?.department || 'Security',
           checkIn: checkIn || null,
           checkOut: checkOut || null,
           workingHours: computedHours || (status === 'absent' || status === 'onLeave' ? null : '8h 00m'),
@@ -239,7 +313,7 @@ export const saveAttendanceRecord = async (req, res) => {
           lateMinutes: Number(lateMinutes) || 0,
           earlyOutMinutes: Number(earlyOutMinutes) || 0,
           adminEmail,
-          companyId,
+          companyId: finalCompanyId,
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }

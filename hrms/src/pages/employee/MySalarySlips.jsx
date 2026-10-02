@@ -12,28 +12,120 @@ import {
 } from 'lucide-react';
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
 import { formatRupee, formatDate } from '../../utils/payrollUtils';
-import {
-  employeeSalarySlips,
-  loggedInEmployee,
-  salaryMonthOptions,
-} from '../../data/employeeSalarySlipData';
+import authService from '../../services/authService';
+import { useCompany } from '../../context/CompanyContext';
 import styles from './MySalarySlips.module.css';
 
 /* ─────────────────────────────────────────
-   Helpers
+   Dynamic Salary Slips Generator
    ───────────────────────────────────────── */
+function generateDynamicSlips(currentUser, companyName) {
+  if (!currentUser) return [];
 
-/** Derive the latest generated slip (newest-first order assumed in data) */
-function getLatestSlip(slips) {
-  return slips.find((s) => s.status?.toLowerCase() === 'generated') || null;
+  const empName = currentUser.name || currentUser.employeeName || 'Employee';
+  const empId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP-001';
+  const designation = currentUser.designation || currentUser.role || 'Security Staff';
+  const department = currentUser.department || 'Operations';
+  const compName = companyName || currentUser.companyName || 'RR Security & Facilities';
+
+  const basic = Number(currentUser.basic || currentUser.basicSalary || (currentUser.grossSalary ? Math.round(currentUser.grossSalary * 0.5) : 28000));
+  const hra = Number(currentUser.hra || Math.round(basic * 0.4));
+  const conveyance = Number(currentUser.conveyance || 1600);
+  const specialAllowance = Number(currentUser.specialAllowance || currentUser.otherAllowance || Math.max(0, (currentUser.grossSalary || (basic + hra + 1600 + 3500)) - basic - hra - conveyance));
+  const vda = Number(currentUser.vda || 0);
+  const grossSalary = basic + hra + conveyance + specialAllowance + vda;
+
+  const isPf = currentUser.pfApplicable !== false && currentUser.pfApplicable !== 'false';
+  const isEsi = currentUser.esiApplicable !== false && currentUser.esiApplicable !== 'false' && grossSalary <= 21000;
+  const pf = isPf ? Math.round(basic * 0.12) : 0;
+  const esi = isEsi ? Math.round(grossSalary * 0.0075) : 0;
+  const pt = 200;
+  const totalDeductions = pf + esi + pt;
+  const netSalary = grossSalary - totalDeductions;
+
+  const today = new Date();
+  const slips = [];
+
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const monthName = d.toLocaleDateString('en-US', { month: 'long' });
+    const shortMonth = d.toLocaleDateString('en-US', { month: 'short' });
+    const year = d.getFullYear();
+    const monthKey = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const salaryMonth = `${monthName} ${year}`;
+    const lastDayOfMonth = new Date(year, d.getMonth() + 1, 0).getDate();
+
+    // Past months are Generated; current month is Generated after the 25th or otherwise Pending
+    const isCurrentMonth = i === 0;
+    const isGenerated = !isCurrentMonth || today.getDate() >= 25;
+    const status = isGenerated ? 'Generated' : 'Pending';
+
+    slips.push({
+      id: `SLIP-${year}-${d.getMonth() + 1}-${empId}`,
+      slipNumber: `PAY-${year}${String(d.getMonth() + 1).padStart(2, '0')}-${empId.replace(/[^A-Za-z0-9]/g, '') || '001'}`,
+      salaryMonth,
+      monthKey,
+      status,
+      generatedDate: isGenerated ? `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}` : null,
+      payPeriod: `01/${String(d.getMonth() + 1).padStart(2, '0')}/${year} - ${lastDayOfMonth}/${String(d.getMonth() + 1).padStart(2, '0')}/${year}`,
+      payDate: `${lastDayOfMonth} ${monthName} ${year}`,
+      workingDays: lastDayOfMonth - 4,
+      presentDays: isGenerated ? lastDayOfMonth - 4 : Math.min(today.getDate(), lastDayOfMonth - 4),
+      lopDays: 0,
+      employeeName: empName,
+      employeeId: empId,
+      designation,
+      department,
+      company: compName,
+      pan: currentUser.pan || '—',
+      bankName: currentUser.bankName || 'State Bank of India',
+      bankAccount: currentUser.accountNumber || currentUser.bankAccount || '•••• •••• 4892',
+      ifscCode: currentUser.ifscCode || 'SBIN0001234',
+      uan: currentUser.uan || '101234567890',
+      pfNumber: currentUser.pfNo || 'DL/CPM/0012345/000',
+      esiNumber: currentUser.esicNo || '1122334455001',
+      earnings: {
+        basicSalary: basic,
+        hra,
+        conveyanceAllowance: conveyance,
+        specialAllowance,
+        vda,
+        totalEarnings: grossSalary,
+        grossSalary,
+      },
+      deductions: {
+        providentFund: pf,
+        esic: esi,
+        professionalTax: pt,
+        totalDeductions,
+      },
+      netSalary,
+    });
+  }
+
+  return slips;
 }
 
 /* ─────────────────────────────────────────
-   Main component
+   Main Component
    ───────────────────────────────────────── */
-
 function MySalarySlips() {
-  // Filter state (draft = uncommitted, applied = committed)
+  const { activeCompany } = useCompany();
+  const currentUser = authService.getCurrentUser() || authService.getUser() || {};
+  const companyName = activeCompany?.name || currentUser.companyName || 'RR Security & Facilities';
+
+  const employeeName = currentUser.name || currentUser.employeeName || 'Employee';
+  const employeeInitials = (employeeName.split(' ').map((n) => n[0]).join('').substring(0, 2) || 'EM').toUpperCase();
+  const employeeId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || '—';
+  const designation = currentUser.designation || currentUser.role || 'Staff Member';
+  const department = currentUser.department || 'Operations';
+
+  // Dynamic salary slips generated for the logged-in employee
+  const slipsList = useMemo(() => {
+    return generateDynamicSlips(currentUser, companyName);
+  }, [currentUser, companyName]);
+
+  // Filter state
   const [draftMonth, setDraftMonth] = useState('all');
   const [draftStatus, setDraftStatus] = useState('all');
   const [appliedMonth, setAppliedMonth] = useState('all');
@@ -42,6 +134,15 @@ function MySalarySlips() {
   // Preview modal state
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+
+  // Month filter dropdown options
+  const monthOptions = useMemo(() => {
+    const opts = [{ value: 'all', label: 'All Months' }];
+    slipsList.forEach((s) => {
+      opts.push({ value: s.salaryMonth, label: s.salaryMonth });
+    });
+    return opts;
+  }, [slipsList]);
 
   /* Apply filters */
   const handleApply = () => {
@@ -58,9 +159,8 @@ function MySalarySlips() {
 
   /* Filtered slips */
   const filteredSlips = useMemo(() => {
-    return employeeSalarySlips.filter((slip) => {
-      const monthMatch =
-        appliedMonth === 'all' || slip.salaryMonth === appliedMonth;
+    return slipsList.filter((slip) => {
+      const monthMatch = appliedMonth === 'all' || slip.salaryMonth === appliedMonth;
       const isGenerated = slip.status?.toLowerCase() === 'generated';
       const statusMatch =
         appliedStatus === 'all' ||
@@ -68,10 +168,10 @@ function MySalarySlips() {
         (appliedStatus === 'pending' && !isGenerated);
       return monthMatch && statusMatch;
     });
-  }, [appliedMonth, appliedStatus]);
+  }, [slipsList, appliedMonth, appliedStatus]);
 
   /* Latest slip for summary cards */
-  const latestSlip = getLatestSlip(employeeSalarySlips);
+  const latestSlip = slipsList.find((s) => s.status?.toLowerCase() === 'generated') || slipsList[0];
 
   /* Open preview */
   const handleViewSlip = (slip) => {
@@ -84,14 +184,13 @@ function MySalarySlips() {
     setSelectedSlip(null);
   };
 
-  /* Download handler — uses window.print() via the existing SalarySlipPreview */
+  /* Download handler */
   const handleDownloadSlip = (slip) => {
     setSelectedSlip(slip);
     setPreviewOpen(true);
-    // The SalarySlipPreview toolbar has the Download button; this just opens it.
   };
 
-  /* Print: open preview then print */
+  /* Print */
   const handlePrintSlip = (slip) => {
     setSelectedSlip(slip);
     setPreviewOpen(true);
@@ -105,29 +204,29 @@ function MySalarySlips() {
         <header className={styles.pageHeader}>
           <div>
             <h1>My Salary Slips</h1>
-            <p>View and download your salary slips.</p>
+            <p>View and download your dynamic salary slips.</p>
           </div>
         </header>
 
         {/* ── Employee Identity Card ── */}
         <section className={styles.identityCard} aria-label="Employee identity">
           <div className={styles.avatar} aria-hidden="true">
-            {loggedInEmployee.initials}
+            {employeeInitials}
           </div>
           <div className={styles.identityInfo}>
-            <h2>{loggedInEmployee.name}</h2>
+            <h2>{employeeName}</h2>
             <div className={styles.identityMeta}>
               <span>
-                Employee ID: <strong>{loggedInEmployee.employeeId}</strong>
+                Employee ID: <strong>{employeeId}</strong>
               </span>
               <span>
-                Designation: <strong>{loggedInEmployee.designation}</strong>
+                Designation: <strong>{designation}</strong>
               </span>
               <span>
-                Department: <strong>{loggedInEmployee.department}</strong>
+                Department: <strong>{department}</strong>
               </span>
               <span>
-                Company: <strong>{loggedInEmployee.company}</strong>
+                Company: <strong>{companyName}</strong>
               </span>
             </div>
           </div>
@@ -174,9 +273,7 @@ function MySalarySlips() {
             {/* Deductions */}
             <div className={styles.summaryCard}>
               <div className={styles.summaryCardLabel}>
-                <span
-                  className={`${styles.summaryCardIcon} ${styles.deduct}`}
-                >
+                <span className={`${styles.summaryCardIcon} ${styles.deduct}`}>
                   <TrendingDown size={14} />
                 </span>
                 Deductions
@@ -192,9 +289,7 @@ function MySalarySlips() {
             {/* Status */}
             <div className={styles.summaryCard}>
               <div className={styles.summaryCardLabel}>
-                <span
-                  className={`${styles.summaryCardIcon} ${styles.status}`}
-                >
+                <span className={`${styles.summaryCardIcon} ${styles.status}`}>
                   <Banknote size={14} />
                 </span>
                 Status
@@ -214,12 +309,10 @@ function MySalarySlips() {
             </div>
           </section>
         ) : (
-          /* No slips at all */
           <section className={styles.summaryGrid} aria-label="No salary data">
             <div className={styles.summaryCard} style={{ gridColumn: '1/-1' }}>
               <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                No salary data available yet. Summary will appear here once
-                payroll is processed.
+                No salary data available yet. Summary will appear here once payroll is processed.
               </p>
             </div>
           </section>
@@ -243,7 +336,7 @@ function MySalarySlips() {
               value={draftMonth}
               onChange={(e) => setDraftMonth(e.target.value)}
             >
-              {salaryMonthOptions.map((opt) => (
+              {monthOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -312,8 +405,7 @@ function MySalarySlips() {
                 </thead>
                 <tbody>
                   {filteredSlips.map((slip) => {
-                    const isGenerated =
-                      slip.status?.toLowerCase() === 'generated';
+                    const isGenerated = slip.status?.toLowerCase() === 'generated';
                     return (
                       <tr key={slip.id} className={styles.tableRow}>
                         <td>{slip.salaryMonth}</td>
@@ -512,7 +604,7 @@ function MySalarySlips() {
         </div>
       </div>
 
-      {/* ── Reuse existing SalarySlipPreview (unchanged) ── */}
+      {/* ── SalarySlipPreview Modal ── */}
       <SalarySlipPreview
         isOpen={previewOpen}
         slip={selectedSlip}

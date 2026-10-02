@@ -22,6 +22,12 @@ function CompanyOverview({ company }) {
 
   const fields = [
     {
+      label: 'Client ID',
+      value: company.clientId || 'CLI-001',
+      icon: Hash,
+      highlight: true
+    },
+    {
       label: 'Client Name',
       value: company.name,
       icon: Building

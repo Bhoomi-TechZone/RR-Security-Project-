@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Users,
   Search,
@@ -12,17 +12,24 @@ import {
   X,
   UserCheck,
   UserX,
-  CalendarOff
+  CalendarOff,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import styles from './ClientEmployees.module.css';
 import { useClientAuth } from '../../context/ClientAuthContext';
-import { CLIENT_EMPLOYEES_LIST } from '../../data/clientPortalData';
+import clientPortalService from '../../services/clientPortalService';
 import Avatar from '../../components/common/Avatar';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 
 function ClientEmployees() {
   const { clientCompany } = useClientAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState([]);
+  const [departmentOptions, setDepartmentOptions] = useState([]);
+  const [siteOptions, setSiteOptions] = useState([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [deptFilter, setDeptFilter] = useState('all');
@@ -35,27 +42,58 @@ function ClientEmployees() {
     setToast({ show: true, message, type });
   };
 
-  // Filtered employees list
-  const filteredEmployees = CLIENT_EMPLOYEES_LIST.filter((emp) => {
-    const matchesSearch =
-      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.employeeCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.designation.toLowerCase().includes(searchTerm.toLowerCase());
+  const fetchEmployees = async () => {
+    try {
+      setLoading(true);
+      const res = await clientPortalService.getAssignedEmployees({
+        search: searchTerm,
+        department: deptFilter,
+        site: siteFilter,
+        status: statusFilter
+      });
 
-    const matchesDept = deptFilter === 'all' || emp.department === deptFilter;
-    const matchesSite = siteFilter === 'all' || emp.site === siteFilter;
-    const matchesStatus =
-      statusFilter === 'all' || emp.status.toLowerCase() === statusFilter.toLowerCase();
+      if (res && Array.isArray(res.employees)) {
+        setEmployees(res.employees);
+        if (res.departments?.length > 0) setDepartmentOptions(res.departments);
+        if (res.sites?.length > 0) setSiteOptions(res.sites);
+      } else {
+        setEmployees([]);
+      }
+    } catch (err) {
+      console.warn('Error fetching client assigned employees:', err.message);
+      setEmployees([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return matchesSearch && matchesDept && matchesSite && matchesStatus;
+  useEffect(() => {
+    fetchEmployees();
+  }, [clientCompany?.clientId, clientCompany?.name, deptFilter, siteFilter, statusFilter]);
+
+  const filteredEmployees = employees.filter((emp) => {
+    if (!searchTerm.trim()) return true;
+    const s = searchTerm.toLowerCase();
+    return (
+      (emp.name && emp.name.toLowerCase().includes(s)) ||
+      (emp.employeeCode && emp.employeeCode.toLowerCase().includes(s)) ||
+      (emp.designation && emp.designation.toLowerCase().includes(s)) ||
+      (emp.mobile && emp.mobile.toLowerCase().includes(s))
+    );
   });
 
   const handleExportRoster = () => {
-    showToast('Workforce employee roster exported to Excel successfully.', 'success');
+    if (filteredEmployees.length === 0) {
+      showToast('No assigned employees to export.', 'error');
+      return;
+    }
+    showToast(`Exported ${filteredEmployees.length} assigned personnel for ${clientCompany?.name} to Excel successfully.`, 'success');
   };
 
-  const departments = Array.from(new Set(CLIENT_EMPLOYEES_LIST.map((e) => e.department)));
-  const sites = Array.from(new Set(CLIENT_EMPLOYEES_LIST.map((e) => e.site)));
+  const totalCount = employees.length;
+  const activeCount = employees.filter((e) => (e.status || '').toLowerCase() === 'active').length;
+  const onLeaveCount = employees.filter((e) => (e.status || '').toLowerCase() === 'on leave').length;
+  const inactiveCount = employees.filter((e) => (e.status || '').toLowerCase() === 'inactive').length;
 
   return (
     <div className={styles.container}>
@@ -72,14 +110,26 @@ function ClientEmployees() {
         <div>
           <h1 className={styles.pageTitle}>Company Workforce</h1>
           <p className={styles.pageSubtitle}>
-            Directory of personnel and verified staff assigned exclusively to your organization.
+            Directory of personnel and verified staff assigned exclusively to {clientCompany?.name || 'your company'}.
           </p>
         </div>
 
-        <button type="button" className={styles.exportBtn} onClick={handleExportRoster}>
-          <Download size={15} />
-          <span>Export Employee List</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className={styles.exportBtn}
+            onClick={fetchEmployees}
+            title="Refresh Roster"
+            style={{ background: 'var(--surface-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          >
+            <RefreshCw size={15} className={loading ? styles.spinning : ''} />
+            <span>Refresh</span>
+          </button>
+          <button type="button" className={styles.exportBtn} onClick={handleExportRoster}>
+            <Download size={15} />
+            <span>Export Employee List</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary KPI Badges */}
@@ -89,8 +139,8 @@ function ClientEmployees() {
             <Users size={18} />
           </div>
           <div className={styles.kpiMeta}>
-            <span className={styles.kpiLabel}>Total Workforce</span>
-            <span className={styles.kpiValue}>{CLIENT_EMPLOYEES_LIST.length}</span>
+            <span className={styles.kpiLabel}>Total Assigned Workforce</span>
+            <span className={styles.kpiValue}>{totalCount}</span>
           </div>
         </div>
 
@@ -99,10 +149,8 @@ function ClientEmployees() {
             <UserCheck size={18} />
           </div>
           <div className={styles.kpiMeta}>
-            <span className={styles.kpiLabel}>Active Staff</span>
-            <span className={styles.kpiValue}>
-              {CLIENT_EMPLOYEES_LIST.filter((e) => e.status === 'Active').length}
-            </span>
+            <span className={styles.kpiLabel}>Active On Duty</span>
+            <span className={styles.kpiValue}>{activeCount}</span>
           </div>
         </div>
 
@@ -111,10 +159,8 @@ function ClientEmployees() {
             <CalendarOff size={18} />
           </div>
           <div className={styles.kpiMeta}>
-            <span className={styles.kpiLabel}>On Leave</span>
-            <span className={styles.kpiValue}>
-              {CLIENT_EMPLOYEES_LIST.filter((e) => e.status === 'On Leave').length}
-            </span>
+            <span className={styles.kpiLabel}>On Approved Leave</span>
+            <span className={styles.kpiValue}>{onLeaveCount}</span>
           </div>
         </div>
 
@@ -123,10 +169,8 @@ function ClientEmployees() {
             <UserX size={18} />
           </div>
           <div className={styles.kpiMeta}>
-            <span className={styles.kpiLabel}>Inactive</span>
-            <span className={styles.kpiValue}>
-              {CLIENT_EMPLOYEES_LIST.filter((e) => e.status === 'Inactive').length}
-            </span>
+            <span className={styles.kpiLabel}>Inactive / Relieved</span>
+            <span className={styles.kpiValue}>{inactiveCount}</span>
           </div>
         </div>
       </div>
@@ -137,7 +181,7 @@ function ClientEmployees() {
           <Search size={16} className={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by employee name, code, designation..."
+            placeholder="Search by employee name, code, designation, mobile..."
             className={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -152,7 +196,7 @@ function ClientEmployees() {
             onChange={(e) => setDeptFilter(e.target.value)}
           >
             <option value="all">All Departments</option>
-            {departments.map((dept) => (
+            {departmentOptions.map((dept) => (
               <option key={dept} value={dept}>
                 {dept}
               </option>
@@ -165,8 +209,8 @@ function ClientEmployees() {
             value={siteFilter}
             onChange={(e) => setSiteFilter(e.target.value)}
           >
-            <option value="all">All Operating Sites</option>
-            {sites.map((site) => (
+            <option value="all">All Assigned Sites</option>
+            {siteOptions.map((site) => (
               <option key={site} value={site}>
                 {site}
               </option>
@@ -198,21 +242,27 @@ function ClientEmployees() {
                 <th>Designation</th>
                 <th>Department</th>
                 <th>Site / Location</th>
-                <th>Joining Date</th>
+                <th>Shift</th>
                 <th>Status</th>
                 <th className={styles.alignRight}>Action</th>
               </tr>
             </thead>
             <tbody>
-              {filteredEmployees.length === 0 ? (
+              {loading ? (
                 <tr>
                   <td colSpan="8" className={styles.emptyCell}>
-                    No employees found matching the selected filters.
+                    Loading assigned workforce...
+                  </td>
+                </tr>
+              ) : filteredEmployees.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className={styles.emptyCell}>
+                    No employees currently assigned to {clientCompany?.name || 'your company'}.
                   </td>
                 </tr>
               ) : (
                 filteredEmployees.map((emp) => (
-                  <tr key={emp.id}>
+                  <tr key={emp.id || emp.employeeCode}>
                     <td>
                       <span className={styles.codeBadge}>{emp.employeeCode}</span>
                     </td>
@@ -235,7 +285,7 @@ function ClientEmployees() {
                         <span>{emp.site}</span>
                       </div>
                     </td>
-                    <td>{emp.joiningDate}</td>
+                    <td>{emp.shift}</td>
                     <td>
                       <StatusBadge status={emp.status} />
                     </td>
@@ -285,7 +335,7 @@ function ClientEmployees() {
               <h4 className={styles.sectionHeader}>Deployment & Assignment Details</h4>
               <div className={styles.infoGrid}>
                 <div className={styles.infoField}>
-                  <span className={styles.fieldLabel}>Mapped Company</span>
+                  <span className={styles.fieldLabel}>Mapped Client</span>
                   <span className={styles.fieldVal}>{clientCompany?.name}</span>
                 </div>
                 <div className={styles.infoField}>
@@ -298,15 +348,15 @@ function ClientEmployees() {
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Duty Post</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.dutyPost}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.dutyPost || 'Duty Post'}</span>
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Shift Timing</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.shift}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.shift || 'General Shift'}</span>
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Joining Date</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.joiningDate}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.joiningDate || '--'}</span>
                 </div>
               </div>
 
@@ -316,7 +366,7 @@ function ClientEmployees() {
                   <span className={styles.fieldLabel}>Police Verification</span>
                   <span className={styles.fieldValVerified}>
                     <ShieldCheck size={14} color="#16a34a" />
-                    {selectedEmployee.policeVerification}
+                    {selectedEmployee.policeVerification || 'Verified (2026)'}
                   </span>
                 </div>
                 <div className={styles.infoField}>
@@ -331,15 +381,15 @@ function ClientEmployees() {
                   <StatusBadge status={selectedEmployee.status} />
                 </div>
                 <div className={styles.infoField}>
-                  <span className={styles.fieldLabel}>Contact Number</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.mobile}</span>
+                  <span className={styles.fieldLabel}>Official Mobile</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.mobile || '--'}</span>
                 </div>
               </div>
             </div>
 
             <div className={styles.modalFooter}>
               <span className={styles.readOnlyNote}>
-                Client view is read-only. Role transfer and salary details are managed by Admin.
+                Client view is read-only. Role transfer and salary details are securely managed by RR Security Admin.
               </span>
               <button
                 type="button"

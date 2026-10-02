@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -8,19 +8,42 @@ import {
   Megaphone,
   Receipt,
   Users,
-  Clock
+  Clock,
+  RefreshCw
 } from 'lucide-react';
 import styles from './ClientNotifications.module.css';
 import { useClientAuth } from '../../context/ClientAuthContext';
-import { CLIENT_NOTIFICATIONS } from '../../data/clientPortalData';
+import clientPortalService from '../../services/clientPortalService';
 import Toast from '../../components/common/Toast';
 
 function ClientNotifications() {
   const { clientCompany } = useClientAuth();
 
-  const [notifications, setNotifications] = useState(CLIENT_NOTIFICATIONS);
+  const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
   const [filterType, setFilterType] = useState('all');
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const fetchNotifications = async () => {
+    try {
+      setLoading(true);
+      const data = await clientPortalService.getNotifications();
+      if (Array.isArray(data)) {
+        setNotifications(data);
+      } else {
+        setNotifications([]);
+      }
+    } catch (err) {
+      console.warn('Error fetching notifications:', err.message);
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications();
+  }, [clientCompany?.clientId, clientCompany?.name]);
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -28,23 +51,24 @@ function ClientNotifications() {
 
   const handleMarkAsRead = (id) => {
     setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
+      prev.map((n) => (n.id === id ? { ...n, unread: false, read: true } : n))
     );
     showToast('Notification marked as read.', 'success');
   };
 
   const handleMarkAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false, read: true })));
     showToast('All notifications marked as read.', 'success');
   };
 
   const filtered = notifications.filter((n) => {
+    const isUnread = n.unread || !n.read;
     if (filterType === 'all') return true;
-    if (filterType === 'unread') return n.unread;
+    if (filterType === 'unread') return isUnread;
     return n.type === filterType;
   });
 
-  const unreadCount = notifications.filter((n) => n.unread).length;
+  const unreadCount = notifications.filter((n) => n.unread || !n.read).length;
 
   const getTypeIcon = (type) => {
     switch (type) {
@@ -74,16 +98,27 @@ function ClientNotifications() {
         <div>
           <h1 className={styles.pageTitle}>Notifications & Announcements</h1>
           <p className={styles.pageSubtitle}>
-            Administrative broadcasts, billing alerts, and operational notices for your organization.
+            Administrative broadcasts, billing alerts, and operational notices for {clientCompany?.name}.
           </p>
         </div>
 
-        {unreadCount > 0 && (
-          <button type="button" className={styles.markAllBtn} onClick={handleMarkAllRead}>
-            <Check size={15} />
-            <span>Mark All as Read</span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className={styles.markAllBtn}
+            onClick={fetchNotifications}
+            style={{ background: 'var(--surface-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          >
+            <RefreshCw size={14} className={loading ? styles.spinning : ''} />
+            <span>Refresh</span>
           </button>
-        )}
+          {unreadCount > 0 && (
+            <button type="button" className={styles.markAllBtn} onClick={handleMarkAllRead}>
+              <Check size={15} />
+              <span>Mark All as Read</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filter Tabs */}
@@ -127,7 +162,11 @@ function ClientNotifications() {
 
       {/* Notifications List */}
       <div className={styles.notificationsCard}>
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className={styles.emptyState}>
+            <p className={styles.emptySubtitle}>Loading notifications...</p>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className={styles.emptyState}>
             <Bell size={32} className={styles.emptyIcon} />
             <h3 className={styles.emptyTitle}>No notifications found</h3>
@@ -135,46 +174,49 @@ function ClientNotifications() {
           </div>
         ) : (
           <div className={styles.list}>
-            {filtered.map((item) => (
-              <div
-                key={item.id}
-                className={`${styles.item} ${item.unread ? styles.itemUnread : ''}`}
-              >
-                <div className={`${styles.iconWrap} ${styles[`type_${item.type}`]}`}>
-                  {getTypeIcon(item.type)}
-                </div>
+            {filtered.map((item) => {
+              const isUnread = item.unread || !item.read;
+              return (
+                <div
+                  key={item.id}
+                  className={`${styles.item} ${isUnread ? styles.itemUnread : ''}`}
+                >
+                  <div className={`${styles.iconWrap} ${styles[`type_${item.type}`]}`}>
+                    {getTypeIcon(item.type)}
+                  </div>
 
-                <div className={styles.content}>
-                  <div className={styles.titleRow}>
-                    <div className={styles.titleWithBadge}>
-                      <h3 className={styles.itemTitle}>{item.title}</h3>
-                      {item.unread && <span className={styles.newBadge}>NEW</span>}
+                  <div className={styles.content}>
+                    <div className={styles.titleRow}>
+                      <div className={styles.titleWithBadge}>
+                        <h3 className={styles.itemTitle}>{item.title}</h3>
+                        {isUnread && <span className={styles.newBadge}>NEW</span>}
+                      </div>
+                      <span className={styles.timeTag}>
+                        <Clock size={12} />
+                        <span>{item.timestamp || 'Today'}</span>
+                      </span>
                     </div>
-                    <span className={styles.timeTag}>
-                      <Clock size={12} />
-                      <span>{item.date} at {item.time}</span>
-                    </span>
-                  </div>
 
-                  <p className={styles.message}>{item.message}</p>
+                    <p className={styles.message}>{item.message}</p>
 
-                  <div className={styles.footerRow}>
-                    <span className={styles.categoryBadge}>
-                      {item.type.toUpperCase()}
-                    </span>
-                    {item.unread && (
-                      <button
-                        type="button"
-                        className={styles.markReadBtn}
-                        onClick={() => handleMarkAsRead(item.id)}
-                      >
-                        Mark as read
-                      </button>
-                    )}
+                    <div className={styles.footerRow}>
+                      <span className={styles.categoryBadge}>
+                        {(item.type || 'System').toUpperCase()}
+                      </span>
+                      {isUnread && (
+                        <button
+                          type="button"
+                          className={styles.markReadBtn}
+                          onClick={() => handleMarkAsRead(item.id)}
+                        >
+                          Mark as read
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

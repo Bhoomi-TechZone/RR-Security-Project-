@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit2, Users, Power, MoreVertical } from 'lucide-react';
+import { Eye, Edit2, Users, Power, MoreVertical, Key } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './CompanyActionMenu.module.css';
 
@@ -24,6 +24,12 @@ function CompanyActionMenu({ company, onAction }) {
           <button className={styles.menuItem} onClick={() => onAction('view', company)}>
             <Eye size={14} />
             <span>View Details</span>
+          </button>
+        </li>
+        <li>
+          <button className={styles.menuItem} onClick={() => onAction('credentials', company)}>
+            <Key size={14} />
+            <span>Credentials</span>
           </button>
         </li>
         <li>

@@ -3,6 +3,72 @@ import Client from '../models/clientModel.js';
 import Company from '../models/companyModel.js';
 
 /**
+ * Helper to generate sequential unique clientId per company (CLI-001, CLI-002, etc.)
+ */
+const generateNextClientId = async (companyIds, adminEmail) => {
+  const existingClients = await Client.find({
+    companyId: { $in: companyIds },
+    adminEmail
+  }).select('clientId createdAt');
+
+  let maxNum = 0;
+  existingClients.forEach((c) => {
+    if (c.clientId) {
+      const match = c.clientId.match(/CLI-(\d+)/i);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && num < 10000) {
+          if (num > maxNum) maxNum = num;
+        }
+      }
+    }
+  });
+
+  if (maxNum === 0 && existingClients.length > 0) {
+    maxNum = existingClients.length;
+  }
+
+  const nextNum = maxNum + 1;
+  return `CLI-${String(nextNum).padStart(3, '0')}`;
+};
+
+/**
+ * @desc    Get next available sequential clientId for company
+ * @route   GET /api/clients/next-id
+ * @access  Private
+ */
+export const getNextClientId = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: 'Company ID is required.' });
+    }
+
+    let companyIds = [companyId];
+    try {
+      const comp = await Company.findOne({
+        adminEmail,
+        $or: [
+          { companyId },
+          { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+        ]
+      });
+      if (comp) {
+        companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+      }
+    } catch {}
+
+    const nextId = await generateNextClientId(companyIds, adminEmail);
+    return res.status(200).json({ success: true, nextId });
+  } catch (error) {
+    console.error('Error getting next clientId:', error);
+    return res.status(500).json({ success: false, message: 'Failed to generate next client ID.' });
+  }
+};
+
+/**
  * @desc    Get all clients isolated to the active company profile
  * @route   GET /api/clients
  * @access  Private
@@ -36,7 +102,21 @@ export const getClients = async (req, res) => {
     const clients = await Client.find({
       companyId: { $in: companyIds },
       adminEmail
-    }).sort({ createdAt: -1 });
+    }).sort({ createdAt: 1 });
+
+    // Normalize any legacy timestamp or missing clientIds to clean CLI-001, CLI-002 sequence
+    let seq = 1;
+    for (const c of clients) {
+      const isTimestampOrLegacy = !c.clientId || (c.clientId.startsWith('CLI-') && c.clientId.length > 8);
+      if (isTimestampOrLegacy) {
+        c.clientId = `CLI-${String(seq).padStart(3, '0')}`;
+        await c.save().catch(() => {});
+      }
+      seq++;
+    }
+
+    // Sort newest first for display
+    clients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
     return res.status(200).json({
       success: true,
@@ -69,7 +149,22 @@ export const createClient = async (req, res) => {
       });
     }
 
+    let companyIds = [companyId];
+    try {
+      const comp = await Company.findOne({
+        adminEmail,
+        $or: [
+          { companyId },
+          { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+        ]
+      });
+      if (comp) {
+        companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+      }
+    } catch {}
+
     const {
+      clientId,
       name,
       gstin,
       contactPerson,
@@ -93,12 +188,17 @@ export const createClient = async (req, res) => {
       });
     }
 
+    let finalClientId = (clientId || '').trim();
+    if (!finalClientId || (finalClientId.startsWith('CLI-') && finalClientId.length > 8)) {
+      finalClientId = await generateNextClientId(companyIds, adminEmail);
+    }
+
     const sanitizedDoc = (document && typeof document === 'object' && Object.keys(document).length === 0)
       ? null
       : (document || null);
 
     const newClient = await Client.create({
-      clientId: `CLI-${Date.now().toString().slice(-6)}`,
+      clientId: finalClientId,
       companyId,
       adminEmail,
       name: name.trim(),
@@ -114,12 +214,17 @@ export const createClient = async (req, res) => {
       overtimeType: overtimeType || '',
       overtimeBasis: overtimeBasis || '',
       compliance: compliance || {},
-      employees: employees || 0
+      employees: employees || 0,
+      password: req.body.password ? req.body.password.trim() : undefined,
+      savedPassword: req.body.password ? req.body.password.trim() : (req.body.savedPassword || ''),
+      enablePortalAccess: req.body.enablePortalAccess !== undefined
+        ? Boolean(req.body.enablePortalAccess === true || req.body.enablePortalAccess === 'true')
+        : true
     });
 
     return res.status(201).json({
       success: true,
-      message: `Client "${newClient.name}" created and associated with company ${companyId}.`,
+      message: `Client "${newClient.name}" (${newClient.clientId}) created and associated with company ${companyId}.`,
       client: newClient.toJSON()
     });
   } catch (error) {
@@ -127,6 +232,49 @@ export const createClient = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to create client.'
+    });
+  }
+};
+
+/**
+ * @desc    Get a single client by ID or clientId
+ * @route   GET /api/clients/:id
+ * @access  Private
+ */
+export const getClientById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.user.email.toLowerCase();
+    const cleanId = (id || '').trim();
+    const cleanNoHyphen = cleanId.replace(/[-_ ]/g, '');
+    const flexibleRegex = new RegExp(`^(${cleanId}|${cleanNoHyphen}|CLI-${cleanNoHyphen.replace(/^cli/i, '')})$`, 'i');
+
+    const orConditions = [{ clientId: { $regex: flexibleRegex } }];
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      orConditions.push({ _id: cleanId });
+    }
+
+    const client = await Client.findOne({
+      $or: orConditions,
+      adminEmail
+    });
+
+    if (!client) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client not found.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      client: client.toJSON()
+    });
+  } catch (error) {
+    console.error('Error getting client by id:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve client details.'
     });
   }
 };
@@ -142,9 +290,13 @@ export const updateClient = async (req, res) => {
     const adminEmail = req.user.email.toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
 
-    const orConditions = [{ clientId: id }];
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      orConditions.push({ _id: id });
+    const cleanId = (id || '').trim();
+    const cleanNoHyphen = cleanId.replace(/[-_ ]/g, '');
+    const flexibleRegex = new RegExp(`^(${cleanId}|${cleanNoHyphen}|CLI-${cleanNoHyphen.replace(/^cli/i, '')})$`, 'i');
+
+    const orConditions = [{ clientId: { $regex: flexibleRegex } }];
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      orConditions.push({ _id: cleanId });
     }
 
     const query = {
@@ -169,7 +321,15 @@ export const updateClient = async (req, res) => {
       query.companyId = { $in: companyIds };
     }
 
-    const client = await Client.findOne(query);
+    let client = await Client.findOne(query);
+
+    // Fallback if companyId mismatch but matches adminEmail
+    if (!client) {
+      client = await Client.findOne({
+        $or: orConditions,
+        adminEmail
+      });
+    }
 
     if (!client) {
       return res.status(404).json({
@@ -179,7 +339,7 @@ export const updateClient = async (req, res) => {
     }
 
     const fields = [
-      'name', 'gstin', 'contactPerson', 'contactNumber',
+      'clientId', 'name', 'email', 'gstin', 'contactPerson', 'contactNumber',
       'contractStartDate', 'contractEndDate', 'status', 'address',
       'typeOfService', 'document', 'overtimeType', 'overtimeBasis',
       'compliance', 'employees'
@@ -191,11 +351,25 @@ export const updateClient = async (req, res) => {
       }
     });
 
+    if (req.body.enablePortalAccess !== undefined) {
+      client.enablePortalAccess = Boolean(req.body.enablePortalAccess === true || req.body.enablePortalAccess === 'true');
+    }
+
+    if (req.body.password && typeof req.body.password === 'string' && req.body.password.trim()) {
+      const cleanPassword = req.body.password.trim();
+      client.password = cleanPassword;
+      client.savedPassword = cleanPassword;
+    } else if (req.body.savedPassword && typeof req.body.savedPassword === 'string' && req.body.savedPassword.trim()) {
+      const cleanPassword = req.body.savedPassword.trim();
+      client.password = cleanPassword;
+      client.savedPassword = cleanPassword;
+    }
+
     await client.save();
 
     return res.status(200).json({
       success: true,
-      message: 'Client updated successfully.',
+      message: 'Client credentials and details updated successfully.',
       client: client.toJSON()
     });
   } catch (error) {

@@ -39,6 +39,8 @@ const DEFAULT_FORM_DATA = {
   religion: '',
   nationality: 'Indian',
   employeePhoto: '',
+  password: '',
+  enablePortalAccess: true,
   employeeType: '',
   clientId: '',
   clientName: '',

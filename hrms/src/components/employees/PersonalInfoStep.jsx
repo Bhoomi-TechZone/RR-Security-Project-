@@ -311,3 +311,4 @@ function PersonalInfoStep({ data, onChange, errors }) {
 }
 
 export default PersonalInfoStep;
+

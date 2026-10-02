@@ -24,6 +24,7 @@ class LeaveService {
     if (params.leaveType) query.append('leaveType', params.leaveType);
     if (params.fromDate) query.append('fromDate', params.fromDate);
     if (params.toDate) query.append('toDate', params.toDate);
+    if (params.employeeId) query.append('employeeId', params.employeeId);
 
     const res = await fetch(`${API_BASE_URL}/leaves?${query.toString()}`, {
       method: 'GET',

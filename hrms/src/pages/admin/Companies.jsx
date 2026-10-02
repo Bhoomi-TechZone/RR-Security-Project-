@@ -8,6 +8,7 @@ import CompanySummaryCards from '../../components/companies/CompanySummaryCards'
 import CompanyFilters from '../../components/companies/CompanyFilters';
 import CompanyTable from '../../components/companies/CompanyTable';
 import CompanyForm from '../../components/companies/CompanyForm';
+import ClientCredentialsModal from '../../components/companies/ClientCredentialsModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
@@ -46,6 +47,7 @@ function Companies() {
   // Form Modal States
   const [isFormOpen, setIsFormOpen] = useState(() => searchParams.get('action') === 'add');
   const [editingCompany, setEditingCompany] = useState(null);
+  const [credentialsModal, setCredentialsModal] = useState({ isOpen: false, client: null });
 
   // Sync with searchParams when route/query changes
   useEffect(() => {
@@ -275,6 +277,8 @@ function Companies() {
   const handleActionClick = (actionType, company) => {
     if (actionType === 'view') {
       navigate(`/admin/clients/${company.id || company.clientId || company._id}`);
+    } else if (actionType === 'credentials') {
+      setCredentialsModal({ isOpen: true, client: company });
     } else if (actionType === 'edit') {
       setEditingCompany(company);
       setIsFormOpen(true);
@@ -301,6 +305,46 @@ function Companies() {
         actionType: 'activate'
       });
     }
+  };
+
+  // Handle Save Credentials (Password & Portal Access)
+  const handleSaveCredentials = async (targetClientId, credentialsData) => {
+    const token = authService.getToken();
+    const targetId = targetClientId;
+    if (token && targetId) {
+      const res = await fetch(`${API_BASE_URL}/clients/${targetId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-company-id': currentCompanyId
+        },
+        body: JSON.stringify(credentialsData)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save client credentials');
+      }
+    }
+
+    setCompanies((prev) => {
+      const next = prev.map((c) =>
+        ((c._id && c._id === targetId) || c.id === targetId || c.clientId === targetId)
+          ? {
+              ...c,
+              ...credentialsData,
+              savedPassword: credentialsData.password || c.savedPassword,
+              password: credentialsData.password || c.savedPassword
+            }
+          : c
+      );
+      localStorage.setItem(`novaspark_clients_${currentCompanyId}`, JSON.stringify(next));
+      return next;
+    });
+
+    await fetchBackendClients();
+    window.dispatchEvent(new CustomEvent('clients-updated'));
+    showToast('✓ Client login credentials saved successfully in database.', 'success');
   };
 
   // Confirm dialog primary execution
@@ -369,6 +413,13 @@ function Companies() {
           }}
           onSubmit={handleFormSubmit}
           company={editingCompany}
+        />
+
+        <ClientCredentialsModal
+          isOpen={credentialsModal.isOpen}
+          client={credentialsModal.client}
+          onClose={() => setCredentialsModal({ isOpen: false, client: null })}
+          onSave={handleSaveCredentials}
         />
 
         <ConfirmModal

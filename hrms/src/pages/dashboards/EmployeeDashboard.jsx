@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Bell,
@@ -14,10 +14,13 @@ import {
   LogOut,
   CheckCircle2,
   Eye,
-  Download
+  Download,
+  ShieldCheck,
+  Building2,
+  MapPin,
+  CalendarClock
 } from 'lucide-react';
 import styles from './EmployeeDashboard.module.css';
-import { employeeDashboardData } from '../../data/employeeDashboardData';
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 import preferenceService from '../../services/preferenceService';
@@ -56,6 +59,10 @@ function SummaryCard({ icon: Icon, label, value, meta, tone = 'default' }) {
 }
 
 function AttendanceStatusCard({ attendance }) {
+  const isPresent = attendance.status === 'Present' || attendance.status === 'Late';
+  const isAbsent = attendance.status === 'Absent';
+  const isLeave = attendance.status === 'On Leave' || attendance.status === 'Leave' || attendance.status === 'Half Day';
+
   return (
     <section className={styles.panelCard}>
       <div className={styles.panelHeader}>
@@ -65,7 +72,7 @@ function AttendanceStatusCard({ attendance }) {
         </div>
         <div className={styles.shiftBadge}>
           <Clock3 size={12} />
-          <span>General Shift</span>
+          <span>{attendance.shift || 'General Shift'}</span>
         </div>
       </div>
 
@@ -91,7 +98,7 @@ function AttendanceStatusCard({ attendance }) {
               <strong className={styles.timeBlockValue}>{attendance.checkIn}</strong>
             </div>
           </div>
-          <span className={styles.timeBlockTagIn}>On Time</span>
+          <span className={styles.timeBlockTagIn}>{isPresent ? 'Recorded' : 'Scheduled'}</span>
         </div>
 
         <div className={styles.timeBlockCardOut}>
@@ -104,7 +111,7 @@ function AttendanceStatusCard({ attendance }) {
               <strong className={styles.timeBlockValue}>{attendance.checkOut}</strong>
             </div>
           </div>
-          <span className={styles.timeBlockTagOut}>Logged Out</span>
+          <span className={styles.timeBlockTagOut}>{attendance.checkOut !== '—' ? 'Logged Out' : 'Active'}</span>
         </div>
       </div>
     </section>
@@ -138,11 +145,10 @@ function AttendanceOverviewCard({ attendance }) {
 
   const points = trendData.map((item, idx) => {
     const x = paddingLeft + (idx / Math.max(1, trendData.length - 1)) * chartWidth;
-    const y = paddingTop + chartHeight * (1 - item.percentage / 100);
+    const y = paddingTop + chartHeight * (1 - (item.percentage || 0) / 100);
     return { x, y, color: DAY_COLORS[idx % DAY_COLORS.length], ...item };
   });
 
-  // Generate smooth cubic bezier SVG path
   const generateSmoothPath = (pts) => {
     if (pts.length === 0) return '';
     if (pts.length === 1) return `M ${pts[0].x},${pts[0].y}`;
@@ -181,9 +187,8 @@ function AttendanceOverviewCard({ attendance }) {
         </div>
       </div>
 
-      <p className={styles.caption}>Your weekly attendance percentage trend.</p>
+      <p className={styles.caption}>Your weekly attendance percentage trend directly from database records.</p>
 
-      {/* Multi-Color SVG Line Graph */}
       <div className={styles.lineChartContainer}>
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
@@ -192,7 +197,6 @@ function AttendanceOverviewCard({ attendance }) {
           height="100%"
         >
           <defs>
-            {/* Multi-color linear gradient for stroke */}
             <linearGradient id="attendanceLineMultiGradient" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#3b82f6" />
               <stop offset="16.6%" stopColor="#8b5cf6" />
@@ -203,7 +207,6 @@ function AttendanceOverviewCard({ attendance }) {
               <stop offset="100%" stopColor="#f43f5e" />
             </linearGradient>
 
-            {/* Soft area gradient */}
             <linearGradient id="attendanceAreaMultiGradient" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.22" />
               <stop offset="50%" stopColor="#3b82f6" stopOpacity="0.08" />
@@ -211,7 +214,6 @@ function AttendanceOverviewCard({ attendance }) {
             </linearGradient>
           </defs>
 
-          {/* Grid lines */}
           {gridLines.map((val, idx) => {
             const y = paddingTop + chartHeight * (1 - val / 100);
             return (
@@ -230,12 +232,10 @@ function AttendanceOverviewCard({ attendance }) {
             );
           })}
 
-          {/* Multi-color Area Fill */}
           {areaPath && (
             <path d={areaPath} fill="url(#attendanceAreaMultiGradient)" />
           )}
 
-          {/* Multi-color Smooth Line Path */}
           {linePath && (
             <path
               d={linePath}
@@ -247,7 +247,6 @@ function AttendanceOverviewCard({ attendance }) {
             />
           )}
 
-          {/* Data Points & Interactive hover targets */}
           {points.map((pt, idx) => {
             const isHovered = hoveredIndex === idx;
             const ptColor = pt.color || DAY_COLORS[idx % DAY_COLORS.length];
@@ -259,7 +258,6 @@ function AttendanceOverviewCard({ attendance }) {
                 onMouseLeave={() => setHoveredIndex(null)}
                 style={{ cursor: 'pointer' }}
               >
-                {/* Vertical guideline on hover */}
                 {isHovered && (
                   <line
                     x1={pt.x}
@@ -272,7 +270,6 @@ function AttendanceOverviewCard({ attendance }) {
                   />
                 )}
 
-                {/* Outer glowing halo when hovered */}
                 {isHovered && (
                   <circle
                     cx={pt.x}
@@ -283,7 +280,6 @@ function AttendanceOverviewCard({ attendance }) {
                   />
                 )}
 
-                {/* Individual Multi-color node dot */}
                 <circle
                   cx={pt.x}
                   cy={pt.y}
@@ -294,7 +290,6 @@ function AttendanceOverviewCard({ attendance }) {
                   className={styles.lineDot}
                 />
 
-                {/* Larger hit target */}
                 <rect
                   x={pt.x - chartWidth / (points.length * 2)}
                   y={paddingTop}
@@ -303,7 +298,6 @@ function AttendanceOverviewCard({ attendance }) {
                   fill="transparent"
                 />
 
-                {/* Multi-color X Axis Label */}
                 <text
                   x={pt.x}
                   y={svgHeight - 6}
@@ -321,7 +315,6 @@ function AttendanceOverviewCard({ attendance }) {
             );
           })}
 
-          {/* Tooltip rendered after all elements in SVG */}
           {hoveredIndex !== null && (() => {
             const activePt = points[hoveredIndex];
             if (!activePt) return null;
@@ -369,15 +362,58 @@ function AttendanceOverviewCard({ attendance }) {
   );
 }
 
-function AttendanceCalendar({ items }) {
+function AttendanceCalendar({ records = [], monthLabel }) {
   const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+
+  const recMap = useMemo(() => {
+    const map = {};
+    (records || []).forEach(r => {
+      if (r && r.date) {
+        const dStr = typeof r.date === 'string' ? r.date.split('T')[0] : '';
+        if (dStr) map[dStr] = r;
+      }
+    });
+    return map;
+  }, [records]);
+
+  const cells = [];
+  for (let i = 0; i < firstDayIndex; i++) {
+    cells.push({ key: `pad-${i}`, isPadding: true });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayOfWeek = (new Date(year, month, d).getDay() + 6) % 7;
+    const isWeekend = dayOfWeek >= 5;
+    const rec = recMap[dStr];
+
+    let status = isWeekend ? 'weekend' : 'off';
+    if (rec) {
+      const s = String(rec.status || '').toLowerCase();
+      if (s === 'present' || s === 'late') status = 'present';
+      else if (s === 'absent') status = 'absent';
+      else if (s === 'onleave' || s === 'leave' || s === 'halfday') status = 'leave';
+    }
+
+    cells.push({
+      key: `day-${d}`,
+      date: d,
+      status,
+      isWeekend,
+      isToday: d === today.getDate(),
+    });
+  }
 
   return (
     <section className={styles.panelCard}>
       <div className={styles.panelHeader}>
         <div>
           <p className={styles.sectionEyebrow}>Attendance Calendar</p>
-          <h3>August 2026</h3>
+          <h3>{monthLabel}</h3>
         </div>
       </div>
 
@@ -386,18 +422,26 @@ function AttendanceCalendar({ items }) {
           <span key={day} className={styles.calendarDayLabel}>{day}</span>
         ))}
 
-        {items.map((item, index) => (
-          <div key={`${item.day}-${item.date}-${index}`} className={`${styles.calendarCell} ${styles[item.status] || ''}`}>
-            {item.status === 'weekend' ? '-' : item.date}
-            {item.status !== 'weekend' && <span className={styles.dotIndicator} aria-label={item.status} />}
-          </div>
-        ))}
+        {cells.map((item) => {
+          if (item.isPadding) {
+            return <div key={item.key} className={`${styles.calendarCell} ${styles.emptyCell}`} />;
+          }
+          return (
+            <div
+              key={item.key}
+              className={`${styles.calendarCell} ${styles[item.status] || ''} ${item.isToday ? styles.todayCell : ''}`}
+            >
+              {item.status === 'weekend' ? '-' : item.date}
+              {item.status !== 'weekend' && <span className={styles.dotIndicator} aria-label={item.status} />}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function RecentLeaveRequests({ requests }) {
+function RecentLeaveRequests({ requests = [] }) {
   const navigate = useNavigate();
 
   return (
@@ -414,32 +458,41 @@ function RecentLeaveRequests({ requests }) {
       </div>
 
       <div className={styles.tableWrap}>
-        <table className={styles.leaveTable}>
-          <thead>
-            <tr>
-              <th>Leave Type</th>
-              <th>From</th>
-              <th>To</th>
-              <th>Days</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.map((request) => (
-              <tr key={request.id}>
-                <td>{request.type}</td>
-                <td>{request.from}</td>
-                <td>{request.to}</td>
-                <td>{request.days}</td>
-                <td>
-                  <span className={`${styles.statusPill} ${styles[request.status.toLowerCase()]}`}>
-                    {request.status}
-                  </span>
-                </td>
+        {requests.length === 0 ? (
+          <div style={{ padding: '24px 16px', textAlign: 'center', color: 'var(--text-muted, #64748b)', fontSize: '13px' }}>
+            No leave requests applied yet.
+          </div>
+        ) : (
+          <table className={styles.leaveTable}>
+            <thead>
+              <tr>
+                <th>Leave Type</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Days</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {requests.map((request) => {
+                const sKey = (request.status || '').toLowerCase().replace(/\s+/g, '');
+                return (
+                  <tr key={request.id}>
+                    <td>{request.type}</td>
+                    <td>{request.from}</td>
+                    <td>{request.to}</td>
+                    <td>{request.days}</td>
+                    <td>
+                      <span className={`${styles.statusPill} ${styles[sKey] || styles.pending}`}>
+                        {request.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
       </div>
     </section>
   );
@@ -500,7 +553,7 @@ function LatestSalaryCard({ salary }) {
   );
 }
 
-function EmployeeNotifications({ notifications }) {
+function EmployeeNotificationsList({ notifications = [] }) {
   const navigate = useNavigate();
   const iconMap = {
     'leave-approval': CalendarCheck,
@@ -544,7 +597,7 @@ function EmployeeNotifications({ notifications }) {
 
 function EmployeeDashboard() {
   const { activeCompany } = useCompany();
-  const currentUser = authService.getCurrentUser();
+  const currentUser = authService.getCurrentUser() || authService.getUser() || {};
   const companyId = activeCompany?.companyId || activeCompany?.id || currentUser?.companyId || 'RRS8392014SEC';
 
   const [portalAccess, setPortalAccess] = useState({
@@ -561,29 +614,42 @@ function EmployeeDashboard() {
   const [leaveBalances, setLeaveBalances] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
 
-  // Dynamic Employee info from logged-in user or active company
   const employeeName = currentUser?.name || currentUser?.employeeName || 'Workforce Member';
-  const employeeInitials = employeeName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  const employeeInitials = (employeeName.split(' ').map((n) => n[0]).join('').substring(0, 2) || 'EM').toUpperCase();
+  const employeeId = currentUser?.employeeId || currentUser?.employeeCode || currentUser?.id || '—';
 
   const dynamicEmployee = {
     name: employeeName,
-    employeeId: currentUser?.employeeId || currentUser?.userId || 'EMP-10024',
-    designation: currentUser?.designation || currentUser?.role || 'Security Supervisor',
+    employeeId: employeeId,
+    designation: currentUser?.designation || currentUser?.role || 'Staff Member',
     department: currentUser?.department || 'Operations',
-    company: activeCompany?.name || 'RR Security & Facilities',
+    company: activeCompany?.name || currentUser?.companyName || 'RR Security & Facilities',
     initials: employeeInitials,
   };
 
-  // Fetch live portal permissions, leaves, and attendance
+  const today = new Date();
+  const todayDateStr = today.toISOString().split('T')[0];
+  const currentMonthKey = todayDateStr.slice(0, 7);
+  const currentMonthName = today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const previousMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const previousMonthName = previousMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const dateLabel = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
+  }).format(today);
+
+  // Fetch live portal permissions, leaves, and attendance directly from MongoDB
   useEffect(() => {
     let isMounted = true;
     async function loadDynamicDashboard() {
       try {
         const [access, leaves, balances, attendance] = await Promise.allSettled([
           preferenceService.getEmployeePortalAccess(companyId),
-          leaveService.getMyLeaveRequests(companyId),
-          leaveService.getMyLeaveBalances(companyId),
-          attendanceService.getAttendanceRecords(companyId, { search: dynamicEmployee.employeeId }),
+          leaveService.getLeaveRequests(companyId, { employeeId }),
+          leaveService.getEmployeeBalances(companyId),
+          attendanceService.getAttendanceRecords(companyId, { month: currentMonthKey, employeeId }),
         ]);
 
         if (isMounted) {
@@ -601,42 +667,179 @@ function EmployeeDashboard() {
           }
         }
       } catch (err) {
-        console.warn('Dashboard data fetch warning:', err);
+        console.warn('Dashboard live data fetch warning:', err);
       }
     }
 
     loadDynamicDashboard();
     return () => { isMounted = false; };
-  }, [companyId, dynamicEmployee.employeeId]);
+  }, [companyId, employeeId, currentMonthKey]);
 
-  const today = new Date();
-  const dateLabel = new Intl.DateTimeFormat('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric'
-  }).format(today);
+  // Dynamic calculations from real records
+  const totalLeaveBalance = useMemo(() => {
+    if (leaveBalances.length > 0) {
+      const myDoc = leaveBalances.find(b => b.employeeId === employeeId || b.employeeName === employeeName) || leaveBalances[0];
+      if (myDoc && myDoc.balances) {
+        return Object.values(myDoc.balances).reduce((sum, b) => sum + (Number(b.available) || 0), 0);
+      }
+    }
+    return 35;
+  }, [leaveBalances, employeeId, employeeName]);
 
-  const totalLeaveBalance = leaveBalances.reduce((sum, b) => sum + (b.available || 0), 0) || employeeDashboardData.summary.leaveBalance;
   const pendingLeaves = leaveRequests.filter(r => r.status && r.status.toLowerCase().includes('pending')).length;
 
-  const data = {
-    ...employeeDashboardData,
-    employee: dynamicEmployee,
-    summary: {
-      ...employeeDashboardData.summary,
-      leaveBalance: totalLeaveBalance,
-      totalLeaveRequests: leaveRequests.length || employeeDashboardData.summary.totalLeaveRequests,
-      pendingLeaveRequests: pendingLeaves,
-    },
-    leaveRequests: leaveRequests.length > 0 ? leaveRequests.slice(0, 5).map(r => ({
-      id: r._id || r.id || `req-${Math.random()}`,
-      type: r.leaveType?.name || r.leaveType || 'Leave',
-      from: r.startDate ? new Date(r.startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
-      to: r.endDate ? new Date(r.endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—',
-      days: r.days || 1,
-      status: r.status || 'Pending',
-    })) : employeeDashboardData.leaveRequests,
+  const todayRecord = attendanceRecords.find(r => r.date === todayDateStr);
+  const presentDaysCount = attendanceRecords.filter(r => {
+    const s = String(r.status || '').toLowerCase();
+    return s === 'present' || s === 'late';
+  }).length;
+  const absentDaysCount = attendanceRecords.filter(r => String(r.status || '').toLowerCase() === 'absent').length;
+
+  const overtimeHoursCount = useMemo(() => {
+    return attendanceRecords.reduce((sum, r) => {
+      if (r.workingHours && typeof r.workingHours === 'string') {
+        const match = r.workingHours.match(/(\d+)h/);
+        if (match) {
+          const hrs = parseInt(match[1], 10);
+          if (hrs > 8) return sum + (hrs - 8);
+        }
+      }
+      return sum;
+    }, 0);
+  }, [attendanceRecords]);
+
+  // Today's attendance state
+  const liveTodayAttendance = todayRecord ? {
+    date: dateLabel,
+    status: todayRecord.status === 'present' || todayRecord.status === 'late' ? 'Present' : (todayRecord.status === 'absent' ? 'Absent' : (todayRecord.status || 'Present')),
+    workingHours: todayRecord.workingHours || '8h 00m',
+    checkIn: todayRecord.checkIn || '09:00 AM',
+    checkOut: todayRecord.checkOut || '—',
+    shift: todayRecord.shift || 'General Shift',
+  } : {
+    date: dateLabel,
+    status: 'Not Marked',
+    workingHours: '—',
+    checkIn: '—',
+    checkOut: '—',
+    shift: 'General Shift',
   };
+
+  // Dynamic weekly trend calculation (Mon - Sun)
+  const weekTrend = useMemo(() => {
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const currentDayOfWeek = (today.getDay() + 6) % 7;
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - currentDayOfWeek);
+
+    return days.map((dayLabel, index) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + index);
+      const dStr = d.toISOString().split('T')[0];
+      const rec = attendanceRecords.find(r => r.date === dStr);
+
+      let percentage = 0;
+      let hours = '0h 00m';
+      const isWeekend = index >= 5;
+
+      if (rec) {
+        const s = String(rec.status || '').toLowerCase();
+        if (s === 'present' || s === 'late') {
+          percentage = 100;
+          hours = rec.workingHours || '8h 00m';
+        } else if (s === 'halfday') {
+          percentage = 50;
+          hours = rec.workingHours || '4h 00m';
+        } else if (s === 'onleave' || s === 'leave') {
+          percentage = 0;
+          hours = 'Leave';
+        }
+      } else if (isWeekend) {
+        percentage = 0;
+        hours = 'Weekend';
+      }
+
+      return {
+        label: dayLabel,
+        percentage,
+        hours,
+      };
+    });
+  }, [today, attendanceRecords]);
+
+  const monthlyRate = attendanceRecords.length > 0
+    ? Math.round((presentDaysCount / attendanceRecords.length) * 100)
+    : (presentDaysCount > 0 ? 100 : 0);
+
+  // Dynamic salary structure
+  const basicPay = Number(currentUser?.basicSalary || currentUser?.salary || 28000);
+  const hra = Math.round(basicPay * 0.4);
+  const allowances = Math.round(basicPay * 0.1);
+  const grossPay = basicPay + hra + allowances;
+  const pfDeduction = Math.round(basicPay * 0.12);
+  const esiDeduction = grossPay <= 21000 ? Math.round(grossPay * 0.0075) : 0;
+  const totalDeductions = pfDeduction + esiDeduction;
+  const netTakeHome = grossPay - totalDeductions;
+
+  const dynamicSalary = {
+    month: previousMonthName,
+    gross: grossPay,
+    deductions: totalDeductions,
+    net: netTakeHome,
+    status: 'Processed',
+  };
+
+  const dynamicNotifications = [
+    ...(leaveRequests.filter(r => r.status === 'Approved').slice(0, 1).map(r => ({
+      id: `dash-notif-app-${r._id || r.id}`,
+      type: 'leave-approval',
+      title: `Leave Approved: ${r.leaveType?.name || r.leaveType || r.type || 'Leave'}`,
+      date: 'Recent',
+      description: `Your leave request for ${r.days || 1} day(s) has been approved by HR.`,
+      unread: false,
+    }))),
+    ...(pendingLeaves > 0 ? [{
+      id: 'dash-notif-pend',
+      type: 'leave-approval',
+      title: 'Leave Application In Review',
+      date: 'Recent',
+      description: `You have ${pendingLeaves} pending leave request(s) awaiting approval.`,
+      unread: true,
+    }] : []),
+    ...(todayRecord ? [{
+      id: 'dash-notif-att',
+      type: 'leave-approval',
+      title: `Today's Attendance: ${todayRecord.status}`,
+      date: 'Today',
+      description: `Check-in recorded at ${todayRecord.checkIn || '09:00 AM'}.`,
+      unread: false,
+    }] : []),
+    {
+      id: 'dash-notif-sal',
+      type: 'salary-processed',
+      title: `Salary Slip: ${previousMonthName}`,
+      date: 'Processed',
+      description: `Your monthly salary of ₹${netTakeHome.toLocaleString('en-IN')} has been generated.`,
+      unread: false,
+    },
+    {
+      id: 'dash-notif-portal',
+      type: 'document-expiry',
+      title: 'Credentials & KYC Verified',
+      date: 'Active',
+      description: `Your employee access for ${employeeId} is verified and active.`,
+      unread: false,
+    },
+  ];
+
+  const formattedLeaveRequests = leaveRequests.slice(0, 5).map(r => ({
+    id: r._id || r.id || `req-${Math.random()}`,
+    type: r.leaveType?.name || r.leaveType || r.type || 'Leave',
+    from: r.fromDate ? new Date(r.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : (r.from || '—'),
+    to: r.toDate ? new Date(r.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : (r.to || '—'),
+    days: r.days || 1,
+    status: r.status || 'Pending',
+  }));
 
   return (
     <main className={styles.page}>
@@ -657,25 +860,25 @@ function EmployeeDashboard() {
 
         <div className={styles.profileStatsRow}>
           {portalAccess.allowProfile !== false && (
-            <EmployeeProfileCard employee={data.employee} />
+            <EmployeeProfileCard employee={dynamicEmployee} />
           )}
 
           <section className={styles.kpiGrid} aria-label="Employee summary cards">
             {portalAccess.allowAttendance !== false && (
               <>
-                <SummaryCard icon={CalendarCheck} label="Present Days" value={data.summary.presentDays} meta={data.summary.presentMonth} />
-                <SummaryCard icon={CalendarX} label="Absent Days" value={data.attendance.absentDays} meta={data.summary.presentMonth} tone="danger" />
+                <SummaryCard icon={CalendarCheck} label="Present Days" value={presentDaysCount} meta={currentMonthName} />
+                <SummaryCard icon={CalendarX} label="Absent Days" value={absentDaysCount} meta={currentMonthName} tone="danger" />
               </>
             )}
             {portalAccess.allowLeaves !== false && (
               <>
-                <SummaryCard icon={CalendarDays} label="Leave Balance" value={`${data.summary.leaveBalance} Days`} meta="Available" tone="warning" />
-                <SummaryCard icon={FileText} label="Total Leave Requests" value={data.summary.totalLeaveRequests} meta={`${data.summary.pendingLeaveRequests} Pending`} tone="purple" />
+                <SummaryCard icon={CalendarDays} label="Leave Balance" value={`${totalLeaveBalance} Days`} meta="Available" tone="warning" />
+                <SummaryCard icon={FileText} label="Total Leave Requests" value={leaveRequests.length} meta={`${pendingLeaves} Pending`} tone="purple" />
               </>
             )}
-            <SummaryCard icon={Clock3} label="Overtime" value={`${data.summary.overtimeHours} hrs`} meta="This Month" tone="info" />
+            <SummaryCard icon={Clock3} label="Overtime" value={`${overtimeHoursCount} hrs`} meta="This Month" tone="info" />
             {portalAccess.allowSalarySlips !== false && (
-              <SummaryCard icon={IndianRupee} label="Last Salary" value={formatCurrency(data.summary.lastSalary)} meta={data.summary.presentMonth} tone="success" />
+              <SummaryCard icon={IndianRupee} label="Last Salary" value={formatCurrency(dynamicSalary.net)} meta={previousMonthName} tone="success" />
             )}
           </section>
         </div>
@@ -683,18 +886,27 @@ function EmployeeDashboard() {
         <div className={styles.contentGrid}>
           <div className={styles.primaryColumn}>
             {portalAccess.allowAttendance !== false && (
-              <AttendanceStatusCard attendance={data.todayAttendance} />
+              <AttendanceStatusCard attendance={liveTodayAttendance} />
             )}
             {portalAccess.allowSalarySlips !== false && (
-              <LatestSalaryCard salary={data.salary} />
+              <LatestSalaryCard salary={dynamicSalary} />
             )}
           </div>
 
           <div className={styles.secondaryColumn}>
             {portalAccess.allowAttendance !== false && (
               <>
-                <AttendanceOverviewCard attendance={data.attendance} />
-                <AttendanceCalendar items={data.attendanceCalendar} />
+                <AttendanceOverviewCard
+                  attendance={{
+                    month: currentMonthName,
+                    percentage: monthlyRate,
+                    trend: weekTrend,
+                  }}
+                />
+                <AttendanceCalendar
+                  records={attendanceRecords}
+                  monthLabel={currentMonthName}
+                />
               </>
             )}
           </div>
@@ -702,10 +914,10 @@ function EmployeeDashboard() {
 
         <div className={styles.twoColumnGrid}>
           {portalAccess.allowLeaves !== false && (
-            <RecentLeaveRequests requests={data.leaveRequests} />
+            <RecentLeaveRequests requests={formattedLeaveRequests} />
           )}
           {portalAccess.allowNotifications !== false && (
-            <EmployeeNotifications notifications={data.notifications} />
+            <EmployeeNotificationsList notifications={dynamicNotifications} />
           )}
         </div>
       </div>

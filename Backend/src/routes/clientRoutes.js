@@ -1,6 +1,8 @@
 import express from 'express';
 import {
   getClients,
+  getClientById,
+  getNextClientId,
   createClient,
   updateClient,
   toggleClientStatus,
@@ -13,6 +15,8 @@ const router = express.Router();
 // Protected with JWT auth
 router.use(protect);
 
+router.get('/next-id', getNextClientId);
+
 router.route('/')
   .get(getClients)
   .post(adminOnly, createClient);
@@ -21,6 +25,7 @@ router.route('/:id/status')
   .patch(adminOnly, toggleClientStatus);
 
 router.route('/:id')
+  .get(getClientById)
   .put(adminOnly, updateClient)
   .patch(adminOnly, toggleClientStatus)
   .delete(adminOnly, deleteClient);

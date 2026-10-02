@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const clientSchema = new mongoose.Schema(
   {
@@ -22,6 +23,12 @@ const clientSchema = new mongoose.Schema(
     name: {
       type: String,
       required: [true, 'Client name is required'],
+      trim: true,
+    },
+    email: {
+      type: String,
+      default: '',
+      lowercase: true,
       trim: true,
     },
     gstin: {
@@ -83,12 +90,28 @@ const clientSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Credentials & Portal Access
+    password: {
+      type: String,
+      select: false,
+    },
+    savedPassword: {
+      type: String,
+      default: '',
+    },
+    enablePortalAccess: {
+      type: Boolean,
+      default: true,
+    },
   },
   {
     timestamps: true,
     toJSON: {
       transform: function (doc, ret) {
         ret.id = ret.clientId || ret._id.toString();
+        ret.enablePortalAccess = doc.enablePortalAccess !== false && doc.enablePortalAccess !== 'false';
+        ret.password = doc.savedPassword || ret.savedPassword || '';
+        ret.savedPassword = doc.savedPassword || ret.savedPassword || '';
         delete ret.__v;
         return ret;
       },
@@ -97,11 +120,27 @@ const clientSchema = new mongoose.Schema(
 );
 
 // Auto-assign unique clientId before save if not present
-clientSchema.pre('save', function () {
+clientSchema.pre('save', async function () {
   if (!this.clientId) {
-    this.clientId = `CLI-${Date.now().toString().slice(-6)}`;
+    this.clientId = `CLI-${String(Math.floor(100 + Math.random() * 900))}`;
+  }
+
+  // Hash password if modified
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
 });
+
+// Method to verify password on client login
+clientSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password && !this.savedPassword) return false;
+  if (this.password) {
+    const isMatch = await bcrypt.compare(enteredPassword, this.password);
+    if (isMatch) return true;
+  }
+  return this.savedPassword === enteredPassword;
+};
 
 const Client = mongoose.model('Client', clientSchema);
 export default Client;

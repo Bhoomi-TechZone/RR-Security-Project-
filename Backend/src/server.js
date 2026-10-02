@@ -8,6 +8,7 @@ import { connectDB } from './config/db.js';
 import authRoutes from './routes/authRoutes.js';
 import companyRoutes from './routes/companyRoutes.js';
 import clientRoutes from './routes/clientRoutes.js';
+import clientPortalRoutes from './routes/clientPortalRoutes.js';
 import employeeRoutes from './routes/employeeRoutes.js';
 import workLocationRoutes from './routes/workLocationRoutes.js';
 import roleRoutes from './routes/roleRoutes.js';
@@ -153,6 +154,9 @@ app.use('/api/companies', companyRoutes);
 
 // Clients
 app.use('/api/clients', clientRoutes);
+
+// Client Portal (Dynamic Client Dashboard, Assigned Employees, Attendance, Invoices, Profile)
+app.use('/api/client-portal', clientPortalRoutes);
 
 // Employees
 app.use('/api/employees', employeeRoutes);
