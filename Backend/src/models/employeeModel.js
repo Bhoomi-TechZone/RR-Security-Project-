@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 
 const employeeSchema = new mongoose.Schema(
   {
@@ -62,6 +63,25 @@ const employeeSchema = new mongoose.Schema(
     nationality: { type: String, default: 'Indian' },
     employeePhoto: { type: String, default: '' },
     photo: { type: String, default: '' },
+
+    // Portal Access & Authentication Credentials
+    password: {
+      type: String,
+      default: '',
+      select: false,
+    },
+    savedPassword: {
+      type: String,
+      default: '',
+    },
+    enablePortalAccess: {
+      type: Boolean,
+      default: true,
+    },
+    role: {
+      type: String,
+      default: 'employee',
+    },
 
     // Employment
     employeeType: { type: String, default: 'Permanent' },
@@ -163,12 +183,29 @@ const employeeSchema = new mongoose.Schema(
         ret.site = ret.siteLocation || ret.site || '';
         ret.contact = ret.contact || ret.mobile || '';
         ret.mobile = ret.mobile || ret.contact || '';
+        ret.enablePortalAccess = doc.enablePortalAccess !== false && doc.enablePortalAccess !== 'false';
+        ret.password = doc.savedPassword || ret.savedPassword || '';
+        ret.savedPassword = doc.savedPassword || ret.savedPassword || '';
         delete ret.__v;
         return ret;
       },
     },
   }
 );
+
+// Auto-hash password before saving
+employeeSchema.pre('save', async function () {
+  if (this.isModified('password') && this.password) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+});
+
+// Method to verify password on employee login
+employeeSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) return false;
+  return await bcrypt.compare(enteredPassword, this.password);
+};
 
 const Employee = mongoose.model('Employee', employeeSchema);
 export default Employee;

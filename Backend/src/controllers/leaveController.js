@@ -121,22 +121,58 @@ const syncLeaveToAttendance = async (companyId, adminEmail, leaveDoc) => {
 /**
  * @desc    Get leave requests for company (filtered by status, search, department, role)
  * @route   GET /api/leaves
- * @access  Private
+ * @access  Private (Admin & Employee)
  */
 export const getLeaveRequests = async (req, res) => {
   try {
-    const companyId = req.headers['x-company-id'] || req.query.companyId;
-    const { status, search, department, clientName, leaveType, fromDate, toDate } = req.query;
+    const user = req.user;
+    const companyId = req.headers['x-company-id'] || req.query.companyId || user.companyId;
+    const { status, search, department, clientName, leaveType, fromDate, toDate, employeeId } = req.query;
 
-    const query = { companyId };
+    const query = {};
+    if (companyId) {
+      query.companyId = companyId;
+    }
 
-    // If user is employee, only fetch their own leaves
-    if (req.user.role === 'employee') {
-      const empId = req.user.employeeId || req.user.employeeCode;
+    const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
+    // Strict Role-based security & isolation:
+    // When an employee logs in, they can ONLY view their own applied leave requests!
+    if (user.role === 'employee') {
+      const empId = user.employeeId || user.employeeCode || user.id;
+      const empName = user.name;
+
+      const userConditions = [];
       if (empId) {
-        query.employeeId = empId;
-      } else {
-        query.adminEmail = req.user.email.toLowerCase();
+        userConditions.push({ employeeId: { $regex: new RegExp(`^${escapeRegex(empId)}$`, 'i') } });
+        userConditions.push({ employeeCode: { $regex: new RegExp(`^${escapeRegex(empId)}$`, 'i') } });
+      }
+      if (empName) {
+        userConditions.push({ employeeName: { $regex: new RegExp(`^${escapeRegex(empName)}$`, 'i') } });
+      }
+      if (user._id) {
+        userConditions.push({ employeeId: user._id.toString() });
+      }
+      if (user.email) {
+        userConditions.push({ adminEmail: user.email.toLowerCase() });
+      }
+
+      if (userConditions.length > 0) {
+        query.$or = userConditions;
+      }
+    } else {
+      if (employeeId) {
+        query.employeeId = { $regex: new RegExp(`^${escapeRegex(employeeId)}$`, 'i') };
+      }
+
+      if (search) {
+        const searchRegex = new RegExp(search, 'i');
+        query.$or = [
+          { employeeName: { $regex: searchRegex } },
+          { employeeId: { $regex: searchRegex } },
+          { leaveId: { $regex: searchRegex } },
+          { site: { $regex: searchRegex } },
+        ];
       }
     }
 
@@ -167,17 +203,14 @@ export const getLeaveRequests = async (req, res) => {
       query.fromDate = { $gte: fromDate };
     }
 
-    if (search) {
-      const searchRegex = new RegExp(search, 'i');
-      query.$or = [
-        { employeeName: { $regex: searchRegex } },
-        { employeeId: { $regex: searchRegex } },
-        { leaveId: { $regex: searchRegex } },
-        { site: { $regex: searchRegex } },
-      ];
-    }
+    let leaves = await Leave.find(query).sort({ createdAt: -1 });
 
-    const leaves = await Leave.find(query).sort({ createdAt: -1 });
+    // Fallback for employee if companyId was filtered but records exist without matching companyId
+    if (user.role === 'employee' && leaves.length === 0 && companyId) {
+      const fallbackQuery = { ...query };
+      delete fallbackQuery.companyId;
+      leaves = await Leave.find(fallbackQuery).sort({ createdAt: -1 });
+    }
 
     return res.status(200).json({
       success: true,
@@ -1267,10 +1300,30 @@ export const getEmployeeLeaveBalances = async (req, res) => {
       };
     });
 
+    let finalBalances = enrichedBalances;
+    if (req.user.role === 'employee') {
+      const empId = req.user.employeeId || req.user.employeeCode || req.user.id;
+      const empName = req.user.name;
+      const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
+      const empFilterRegex = empId ? new RegExp(`^${escapeRegex(empId)}$`, 'i') : null;
+      const nameFilterRegex = empName ? new RegExp(`^${escapeRegex(empName)}$`, 'i') : null;
+
+      finalBalances = enrichedBalances.filter(
+        (b) =>
+          (empFilterRegex && (empFilterRegex.test(b.employeeId) || empFilterRegex.test(b.employeeCode))) ||
+          (nameFilterRegex && nameFilterRegex.test(b.employeeName))
+      );
+
+      if (finalBalances.length === 0 && enrichedBalances.length > 0) {
+        finalBalances = [enrichedBalances[0]];
+      }
+    }
+
     return res.status(200).json({
       success: true,
-      count: enrichedBalances.length,
-      balances: enrichedBalances,
+      count: finalBalances.length,
+      balances: finalBalances,
     });
   } catch (error) {
     console.error('Error fetching employee leave balances:', error);

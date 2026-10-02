@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Receipt,
   Search,
@@ -11,19 +11,26 @@ import {
   AlertCircle,
   FileText,
   DollarSign,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import styles from './ClientBilling.module.css';
 import { useClientAuth } from '../../context/ClientAuthContext';
-import {
-  CLIENT_BILLING_INVOICES,
-  CLIENT_DASHBOARD_KPIS
-} from '../../data/clientPortalData';
+import clientPortalService from '../../services/clientPortalService';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 
 function ClientBilling() {
   const { clientCompany } = useClientAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [invoices, setInvoices] = useState([]);
+  const [summary, setSummary] = useState({
+    totalYtdInvoiced: 0,
+    totalYtdPaid: 0,
+    totalPending: 0,
+    currentAmount: 0
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -35,15 +42,41 @@ function ClientBilling() {
     setToast({ show: true, message, type });
   };
 
+  const fetchBilling = async () => {
+    try {
+      setLoading(true);
+      const res = await clientPortalService.getBilling();
+      if (res && Array.isArray(res.invoices)) {
+        setInvoices(res.invoices);
+        if (res.summary) setSummary(res.summary);
+      } else {
+        setInvoices([]);
+      }
+    } catch (err) {
+      console.warn('Error fetching client billing:', err.message);
+      setInvoices([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchBilling();
+  }, [clientCompany?.clientId, clientCompany?.name]);
+
   const handleDownloadInvoice = (invoiceNo) => {
     showToast(`Invoice ${invoiceNo} PDF downloaded successfully.`, 'success');
   };
 
   const handleExportStatement = () => {
-    showToast('Company billing statement exported to Excel successfully.', 'success');
+    if (filteredInvoices.length === 0) {
+      showToast('No billing records to export.', 'error');
+      return;
+    }
+    showToast(`Company billing statement for ${clientCompany?.name} exported to Excel successfully.`, 'success');
   };
 
-  const filteredInvoices = CLIENT_BILLING_INVOICES.filter((inv) => {
+  const filteredInvoices = invoices.filter((inv) => {
     const matchesSearch = inv.invoiceNo.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === 'all' || inv.status.toLowerCase() === statusFilter.toLowerCase();
@@ -52,9 +85,7 @@ function ClientBilling() {
     return matchesSearch && matchesStatus && matchesPeriod;
   });
 
-  const periods = Array.from(new Set(CLIENT_BILLING_INVOICES.map((i) => i.billingPeriod)));
-
-  const totalYtdInvoiced = CLIENT_BILLING_INVOICES.reduce((sum, i) => sum + i.grossAmount, 0);
+  const periods = Array.from(new Set(invoices.map((i) => i.billingPeriod)));
 
   return (
     <div className={styles.container}>
@@ -71,14 +102,26 @@ function ClientBilling() {
         <div>
           <h1 className={styles.pageTitle}>Company Billing & Invoices</h1>
           <p className={styles.pageSubtitle}>
-            Overview of monthly workforce billing, itemized invoices, payment history, and tax statements.
+            Overview of monthly workforce billing, itemized invoices, payment history, and tax statements for {clientCompany?.name}.
           </p>
         </div>
 
-        <button type="button" className={styles.exportBtn} onClick={handleExportStatement}>
-          <Download size={15} />
-          <span>Export Billing Statement</span>
-        </button>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            className={styles.exportBtn}
+            onClick={fetchBilling}
+            title="Refresh Invoices"
+            style={{ background: 'var(--surface-bg)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          >
+            <RefreshCw size={15} className={loading ? styles.spinning : ''} />
+            <span>Refresh</span>
+          </button>
+          <button type="button" className={styles.exportBtn} onClick={handleExportStatement}>
+            <Download size={15} />
+            <span>Export Statement</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI Badges Row */}
@@ -88,9 +131,9 @@ function ClientBilling() {
             <Receipt size={18} />
           </div>
           <div className={styles.kpiMeta}>
-            <span className={styles.kpiLabel}>Current Month Billing</span>
+            <span className={styles.kpiLabel}>Current Period Billing</span>
             <span className={styles.kpiValue}>
-              ₹{CLIENT_DASHBOARD_KPIS.currentBillingAmount.toLocaleString('en-IN')}
+              ₹{(summary.currentAmount || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>
@@ -102,7 +145,7 @@ function ClientBilling() {
           <div className={styles.kpiMeta}>
             <span className={styles.kpiLabel}>Paid Amount</span>
             <span className={styles.kpiValue}>
-              ₹{CLIENT_DASHBOARD_KPIS.paidAmount.toLocaleString('en-IN')}
+              ₹{(summary.totalYtdPaid || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>
@@ -114,31 +157,31 @@ function ClientBilling() {
           <div className={styles.kpiMeta}>
             <span className={styles.kpiLabel}>Pending Balance</span>
             <span className={styles.kpiValue}>
-              ₹{CLIENT_DASHBOARD_KPIS.pendingAmount.toLocaleString('en-IN')}
+              ₹{(summary.totalPending || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>
 
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIcon} ${styles.iconPurple}`}>
-            <FileText size={18} />
+            <DollarSign size={18} />
           </div>
           <div className={styles.kpiMeta}>
-            <span className={styles.kpiLabel}>Total YTD Invoiced</span>
+            <span className={styles.kpiLabel}>Total Invoiced (YTD)</span>
             <span className={styles.kpiValue}>
-              ₹{totalYtdInvoiced.toLocaleString('en-IN')}
+              ₹{(summary.totalYtdInvoiced || 0).toLocaleString('en-IN')}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Filters Bar */}
+      {/* Filter Toolbar */}
       <div className={styles.filterCard}>
         <div className={styles.searchBox}>
           <Search size={16} className={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by invoice number (e.g. INV-2026-0801)..."
+            placeholder="Search invoice number (e.g. INV-2026-0801)..."
             className={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -172,73 +215,69 @@ function ClientBilling() {
         </div>
       </div>
 
-      {/* Invoices Table */}
+      {/* Invoices Data Table */}
       <div className={styles.tableCard}>
         <div className={styles.tableResponsive}>
           <table className={styles.dataTable}>
             <thead>
               <tr>
-                <th>Invoice No.</th>
+                <th>Invoice No</th>
                 <th>Billing Period</th>
-                <th>Manpower Deployed</th>
-                <th>Gross Amount</th>
-                <th>Paid Amount</th>
-                <th>Pending Amount</th>
+                <th>Issue Date</th>
                 <th>Due Date</th>
+                <th>Guards Deployed</th>
+                <th>Gross Amount</th>
                 <th>Status</th>
                 <th className={styles.alignRight}>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredInvoices.length === 0 ? (
+              {loading ? (
                 <tr>
-                  <td colSpan="9" className={styles.emptyCell}>
-                    No invoices found matching your filters.
+                  <td colSpan="8" className={styles.emptyCell}>
+                    Fetching billing records...
+                  </td>
+                </tr>
+              ) : filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className={styles.emptyCell}>
+                    No billing statements issued for {clientCompany?.name || 'your company'}.
                   </td>
                 </tr>
               ) : (
                 filteredInvoices.map((inv) => (
-                  <tr key={inv.id}>
+                  <tr key={inv.id || inv.invoiceNo}>
                     <td>
                       <span className={styles.invBadge}>{inv.invoiceNo}</span>
                     </td>
-                    <td>
-                      <span className={styles.periodText}>{inv.billingPeriod}</span>
-                    </td>
-                    <td>{inv.totalManpowerCount} Personnel</td>
-                    <td>
-                      <strong>₹{inv.grossAmount.toLocaleString('en-IN')}</strong>
-                    </td>
-                    <td>
-                      <span className={styles.paidText}>
-                        ₹{inv.paidAmount.toLocaleString('en-IN')}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={inv.pendingAmount > 0 ? styles.pendingText : styles.settledText}>
-                        ₹{inv.pendingAmount.toLocaleString('en-IN')}
-                      </span>
-                    </td>
+                    <td>{inv.billingPeriod}</td>
+                    <td>{inv.issueDate}</td>
                     <td>{inv.dueDate}</td>
+                    <td>{inv.totalGuards} Personnel</td>
+                    <td>
+                      <strong className={styles.grossText}>
+                        ₹{inv.grossAmount.toLocaleString('en-IN')}
+                      </strong>
+                    </td>
                     <td>
                       <StatusBadge status={inv.status} />
                     </td>
                     <td className={styles.alignRight}>
-                      <div className={styles.actionBtnGroup}>
+                      <div className={styles.actionButtonGroup}>
                         <button
                           type="button"
-                          className={styles.actionBtn}
+                          className={styles.viewBtn}
                           onClick={() => setSelectedInvoice(inv)}
-                          title="View Itemized Breakdown"
+                          title="View Invoice"
                         >
                           <Eye size={14} />
                           <span>View</span>
                         </button>
                         <button
                           type="button"
-                          className={styles.downloadBtn}
+                          className={styles.downloadIconBtn}
                           onClick={() => handleDownloadInvoice(inv.invoiceNo)}
-                          title="Download Invoice PDF"
+                          title="Download PDF"
                         >
                           <Download size={14} />
                         </button>
@@ -252,15 +291,15 @@ function ClientBilling() {
         </div>
       </div>
 
-      {/* Invoice Breakdown Modal */}
+      {/* View Detailed Invoice Modal */}
       {selectedInvoice && (
         <div className={styles.modalOverlay} onClick={() => setSelectedInvoice(null)}>
           <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
               <div>
-                <h3 className={styles.modalTitle}>Invoice {selectedInvoice.invoiceNo}</h3>
+                <h3 className={styles.modalTitle}>Tax Invoice: {selectedInvoice.invoiceNo}</h3>
                 <span className={styles.modalSubtitle}>
-                  Period: {selectedInvoice.billingPeriod} • Issue Date: {selectedInvoice.issueDate} • Due Date: {selectedInvoice.dueDate}
+                  Period: {selectedInvoice.billingPeriod} • Issued On: {selectedInvoice.issueDate}
                 </span>
               </div>
               <button
@@ -273,53 +312,56 @@ function ClientBilling() {
             </div>
 
             <div className={styles.modalBody}>
-              <div className={styles.invMetaBox}>
+              {/* Billed To / From */}
+              <div className={styles.invBilledSection}>
                 <div>
-                  <span className={styles.metaLabel}>Billed Client</span>
-                  <h4 className={styles.clientName}>{clientCompany?.name}</h4>
-                  <p className={styles.addressText}>{clientCompany?.registeredAddress}</p>
-                  <span className={styles.gstText}>GSTIN: {clientCompany?.gstin}</span>
+                  <span className={styles.metaHead}>Service Provider:</span>
+                  <h4 className={styles.metaCompany}>RR Security & Facility Management</h4>
+                  <p className={styles.metaSub}>Civil Lines, Bareilly, Uttar Pradesh 243001</p>
+                  <span className={styles.metaGst}>GSTIN: 09RRSEC9999F1Z1</span>
                 </div>
-                <div className={styles.invStatusCol}>
-                  <StatusBadge status={selectedInvoice.status} />
-                  <span className={styles.invAmountHeader}>
-                    ₹{selectedInvoice.grossAmount.toLocaleString('en-IN')}
-                  </span>
+                <div>
+                  <span className={styles.metaHead}>Billed To:</span>
+                  <h4 className={styles.metaCompany}>{clientCompany?.name}</h4>
+                  <p className={styles.metaSub}>{clientCompany?.registeredAddress || clientCompany?.address}</p>
+                  <span className={styles.metaGst}>GSTIN: {clientCompany?.gstin || '--'}</span>
                 </div>
               </div>
 
-              <h4 className={styles.sectionTitle}>Itemized Manpower Breakdown</h4>
-              <div className={styles.tableWrap}>
-                <table className={styles.invTable}>
+              {/* Itemized Table */}
+              <div className={styles.itemsTableWrap}>
+                <table className={styles.itemsTable}>
                   <thead>
                     <tr>
-                      <th>Description</th>
+                      <th>Service Description</th>
+                      <th>Quantity</th>
                       <th className={styles.alignRight}>Amount (INR)</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedInvoice.items?.map((item, idx) => (
-                      <tr key={idx}>
-                        <td>{item.description}</td>
-                        <td className={styles.alignRight}>
-                          ₹{item.amount.toLocaleString('en-IN')}
-                        </td>
-                      </tr>
-                    ))}
                     <tr>
-                      <td>Central GST (CGST @ 9%)</td>
+                      <td>Security Personnel Deployment ({selectedInvoice.totalGuards} Guards)</td>
+                      <td>{selectedInvoice.totalGuards}</td>
                       <td className={styles.alignRight}>
-                        ₹{selectedInvoice.taxes.cgst.toLocaleString('en-IN')}
+                        ₹{(selectedInvoice.baseAmount || Math.round(selectedInvoice.grossAmount * 0.85)).toLocaleString('en-IN')}
                       </td>
                     </tr>
                     <tr>
-                      <td>State GST (SGST @ 9%)</td>
+                      <td>Integrated Patrol & Surveillance Compliance</td>
+                      <td>1 Site</td>
+                      <td>Included in SLA</td>
+                    </tr>
+                    <tr>
+                      <td>GST / Statutory Compliance (18%)</td>
+                      <td>18%</td>
                       <td className={styles.alignRight}>
-                        ₹{selectedInvoice.taxes.sgst.toLocaleString('en-IN')}
+                        ₹{(selectedInvoice.gstAmount || Math.round(selectedInvoice.grossAmount * 0.15)).toLocaleString('en-IN')}
                       </td>
                     </tr>
-                    <tr className={styles.invTotalRow}>
-                      <td><strong>Total Gross Payable Amount</strong></td>
+                    <tr className={styles.itemsTotalRow}>
+                      <td colSpan="2">
+                        <strong>Total Amount Payable</strong>
+                      </td>
                       <td className={styles.alignRight}>
                         <strong>₹{selectedInvoice.grossAmount.toLocaleString('en-IN')}</strong>
                       </td>
@@ -327,16 +369,24 @@ function ClientBilling() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Payment Details */}
+              <div className={styles.paymentTermsBox}>
+                <span className={styles.termsHead}>Bank Transfer Instructions:</span>
+                <p className={styles.termsText}>
+                  A/C Name: RR Security Services Pvt. Ltd. • A/C No: 987654321012 • IFSC: HDFC0001234
+                </p>
+              </div>
             </div>
 
             <div className={styles.modalFooter}>
               <button
                 type="button"
-                className={styles.exportBtn}
+                className={styles.secondaryBtn}
                 onClick={() => handleDownloadInvoice(selectedInvoice.invoiceNo)}
               >
-                <Download size={14} />
-                <span>Download Invoice PDF</span>
+                <Download size={15} />
+                <span>Download Tax Invoice PDF</span>
               </button>
               <button
                 type="button"

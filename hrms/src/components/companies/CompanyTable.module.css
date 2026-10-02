@@ -95,6 +95,21 @@
   gap: 2px;
 }
 
+.clientIdBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background-color: var(--primary-light, #eff6ff);
+  color: var(--primary, #2563eb);
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 12px;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
 .contactName {
   font-size: var(--text-sm);
   font-weight: 500;

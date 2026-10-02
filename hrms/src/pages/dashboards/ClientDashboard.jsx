@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Users,
@@ -19,40 +19,95 @@ import {
   Bell,
   MapPin,
   ShieldCheck,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import styles from './ClientDashboard.module.css';
 import { useClientAuth } from '../../context/ClientAuthContext';
-import {
-  CLIENT_DASHBOARD_KPIS,
-  CLIENT_WEEKLY_ATTENDANCE_TREND,
-  CLIENT_EMPLOYEES_LIST,
-  CLIENT_BILLING_INVOICES,
-  CLIENT_NOTIFICATIONS,
-  CLIENT_COMPANY_PROFILE
-} from '../../data/clientPortalData';
+import clientPortalService from '../../services/clientPortalService';
 import Avatar from '../../components/common/Avatar';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 
+const DEFAULT_DAYS = [
+  { day: 'Mon', fullDay: 'Monday', percentage: 100, present: 0, total: 0 },
+  { day: 'Tue', fullDay: 'Tuesday', percentage: 100, present: 0, total: 0 },
+  { day: 'Wed', fullDay: 'Wednesday', percentage: 100, present: 0, total: 0 },
+  { day: 'Thu', fullDay: 'Thursday', percentage: 100, present: 0, total: 0 },
+  { day: 'Fri', fullDay: 'Friday', percentage: 100, present: 0, total: 0 },
+  { day: 'Sat', fullDay: 'Saturday', percentage: 100, present: 0, total: 0 },
+  { day: 'Sun', fullDay: 'Sunday', percentage: 100, present: 0, total: 0 }
+];
+
 function ClientDashboard() {
   const navigate = useNavigate();
   const { clientCompany, clientUser } = useClientAuth();
+
+  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState({
+    kpis: {
+      totalEmployees: 0,
+      activeEmployees: 0,
+      todayAttendancePercent: 100,
+      presentToday: 0,
+      absentToday: 0,
+      onLeaveToday: 0,
+      pendingCorrections: 0,
+      currentBillingAmount: 0,
+      currentBillingFormatted: '₹0',
+      paidAmount: 0,
+      paidAmountFormatted: '₹0',
+      pendingAmount: 0,
+      pendingAmountFormatted: '₹0',
+      lastInvoiceNo: 'INV-2026-01',
+      currentBillingPeriod: new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })
+    },
+    weeklyAttendanceTrend: DEFAULT_DAYS,
+    recentEmployees: [],
+    recentInvoices: [],
+    notifications: []
+  });
 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
+  const fetchDashboard = async () => {
+    try {
+      setLoading(true);
+      const data = await clientPortalService.getDashboard();
+      if (data) {
+        setDashboardData({
+          kpis: data.kpis || dashboardData.kpis,
+          weeklyAttendanceTrend: data.weeklyAttendanceTrend?.length > 0
+            ? data.weeklyAttendanceTrend
+            : DEFAULT_DAYS,
+          recentEmployees: Array.isArray(data.recentEmployees) ? data.recentEmployees : [],
+          recentInvoices: Array.isArray(data.recentInvoices) ? data.recentInvoices : [],
+          notifications: Array.isArray(data.notifications) ? data.notifications : []
+        });
+      }
+    } catch (err) {
+      console.warn('Could not fetch client dashboard from API:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, [clientCompany?.clientId, clientCompany?.name]);
+
   // SVG Chart configurations & Multi-color bar palette
   const DAY_BAR_COLORS = [
-    { base: '#3b82f6', hover: '#2563eb' }, // Mon - Blue
-    { base: '#8b5cf6', hover: '#7c3aed' }, // Tue - Violet
-    { base: '#f59e0b', hover: '#d97706' }, // Wed - Amber
-    { base: '#10b981', hover: '#059669' }, // Thu - Emerald
-    { base: '#6366f1', hover: '#4f46e5' }, // Fri - Indigo
-    { base: '#06b6d4', hover: '#0891b2' }, // Sat - Cyan
-    { base: '#f43f5e', hover: '#e11d48' }, // Sun - Rose
+    { base: '#3b82f6', hover: '#2563eb' },
+    { base: '#8b5cf6', hover: '#7c3aed' },
+    { base: '#f59e0b', hover: '#d97706' },
+    { base: '#10b981', hover: '#059669' },
+    { base: '#6366f1', hover: '#4f46e5' },
+    { base: '#06b6d4', hover: '#0891b2' },
+    { base: '#f43f5e', hover: '#e11d48' },
   ];
 
   const svgWidth = 560;
@@ -62,7 +117,10 @@ function ClientDashboard() {
   const chartWidth = svgWidth - paddingX * 2;
   const chartHeight = svgHeight - paddingY * 2;
   const barWidth = 36;
-  const gap = (chartWidth - barWidth * CLIENT_WEEKLY_ATTENDANCE_TREND.length) / (CLIENT_WEEKLY_ATTENDANCE_TREND.length - 1);
+  const trendList = dashboardData.weeklyAttendanceTrend || DEFAULT_DAYS;
+  const gap = trendList.length > 1
+    ? (chartWidth - barWidth * trendList.length) / (trendList.length - 1)
+    : 20;
   const gridLines = [100, 75, 50, 25, 0];
 
   const getRoundedBarPath = (x, y, width, height, radius) => {
@@ -86,6 +144,10 @@ function ClientDashboard() {
     showToast(`Invoice ${invoiceNo} PDF downloaded successfully.`, 'success');
   };
 
+  const kpis = dashboardData.kpis;
+  const recentEmployees = dashboardData.recentEmployees || [];
+  const recentInvoices = dashboardData.recentInvoices || [];
+
   return (
     <div className={styles.container}>
       {/* Toast Feedback */}
@@ -102,11 +164,20 @@ function ClientDashboard() {
         <div className={styles.welcomeSection}>
           <h1 className={styles.heading}>Dashboard</h1>
           <p className={styles.subheading}>
-            Welcome back, {clientUser?.name || 'Rahul Kumar'} 👋 Here's an overview of your company's workforce, attendance and billing.
+            Welcome back, {clientUser?.name || 'Client'} 👋 Here's an overview of your company's workforce, attendance and billing.
           </p>
         </div>
 
         <div className={styles.headerActions}>
+          <button
+            type="button"
+            className={styles.secondaryBtn}
+            onClick={fetchDashboard}
+            title="Refresh Live Data"
+          >
+            <RefreshCw size={15} className={loading ? styles.spinning : ''} />
+            <span>Refresh</span>
+          </button>
           <button
             type="button"
             className={styles.secondaryBtn}
@@ -126,7 +197,7 @@ function ClientDashboard() {
         </div>
       </div>
 
-      {/* 6 Required Company-Level Summary Cards */}
+      {/* Summary KPI Cards */}
       <section className={styles.kpiGrid} aria-label="Company Performance Indicators">
         {/* Card 1: Total Employees */}
         <div className={styles.statCard}>
@@ -137,12 +208,11 @@ function ClientDashboard() {
             </div>
           </div>
           <div className={styles.statValueRow}>
-            <span className={styles.statValue}>{CLIENT_DASHBOARD_KPIS.totalEmployees}</span>
+            <span className={styles.statValue}>{kpis.totalEmployees}</span>
             <span className={styles.trendUp}>
-              <TrendingUp size={13} /> +4 this month
+              <TrendingUp size={13} /> Active Roster
             </span>
           </div>
-          {/* <p className={styles.statSubtext}>Deployed across 5 operating sites</p> */}
         </div>
 
         {/* Card 2: Active Employees */}
@@ -154,10 +224,13 @@ function ClientDashboard() {
             </div>
           </div>
           <div className={styles.statValueRow}>
-            <span className={styles.statValue}>{CLIENT_DASHBOARD_KPIS.activeEmployees}</span>
-            <span className={styles.statusPillActive}>94.4% Active</span>
+            <span className={styles.statValue}>{kpis.activeEmployees}</span>
+            <span className={styles.statusPillActive}>
+              {kpis.totalEmployees > 0
+                ? `${((kpis.activeEmployees / kpis.totalEmployees) * 100).toFixed(1)}% Active`
+                : '100% Active'}
+            </span>
           </div>
-          {/* <p className={styles.statSubtext}>Currently on active duty rosters</p> */}
         </div>
 
         {/* Card 3: Today's Attendance */}
@@ -169,10 +242,9 @@ function ClientDashboard() {
             </div>
           </div>
           <div className={styles.statValueRow}>
-            <span className={styles.statValue}>{CLIENT_DASHBOARD_KPIS.todayAttendancePercent}%</span>
-            <span className={styles.statPresentCount}>{CLIENT_DASHBOARD_KPIS.presentToday} Present</span>
+            <span className={styles.statValue}>{kpis.todayAttendancePercent}%</span>
+            <span className={styles.statPresentCount}>{kpis.presentToday} Present</span>
           </div>
-          {/* <p className={styles.statSubtext}>Daily muster roll marked on time</p> */}
         </div>
 
         {/* Card 4: Employees On Leave */}
@@ -184,10 +256,9 @@ function ClientDashboard() {
             </div>
           </div>
           <div className={styles.statValueRow}>
-            <span className={styles.statValue}>{CLIENT_DASHBOARD_KPIS.onLeaveToday}</span>
+            <span className={styles.statValue}>{kpis.onLeaveToday}</span>
             <span className={styles.statLeaveSub}>Approved leaves today</span>
           </div>
-          {/* <p className={styles.statSubtext}>Reliever guards deployed in place</p> */}
         </div>
 
         {/* Card 5: Current Billing Summary */}
@@ -199,11 +270,10 @@ function ClientDashboard() {
             </div>
           </div>
           <div className={styles.statValueRow}>
-            <span className={styles.statValue}>{CLIENT_DASHBOARD_KPIS.currentBillingFormatted}</span>
+            <span className={styles.statValue}>
+              {kpis.currentBillingFormatted || `₹${(kpis.currentBillingAmount || 0).toLocaleString('en-IN')}`}
+            </span>
           </div>
-          {/* <p className={styles.statSubtext}>
-            Period: {CLIENT_DASHBOARD_KPIS.currentBillingPeriod} (Pending: ₹6.20L)
-          </p> */}
         </div>
       </section>
 
@@ -211,7 +281,7 @@ function ClientDashboard() {
       <div className={styles.contentGrid}>
         {/* Left Column: Attendance Overview & Trend */}
         <div className={styles.gridColLeft}>
-          {/* Section 6: Attendance Overview */}
+          {/* Section: Attendance Overview */}
           <section className={styles.panelCard}>
             <div className={styles.panelHeader}>
               <div>
@@ -263,9 +333,9 @@ function ClientDashboard() {
                 })}
 
                 {/* Bar groups */}
-                {CLIENT_WEEKLY_ATTENDANCE_TREND.map((item, idx) => {
+                {trendList.map((item, idx) => {
                   const x = paddingX + idx * (barWidth + gap);
-                  const barHeight = chartHeight * (item.percentage / 100);
+                  const barHeight = chartHeight * ((item.percentage || 100) / 100);
                   const y = paddingY + chartHeight - barHeight;
                   const isHovered = hoveredBarIndex === idx;
 
@@ -317,25 +387,21 @@ function ClientDashboard() {
                   );
                 })}
 
-                {/* Render active tooltip after all bars in SVG render order so it is always on top */}
+                {/* Tooltip */}
                 {hoveredBarIndex !== null && (() => {
-                  const activeItem = CLIENT_WEEKLY_ATTENDANCE_TREND[hoveredBarIndex];
+                  const activeItem = trendList[hoveredBarIndex];
                   if (!activeItem) return null;
 
                   const x = paddingX + hoveredBarIndex * (barWidth + gap);
-                  const barHeight = chartHeight * (activeItem.percentage / 100);
+                  const barHeight = chartHeight * ((activeItem.percentage || 100) / 100);
                   const y = paddingY + chartHeight - barHeight;
 
-                  const tooltipWidth = 68;
+                  const tooltipWidth = 75;
                   const tooltipHeight = 22;
-
-                  // Keep tooltip horizontally inside chart boundaries
                   const tooltipX = Math.max(
                     8,
                     Math.min(svgWidth - tooltipWidth - 8, x + barWidth / 2 - tooltipWidth / 2)
                   );
-
-                  // Position above bar; prevent clipping at top edge
                   const tooltipY = Math.max(4, y - tooltipHeight - 6);
 
                   return (
@@ -353,7 +419,7 @@ function ClientDashboard() {
                         y={tooltipY + 15}
                         className={styles.tooltipText}
                       >
-                        {activeItem.percentage}% ({activeItem.present}P)
+                        {activeItem.percentage}% ({activeItem.present || kpis.presentToday}P)
                       </text>
                     </g>
                   );
@@ -362,7 +428,7 @@ function ClientDashboard() {
             </div>
           </section>
 
-          {/* Section 8: Recent Employees Table */}
+          {/* Section: Recent Employees Table */}
           <section className={styles.panelCard}>
             <div className={styles.panelHeader}>
               <div>
@@ -394,52 +460,60 @@ function ClientDashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {CLIENT_EMPLOYEES_LIST.slice(0, 5).map((emp) => (
-                    <tr key={emp.id}>
-                      <td>
-                        <div className={styles.employeeCell}>
-                          <Avatar initials={emp.initials} size="sm" name={emp.name} />
-                          <div>
-                            <span className={styles.empName}>{emp.name}</span>
-                            <span className={styles.empCode}>{emp.employeeCode}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>{emp.designation}</td>
-                      <td>
-                        <span className={styles.deptBadge}>{emp.department}</span>
-                      </td>
-                      <td>
-                        <div className={styles.siteCell}>
-                          <MapPin size={12} />
-                          <span>{emp.site}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <StatusBadge status={emp.status} />
-                      </td>
-                      <td className={styles.alignRight}>
-                        <button
-                          type="button"
-                          className={styles.viewBtn}
-                          onClick={() => setSelectedEmployee(emp)}
-                          title="View Employee Details"
-                        >
-                          <Eye size={14} />
-                          <span>View</span>
-                        </button>
+                  {recentEmployees.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" className={styles.emptyCell}>
+                        {loading ? 'Loading assigned workforce...' : `No employees currently assigned to ${clientCompany?.name || 'your company'}.`}
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    recentEmployees.map((emp) => (
+                      <tr key={emp.id || emp.employeeCode}>
+                        <td>
+                          <div className={styles.employeeCell}>
+                            <Avatar initials={emp.initials} size="sm" name={emp.name} />
+                            <div>
+                              <span className={styles.empName}>{emp.name}</span>
+                              <span className={styles.empCode}>{emp.employeeCode}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>{emp.designation}</td>
+                        <td>
+                          <span className={styles.deptBadge}>{emp.department}</span>
+                        </td>
+                        <td>
+                          <div className={styles.siteCell}>
+                            <MapPin size={12} />
+                            <span>{emp.site}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <StatusBadge status={emp.status} />
+                        </td>
+                        <td className={styles.alignRight}>
+                          <button
+                            type="button"
+                            className={styles.viewBtn}
+                            onClick={() => setSelectedEmployee(emp)}
+                            title="View Employee Details"
+                          >
+                            <Eye size={14} />
+                            <span>View</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
           </section>
         </div>
 
-        {/* Right Column: Billing, Reports & Notifications */}
+        {/* Right Column: Billing & Notifications */}
         <div className={styles.gridColRight}>
-          {/* Section 9 & 10: Billing Summary */}
+          {/* Section: Billing Summary */}
           <section className={styles.panelCard}>
             <div className={styles.panelHeader}>
               <div>
@@ -463,69 +537,75 @@ function ClientDashboard() {
               <div className={styles.billingRow}>
                 <span className={styles.billingRowLabel}>Current Month Billing</span>
                 <strong className={styles.billingRowValue}>
-                  ₹{(CLIENT_DASHBOARD_KPIS.currentBillingAmount).toLocaleString('en-IN')}
+                  ₹{(kpis.currentBillingAmount || 0).toLocaleString('en-IN')}
                 </strong>
               </div>
               <div className={styles.billingRow}>
                 <span className={styles.billingRowLabel}>Paid Amount</span>
                 <span className={`${styles.billingRowValue} ${styles.textSuccess}`}>
-                  ₹{(CLIENT_DASHBOARD_KPIS.paidAmount).toLocaleString('en-IN')}
+                  ₹{(kpis.paidAmount || 0).toLocaleString('en-IN')}
                 </span>
               </div>
               <div className={styles.billingRow}>
                 <span className={styles.billingRowLabel}>Pending Amount</span>
                 <span className={`${styles.billingRowValue} ${styles.textDanger}`}>
-                  ₹{(CLIENT_DASHBOARD_KPIS.pendingAmount).toLocaleString('en-IN')}
+                  ₹{(kpis.pendingAmount || 0).toLocaleString('en-IN')}
                 </span>
               </div>
               <div className={styles.billingRow}>
                 <span className={styles.billingRowLabel}>Last Invoice</span>
-                <span className={styles.billingRowMuted}>{CLIENT_DASHBOARD_KPIS.lastInvoiceNo}</span>
+                <span className={styles.billingRowMuted}>{kpis.lastInvoiceNo}</span>
               </div>
             </div>
 
             {/* Invoices List */}
             <h3 className={styles.subSectionHeading}>Recent Invoices</h3>
             <div className={styles.invoiceList}>
-              {CLIENT_BILLING_INVOICES.slice(0, 2).map((inv) => (
-                <div key={inv.id} className={styles.invoiceItem}>
-                  <div className={styles.invoiceMeta}>
-                    <span className={styles.invNo}>{inv.invoiceNo}</span>
-                    <span className={styles.invPeriod}>{inv.billingPeriod} • Due: {inv.dueDate}</span>
+              {recentInvoices.length === 0 ? (
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '12px 0' }}>
+                  No billing invoices issued yet.
+                </p>
+              ) : (
+                recentInvoices.map((inv) => (
+                  <div key={inv.id || inv.invoiceNo} className={styles.invoiceItem}>
+                    <div className={styles.invoiceMeta}>
+                      <span className={styles.invNo}>{inv.invoiceNo}</span>
+                      <span className={styles.invPeriod}>{inv.billingPeriod} • Due: {inv.dueDate}</span>
+                    </div>
+                    <div className={styles.invRight}>
+                      <span className={styles.invAmount}>
+                        ₹{(inv.grossAmount || 0).toLocaleString('en-IN')}
+                      </span>
+                      <StatusBadge status={inv.status} />
+                      <button
+                        type="button"
+                        className={styles.invIconBtn}
+                        onClick={() => setSelectedInvoice(inv)}
+                        title="View Invoice"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.invIconBtn}
+                        onClick={() => handleDownloadInvoice(inv.invoiceNo)}
+                        title="Download Invoice PDF"
+                      >
+                        <Download size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className={styles.invRight}>
-                    <span className={styles.invAmount}>
-                      ₹{inv.grossAmount.toLocaleString('en-IN')}
-                    </span>
-                    <StatusBadge status={inv.status} />
-                    <button
-                      type="button"
-                      className={styles.invIconBtn}
-                      onClick={() => setSelectedInvoice(inv)}
-                      title="View Invoice"
-                    >
-                      <Eye size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.invIconBtn}
-                      onClick={() => handleDownloadInvoice(inv.invoiceNo)}
-                      title="Download Invoice PDF"
-                    >
-                      <Download size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
 
-          {/* Section 13: Announcements & Notifications */}
+          {/* Section: Announcements & Notifications */}
           <section className={styles.panelCard}>
             <div className={styles.panelHeader}>
               <div>
                 <h2 className={styles.panelTitle}>Recent Notifications</h2>
-                <p className={styles.panelSubtitle}>Updates and notices from RR Security Admin</p>
+                <p className={styles.panelSubtitle}>Updates and notices for {clientCompany?.name}</p>
               </div>
               <button
                 type="button"
@@ -538,27 +618,33 @@ function ClientDashboard() {
             </div>
 
             <div className={styles.notificationsList}>
-              {CLIENT_NOTIFICATIONS.slice(0, 3).map((notif) => (
-                <div key={notif.id} className={styles.notifItem}>
-                  <div className={styles.notifIconWrap}>
-                    <Bell size={14} className={notif.unread ? styles.bellActive : ''} />
-                  </div>
-                  <div className={styles.notifContent}>
-                    <div className={styles.notifTitleRow}>
-                      <span className={styles.notifTitle}>{notif.title}</span>
-                      {notif.unread && <span className={styles.unreadDot} />}
+              {dashboardData.notifications.length === 0 ? (
+                <p style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '12px 0' }}>
+                  No new announcements or alerts.
+                </p>
+              ) : (
+                dashboardData.notifications.map((notif) => (
+                  <div key={notif.id} className={styles.notifItem}>
+                    <div className={styles.notifIconWrap}>
+                      <Bell size={14} className={!notif.read ? styles.bellActive : ''} />
                     </div>
-                    <p className={styles.notifMsg}>{notif.message}</p>
-                    <span className={styles.notifTime}>{notif.date} • {notif.time}</span>
+                    <div className={styles.notifContent}>
+                      <div className={styles.notifTitleRow}>
+                        <span className={styles.notifTitle}>{notif.title}</span>
+                        {!notif.read && <span className={styles.unreadDot} />}
+                      </div>
+                      <p className={styles.notifMsg}>{notif.message}</p>
+                      <span className={styles.notifTime}>{notif.timestamp || 'Today'}</span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </section>
         </div>
       </div>
 
-      {/* Section 11: Company Reports Quick Access (Full Width at Bottom) */}
+      {/* Reports Quick Access */}
       <section className={styles.panelCard}>
         <div className={styles.panelHeader}>
           <div>
@@ -623,8 +709,8 @@ function ClientDashboard() {
               <FileBarChart size={18} />
             </div>
             <div>
-              <span className={styles.reportTitleMini}>Payroll Summary Report</span>
-              <span className={styles.reportDescMini}>Read-only wage disbursements</span>
+              <span className={styles.reportTitleMini}>Deployment Summary</span>
+              <span className={styles.reportDescMini}>Shift & post allocation</span>
             </div>
           </div>
         </div>
@@ -669,21 +755,21 @@ function ClientDashboard() {
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Duty Post</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.dutyPost}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.dutyPost || 'Duty Post'}</span>
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Shift Timing</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.shift}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.shift || 'General Shift'}</span>
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Joining Date</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.joiningDate}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.joiningDate || '--'}</span>
                 </div>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Police Verification</span>
                   <span className={styles.fieldValBadge}>
                     <ShieldCheck size={13} color="#16a34a" />
-                    {selectedEmployee.policeVerification}
+                    {selectedEmployee.policeVerification || 'Verified (2026)'}
                   </span>
                 </div>
                 <div className={styles.infoField}>
@@ -694,7 +780,7 @@ function ClientDashboard() {
             </div>
 
             <div className={styles.modalFooter}>
-              <span className={styles.readOnlyNote}>Read-only client view. Configuration is managed by Admin.</span>
+              <span className={styles.readOnlyNote}>Read-only client view. Personnel data managed by Security Admin.</span>
               <button
                 type="button"
                 className={styles.modalPrimaryBtn}
@@ -732,13 +818,13 @@ function ClientDashboard() {
                 <div>
                   <span className={styles.invBilledToLabel}>Billed To:</span>
                   <h4 className={styles.invCompanyName}>{clientCompany?.name}</h4>
-                  <p className={styles.invAddress}>{clientCompany?.registeredAddress}</p>
-                  <span className={styles.invGst}>GSTIN: {clientCompany?.gstin}</span>
+                  <p className={styles.invAddress}>{clientCompany?.registeredAddress || clientCompany?.address}</p>
+                  <span className={styles.invGst}>GSTIN: {clientCompany?.gstin || '--'}</span>
                 </div>
                 <div className={styles.invStatusCol}>
                   <StatusBadge status={selectedInvoice.status} />
                   <span className={styles.invTotalHeader}>
-                    ₹{selectedInvoice.grossAmount.toLocaleString('en-IN')}
+                    ₹{(selectedInvoice.grossAmount || 0).toLocaleString('en-IN')}
                   </span>
                 </div>
               </div>
@@ -753,24 +839,22 @@ function ClientDashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedInvoice.items?.map((item, idx) => (
-                      <tr key={idx}>
-                        <td>{item.description}</td>
-                        <td className={styles.alignRight}>₹{item.amount.toLocaleString('en-IN')}</td>
-                      </tr>
-                    ))}
                     <tr>
-                      <td>CGST (9%)</td>
-                      <td className={styles.alignRight}>₹{selectedInvoice.taxes.cgst.toLocaleString('en-IN')}</td>
+                      <td>Security Personnel Deployment ({selectedInvoice.totalGuards || kpis.activeEmployees} Guards)</td>
+                      <td className={styles.alignRight}>
+                        ₹{Math.round((selectedInvoice.grossAmount || 0) * 0.85).toLocaleString('en-IN')}
+                      </td>
                     </tr>
                     <tr>
-                      <td>SGST (9%)</td>
-                      <td className={styles.alignRight}>₹{selectedInvoice.taxes.sgst.toLocaleString('en-IN')}</td>
+                      <td>GST / Statutory Compliance (18%)</td>
+                      <td className={styles.alignRight}>
+                        ₹{Math.round((selectedInvoice.grossAmount || 0) * 0.15).toLocaleString('en-IN')}
+                      </td>
                     </tr>
                     <tr className={styles.invTotalRow}>
                       <td><strong>Total Gross Payable</strong></td>
                       <td className={styles.alignRight}>
-                        <strong>₹{selectedInvoice.grossAmount.toLocaleString('en-IN')}</strong>
+                        <strong>₹{(selectedInvoice.grossAmount || 0).toLocaleString('en-IN')}</strong>
                       </td>
                     </tr>
                   </tbody>

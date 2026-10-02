@@ -7,6 +7,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import CompanyDetailsHeader from '../../components/companies/CompanyDetailsHeader';
 import CompanyOverview from '../../components/companies/CompanyOverview';
 import CompanyForm from '../../components/companies/CompanyForm';
+import ClientCredentialsModal from '../../components/companies/ClientCredentialsModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import EmptyState from '../../components/common/EmptyState';
 import Toast from '../../components/common/Toast';
@@ -35,6 +36,7 @@ function CompanyDetails() {
   // Form / Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
 
   // Toast Notification state
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -231,6 +233,39 @@ function CompanyDetails() {
     );
   };
 
+  // Handle Save Credentials (Password & Portal Access)
+  const handleSaveCredentials = async (targetClientId, credentialsData) => {
+    const token = authService.getToken();
+    const targetId = targetClientId || company?._id || company?.clientId || company?.id;
+    if (token && targetId) {
+      const res = await fetch(`${API_BASE_URL}/clients/${targetId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          'x-company-id': currentCompanyId
+        },
+        body: JSON.stringify(credentialsData)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to save client credentials');
+      }
+    }
+
+    const updated = {
+      ...company,
+      ...credentialsData,
+      savedPassword: credentialsData.password || company.savedPassword,
+      password: credentialsData.password || company.savedPassword
+    };
+    setCompany(updated);
+    await updateCompanyInMaster(updated);
+    await fetchClientDetails();
+    window.dispatchEvent(new CustomEvent('clients-updated'));
+    showToast('✓ Client login credentials saved successfully.', 'success');
+  };
+
   if (loading) {
     return (
       <AdminLayout>
@@ -296,6 +331,13 @@ function CompanyDetails() {
           company={company}
         />
 
+        <ClientCredentialsModal
+          isOpen={isCredentialsOpen}
+          client={company}
+          onClose={() => setIsCredentialsOpen(false)}
+          onSave={handleSaveCredentials}
+        />
+
         <ConfirmModal
           isOpen={isConfirmOpen}
           title={company.status === 'active' ? 'Deactivate Client?' : 'Activate Client?'}
@@ -328,6 +370,7 @@ function CompanyDetails() {
           company={company}
           onEdit={() => setIsFormOpen(true)}
           onToggleStatus={handleStatusToggle}
+          onOpenCredentials={() => setIsCredentialsOpen(true)}
         />
 
         {/* Tabs switcher menu */}

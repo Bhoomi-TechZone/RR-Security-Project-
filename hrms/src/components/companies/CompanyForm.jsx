@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useCompany } from '../../context/CompanyContext';
+import clientService from '../../services/clientService';
 import styles from './CompanyForm.module.css';
 
 /**
@@ -12,7 +14,12 @@ function CompanyForm({
   onSubmit,
   company = null // if present, we are in EDIT mode
 }) {
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
+  const [autoClientId, setAutoClientId] = useState('CLI-001');
+
   const [formData, setFormData] = useState({
+    clientId: '',
     name: '',
     gstin: '',
     contactPerson: '',
@@ -30,16 +37,30 @@ function CompanyForm({
       esi: null,
       lwf: null,
       tds: null,
-      // bonus: null,
-      // gratuity: null
     }
   });
 
   const [errors, setErrors] = useState({});
 
   useEffect(() => {
+    let isMounted = true;
+    if (!company && isOpen && currentCompanyId) {
+      clientService.getNextClientId(currentCompanyId)
+        .then((nextId) => {
+          if (isMounted && nextId) {
+            setAutoClientId(nextId);
+            setFormData((prev) => ({ ...prev, clientId: nextId }));
+          }
+        })
+        .catch(() => {});
+    }
+    return () => { isMounted = false; };
+  }, [company, isOpen, currentCompanyId]);
+
+  useEffect(() => {
     if (company) {
       setFormData({
+        clientId: company.clientId || 'CLI-001',
         name: company.name || '',
         gstin: company.gstin || '',
         contactPerson: company.contactPerson || '',
@@ -57,12 +78,11 @@ function CompanyForm({
           esi: company.compliance?.esi ?? null,
           lwf: company.compliance?.lwf ?? null,
           tds: company.compliance?.tds ?? null,
-          // bonus: company.compliance?.bonus ?? null,
-          // gratuity: company.compliance?.gratuity ?? null
         }
       });
     } else {
       setFormData({
+        clientId: autoClientId,
         name: '',
         gstin: '',
         contactPerson: '',
@@ -80,13 +100,11 @@ function CompanyForm({
           esi: null,
           lwf: null,
           tds: null,
-          // bonus: null,
-          // gratuity: null
         }
       });
     }
     setErrors({});
-  }, [company, isOpen]);
+  }, [company, isOpen, autoClientId]);
 
   // Escape key closes modal
   useEffect(() => {
@@ -139,6 +157,7 @@ function CompanyForm({
 
     const dataToSubmit = {
       ...formData,
+      clientId: formData.clientId || (company ? company.clientId : autoClientId),
       document: docPayload,
       initials,
       gstin: (formData.gstin || '').toUpperCase()
@@ -168,6 +187,25 @@ function CompanyForm({
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.grid}>
+            {/* Client ID (Auto-Generated & Unique per Company) */}
+            <div className={styles.formGroup}>
+              <label htmlFor="clientId" className={styles.label}>
+                Client ID
+              </label>
+              <input
+                id="clientId"
+                name="clientId"
+                type="text"
+                className={styles.input}
+                style={{ backgroundColor: 'var(--surface-alt, #f8fafc)', fontWeight: 600, fontFamily: 'monospace', letterSpacing: '0.5px' }}
+                value={formData.clientId || autoClientId}
+                readOnly
+              />
+              <span style={{ fontSize: '11px', color: 'var(--text-muted, #64748b)', marginTop: '2px', display: 'block' }}>
+                Auto-generated unique ID for this company profile.
+              </span>
+            </div>
+
             {/* Company Name */}
             <div className={styles.formGroup}>
               <label htmlFor="name" className={styles.label}>

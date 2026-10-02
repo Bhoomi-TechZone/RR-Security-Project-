@@ -1,47 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, ShieldCheck } from 'lucide-react'
+import { Mail } from 'lucide-react'
 import FormInput from '../common/FormInput'
 import PasswordInput from '../common/PasswordInput'
 import PrimaryButton from '../common/PrimaryButton'
 import AlertMessage from '../common/AlertMessage'
 import authService from '../../services/authService'
 import styles from './LoginForm.module.css'
-
-/* ============================================================
-   DEMO CREDENTIALS — Development only
-   Replace this block with your real authService.login() call.
-   ============================================================ */
-const DEMO_USERS = [
-  {
-    email: 'rrsecurity@gmail.com',
-    password: 'Security@123',
-    role: 'admin',
-    redirect: '/admin/dashboard',
-    label: 'Admin',
-  },
-  {
-    email: 'user@novaspark.com',
-    password: 'User@123',
-    role: 'user',
-    redirect: '/user/dashboard',
-    label: 'User',
-  },
-  {
-    email: 'client@novaspark.com',
-    password: 'Client@123',
-    role: 'client',
-    redirect: '/client/dashboard',
-    label: 'Client',
-  },
-  {
-    email: 'employee@novaspark.com',
-    password: 'Employee@123',
-    role: 'employee',
-    redirect: '/employee/dashboard',
-    label: 'Employee',
-  },
-]
 
 /* ============================
    Validation helpers
@@ -54,9 +19,9 @@ function validate(email, password) {
   const errors = {}
 
   if (!email.trim()) {
-    errors.email = 'Email or Employee ID is required.'
+    errors.email = 'Corporate Email, Employee ID or Client ID is required.'
   } else if (email.includes('@') && !validateEmail(email)) {
-    errors.email = 'Please enter a valid email address.'
+    errors.email = 'Please enter a valid email address or ID.'
   }
 
   if (!password) {
@@ -78,14 +43,6 @@ function LoginForm() {
   const [errors, setErrors]         = useState({})
   const [alert, setAlert]           = useState(null)  // { type, title, message }
   const [loading, setLoading]       = useState(false)
-
-  /* ---- Quick demo fill ---- */
-  function fillDemo(user) {
-    setEmail(user.email)
-    setPassword(user.password)
-    setErrors({})
-    setAlert(null)
-  }
 
   /* ---- Form submit ---- */
   async function handleSubmit(e) {
@@ -143,12 +100,12 @@ function LoginForm() {
         />
       )}
 
-      {/* ---- Corporate Email ---- */}
+      {/* ---- Corporate Email, Employee ID or Client ID ---- */}
       <FormInput
         id="login-email"
-        label="Corporate Email"
+        label="Corporate Email, Employee ID or Client ID"
         type="text"
-        placeholder="name@company.com"
+        placeholder="Enter ID or Email"
         value={email}
         onChange={(e) => {
           setEmail(e.target.value)
@@ -213,37 +170,6 @@ function LoginForm() {
           Request access
         </Link>
       </p>
-
-      {/* ================================================================
-          DEMO CREDENTIALS SECTION
-          This section is for development/testing purposes only.
-          Remove or conditionally render this in production.
-      ================================================================ */}
-      <div className={styles.demoSection}>
-        <div className={styles.demoLabel}>
-          <span className={styles.demoBadge}>Demo Access</span>
-        </div>
-
-        <div className={styles.demoBtnGroup}>
-          {DEMO_USERS.map((user) => (
-            <button
-              key={user.role}
-              type="button"
-              className={styles.demoBtn}
-              onClick={() => fillDemo(user)}
-              disabled={loading}
-              title={`Fill credentials for ${user.label}`}
-            >
-              {user.label}
-            </button>
-          ))}
-        </div>
-
-        <p className={styles.demoHint}>
-          Click a role to pre-fill credentials, then click&nbsp;
-          <strong>Sign&nbsp;In</strong>.
-        </p>
-      </div>
     </form>
   )
 }

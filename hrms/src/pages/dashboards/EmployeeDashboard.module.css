@@ -992,6 +992,136 @@
   }
 }
 
+.page .calendarGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.page .calendarDayLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0;
+  text-transform: uppercase;
+}
+
+.page .calendarCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border-light, #f1f5f9);
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  transition: all var(--transition-fast);
+}
+
+.page .calendarCell.emptyCell {
+  background: transparent;
+  border-color: transparent;
+}
+
+.page .calendarCell.todayCell {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1.5px var(--primary);
+}
+
+.page .calendarCell.present {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #065f46;
+}
+
+.page .calendarCell.absent {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #991b1b;
+}
+
+.page .calendarCell.leave {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.25);
+  color: #1e40af;
+}
+
+.page .calendarCell.weekend {
+  background: var(--surface-alt);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.page .dotIndicator {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-top: 2px;
+  background: currentColor;
+}
+
+.page .leaveTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.page .leaveTable th {
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.page .leaveTable td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--border-light, #f1f5f9);
+  color: var(--text-primary);
+}
+
+.page .statusPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.page .statusPill.approved {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.page .statusPill.pending,
+.page .statusPill.pendingsupervisorapproval,
+.page .statusPill.pendinghrapproval {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.page .statusPill.rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.page .statusPill.cancelled {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 @media (max-width: 640px) {
   .page {
     padding: 18px 12px 32px;

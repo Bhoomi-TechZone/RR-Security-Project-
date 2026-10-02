@@ -10,7 +10,8 @@ const summaryItems = [
   { key: 'attendanceRate', label: 'Attendance Rate', icon: ChartNoAxesColumnIncreasing, tone: 'primary', suffix: '%' }
 ];
 
-function EmployeeAttendanceSummary({ summary }) {
+function EmployeeAttendanceSummary({ summary = {} }) {
+  const safeSummary = summary || {};
   return (
     <section className={styles.grid} aria-label="Monthly attendance summary">
       {summaryItems.map(({ key, label, icon: Icon, tone, suffix }) => (
@@ -18,7 +19,7 @@ function EmployeeAttendanceSummary({ summary }) {
           <div className={`${styles.icon} ${styles[tone]}`}><Icon size={18} strokeWidth={2} /></div>
           <div className={styles.content}>
             <span>{label}</span>
-            <strong>{summary[key]}{suffix}</strong>
+            <strong>{safeSummary[key] ?? 0}{suffix}</strong>
           </div>
         </article>
       ))}

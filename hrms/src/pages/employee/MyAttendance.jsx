@@ -24,8 +24,8 @@ const generateMonthOptions = () => {
 
 function MyAttendance() {
   const { activeCompany } = useCompany();
-  const activeUser = authService.getUser();
-  const compId = activeCompany?.companyId || activeCompany?.id;
+  const activeUser = authService.getCurrentUser() || authService.getUser() || {};
+  const compId = activeCompany?.companyId || activeCompany?.id || activeUser?.companyId;
 
   const availableMonths = useMemo(() => generateMonthOptions(), []);
   const initialMonth = availableMonths[0]?.key || new Date().toISOString().slice(0, 7);
@@ -49,6 +49,7 @@ function MyAttendance() {
       setIsLoading(true);
       const data = await attendanceService.getAttendanceRecords(compId, {
         month: monthKey,
+        employeeId: activeUser?.employeeId || activeUser?.id,
         search: activeUser?.employeeId || activeUser?.name || '',
       });
 
@@ -189,6 +190,9 @@ function MyAttendance() {
         <EmployeeAttendanceCalendar
           records={records}
           monthLabel={monthLabel}
+          monthKey={monthKey}
+          year={year}
+          monthNumber={monthNumber}
           onPreviousMonth={() => changeMonth(-1)}
           onNextMonth={() => changeMonth(1)}
         />

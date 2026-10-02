@@ -24,6 +24,7 @@ class AttendanceService {
     if (params.department) query.append('department', params.department);
     if (params.status) query.append('status', params.status);
     if (params.search) query.append('search', params.search);
+    if (params.employeeId) query.append('employeeId', params.employeeId);
 
     const res = await fetch(`${API_BASE_URL}/attendance?${query.toString()}`, {
       method: 'GET',

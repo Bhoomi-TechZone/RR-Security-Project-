@@ -31,6 +31,33 @@ export const clientService = {
   },
 
   /**
+   * Get next sequential Client ID for company (e.g. CLI-001)
+   */
+  async getNextClientId(companyId) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE_URL}/clients/next-id`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': companyId || '',
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to get next client ID');
+      }
+
+      return data.nextId || 'CLI-001';
+    } catch (error) {
+      console.error('clientService.getNextClientId error:', error);
+      return 'CLI-001';
+    }
+  },
+
+  /**
    * Create a new client associated with companyId
    */
   async createClient(companyId, clientData) {

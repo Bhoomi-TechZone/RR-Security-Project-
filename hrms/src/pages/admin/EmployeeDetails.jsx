@@ -4,7 +4,7 @@ import {
   User, Briefcase, FileText, CreditCard, IndianRupee,
   Edit2, ArrowLeftRight, Download, Power, CheckCircle, Clock,
   Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X, Eye,
-  Shield, Award, MessageSquare, Calendar
+  Shield, Award, MessageSquare, Calendar, Key
 } from 'lucide-react';
 import styles from './EmployeeDetails.module.css';
 
@@ -12,6 +12,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
+import EmployeeCredentialsModal from '../../components/employees/EmployeeCredentialsModal';
 import EmployeeForm from '../../components/employees/EmployeeForm';
 import Toast from '../../components/common/Toast';
 
@@ -90,6 +91,7 @@ function EmployeeDetails() {
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
+  const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false, title: '', description: '', confirmLabel: '', variant: 'danger', actionType: null
   });
@@ -265,6 +267,20 @@ function EmployeeDetails() {
     }
   };
 
+  const handleSaveCredentials = async (empId, credentialsData) => {
+    try {
+      await updateEmployee({
+        password: credentialsData.password,
+        enablePortalAccess: credentialsData.enablePortalAccess,
+      });
+      showToast(`✓ Credentials updated successfully for ${employee?.name || 'employee'}.`, 'success');
+      setIsCredentialsOpen(false);
+    } catch (err) {
+      showToast(err.message || 'Failed to update credentials.', 'error');
+      throw err;
+    }
+  };
+
   const handleToggleStatus = () => {
     const isAct = String(employee.status || '').toLowerCase() === 'active';
     setConfirmModal({
@@ -345,6 +361,14 @@ function EmployeeDetails() {
           onSubmit={handleEditSubmit}
           employee={employee}
           clients={clients}
+        />
+
+        {/* Credentials Modal */}
+        <EmployeeCredentialsModal
+          isOpen={isCredentialsOpen}
+          employee={employee}
+          onClose={() => setIsCredentialsOpen(false)}
+          onSave={handleSaveCredentials}
         />
 
         {/* Transfer Modal */}
@@ -484,6 +508,14 @@ function EmployeeDetails() {
             >
               <ArrowLeftRight size={15} />
               <span>Transfer</span>
+            </button>
+            <button
+              className={styles.downloadBtn}
+              onClick={() => setIsCredentialsOpen(true)}
+              aria-label="Manage login credentials"
+            >
+              <Key size={15} />
+              <span>Credentials</span>
             </button>
             <button
               className={styles.downloadBtn}

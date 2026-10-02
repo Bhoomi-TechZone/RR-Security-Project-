@@ -1069,9 +1069,9 @@ const deriveEmployeeBalances = (balanceDoc, leaveTypes) => {
 
 // Main Page Component
 function MyLeave() {
-  const currentUser = authService.getUser() || {};
+  const currentUser = authService.getCurrentUser() || authService.getUser() || {};
   const companyId = currentUser.companyId;
-  const employeeId = currentUser.employeeId || currentUser.employeeCode || 'EMP001';
+  const employeeId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP001';
 
   const [requests, setRequests] = useState([]);
   const [balances, setBalances] = useState([]);
@@ -1094,7 +1094,7 @@ function MyLeave() {
     try {
       setLoading(true);
       const [fetchedLeaves, fetchedBalances, fetchedTypes] = await Promise.all([
-        leaveService.getLeaveRequests(companyId),
+        leaveService.getLeaveRequests(companyId, { employeeId }),
         leaveService.getEmployeeBalances(companyId).catch(() => []),
         leaveService.getLeaveTypes(companyId).catch(() => []),
       ]);
@@ -1102,7 +1102,7 @@ function MyLeave() {
       setRequests(sanitizeEmpRequests(fetchedLeaves));
 
       const myBalanceDoc = (fetchedBalances || []).find(
-        (b) => b.employeeId === employeeId || b.employeeCode === employeeId
+        (b) => b.employeeId === employeeId || b.employeeCode === employeeId || b.employeeName === currentUser.name
       ) || (fetchedBalances || [])[0];
 
       if (myBalanceDoc) {
@@ -1113,7 +1113,7 @@ function MyLeave() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, employeeId]);
+  }, [companyId, employeeId, currentUser.name]);
 
   useEffect(() => {
     fetchEmployeeLeaveData();

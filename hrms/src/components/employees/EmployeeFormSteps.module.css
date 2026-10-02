@@ -808,3 +808,156 @@
 .fileRemoveIconBtn:hover {
   color: var(--danger);
 }
+
+/* ============================================================
+   EMPLOYEE CREDENTIALS & PORTAL ACCESS CARD
+   ============================================================ */
+.credentialsCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 18px;
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.credentialsCard:focus-within {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.06);
+}
+
+.credentialsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.credentialsHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.credentialsIconBox {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.credentialsTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.credentialsSubtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin: 2px 0 0;
+}
+
+.credentialsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr 0.9fr;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+@media (max-width: 860px) {
+  .credentialsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.passwordInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.passwordInputWrapper .input {
+  padding-right: 74px;
+}
+
+.passwordActionButtons {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconButton {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.iconButton:hover {
+  color: #1e293b;
+  background: #e2e8f0;
+}
+
+.quickGenBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.quickGenBtn:hover {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.credentialsBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: #1e40af;
+  line-height: 1.4;
+}
+
+.credentialsBanner strong {
+  font-weight: 600;
+  color: #1e3a8a;
+}

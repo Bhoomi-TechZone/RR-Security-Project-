@@ -4,14 +4,61 @@ import styles from './EmployeeAttendanceCalendar.module.css';
 
 const weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-function EmployeeAttendanceCalendar({ records, monthLabel, onPreviousMonth, onNextMonth }) {
+function EmployeeAttendanceCalendar({ records = [], monthLabel = '', monthKey = '', year, monthNumber, onPreviousMonth, onNextMonth }) {
   const [selectedRecord, setSelectedRecord] = useState(null);
-  const firstDay = new Date(`${records[0]?.date.slice(0, 7)}-01T00:00:00`).getDay();
+
+  const curYear = year || (monthKey ? parseInt(monthKey.split('-')[0], 10) : new Date().getFullYear());
+  const curMonth = monthNumber || (monthKey ? parseInt(monthKey.split('-')[1], 10) : new Date().getMonth() + 1);
+
+  const firstDay = new Date(curYear, curMonth - 1, 1).getDay();
+  // In JS getDay(): 0 = Sunday, 1 = Monday, ..., 6 = Saturday
   const leadingDays = (firstDay + 6) % 7;
-  const calendarCells = useMemo(() => [
-    ...Array.from({ length: leadingDays }, () => null),
-    ...records
-  ], [leadingDays, records]);
+  const daysInMonth = new Date(curYear, curMonth, 0).getDate();
+
+  const recordsMap = useMemo(() => {
+    const map = {};
+    if (Array.isArray(records)) {
+      records.forEach((r) => {
+        if (r && r.date) {
+          const dStr = typeof r.date === 'string' ? r.date.split('T')[0] : '';
+          if (dStr) {
+            map[dStr] = r;
+          }
+        }
+      });
+    }
+    return map;
+  }, [records]);
+
+  const calendarCells = useMemo(() => {
+    const cells = [];
+    for (let i = 0; i < leadingDays; i++) {
+      cells.push(null);
+    }
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dayStr = `${curYear}-${String(curMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const dateObj = new Date(curYear, curMonth - 1, d);
+      const dayOfWeekName = !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString('en-US', { weekday: 'long' }) : '';
+      const isWeekend = dayOfWeekName === 'Saturday' || dayOfWeekName === 'Sunday';
+
+      const existingRecord = recordsMap[dayStr];
+      if (existingRecord) {
+        cells.push(existingRecord);
+      } else {
+        cells.push({
+          id: `cell-${dayStr}`,
+          date: dayStr,
+          day: dayOfWeekName,
+          status: isWeekend ? 'Weekend' : 'No Record',
+          checkIn: null,
+          checkOut: null,
+          workingHours: null,
+          isPlaceholder: true,
+        });
+      }
+    }
+    return cells;
+  }, [leadingDays, daysInMonth, curYear, curMonth, recordsMap]);
 
   return (
     <section className={styles.card}>
@@ -36,18 +83,39 @@ function EmployeeAttendanceCalendar({ records, monthLabel, onPreviousMonth, onNe
 
       <div className={styles.calendar}>
         {weekDays.map((day) => <span key={day} className={styles.weekday}>{day}</span>)}
-        {calendarCells.map((record, index) => (
-          <button
-            key={record?.id || `empty-${index}`}
-            type="button"
-            disabled={!record}
-            className={`${styles.dateCell} ${record ? (['Saturday', 'Sunday'].includes(record.day) ? styles.weekend : styles[record.status.toLowerCase()]) : styles.empty}`}
-            onClick={() => record && setSelectedRecord(record)}
-            title={record ? `${record.day}, ${record.date}: ${record.status}` : undefined}
-          >
-            {record && <><strong>{Number(record.date.slice(-2))}</strong><span /></>}
-          </button>
-        ))}
+        {calendarCells.map((record, index) => {
+          if (!record) {
+            return <div key={`empty-${index}`} className={`${styles.dateCell} ${styles.empty}`} />;
+          }
+
+          const dayNumber = parseInt(record.date.slice(-2), 10);
+          const statusLower = (record.status || '').toLowerCase().replace(/\s+/g, '');
+          const isWeekend = ['saturday', 'sunday'].includes((record.day || '').toLowerCase());
+
+          let cellStatusClass = '';
+          if (isWeekend) {
+            cellStatusClass = styles.weekend;
+          } else if (statusLower === 'present' || statusLower === 'late') {
+            cellStatusClass = styles.present;
+          } else if (statusLower === 'absent') {
+            cellStatusClass = styles.absent;
+          } else if (statusLower === 'leave' || statusLower === 'halfday') {
+            cellStatusClass = styles.leave;
+          }
+
+          return (
+            <button
+              key={record.id || `cell-${index}`}
+              type="button"
+              className={`${styles.dateCell} ${cellStatusClass}`}
+              onClick={() => setSelectedRecord(record)}
+              title={`${record.day || ''}, ${record.date}: ${record.status}`}
+            >
+              <strong>{dayNumber}</strong>
+              <span />
+            </button>
+          );
+        })}
       </div>
 
       {selectedRecord && (
