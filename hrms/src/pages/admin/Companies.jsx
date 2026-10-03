@@ -14,6 +14,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import authService from '../../services/authService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -22,6 +23,7 @@ function Companies() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { activeCompany } = useCompany();
+  const { canAdd, canEdit, canDelete } = usePermissions();
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
 
@@ -468,17 +470,19 @@ function Companies() {
               Manage client companies and workforce assigned to <strong>{activeCompany?.name || 'this company'}</strong>.
             </p>
           </div>
-          <button
-            className={styles.addBtn}
-            onClick={() => {
-              setEditingCompany(null);
-              setIsFormOpen(true);
-            }}
-            aria-label="Add a new client"
-          >
-            <Plus size={16} />
-            <span>Add Client</span>
-          </button>
+          {canAdd('clients') && (
+            <button
+              className={styles.addBtn}
+              onClick={() => {
+                setEditingCompany(null);
+                setIsFormOpen(true);
+              }}
+              aria-label="Add a new client"
+            >
+              <Plus size={16} />
+              <span>Add Client</span>
+            </button>
+          )}
         </header>
 
         {/* Statistics Cards */}

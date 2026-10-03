@@ -2,20 +2,47 @@ import mongoose from 'mongoose';
 import UserRole from '../models/userRoleModel.js';
 import Employee from '../models/employeeModel.js';
 import Role from '../models/roleModel.js';
+import Company from '../models/companyModel.js';
+
+/**
+ * Helper to get all company identifier variations (companyId + _id)
+ */
+const getCompanyIdVariations = async (companyId, adminEmail) => {
+  let companyIds = [companyId].filter(Boolean);
+  try {
+    const comp = await Company.findOne({
+      $or: [
+        { companyId },
+        ...(mongoose.Types.ObjectId.isValid(companyId) ? [{ _id: companyId }] : []),
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    });
+    if (comp) {
+      companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+    }
+  } catch (_) {}
+  return companyIds;
+};
 
 /**
  * Helper to compute the next sequential USR ID for a given company
  */
 export const calculateNextUserId = async (companyId, adminEmail) => {
+  const companyIds = await getCompanyIdVariations(companyId, adminEmail);
   const users = await UserRole.find(
-    { companyId, adminEmail },
+    {
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    },
     { userId: 1 }
   ).lean();
 
   let maxNum = 0;
   for (const u of users) {
     if (u.userId) {
-      const match = u.userId.match(/USR(\d+)/i);
+      const match = String(u.userId).match(/USR[-_]?(\d+)/i);
       if (match) {
         const num = parseInt(match[1], 10);
         if (!isNaN(num) && num > maxNum) {
@@ -25,7 +52,15 @@ export const calculateNextUserId = async (companyId, adminEmail) => {
     }
   }
 
-  return `USR${String(maxNum + 1).padStart(3, '0')}`;
+  let nextNum = maxNum + 1;
+  let candidateId = `USR${String(nextNum).padStart(3, '0')}`;
+
+  while (await UserRole.exists({ userId: candidateId, $or: [{ companyId: { $in: companyIds } }, ...(adminEmail ? [{ adminEmail }] : [])] })) {
+    nextNum += 1;
+    candidateId = `USR${String(nextNum).padStart(3, '0')}`;
+  }
+
+  return candidateId;
 };
 
 /**
@@ -35,7 +70,7 @@ export const calculateNextUserId = async (companyId, adminEmail) => {
  */
 export const getUsers = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     if (!companyId) {
@@ -45,7 +80,14 @@ export const getUsers = async (req, res) => {
       });
     }
 
-    const users = await UserRole.find({ companyId, adminEmail })
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
+
+    const users = await UserRole.find({
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -73,7 +115,7 @@ export const getUsers = async (req, res) => {
  */
 export const getNextUserId = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     if (!companyId) {
@@ -106,25 +148,24 @@ export const getNextUserId = async (req, res) => {
 export const getUserById = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
-    const query = { adminEmail };
+    const idConditions = [{ userId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query._id = id;
-    } else {
-      query.userId = id;
-    }
-    if (companyId) {
-      query.companyId = companyId;
+      idConditions.push({ _id: id });
     }
 
-    const user = await UserRole.findOne(query);
+    const user = await UserRole.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User account not found.',
+        message: 'User account not found in database.',
       });
     }
 
@@ -148,7 +189,7 @@ export const getUserById = async (req, res) => {
  */
 export const createUser = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
 
     if (!companyId) {
@@ -157,6 +198,8 @@ export const createUser = async (req, res) => {
         message: 'Company ID is required to create a user account.',
       });
     }
+
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
     const {
       name,
@@ -187,12 +230,22 @@ export const createUser = async (req, res) => {
 
     // Resolve Role Name
     let resolvedRoleName = customRoleName;
-    if (!resolvedRoleName) {
-      const roleDoc = await Role.findOne({
-        $or: [{ roleId }, ...(mongoose.Types.ObjectId.isValid(roleId) ? [{ _id: roleId }] : [])],
-        companyId,
-      });
-      resolvedRoleName = roleDoc ? roleDoc.name : 'Custom Role';
+    const roleDoc = await Role.findOne({
+      $or: [
+        { roleId },
+        ...(mongoose.Types.ObjectId.isValid(roleId) ? [{ _id: roleId }] : []),
+        ...(customRoleName ? [{ name: customRoleName }] : [])
+      ],
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    });
+
+    if (roleDoc) {
+      resolvedRoleName = roleDoc.name;
+    } else if (!resolvedRoleName) {
+      resolvedRoleName = 'Custom Role';
     }
 
     // Handle Employee link if specified
@@ -204,8 +257,10 @@ export const createUser = async (req, res) => {
           { employeeId: employeeId },
           ...(mongoose.Types.ObjectId.isValid(employeeId) ? [{ _id: employeeId }] : []),
         ],
-        companyId,
-        adminEmail,
+        $or: [
+          { companyId: { $in: companyIds } },
+          ...(adminEmail ? [{ adminEmail }] : [])
+        ]
       });
 
       if (empDoc) {
@@ -232,15 +287,15 @@ export const createUser = async (req, res) => {
     const newUser = await UserRole.create({
       userId: generatedUserId,
       companyId,
-      companyName,
-      adminEmail,
+      companyName: companyName || '',
+      adminEmail: adminEmail || 'rrsecurity@gmail.com',
       name: name.trim(),
       email: (email || '').trim().toLowerCase(),
       mobile: (mobile || '').trim(),
-      password: password || '',
+      password: password || '123456',
       isExistingEmployee: Boolean(isExistingEmployee && linkedEmployeeId),
       employeeId: linkedEmployeeId,
-      roleId,
+      roleId: roleDoc?.roleId || roleId,
       roleName: resolvedRoleName,
       status: status || 'Active',
       createdOn: today,
@@ -272,25 +327,24 @@ export const createUser = async (req, res) => {
 export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
-    const query = { adminEmail };
+    const idConditions = [{ userId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query._id = id;
-    } else {
-      query.userId = id;
-    }
-    if (companyId) {
-      query.companyId = companyId;
+      idConditions.push({ _id: id });
     }
 
-    const user = await UserRole.findOne(query);
+    const user = await UserRole.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'User account not found.',
+        message: 'User account not found in database.',
       });
     }
 
@@ -298,6 +352,7 @@ export const updateUser = async (req, res) => {
       name,
       email,
       mobile,
+      password,
       roleId,
       roleName,
       status,
@@ -308,6 +363,7 @@ export const updateUser = async (req, res) => {
     if (name) user.name = name.trim();
     if (email !== undefined) user.email = email.trim().toLowerCase();
     if (mobile !== undefined) user.mobile = mobile.trim();
+    if (password) user.password = password;
     if (roleId) user.roleId = roleId;
     if (roleName) user.roleName = roleName;
     if (status) user.status = status;
@@ -352,8 +408,9 @@ export const updateUser = async (req, res) => {
 export const changeUserRole = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
     const { roleId, roleName } = req.body;
 
     if (!roleId) {
@@ -363,17 +420,15 @@ export const changeUserRole = async (req, res) => {
       });
     }
 
-    const query = { adminEmail };
+    const idConditions = [{ userId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query._id = id;
-    } else {
-      query.userId = id;
-    }
-    if (companyId) {
-      query.companyId = companyId;
+      idConditions.push({ _id: id });
     }
 
-    const user = await UserRole.findOne(query);
+    const user = await UserRole.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -382,8 +437,20 @@ export const changeUserRole = async (req, res) => {
       });
     }
 
+    // Resolve roleName
+    let resolvedRoleName = roleName;
+    if (!resolvedRoleName) {
+      const rDoc = await Role.findOne({
+        $or: [
+          { roleId },
+          ...(mongoose.Types.ObjectId.isValid(roleId) ? [{ _id: roleId }] : [])
+        ]
+      });
+      if (rDoc) resolvedRoleName = rDoc.name;
+    }
+
     user.roleId = roleId;
-    user.roleName = roleName || user.roleName;
+    user.roleName = resolvedRoleName || user.roleName;
     await user.save();
 
     return res.status(200).json({
@@ -408,21 +475,20 @@ export const changeUserRole = async (req, res) => {
 export const toggleUserStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
     const { status } = req.body;
 
-    const query = { adminEmail };
+    const idConditions = [{ userId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query._id = id;
-    } else {
-      query.userId = id;
-    }
-    if (companyId) {
-      query.companyId = companyId;
+      idConditions.push({ _id: id });
     }
 
-    const user = await UserRole.findOne(query);
+    const user = await UserRole.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -461,20 +527,19 @@ export const toggleUserStatus = async (req, res) => {
 export const deleteUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
-    const query = { adminEmail };
+    const idConditions = [{ userId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query._id = id;
-    } else {
-      query.userId = id;
-    }
-    if (companyId) {
-      query.companyId = companyId;
+      idConditions.push({ _id: id });
     }
 
-    const user = await UserRole.findOneAndDelete(query);
+    const user = await UserRole.findOneAndDelete({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!user) {
       return res.status(404).json({
@@ -485,7 +550,7 @@ export const deleteUser = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `User ${user.name} (${user.userId}) deleted successfully.`,
+      message: `User ${user.name} (${user.userId}) deleted successfully from database.`,
     });
   } catch (error) {
     console.error('Error deleting user:', error);
@@ -495,3 +560,4 @@ export const deleteUser = async (req, res) => {
     });
   }
 };
+

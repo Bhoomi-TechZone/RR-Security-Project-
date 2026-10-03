@@ -1,8 +1,10 @@
+import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
 import Employee from '../models/employeeModel.js';
 import UserRole from '../models/userRoleModel.js';
 import Client from '../models/clientModel.js';
+import Role from '../models/roleModel.js';
 
 /**
  * Generate JWT token
@@ -92,15 +94,40 @@ export const login = async (req, res) => {
       }
 
       if (isMatch) {
-        const token = generateToken(user._id, user.role, !!rememberMe);
-        const safeUser = user.toJSON();
+        const token = generateToken(user._id, user.role || 'admin', !!rememberMe);
+        
+        let roleDoc = null;
+        let permissions = { '*': ['*'] };
+        let roleName = 'Administrator';
+
+        if (user.role === 'user') {
+          if (user.roleId || user.roleName) {
+            roleDoc = await Role.findOne({
+              $or: [
+                { roleId: user.roleId },
+                ...(mongoose.Types.ObjectId.isValid(user.roleId) ? [{ _id: user.roleId }] : []),
+                { name: user.roleName }
+              ]
+            });
+          }
+          permissions = roleDoc?.permissions || user.permissions || {};
+          roleName = roleDoc?.name || user.roleName || 'Custom Role';
+        }
+
+        const safeUser = {
+          ...user.toJSON(),
+          role: user.role || 'admin',
+          roleName,
+          permissions,
+          redirect: user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'
+        };
 
         return res.status(200).json({
           success: true,
           message: `Welcome back, ${user.name || 'Admin'}!`,
           token,
           user: safeUser,
-          redirect: user.redirect || (user.role === 'admin' ? '/admin/dashboard' : `/${user.role}/dashboard`)
+          redirect: user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'
         });
       }
     }
@@ -263,9 +290,35 @@ export const login = async (req, res) => {
 
       if (isMatch) {
         const token = generateToken(userRoleDoc._id, 'user', !!rememberMe);
+        
+        let roleDoc = null;
+        if (userRoleDoc.roleId || userRoleDoc.roleName) {
+          roleDoc = await Role.findOne({
+            companyId: userRoleDoc.companyId,
+            $or: [
+              { roleId: userRoleDoc.roleId },
+              ...(mongoose.Types.ObjectId.isValid(userRoleDoc.roleId) ? [{ _id: userRoleDoc.roleId }] : []),
+              { name: userRoleDoc.roleName }
+            ]
+          });
+
+          if (!roleDoc) {
+            roleDoc = await Role.findOne({
+              $or: [
+                { roleId: userRoleDoc.roleId },
+                { name: userRoleDoc.roleName }
+              ]
+            });
+          }
+        }
+
+        const permissions = roleDoc?.permissions || {};
         const safeRoleUser = {
           ...userRoleDoc.toJSON(),
           role: 'user',
+          roleId: userRoleDoc.roleId,
+          roleName: roleDoc?.name || userRoleDoc.roleName || 'Custom Role',
+          permissions,
           redirect: '/user/dashboard'
         };
 
@@ -299,63 +352,127 @@ export const login = async (req, res) => {
  */
 export const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const rawId = req.user._id || req.user.id;
+
+    // 1. If role is explicitly known on req.user:
+    if (req.user.role === 'user') {
+      const uRole = (mongoose.Types.ObjectId.isValid(rawId) ? await UserRole.findById(rawId) : null) ||
+                    await UserRole.findOne({ userId: req.user.userId || rawId });
+      if (uRole) {
+        let roleDoc = null;
+        if (uRole.roleId || uRole.roleName) {
+          roleDoc = await Role.findOne({
+            companyId: uRole.companyId,
+            $or: [
+              { roleId: uRole.roleId },
+              ...(mongoose.Types.ObjectId.isValid(uRole.roleId) ? [{ _id: uRole.roleId }] : []),
+              { name: uRole.roleName }
+            ]
+          }) || await Role.findOne({
+            $or: [
+              { roleId: uRole.roleId },
+              { name: uRole.roleName }
+            ]
+          });
+        }
+
+        return res.status(200).json({
+          success: true,
+          user: {
+            ...uRole.toJSON(),
+            role: 'user',
+            roleId: uRole.roleId,
+            roleName: roleDoc?.name || uRole.roleName || 'Custom Role',
+            permissions: roleDoc?.permissions || {},
+            redirect: '/user/dashboard'
+          }
+        });
+      }
+    }
+
+    if (req.user.role === 'employee') {
+      const emp = (mongoose.Types.ObjectId.isValid(rawId) ? await Employee.findById(rawId) : null) ||
+                  await Employee.findOne({ employeeId: req.user.employeeId || rawId });
+      if (emp) {
+        return res.status(200).json({
+          success: true,
+          user: {
+            id: emp.employeeId || emp._id.toString(),
+            _id: emp._id.toString(),
+            employeeId: emp.employeeId,
+            employeeCode: emp.employeeCode || emp.employeeId,
+            name: emp.name,
+            email: emp.email || `${emp.employeeId.toLowerCase()}@rrsecurity.internal`,
+            role: 'employee',
+            companyId: emp.companyId,
+            companyName: emp.companyName || emp.clientName || '',
+            department: emp.department,
+            designation: emp.designation,
+            avatar: emp.employeePhoto || emp.photo || '',
+            status: emp.employeeStatus || emp.status || 'Active',
+            redirect: '/employee/dashboard'
+          }
+        });
+      }
+    }
+
+    if (req.user.role === 'client') {
+      const client = (mongoose.Types.ObjectId.isValid(rawId) ? await Client.findById(rawId) : null) ||
+                     await Client.findOne({ clientId: req.user.clientId || rawId });
+      if (client) {
+        return res.status(200).json({
+          success: true,
+          user: {
+            id: client.clientId || client._id.toString(),
+            _id: client._id.toString(),
+            clientId: client.clientId,
+            name: client.name,
+            contactPerson: client.contactPerson || client.name,
+            email: client.email || `${client.clientId.toLowerCase()}@client.portal`,
+            role: 'client',
+            companyId: client.companyId,
+            redirect: '/client/dashboard'
+          }
+        });
+      }
+    }
+
+    // Default or admin lookup
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(rawId)) {
+      user = await User.findById(rawId);
+    }
+    if (!user && req.user.email) {
+      user = await User.findOne({ email: req.user.email.toLowerCase() });
+    }
+
     if (user) {
-      return res.status(200).json({
-        success: true,
-        user: user.toJSON()
-      });
-    }
+      let permissions = { '*': ['*'] };
+      let roleName = 'Administrator';
 
-    const emp = await Employee.findById(req.user.id);
-    if (emp) {
-      return res.status(200).json({
-        success: true,
-        user: {
-          id: emp.employeeId || emp._id.toString(),
-          _id: emp._id.toString(),
-          employeeId: emp.employeeId,
-          employeeCode: emp.employeeCode || emp.employeeId,
-          name: emp.name,
-          email: emp.email || `${emp.employeeId.toLowerCase()}@rrsecurity.internal`,
-          role: 'employee',
-          companyId: emp.companyId,
-          companyName: emp.companyName || emp.clientName || '',
-          department: emp.department,
-          designation: emp.designation,
-          avatar: emp.employeePhoto || emp.photo || '',
-          status: emp.employeeStatus || emp.status || 'Active',
-          redirect: '/employee/dashboard'
+      if (user.role === 'user') {
+        let roleDoc = null;
+        if (user.roleId || user.roleName) {
+          roleDoc = await Role.findOne({
+            $or: [
+              { roleId: user.roleId },
+              ...(mongoose.Types.ObjectId.isValid(user.roleId) ? [{ _id: user.roleId }] : []),
+              { name: user.roleName }
+            ]
+          });
         }
-      });
-    }
+        permissions = roleDoc?.permissions || user.permissions || {};
+        roleName = roleDoc?.name || user.roleName || 'Custom Role';
+      }
 
-    const client = await Client.findById(req.user.id);
-    if (client) {
       return res.status(200).json({
         success: true,
         user: {
-          id: client.clientId || client._id.toString(),
-          _id: client._id.toString(),
-          clientId: client.clientId,
-          name: client.name,
-          contactPerson: client.contactPerson || client.name,
-          email: client.email || `${client.clientId.toLowerCase()}@client.portal`,
-          role: 'client',
-          companyId: client.companyId,
-          redirect: '/client/dashboard'
-        }
-      });
-    }
-
-    const uRole = await UserRole.findById(req.user.id);
-    if (uRole) {
-      return res.status(200).json({
-        success: true,
-        user: {
-          ...uRole.toJSON(),
-          role: 'user',
-          redirect: '/user/dashboard'
+          ...user.toJSON(),
+          role: user.role || 'admin',
+          roleName,
+          permissions,
+          redirect: user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'
         }
       });
     }

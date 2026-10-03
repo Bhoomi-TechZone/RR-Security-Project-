@@ -22,6 +22,7 @@ import Pagination from '../../components/common/Pagination';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
+import { usePermissions } from '../../context/PermissionContext';
 import { mockOvertimeRecords } from '../../data/overtimeData';
 import { mockCompanies } from '../../data/companyData';
 import { mockEmployees } from '../../data/employeeData';
@@ -750,6 +751,7 @@ function OvertimeDepartmentSummary({ records }) {
 function Overtime() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
 
   const [overtimeRecords, setOvertimeRecords] = useState(() => {
     try {
@@ -1055,8 +1057,12 @@ function Overtime() {
             </p>
           </div>
           <div className={styles.headerActions}>
-            <button className={styles.addBtn} onClick={openAddOvertime}><Plus size={16} /> Add Overtime</button>
-            <button className={styles.exportBtn} onClick={() => setExportModalOpen(true)}><Download size={16} /> Export Report</button>
+            {canAdd('overtime') && (
+              <button className={styles.addBtn} onClick={openAddOvertime}><Plus size={16} /> Add Overtime</button>
+            )}
+            {canExport('overtime') && (
+              <button className={styles.exportBtn} onClick={() => setExportModalOpen(true)}><Download size={16} /> Export Report</button>
+            )}
           </div>
         </header>
 

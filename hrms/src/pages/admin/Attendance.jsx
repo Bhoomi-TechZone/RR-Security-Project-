@@ -18,6 +18,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import attendanceService from '../../services/attendanceService';
 import styles from './Attendance.module.css';
 
@@ -223,6 +224,7 @@ const sanitizeRecords = (list) => {
 
 function Attendance() {
   const { activeCompany } = useCompany();
+  const { canAdd, canExport, canApprove } = usePermissions();
   const compId = activeCompany?.companyId || activeCompany?.id;
 
   // --- Dynamic State Loaded directly from MongoDB Atlas (NO LocalStorage) ---
@@ -618,20 +620,24 @@ function Attendance() {
           </div>
 
           <div className={styles.headerActions}>
-            <button
-              className={styles.importBtn}
-              onClick={() => setShowImportModal(true)}
-            >
-              <UploadCloud size={16} />
-              <span>Import Records</span>
-            </button>
-            <button
-              className={styles.exportBtn}
-              onClick={() => setShowExportModal(true)}
-            >
-              <Download size={16} />
-              <span>Export Report</span>
-            </button>
+            {canAdd('attendance') && (
+              <button
+                className={styles.importBtn}
+                onClick={() => setShowImportModal(true)}
+              >
+                <UploadCloud size={16} />
+                <span>Import Records</span>
+              </button>
+            )}
+            {canExport('attendance') && (
+              <button
+                className={styles.exportBtn}
+                onClick={() => setShowExportModal(true)}
+              >
+                <Download size={16} />
+                <span>Export Report</span>
+              </button>
+            )}
           </div>
         </div>
 

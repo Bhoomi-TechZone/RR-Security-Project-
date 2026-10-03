@@ -8,6 +8,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
+import { usePermissions } from '../../context/PermissionContext';
 
 // Payroll sub-components
 import PayrollPeriodSelector from '../../components/payroll/PayrollPeriodSelector';
@@ -68,6 +69,7 @@ const PAGE_SIZE = 8;
 
 export default function PayrollManagement() {
   const [searchParams] = useSearchParams();
+  const { canAdd, canEdit, canDelete, canApprove, canExport } = usePermissions();
 
   // Month State
   const [selectedMonth, setSelectedMonth] = useState('2026-08');
@@ -792,22 +794,26 @@ export default function PayrollManagement() {
                 </p>
               </div>
               <div className={styles.tabActions}>
-                <button
-                  type="button"
-                  className={styles.outlineBtn}
-                  onClick={() => setIsExportOpen(true)}
-                >
-                  <Download size={15} />
-                  <span>Export Payroll</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.tabPrimaryBtn}
-                  onClick={() => setIsRunPayrollOpen(true)}
-                >
-                  <Play size={15} />
-                  <span>Run Payroll</span>
-                </button>
+                {canExport('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.outlineBtn}
+                    onClick={() => setIsExportOpen(true)}
+                  >
+                    <Download size={15} />
+                    <span>Export Payroll</span>
+                  </button>
+                )}
+                {canAdd('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.tabPrimaryBtn}
+                    onClick={() => setIsRunPayrollOpen(true)}
+                  >
+                    <Play size={15} />
+                    <span>Run Payroll</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -945,17 +951,19 @@ export default function PayrollManagement() {
                 </p>
               </div>
               <div className={styles.tabActions}>
-                <button
-                  type="button"
-                  className={styles.tabPrimaryBtn}
-                  onClick={() => {
-                    setEditingRevision(null);
-                    setIsRevisionFormOpen(true);
-                  }}
-                >
-                  <Plus size={15} />
-                  <span>New Rate Revision</span>
-                </button>
+                {canAdd('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.tabPrimaryBtn}
+                    onClick={() => {
+                      setEditingRevision(null);
+                      setIsRevisionFormOpen(true);
+                    }}
+                  >
+                    <Plus size={15} />
+                    <span>New Rate Revision</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1072,22 +1080,26 @@ export default function PayrollManagement() {
                 </p>
               </div>
               <div className={styles.tabActions}>
-                <button
-                  type="button"
-                  className={styles.outlineBtn}
-                  onClick={() => setIsExportOpen(true)}
-                >
-                  <Download size={15} />
-                  <span>Export</span>
-                </button>
-                <button
-                  type="button"
-                  className={styles.tabPrimaryBtn}
-                  onClick={() => setIsGenerateSlipsOpen(true)}
-                >
-                  <Printer size={15} />
-                  <span>Generate Slips</span>
-                </button>
+                {canExport('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.outlineBtn}
+                    onClick={() => setIsExportOpen(true)}
+                  >
+                    <Download size={15} />
+                    <span>Export</span>
+                  </button>
+                )}
+                {canAdd('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.tabPrimaryBtn}
+                    onClick={() => setIsGenerateSlipsOpen(true)}
+                  >
+                    <Printer size={15} />
+                    <span>Generate Slips</span>
+                  </button>
+                )}
               </div>
             </div>
 

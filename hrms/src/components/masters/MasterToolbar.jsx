@@ -12,7 +12,8 @@ function MasterToolbar({
   onSearchChange, 
   onAddNew,
   holidayYear,
-  onHolidayYearChange
+  onHolidayYearChange,
+  canAdd = true
 }) {
   const getTabConfig = () => {
     switch (activeTab) {
@@ -79,15 +80,17 @@ function MasterToolbar({
         )}
       </div>
 
-      <button
-        type="button"
-        className={styles.addBtn}
-        onClick={onAddNew}
-        aria-label={addLabel}
-      >
-        <Plus size={16} />
-        <span>{addLabel}</span>
-      </button>
+      {canAdd && (
+        <button
+          type="button"
+          className={styles.addBtn}
+          onClick={onAddNew}
+          aria-label={addLabel}
+        >
+          <Plus size={16} />
+          <span>{addLabel}</span>
+        </button>
+      )}
     </div>
   );
 }

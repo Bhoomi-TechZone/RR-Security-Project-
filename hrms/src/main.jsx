@@ -5,6 +5,7 @@ import 'bootstrap/dist/css/bootstrap.min.css'
 import './index.css'
 import App from './App.jsx'
 import { CompanyProvider } from './context/CompanyContext.jsx'
+import { PermissionProvider } from './context/PermissionContext.jsx'
 
 // Prevent mouse wheel from changing values in number inputs globally
 document.addEventListener('wheel', () => {
@@ -17,7 +18,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <CompanyProvider>
-        <App />
+        <PermissionProvider>
+          <App />
+        </PermissionProvider>
       </CompanyProvider>
     </BrowserRouter>
   </React.StrictMode>

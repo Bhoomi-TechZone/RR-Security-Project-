@@ -1,6 +1,27 @@
 import mongoose from 'mongoose';
 import Role from '../models/roleModel.js';
 import UserRole from '../models/userRoleModel.js';
+import Company from '../models/companyModel.js';
+
+/**
+ * Helper to get all company identifier variations (companyId + _id)
+ */
+const getCompanyIdVariations = async (companyId, adminEmail) => {
+  let companyIds = [companyId].filter(Boolean);
+  try {
+    const comp = await Company.findOne({
+      $or: [
+        { companyId },
+        ...(mongoose.Types.ObjectId.isValid(companyId) ? [{ _id: companyId }] : []),
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    });
+    if (comp) {
+      companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+    }
+  } catch (_) {}
+  return companyIds;
+};
 
 /**
  * @desc    Get all roles for the active company profile strictly from MongoDB
@@ -9,7 +30,7 @@ import UserRole from '../models/userRoleModel.js';
  */
 export const getRoles = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     if (!companyId) {
@@ -19,17 +40,29 @@ export const getRoles = async (req, res) => {
       });
     }
 
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
+
     // Clean up any legacy auto-seeded static system mock roles if requested/existing
     await Role.deleteMany({
-      companyId,
-      adminEmail,
+      companyId: { $in: companyIds },
       roleId: { $in: ['role-admin', 'role-hr-manager', 'role-field-officer', 'role-auditor'] }
     });
 
-    const roles = await Role.find({ companyId, adminEmail }).sort({ createdAt: 1 });
+    const roles = await Role.find({
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    }).sort({ createdAt: 1 });
 
-    // Update user counts dynamically
-    const userRoles = await UserRole.find({ companyId, adminEmail });
+    // Update user counts dynamically for this specific company
+    const userRoles = await UserRole.find({
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    });
+
     const rolesWithCounts = roles.map((r) => {
       const count = userRoles.filter((u) => 
         u.roleId === r.roleId || 
@@ -60,15 +93,21 @@ export const getRoles = async (req, res) => {
  * Helper to compute the next sequential unique Role ID for a given company
  */
 export const calculateNextRoleId = async (companyId, adminEmail) => {
+  const companyIds = await getCompanyIdVariations(companyId, adminEmail);
   const roles = await Role.find(
-    { companyId, adminEmail },
+    {
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    },
     { roleId: 1 }
   ).lean();
 
   let maxNum = 0;
   for (const r of roles) {
     if (r.roleId) {
-      const match = r.roleId.match(/(?:role|rol)[-_]?(\d+)/i);
+      const match = String(r.roleId).match(/(?:role|rol)[-_]?(\d+)/i);
       if (match) {
         const num = parseInt(match[1], 10);
         if (!isNaN(num) && num > maxNum) {
@@ -82,7 +121,7 @@ export const calculateNextRoleId = async (companyId, adminEmail) => {
   let candidateId = `ROLE-${String(nextNum).padStart(3, '0')}`;
 
   // Double check uniqueness within this company and increment if needed
-  while (await Role.exists({ companyId, adminEmail, roleId: candidateId })) {
+  while (await Role.exists({ roleId: candidateId, $or: [{ companyId: { $in: companyIds } }, ...(adminEmail ? [{ adminEmail }] : [])] })) {
     nextNum += 1;
     candidateId = `ROLE-${String(nextNum).padStart(3, '0')}`;
   }
@@ -97,7 +136,7 @@ export const calculateNextRoleId = async (companyId, adminEmail) => {
  */
 export const getNextRoleId = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     if (!companyId) {
@@ -129,7 +168,7 @@ export const getNextRoleId = async (req, res) => {
  */
 export const createRole = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
 
     if (!companyId) {
@@ -139,6 +178,7 @@ export const createRole = async (req, res) => {
       });
     }
 
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
     const { name, description, status, permissions, roleId: customRoleId } = req.body;
 
     if (!name || !name.trim()) {
@@ -148,11 +188,13 @@ export const createRole = async (req, res) => {
       });
     }
 
-    // Check for duplicate name within this company
+    // Check for duplicate name within this isolated company
     const existingName = await Role.findOne({
-      companyId,
-      adminEmail,
       name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
     });
 
     if (existingName) {
@@ -167,9 +209,11 @@ export const createRole = async (req, res) => {
 
     if (assignedRoleId) {
       const existingId = await Role.findOne({
-        companyId,
-        adminEmail,
         roleId: assignedRoleId,
+        $or: [
+          { companyId: { $in: companyIds } },
+          ...(adminEmail ? [{ adminEmail }] : [])
+        ]
       });
 
       if (existingId) {
@@ -185,7 +229,7 @@ export const createRole = async (req, res) => {
     const newRole = await Role.create({
       roleId: assignedRoleId,
       companyId,
-      adminEmail,
+      adminEmail: adminEmail || 'rrsecurity@gmail.com',
       name: name.trim(),
       type: 'custom',
       description: description || 'Configured system access control role.',
@@ -217,21 +261,19 @@ export const createRole = async (req, res) => {
 export const updateRole = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
-    const orConditions = [{ roleId: id }];
+    const idConditions = [{ roleId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      orConditions.push({ _id: id });
+      idConditions.push({ _id: id });
     }
 
-    const query = {
-      $or: orConditions,
-      adminEmail,
-    };
-    if (companyId) query.companyId = companyId;
-
-    const role = await Role.findOne(query);
+    const role = await Role.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!role) {
       return res.status(404).json({
@@ -248,6 +290,17 @@ export const updateRole = async (req, res) => {
     });
 
     await role.save();
+
+    // Also update roleName in linked UserRoles if name changed
+    if (req.body.name && req.body.name !== role.name) {
+      await UserRole.updateMany(
+        {
+          roleId: role.roleId,
+          $or: [{ companyId: { $in: companyIds } }, { adminEmail }]
+        },
+        { roleName: req.body.name }
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -271,22 +324,20 @@ export const updateRole = async (req, res) => {
 export const updateRolePermissions = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
     const { permissions } = req.body;
 
-    const orConditions = [{ roleId: id }];
+    const idConditions = [{ roleId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      orConditions.push({ _id: id });
+      idConditions.push({ _id: id });
     }
 
-    const query = {
-      $or: orConditions,
-      adminEmail,
-    };
-    if (companyId) query.companyId = companyId;
-
-    const role = await Role.findOne(query);
+    const role = await Role.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!role) {
       return res.status(404).json({
@@ -320,21 +371,19 @@ export const updateRolePermissions = async (req, res) => {
 export const deleteRole = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
-    const orConditions = [{ roleId: id }];
+    const idConditions = [{ roleId: id }];
     if (mongoose.Types.ObjectId.isValid(id)) {
-      orConditions.push({ _id: id });
+      idConditions.push({ _id: id });
     }
 
-    const query = {
-      $or: orConditions,
-      adminEmail,
-    };
-    if (companyId) query.companyId = companyId;
-
-    const role = await Role.findOne(query);
+    const role = await Role.findOne({
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
+    });
 
     if (!role) {
       return res.status(404).json({
@@ -345,11 +394,10 @@ export const deleteRole = async (req, res) => {
 
     await Role.deleteOne({ _id: role._id });
 
-    // Also remove user assignments associated with this role
+    // Also remove user assignments associated with this role within this company
     await UserRole.deleteMany({
       roleId: role.roleId || role.id,
-      companyId,
-      adminEmail,
+      $or: [{ companyId: { $in: companyIds } }, { adminEmail }]
     });
 
     return res.status(200).json({
@@ -372,7 +420,7 @@ export const deleteRole = async (req, res) => {
  */
 export const getAssignedUsers = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
 
     if (!companyId) {
@@ -382,7 +430,14 @@ export const getAssignedUsers = async (req, res) => {
       });
     }
 
-    const assignments = await UserRole.find({ companyId, adminEmail }).sort({ createdAt: -1 });
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
+
+    const assignments = await UserRole.find({
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
+    }).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -405,7 +460,7 @@ export const getAssignedUsers = async (req, res) => {
  */
 export const assignUserToRole = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId;
 
     if (!companyId) {
@@ -415,6 +470,7 @@ export const assignUserToRole = async (req, res) => {
       });
     }
 
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
     const { name, email, employeeId, roleId, roleName, department, status } = req.body;
 
     if (!name || !email || !roleId) {
@@ -426,9 +482,11 @@ export const assignUserToRole = async (req, res) => {
 
     // Check if user is already assigned for this company
     let assignment = await UserRole.findOne({
-      companyId,
-      adminEmail,
       email: email.toLowerCase().trim(),
+      $or: [
+        { companyId: { $in: companyIds } },
+        ...(adminEmail ? [{ adminEmail }] : [])
+      ]
     });
 
     if (assignment) {
@@ -442,7 +500,7 @@ export const assignUserToRole = async (req, res) => {
       assignment = await UserRole.create({
         userId: `USR-${Date.now().toString().slice(-6)}`,
         companyId,
-        adminEmail,
+        adminEmail: adminEmail || 'rrsecurity@gmail.com',
         name: name.trim(),
         email: email.toLowerCase().trim(),
         employeeId: employeeId || '',
@@ -477,18 +535,18 @@ export const assignUserToRole = async (req, res) => {
 export const removeUserFromRole = async (req, res) => {
   try {
     const { userId } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const companyIds = await getCompanyIdVariations(companyId, adminEmail);
 
-    const orConditions = [{ userId }];
+    const idConditions = [{ userId }];
     if (mongoose.Types.ObjectId.isValid(userId)) {
-      orConditions.push({ _id: userId });
+      idConditions.push({ _id: userId });
     }
 
     const assignment = await UserRole.findOneAndDelete({
-      $or: orConditions,
-      adminEmail,
-      ...(companyId ? { companyId } : {}),
+      $or: idConditions,
+      ...(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, { adminEmail }] } : {})
     });
 
     if (!assignment) {
@@ -510,3 +568,4 @@ export const removeUserFromRole = async (req, res) => {
     });
   }
 };
+

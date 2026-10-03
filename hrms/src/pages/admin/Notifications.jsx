@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Bell,
@@ -12,15 +12,17 @@ import {
   Plus,
   Search,
   Trash2,
-  X
+  X,
+  RefreshCw
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
-import { mockCompanies } from '../../data/companyData';
-import { mockEmployees } from '../../data/employeeData';
-import { announcementData } from '../../data/announcementData';
+import { useCompany } from '../../context/CompanyContext';
+import announcementService from '../../services/announcementService';
+import clientService from '../../services/clientService';
+import inventoryService from '../../services/inventoryService';
 import { notificationData } from '../../data/notificationData';
 import styles from './Notifications.module.css';
 
@@ -32,7 +34,7 @@ const TABS = [
 const PAGE_SIZE = 10;
 const formatDate = (value) => {
   if (!value) return '—';
-  const date = new Date(`${value}T00:00:00`);
+  const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
@@ -45,6 +47,12 @@ const audienceOptions = [
   { value: 'all', label: 'All Clients & Employees' },
   { value: 'clients', label: 'Clients' },
   { value: 'employees', label: 'Employees' }
+];
+
+const priorityOptions = [
+  { value: 'normal', label: 'Normal' },
+  { value: 'important', label: 'Important' },
+  { value: 'urgent', label: 'Urgent' }
 ];
 
 const notificationTypeOptions = [
@@ -70,20 +78,21 @@ const iconMap = {
   'document-expiry': FileWarning
 };
 
-function AnnouncementForm({ isOpen, mode = 'create', initialData = null, onClose, onSave }) {
+function AnnouncementForm({ isOpen, mode = 'create', initialData = null, clients = [], employees = [], onClose, onSave }) {
   const defaultForm = {
     title: '',
     audience: 'all',
-    companyId: '',
-    companyName: '',
+    targetClientId: '',
+    targetClientName: '',
     employeeId: '',
     employeeName: '',
+    priority: 'normal',
     message: ''
   };
   const [form, setForm] = useState(initialData || defaultForm);
   const [errors, setErrors] = useState({});
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isOpen) {
       setForm(initialData || defaultForm);
       setErrors({});
@@ -108,16 +117,16 @@ function AnnouncementForm({ isOpen, mode = 'create', initialData = null, onClose
       title: form.title.trim(),
       message: form.message.trim(),
       audience: form.audience,
-      companyId: form.audience === 'clients' ? form.companyId : null,
-      companyName: form.audience === 'clients' ? form.companyName : null,
+      targetClientId: form.audience === 'clients' ? form.targetClientId : null,
+      targetClientName: form.audience === 'clients' ? form.targetClientName : null,
+      companyIdTarget: form.audience === 'clients' ? form.targetClientId : null,
+      companyName: form.audience === 'clients' ? form.targetClientName : null,
       employeeId: form.audience === 'employees' ? form.employeeId : null,
       employeeName: form.audience === 'employees' ? form.employeeName : null,
+      priority: form.priority || 'normal',
       status: 'published'
     });
   };
-
-  const selectedCompany = mockCompanies.find((company) => company.id === form.companyId);
-  const selectedEmployee = mockEmployees.find((employee) => employee.employeeId === form.employeeId);
 
   return (
     <div className={styles.modalOverlay} onClick={onClose}>
@@ -129,7 +138,7 @@ function AnnouncementForm({ isOpen, mode = 'create', initialData = null, onClose
 
         <div className={styles.modalBody}>
           <div className={styles.fieldGroup}>
-            <label>Announcement Title</label>
+            <label>Announcement Title *</label>
             <input
               type="text"
               value={form.title}
@@ -140,7 +149,7 @@ function AnnouncementForm({ isOpen, mode = 'create', initialData = null, onClose
           </div>
 
           <div className={styles.fieldGroup}>
-            <label>Audience</label>
+            <label>Audience *</label>
             <select value={form.audience} onChange={(event) => updateField('audience', event.target.value)}>
               {audienceOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
@@ -150,46 +159,65 @@ function AnnouncementForm({ isOpen, mode = 'create', initialData = null, onClose
 
           {form.audience === 'clients' && (
             <div className={styles.fieldGroup}>
-              <label>Company</label>
+              <label>Target Client</label>
               <select
-                value={form.companyId}
+                value={form.targetClientId || ''}
                 onChange={(event) => {
-                  const company = mockCompanies.find((item) => item.id === event.target.value);
-                  updateField('companyId', event.target.value);
-                  updateField('companyName', company ? company.name : '');
+                  const selected = clients.find((c) => (c.clientId || c.id || c._id) === event.target.value);
+                  updateField('targetClientId', event.target.value);
+                  updateField('targetClientName', selected ? selected.name : '');
                 }}
               >
                 <option value="">All Clients</option>
-                {mockCompanies.map((company) => (
-                  <option key={company.id} value={company.id}>{company.name}</option>
-                ))}
+                {clients.map((client) => {
+                  const id = client.clientId || client.id || client._id;
+                  return (
+                    <option key={id} value={id}>
+                      {client.name} {client.clientId ? `(${client.clientId})` : ''}
+                    </option>
+                  );
+                })}
               </select>
-              {selectedCompany && <small className={styles.helperText}>{selectedCompany.name}</small>}
+              {form.targetClientName && <small className={styles.helperText}>Targeted to: {form.targetClientName}</small>}
             </div>
           )}
 
           {form.audience === 'employees' && (
             <div className={styles.fieldGroup}>
-              <label>Employee</label>
+              <label>Target Employee</label>
               <select
-                value={form.employeeId}
+                value={form.employeeId || ''}
                 onChange={(event) => {
-                  const employee = mockEmployees.find((item) => item.employeeId === event.target.value);
+                  const selected = employees.find((e) => (e.employeeId || e.id || e._id) === event.target.value);
                   updateField('employeeId', event.target.value);
-                  updateField('employeeName', employee ? employee.name : '');
+                  updateField('employeeName', selected ? selected.name : '');
                 }}
               >
                 <option value="">All Employees</option>
-                {mockEmployees.map((employee) => (
-                  <option key={employee.employeeId} value={employee.employeeId}>{employee.name} — {employee.employeeId}</option>
-                ))}
+                {employees.map((employee) => {
+                  const id = employee.employeeId || employee.id || employee._id;
+                  return (
+                    <option key={id} value={id}>
+                      {employee.name} — {employee.employeeId || employee.employeeCode || id}
+                    </option>
+                  );
+                })}
               </select>
-              {selectedEmployee && <small className={styles.helperText}>{selectedEmployee.name}</small>}
+              {form.employeeName && <small className={styles.helperText}>Targeted to: {form.employeeName}</small>}
             </div>
           )}
 
           <div className={styles.fieldGroup}>
-            <label>Message</label>
+            <label>Priority</label>
+            <select value={form.priority || 'normal'} onChange={(event) => updateField('priority', event.target.value)}>
+              {priorityOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label>Message *</label>
             <textarea
               value={form.message}
               onChange={(event) => updateField('message', event.target.value)}
@@ -227,11 +255,16 @@ function AnnouncementDetailsDrawer({ item, onClose }) {
 
         <div className={styles.drawerBody}>
           <div className={styles.detailRow}><span>Audience</span><strong>{audienceOptions.find((option) => option.value === item.audience)?.label || 'All Clients & Employees'}</strong></div>
-          <div className={styles.detailRow}><span>Company</span><strong>{item.companyName || '—'}</strong></div>
-          <div className={styles.detailRow}><span>Employee</span><strong>{item.employeeName || '—'}</strong></div>
+          {item.audience === 'clients' && (
+            <div className={styles.detailRow}><span>Target Client</span><strong>{item.targetClientName || item.companyName || 'All Clients'}</strong></div>
+          )}
+          {item.audience === 'employees' && (
+            <div className={styles.detailRow}><span>Target Employee</span><strong>{item.employeeName ? `${item.employeeName} (${item.employeeId})` : 'All Employees'}</strong></div>
+          )}
+          <div className={styles.detailRow}><span>Priority</span><strong>{(item.priority || 'normal').toUpperCase()}</strong></div>
           <div className={styles.detailRow}><span>Message</span><strong>{item.message}</strong></div>
-          <div className={styles.detailRow}><span>Created By</span><strong>{item.createdBy}</strong></div>
-          <div className={styles.detailRow}><span>Created Date</span><strong>{formatDate(item.createdDate)}</strong></div>
+          <div className={styles.detailRow}><span>Created By</span><strong>{item.createdBy || 'Admin'}</strong></div>
+          <div className={styles.detailRow}><span>Created Date</span><strong>{formatDate(item.createdDate || item.createdAt)}</strong></div>
           <div className={styles.detailRow}><span>Status</span><span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>{item.status === 'published' ? 'Published' : 'Draft'}</span></div>
         </div>
       </aside>
@@ -280,6 +313,8 @@ function NotificationDetailsDrawer({ item, onClose, onMarkAsRead }) {
 function NotificationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
   const tabParam = searchParams.get('tab') || 'announcements';
   const statusParam = searchParams.get('status');
@@ -287,8 +322,12 @@ function NotificationsPage() {
   const audienceParam = searchParams.get('audience');
 
   const [activeTab, setActiveTab] = useState(tabParam);
-  const [announcements, setAnnouncements] = useState(announcementData);
+  const [announcements, setAnnouncements] = useState([]);
   const [notifications, setNotifications] = useState(notificationData);
+  const [clients, setClients] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [announcementSearch, setAnnouncementSearch] = useState('');
   const [notificationSearch, setNotificationSearch] = useState('');
   const [announcementAudienceFilter, setAnnouncementAudienceFilter] = useState(audienceParam || 'all');
@@ -305,6 +344,36 @@ function NotificationsPage() {
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [toast, setToast] = useState(null);
 
+  // Fetch dynamic announcements, clients, and employees
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [annList, clientList, empList] = await Promise.allSettled([
+        announcementService.getAnnouncements(companyId),
+        clientService.getClients(companyId),
+        inventoryService.getEmployees(companyId)
+      ]);
+
+      if (annList.status === 'fulfilled' && Array.isArray(annList.value)) {
+        setAnnouncements(annList.value);
+      }
+      if (clientList.status === 'fulfilled' && Array.isArray(clientList.value)) {
+        setClients(clientList.value);
+      }
+      if (empList.status === 'fulfilled' && Array.isArray(empList.value)) {
+        setEmployees(empList.value);
+      }
+    } catch (err) {
+      console.warn('Error loading notifications data:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
   // Sync state with URL params
   useEffect(() => {
     if (tabParam === 'notifications') {
@@ -313,15 +382,9 @@ function NotificationsPage() {
       setActiveTab('announcements');
     }
 
-    if (statusParam) {
-      setNotificationStatusFilter(statusParam);
-    }
-    if (typeParam) {
-      setNotificationTypeFilter(typeParam);
-    }
-    if (audienceParam) {
-      setAnnouncementAudienceFilter(audienceParam);
-    }
+    if (statusParam) setNotificationStatusFilter(statusParam);
+    if (typeParam) setNotificationTypeFilter(typeParam);
+    if (audienceParam) setAnnouncementAudienceFilter(audienceParam);
   }, [tabParam, statusParam, typeParam, audienceParam]);
 
   const handleTabChange = (newTab) => {
@@ -334,7 +397,7 @@ function NotificationsPage() {
   const filteredAnnouncements = useMemo(() => {
     const query = announcementSearch.toLowerCase();
     return announcements.filter((item) => {
-      const matchesSearch = !query || `${item.title} ${item.message}`.toLowerCase().includes(query);
+      const matchesSearch = !query || `${item.title} ${item.message} ${item.targetClientName || ''} ${item.employeeName || ''}`.toLowerCase().includes(query);
       const matchesAudience = announcementAudienceFilter === 'all' || item.audience === announcementAudienceFilter;
       const matchesStatus = announcementStatusFilter === 'all' || item.status === announcementStatusFilter;
       return matchesSearch && matchesAudience && matchesStatus;
@@ -344,7 +407,7 @@ function NotificationsPage() {
   const filteredNotifications = useMemo(() => {
     const query = notificationSearch.toLowerCase();
     return notifications.filter((item) => {
-      const matchesSearch = !query || `${item.title} ${item.message} ${item.employeeName}`.toLowerCase().includes(query);
+      const matchesSearch = !query || `${item.title} ${item.message} ${item.employeeName || ''}`.toLowerCase().includes(query);
       const matchesType = notificationTypeFilter === 'all' || item.type === notificationTypeFilter;
       const matchesStatus = notificationStatusFilter === 'all' || item.status === notificationStatusFilter;
       return matchesSearch && matchesType && matchesStatus;
@@ -368,32 +431,38 @@ function NotificationsPage() {
     setNotificationPage(1);
   };
 
-  const handleAnnouncementSubmit = (payload) => {
-    if (editingAnnouncement) {
-      setAnnouncements((current) => current.map((item) => item.id === editingAnnouncement.id ? { ...item, ...payload, status: payload.status || item.status } : item));
-      setToast({ type: 'success', message: '✓ Announcement updated successfully.' });
-    } else {
-      const newAnnouncement = {
-        ...payload,
-        id: Date.now(),
-        createdBy: 'Admin',
-        createdDate: new Date().toISOString().slice(0, 10),
-        status: 'published'
-      };
-      setAnnouncements((current) => [newAnnouncement, ...current]);
-      setToast({ type: 'success', message: '✓ Announcement posted successfully.' });
-    }
+  const handleAnnouncementSubmit = async (payload) => {
+    try {
+      if (editingAnnouncement) {
+        const id = editingAnnouncement.announcementId || editingAnnouncement._id || editingAnnouncement.id;
+        await announcementService.updateAnnouncement(id, payload);
+        setToast({ type: 'success', message: '✓ Announcement updated successfully.' });
+      } else {
+        await announcementService.createAnnouncement(companyId, payload);
+        setToast({ type: 'success', message: '✓ Announcement posted successfully.' });
+      }
 
-    setAnnouncementFormOpen(false);
-    setEditingAnnouncement(null);
-    setAnnouncementPage(1);
+      await loadData();
+      setAnnouncementFormOpen(false);
+      setEditingAnnouncement(null);
+      setAnnouncementPage(1);
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to save announcement.' });
+    }
   };
 
-  const handleDeleteAnnouncement = () => {
-    setAnnouncements((current) => current.filter((item) => item.id !== deleteTarget.id));
-    setDeleteModalOpen(false);
-    setDeleteTarget(null);
-    setToast({ type: 'success', message: '✓ Announcement deleted successfully.' });
+  const handleDeleteAnnouncement = async () => {
+    try {
+      if (!deleteTarget) return;
+      const id = deleteTarget.announcementId || deleteTarget._id || deleteTarget.id;
+      await announcementService.deleteAnnouncement(id);
+      setToast({ type: 'success', message: '✓ Announcement deleted successfully.' });
+      setDeleteModalOpen(false);
+      setDeleteTarget(null);
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to delete announcement.' });
+    }
   };
 
   const handleMarkAsRead = (id) => {
@@ -438,18 +507,24 @@ function NotificationsPage() {
             <h1>Notifications &amp; Announcements</h1>
             <p className={styles.pageDescription}>Manage announcements and view system-generated notifications for clients and employees.</p>
           </div>
-          <button type="button" className={styles.primaryButton} onClick={() => { setEditingAnnouncement(null); setAnnouncementFormOpen(true); }}>
-            <Plus size={16} /> Post Announcement
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button type="button" className={styles.secondaryButton} onClick={loadData} title="Refresh Announcements">
+              <RefreshCw size={15} className={loading ? styles.spinning : ''} />
+              Refresh
+            </button>
+            <button type="button" className={styles.primaryButton} onClick={() => { setEditingAnnouncement(null); setAnnouncementFormOpen(true); }}>
+              <Plus size={16} /> Post Announcement
+            </button>
+          </div>
         </header>
 
         <div className={styles.tabs} role="tablist">
-          {TABS.filter(t => t.id === activeTab).map((tab) => (
+          {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
-              className={styles.activeTab}
-              style={{ pointerEvents: 'none', cursor: 'default' }}
+              className={activeTab === tab.id ? styles.activeTab : styles.tab}
+              onClick={() => handleTabChange(tab.id)}
             >
               {tab.label}
             </button>
@@ -462,7 +537,7 @@ function NotificationsPage() {
               <div>
                 <p className={styles.sectionEyebrow}>Announcements</p>
                 <h2>Announcements</h2>
-                <p className={styles.sectionDescription}>Create and manage announcements visible to Client/User and Employee panels.</p>
+                <p className={styles.sectionDescription}>Create and manage targeted announcements visible in Client and Employee panels.</p>
               </div>
               <button type="button" className={styles.primaryButton} onClick={() => { setEditingAnnouncement(null); setAnnouncementFormOpen(true); }}>
                 <Plus size={16} /> Post Announcement
@@ -481,8 +556,7 @@ function NotificationsPage() {
               </div>
 
               <select value={announcementAudienceFilter} onChange={(event) => { setAnnouncementPage(1); setAnnouncementAudienceFilter(event.target.value); }}>
-                <option value="all">All</option>
-                <option value="all">All Clients &amp; Employees</option>
+                <option value="all">All Audience</option>
                 <option value="clients">Clients</option>
                 <option value="employees">Employees</option>
               </select>
@@ -504,7 +578,8 @@ function NotificationsPage() {
                     <thead>
                       <tr>
                         <th>Title</th>
-                        <th>Audience</th>
+                        <th>Target Audience</th>
+                        <th>Specific Target</th>
                         <th>Created By</th>
                         <th>Created Date</th>
                         <th>Status</th>
@@ -512,27 +587,54 @@ function NotificationsPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {announcementPageRows.map((item) => (
-                        <tr key={item.id}>
-                          <td>
-                            <div className={styles.titleCell}>
-                              <strong>{item.title}</strong>
-                              <small>{item.message}</small>
-                            </div>
-                          </td>
-                          <td><span className={`${styles.statusBadge} ${badgeClass(item.audience)}`}>{item.audience === 'all' ? 'All Clients & Employees' : item.audience === 'clients' ? 'Clients' : 'Employees'}</span></td>
-                          <td>{item.createdBy}</td>
-                          <td>{formatDate(item.createdDate)}</td>
-                          <td><span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>{item.status === 'published' ? 'Published' : 'Draft'}</span></td>
-                          <td>
-                            <div className={styles.inlineActions}>
-                              <button type="button" className={styles.iconButton} onClick={() => setSelectedAnnouncement(item)}><Eye size={14} /></button>
-                              <button type="button" className={styles.iconButton} onClick={() => { setEditingAnnouncement(item); setAnnouncementFormOpen(true); }}><Pencil size={14} /></button>
-                              <button type="button" className={styles.iconButton} onClick={() => { setDeleteTarget(item); setDeleteModalOpen(true); }}><Trash2 size={14} /></button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                      {announcementPageRows.map((item) => {
+                        const targetDetail = item.audience === 'clients'
+                          ? (item.targetClientName || item.companyName || 'All Clients')
+                          : item.audience === 'employees'
+                            ? (item.employeeName ? `${item.employeeName} (${item.employeeId})` : 'All Employees')
+                            : 'All Clients & Employees';
+
+                        return (
+                          <tr key={item.announcementId || item._id || item.id}>
+                            <td>
+                              <div className={styles.titleCell}>
+                                <strong>{item.title}</strong>
+                                <small>{item.message}</small>
+                              </div>
+                            </td>
+                            <td>
+                              <span className={`${styles.statusBadge} ${badgeClass(item.audience)}`}>
+                                {item.audience === 'all' ? 'All' : item.audience === 'clients' ? 'Clients' : 'Employees'}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '13px', color: 'var(--text-secondary, #475569)', fontWeight: 500 }}>
+                                {targetDetail}
+                              </span>
+                            </td>
+                            <td>{item.createdBy || 'Admin'}</td>
+                            <td>{formatDate(item.createdDate || item.createdAt)}</td>
+                            <td>
+                              <span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>
+                                {item.status === 'published' ? 'Published' : 'Draft'}
+                              </span>
+                            </td>
+                            <td>
+                              <div className={styles.inlineActions}>
+                                <button type="button" className={styles.iconButton} onClick={() => setSelectedAnnouncement(item)} title="View Details">
+                                  <Eye size={14} />
+                                </button>
+                                <button type="button" className={styles.iconButton} onClick={() => { setEditingAnnouncement(item); setAnnouncementFormOpen(true); }} title="Edit Announcement">
+                                  <Pencil size={14} />
+                                </button>
+                                <button type="button" className={styles.iconButton} onClick={() => { setDeleteTarget(item); setDeleteModalOpen(true); }} title="Delete Announcement">
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -647,13 +749,16 @@ function NotificationsPage() {
         <AnnouncementForm
           isOpen={isAnnouncementFormOpen}
           mode={editingAnnouncement ? 'edit' : 'create'}
+          clients={clients}
+          employees={employees}
           initialData={editingAnnouncement ? {
             title: editingAnnouncement.title,
             audience: editingAnnouncement.audience,
-            companyId: editingAnnouncement.companyId || '',
-            companyName: editingAnnouncement.companyName || '',
+            targetClientId: editingAnnouncement.targetClientId || editingAnnouncement.companyIdTarget || '',
+            targetClientName: editingAnnouncement.targetClientName || editingAnnouncement.companyName || '',
             employeeId: editingAnnouncement.employeeId || '',
             employeeName: editingAnnouncement.employeeName || '',
+            priority: editingAnnouncement.priority || 'normal',
             message: editingAnnouncement.message
           } : null}
           onClose={() => { setAnnouncementFormOpen(false); setEditingAnnouncement(null); }}

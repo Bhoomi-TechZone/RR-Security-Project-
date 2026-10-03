@@ -64,34 +64,28 @@ export const MOCK_ROLE_USERS = [
 const UserAuthContext = createContext(null);
 
 export function UserAuthProvider({ children }) {
-  // Store currently selected demo user in localStorage or default to Amit Kumar (Supervisor)
   const [currentUser, setCurrentUser] = useState(() => {
     const saved = localStorage.getItem('novaspark_active_user');
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { /* fallback */ }
     }
-    return MOCK_ROLE_USERS[0];
+    return null;
   });
 
-  // Sync to localStorage
   useEffect(() => {
-    localStorage.setItem('novaspark_active_user', JSON.stringify(currentUser));
-  }, [currentUser]);
+    const handleStorageChange = (e) => {
+      if (e.key === 'novaspark_active_user') {
+        try {
+          setCurrentUser(e.newValue ? JSON.parse(e.newValue) : null);
+        } catch (_) {}
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
 
-  // Resolve active permissions from current user + role store
-  const getPermissions = () => {
-    if (currentUser.customPermissions !== undefined) {
-      return currentUser.customPermissions;
-    }
-
-    const savedRoles = localStorage.getItem('novaspark_roles_data');
-    const rolesList = savedRoles ? JSON.parse(savedRoles) : INITIAL_ROLES;
-    const roleObj = rolesList.find(r => r.id === currentUser.roleId || r.name === currentUser.role);
-
-    return roleObj ? roleObj.permissions || {} : {};
-  };
-
-  const permissions = getPermissions();
+  const isAdmin = currentUser?.role === 'admin';
+  const permissions = currentUser?.permissions || {};
 
   /**
    * Check if the current user has a specific module and action permission
@@ -100,9 +94,16 @@ export function UserAuthProvider({ children }) {
    * @returns {boolean}
    */
   const hasPermission = (moduleKey, actionKey = 'view') => {
-    if (!permissions || !permissions[moduleKey]) return false;
-    const actions = permissions[moduleKey];
-    return Array.isArray(actions) && actions.includes(actionKey);
+    if (!currentUser) return false;
+    if (isAdmin) return true;
+    if (!moduleKey) return true;
+
+    const normalizedKey = moduleKey === 'companies' ? 'clients' : moduleKey;
+    const actions = permissions[normalizedKey] || permissions[moduleKey];
+    if (Array.isArray(actions)) {
+      return actions.includes(actionKey) || actions.includes('*');
+    }
+    return false;
   };
 
   /**
@@ -110,13 +111,10 @@ export function UserAuthProvider({ children }) {
    */
   const canView = (moduleKey) => hasPermission(moduleKey, 'view');
 
-  /**
-   * Switch the active demo user
-   */
-  const switchUser = (userId) => {
-    const found = MOCK_ROLE_USERS.find(u => u.id === userId);
-    if (found) {
-      setCurrentUser(found);
+  const switchUser = (userObj) => {
+    if (userObj) {
+      setCurrentUser(userObj);
+      localStorage.setItem('novaspark_active_user', JSON.stringify(userObj));
     }
   };
 
@@ -125,10 +123,10 @@ export function UserAuthProvider({ children }) {
       value={{
         currentUser,
         permissions,
+        isAdmin,
         hasPermission,
         canView,
-        switchUser,
-        availableDemoUsers: MOCK_ROLE_USERS
+        switchUser
       }}
     >
       {children}
@@ -139,24 +137,36 @@ export function UserAuthProvider({ children }) {
 export function useUserAuth() {
   const context = useContext(UserAuthContext);
   if (!context) {
-    // Return safe fallback if rendered outside provider
-    const defaultUser = MOCK_ROLE_USERS[0];
-    const defaultRole = INITIAL_ROLES.find(r => r.id === 'role-supervisor');
-    const defaultPerms = defaultRole ? defaultRole.permissions : {};
-    
+    const user = (() => {
+      const saved = localStorage.getItem('novaspark_active_user');
+      if (saved) {
+        try { return JSON.parse(saved); } catch (_) {}
+      }
+      return null;
+    })();
+
+    const isAdmin = user?.role === 'admin';
+    const permissions = user?.permissions || {};
+
     return {
-      currentUser: defaultUser,
-      permissions: defaultPerms,
+      currentUser: user,
+      permissions,
+      isAdmin,
       hasPermission: (mod, act = 'view') => {
-        const actions = defaultPerms[mod];
-        return Array.isArray(actions) && actions.includes(act);
+        if (isAdmin) return true;
+        if (!mod) return true;
+        const normalizedKey = mod === 'companies' ? 'clients' : mod;
+        const actions = permissions[normalizedKey] || permissions[mod];
+        return Array.isArray(actions) && (actions.includes(act) || actions.includes('*'));
       },
       canView: (mod) => {
-        const actions = defaultPerms[mod];
-        return Array.isArray(actions) && actions.includes('view');
+        if (isAdmin) return true;
+        if (!mod) return true;
+        const normalizedKey = mod === 'companies' ? 'clients' : mod;
+        const actions = permissions[normalizedKey] || permissions[mod];
+        return Array.isArray(actions) && (actions.includes('view') || actions.includes('*'));
       },
-      switchUser: () => {},
-      availableDemoUsers: MOCK_ROLE_USERS
+      switchUser: () => {}
     };
   }
   return context;

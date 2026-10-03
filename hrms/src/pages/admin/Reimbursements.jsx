@@ -8,6 +8,7 @@ import styles from './Reimbursements.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import { usePermissions } from '../../context/PermissionContext';
 
 import { mockEmployees } from '../../data/employeeData';
 import {
@@ -29,6 +30,7 @@ import ReimbursementReports from '../../components/reimbursements/ReimbursementR
 export default function Reimbursements() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
 
   // Active Main Tab ('claims', 'expense-types', 'reports')
   const initialTab = searchParams.get('tab') || 'claims';
@@ -466,26 +468,30 @@ export default function Reimbursements() {
           </div>
 
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.btnSecondary}
-              onClick={() => handleExport('excel')}
-              title="Export Reimbursement Register"
-            >
-              <Download size={15} />
-              <span>Export Report</span>
-            </button>
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={() => {
-                setEditingClaim(null);
-                setIsCreateModalOpen(true);
-              }}
-            >
-              <Plus size={16} />
-              <span>Create Reimbursement</span>
-            </button>
+            {canExport('reimbursements') && (
+              <button
+                type="button"
+                className={styles.btnSecondary}
+                onClick={() => handleExport('excel')}
+                title="Export Reimbursement Register"
+              >
+                <Download size={15} />
+                <span>Export Report</span>
+              </button>
+            )}
+            {canAdd('reimbursements') && (
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={() => {
+                  setEditingClaim(null);
+                  setIsCreateModalOpen(true);
+                }}
+              >
+                <Plus size={16} />
+                <span>Create Reimbursement</span>
+              </button>
+            )}
           </div>
         </header>
 

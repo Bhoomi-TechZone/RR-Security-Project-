@@ -3,40 +3,51 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu,
   Bell,
-  CircleHelp,
   ChevronDown,
   User,
   Settings,
   LogOut,
-  Shield,
-  Users
+  Shield
 } from 'lucide-react';
 import styles from './UserHeader.module.css';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
-import { useUserAuth } from '../../context/UserAuthContext';
+import { usePermissions } from '../../context/PermissionContext';
 import ExternalLinksDrawer from './ExternalLinksDrawer';
 
 function UserHeader({ onToggleSidebar, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { currentUser, switchUser, availableDemoUsers } = useUserAuth();
+  const { currentUser, userRole } = usePermissions();
   const [isLinksDrawerOpen, setIsLinksDrawerOpen] = useState(false);
 
   const getBreadcrumb = () => {
     const path = location.pathname;
     if (path.startsWith('/user/dashboard')) return 'Dashboard';
-    if (path.startsWith('/user/employees')) return 'Management / Employees';
-    if (path.startsWith('/user/attendance')) return 'Management / Attendance';
+    if (path.startsWith('/user/clients')) return 'Workforce / Clients';
+    if (path.startsWith('/user/companies')) return 'Workforce / Clients';
+    if (path.startsWith('/user/employees')) return 'Workforce / Employees';
+    if (path.startsWith('/user/attendance')) return 'Workforce / Attendance';
+    if (path.startsWith('/user/shifts')) return 'Workforce / Shift Management';
+    if (path.startsWith('/user/payroll-setup')) return 'Payroll Management / Payroll Setup';
+    if (path.startsWith('/user/statutory-setup')) return 'Payroll Management / Statutory Setup';
+    if (path.startsWith('/user/advances-loans')) return 'Payroll Management / Advances & Loans';
+    if (path.startsWith('/user/reimbursements')) return 'Payroll Management / Reimbursements';
+    if (path.startsWith('/user/overtime')) return 'Payroll Management / Overtime';
+    if (path.startsWith('/user/payroll')) return 'Payroll Management / Payroll';
     if (path.startsWith('/user/leave')) return 'Management / Leave';
-    if (path.startsWith('/user/overtime')) return 'Management / Overtime';
-    if (path.startsWith('/user/shifts')) return 'Management / Shifts';
     if (path.startsWith('/user/inventory')) return 'Management / Inventory';
-    if (path.startsWith('/user/advances-loans')) return 'Management / Advances & Loans';
-    if (path.startsWith('/user/payroll')) return 'Payroll / Payroll';
-    if (path.startsWith('/user/reports')) return 'Reports / Reports';
+    if (path.startsWith('/user/reports')) return 'Management / Reports';
+    if (path.startsWith('/user/company-setup')) return 'System / Company Setup';
+    if (path.startsWith('/user/work-locations')) return 'System / Work Locations';
+    if (path.startsWith('/user/masters')) return 'System / Masters';
+    if (path.startsWith('/user/roles-permissions')) return 'System / Role & Permissions';
+    if (path.startsWith('/user/users')) return 'System / User Management';
+    if (path.startsWith('/user/preferences')) return 'System / Preferences';
+    if (path.startsWith('/user/templates')) return 'System / Templates';
+    if (path.startsWith('/user/document-compliance')) return 'System / Docs & Compliance';
     if (path.startsWith('/user/notifications')) return 'System / Notifications';
-    return 'Dashboard';
+    return 'User Portal';
   };
 
   return (
@@ -53,31 +64,8 @@ function UserHeader({ onToggleSidebar, onLogout }) {
         <span className={styles.breadcrumb}>{getBreadcrumb()}</span>
       </div>
 
-      {/* Right side: Role Switcher, Notifications, Profile dropdown */}
+      {/* Right side: Notifications, Profile dropdown */}
       <div className={styles.right}>
-        {/* Demo Role Switcher for previewing different roles */}
-        {availableDemoUsers && availableDemoUsers.length > 1 && (
-          <div className={styles.roleSwitcherWrap}>
-            <label htmlFor="demo-role-select" className={styles.switcherLabel}>
-              <Users size={13} />
-              <span className={styles.switcherText}>Role:</span>
-            </label>
-            <select
-              id="demo-role-select"
-              className={styles.roleSelect}
-              value={currentUser?.id}
-              onChange={(e) => switchUser(e.target.value)}
-              title="Switch active user to preview role permissions"
-            >
-              {availableDemoUsers.map(u => (
-                <option key={u.id} value={u.id}>
-                  {u.name} ({u.role})
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
         {/* Notifications */}
         <div className={styles.notificationWrapper}>
           <button
@@ -100,13 +88,13 @@ function UserHeader({ onToggleSidebar, onLogout }) {
           trigger={
             <button className={styles.profileTrigger} aria-label="Profile options menu">
               <Avatar
-                initials={currentUser?.initials || 'US'}
+                initials={currentUser?.initials || (currentUser?.name ? currentUser.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'US')}
                 size="sm"
                 name={currentUser?.name || 'User'}
               />
               <div className={styles.profileMeta}>
-                <span className={styles.profileName}>{currentUser?.name || 'HRMS User'}</span>
-                <span className={styles.profileRole}>{currentUser?.role || 'Portal User'}</span>
+                <span className={styles.profileName}>{currentUser?.name || 'User'}</span>
+                <span className={styles.profileRole}>{userRole || currentUser?.roleName || currentUser?.role || 'Custom Role'}</span>
               </div>
               <ChevronDown size={14} className={styles.chevron} />
             </button>
@@ -117,12 +105,6 @@ function UserHeader({ onToggleSidebar, onLogout }) {
               <a href="#" onClick={(e) => e.preventDefault()} className={styles.dropdownLink}>
                 <User size={14} />
                 <span>My Profile</span>
-              </a>
-            </li>
-            <li className={styles.dropdownItem}>
-              <a href="#" onClick={(e) => e.preventDefault()} className={styles.dropdownLink}>
-                <Settings size={14} />
-                <span>Account Settings</span>
               </a>
             </li>
             <li className={styles.dropdownItemDivider} />

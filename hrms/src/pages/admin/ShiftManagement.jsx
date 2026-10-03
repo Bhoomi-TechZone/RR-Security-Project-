@@ -25,6 +25,7 @@ import Dropdown from '../../components/common/Dropdown';
 import { useCompany } from '../../context/CompanyContext';
 import { shiftService } from '../../services/shiftService';
 import { authService } from '../../services/authService';
+import { usePermissions } from '../../context/PermissionContext';
 import styles from './ShiftManagement.module.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -230,7 +231,7 @@ function Filters({ values, setValue, onReset, patterns, clients, sites, departme
   );
 }
 
-function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
+function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign, canAdd = true, canEdit = true, canDelete = true }) {
   return (
     <div className={styles.tableCard}>
       <div className={styles.tableWrapper}>
@@ -305,36 +306,44 @@ function RosterTable({ rows, onView, onEdit, onChange, onAssign, onUnassign }) {
                         View Details
                       </button>
                       {row.status === 'unassigned' ? (
-                        <button
-                          type="button"
-                          className={styles.menuItemBtn}
-                          onClick={() => onAssign(row)}
-                        >
-                          Assign Shift
-                        </button>
+                        canAdd && (
+                          <button
+                            type="button"
+                            className={styles.menuItemBtn}
+                            onClick={() => onAssign(row)}
+                          >
+                            Assign Shift
+                          </button>
+                        )
                       ) : (
                         <>
-                          <button
-                            type="button"
-                            className={styles.menuItemBtn}
-                            onClick={() => onEdit(row)}
-                          >
-                            Edit Roster
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.menuItemBtn}
-                            onClick={() => onChange(row)}
-                          >
-                            Change Shift
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.menuItemBtn}
-                            onClick={() => onUnassign(row)}
-                          >
-                            Unassign Employee
-                          </button>
+                          {canEdit && (
+                            <>
+                              <button
+                                type="button"
+                                className={styles.menuItemBtn}
+                                onClick={() => onEdit(row)}
+                              >
+                                Edit Roster
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.menuItemBtn}
+                                onClick={() => onChange(row)}
+                              >
+                                Change Shift
+                              </button>
+                            </>
+                          )}
+                          {(canDelete || canEdit) && (
+                            <button
+                              type="button"
+                              className={styles.menuItemBtn}
+                              onClick={() => onUnassign(row)}
+                            >
+                              Unassign Employee
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
@@ -898,7 +907,7 @@ function UnassignModal({ record, onClose, onConfirm }) {
   );
 }
 
-function PatternTable({ patterns, onEdit, onDelete }) {
+function PatternTable({ patterns, onEdit, onDelete, canEdit = true, canDelete = true }) {
   return (
     <div className={styles.tableCard}>
       <div className={styles.tableWrapper}>
@@ -933,15 +942,17 @@ function PatternTable({ patterns, onEdit, onDelete }) {
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      type="button"
-                      className={styles.smallAction}
-                      onClick={() => onEdit(item)}
-                      title="Edit shift details"
-                    >
-                      <Edit2 size={13} style={{ marginRight: '4px' }} /> Edit
-                    </button>
-                    {onDelete && (
+                    {canEdit && (
+                      <button
+                        type="button"
+                        className={styles.smallAction}
+                        onClick={() => onEdit(item)}
+                        title="Edit shift details"
+                      >
+                        <Edit2 size={13} style={{ marginRight: '4px' }} /> Edit
+                      </button>
+                    )}
+                    {canDelete && onDelete && (
                       <button
                         type="button"
                         className={styles.smallAction}
@@ -1421,6 +1432,7 @@ function ExportModal({ open, onClose, onExport, clients, sites, departments, pat
 
 function ShiftManagement() {
   const { activeCompany } = useCompany();
+  const { canAdd, canEdit, canDelete, canExport } = usePermissions();
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
   const [patterns, setPatterns] = useState([]);
@@ -1769,16 +1781,18 @@ function ShiftManagement() {
             >
               <CalendarDays size={16} /> Calendar View
             </button>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => {
-                setEditingShift(null);
-                setShiftFormOpen(true);
-              }}
-            >
-              <Plus size={16} /> Add Shift
-            </button>
+            {canAdd('shifts') && (
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => {
+                  setEditingShift(null);
+                  setShiftFormOpen(true);
+                }}
+              >
+                <Plus size={16} /> Add Shift
+              </button>
+            )}
           </div>
         </header>
 
@@ -1804,23 +1818,27 @@ function ShiftManagement() {
                 </p>
               </div>
               <div className={styles.introActions}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setExportOpen(true)}
-                >
-                  <Download size={16} /> Export Roster
-                </button>
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={() => {
-                    setEditingRoster(null);
-                    setAssignOpen(true);
-                  }}
-                >
-                  <Plus size={16} /> Assign Employee
-                </button>
+                {canExport('shifts') && (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => setExportOpen(true)}
+                  >
+                    <Download size={16} /> Export Roster
+                  </button>
+                )}
+                {canAdd('shifts') && (
+                  <button
+                    type="button"
+                    className={styles.primaryButton}
+                    onClick={() => {
+                      setEditingRoster(null);
+                      setAssignOpen(true);
+                    }}
+                  >
+                    <Plus size={16} /> Assign Employee
+                  </button>
+                )}
               </div>
             </section>
 
@@ -1853,6 +1871,9 @@ function ShiftManagement() {
                     setAssignOpen(true);
                   }}
                   onUnassign={setUnassigning}
+                  canAdd={canAdd('shifts')}
+                  canEdit={canEdit('shifts')}
+                  canDelete={canDelete('shifts')}
                 />
                 <Pagination
                   currentPage={page}
@@ -1867,7 +1888,7 @@ function ShiftManagement() {
                 <EmptyState
                   title="No shift assignments found."
                   description="Try changing your filters or date, or assign an employee to a shift."
-                  actionLabel="Reset Filters"
+                  actionLabel={canAdd('shifts') ? "Reset Filters" : undefined}
                   onAction={resetFilters}
                 />
               </div>
@@ -1900,16 +1921,18 @@ function ShiftManagement() {
                   Create and manage configured shift timings.
                 </p>
               </div>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={() => {
-                  setEditingShift(null);
-                  setShiftFormOpen(true);
-                }}
-              >
-                <Plus size={16} /> Add Shift
-              </button>
+              {canAdd('shifts') && (
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => {
+                    setEditingShift(null);
+                    setShiftFormOpen(true);
+                  }}
+                >
+                  <Plus size={16} /> Add Shift
+                </button>
+              )}
             </section>
             {patterns.length ? (
               <PatternTable
@@ -1919,14 +1942,16 @@ function ShiftManagement() {
                   setShiftFormOpen(true);
                 }}
                 onDelete={deleteShift}
+                canEdit={canEdit('shifts')}
+                canDelete={canDelete('shifts')}
               />
             ) : (
               <div className={styles.emptyWrap}>
                 <EmptyState
                   title="No shifts configured."
                   description="Create your first shift to get started."
-                  actionLabel="Add Shift"
-                  onAction={() => setShiftFormOpen(true)}
+                  actionLabel={canAdd('shifts') ? "Add Shift" : undefined}
+                  onAction={canAdd('shifts') ? () => setShiftFormOpen(true) : undefined}
                 />
               </div>
             )}

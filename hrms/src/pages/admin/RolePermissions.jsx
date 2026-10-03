@@ -294,6 +294,19 @@ function RolePermissions() {
         }));
       }
 
+      // If active user belongs to this role, immediately sync their active session
+      try {
+        const activeUserStr = localStorage.getItem('novaspark_active_user');
+        if (activeUserStr) {
+          const activeUser = JSON.parse(activeUserStr);
+          if (activeUser.roleId === roleId || activeUser.role === roleId) {
+            activeUser.permissions = updatedPermissions;
+            localStorage.setItem('novaspark_active_user', JSON.stringify(activeUser));
+            window.dispatchEvent(new Event('storage'));
+          }
+        }
+      } catch (_) {}
+
       showToast('✓ Role permissions updated and saved successfully.');
     } catch (err) {
       console.error('Error saving permissions:', err);

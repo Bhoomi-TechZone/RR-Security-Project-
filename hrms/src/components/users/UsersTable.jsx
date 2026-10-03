@@ -49,13 +49,18 @@ function UsersTable({
   const filteredUsers = users.filter(user => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
+      !term ||
       (user.name && user.name.toLowerCase().includes(term)) ||
       (user.email && user.email.toLowerCase().includes(term)) ||
       (user.userId && user.userId.toLowerCase().includes(term));
 
     const matchesRole = roleFilter === 'all'
       ? (externalStatusFilter === 'roles' ? Boolean(user.roleId || user.roleName) : true)
-      : (user.roleId === roleFilter || (user.roleName && roles.find(r => r.id === roleFilter)?.name === user.roleName));
+      : (
+          user.roleId === roleFilter ||
+          (user.roleName && roles.find(r => r.id === roleFilter || r.roleId === roleFilter || r._id === roleFilter)?.name === user.roleName) ||
+          (user.roleName && user.roleName.toLowerCase() === roleFilter.toLowerCase())
+        );
 
     const matchesStatus = statusFilter === 'all' 
       ? true 
@@ -195,7 +200,7 @@ function UsersTable({
                   const isSuspended = user.status === 'Suspended';
 
                   return (
-                    <tr key={user.id} className={styles.row}>
+                    <tr key={user.id || user._id || user.userId} className={styles.row}>
                       {/* User Avatar + Name */}
                       <td>
                         <div className={styles.userCell}>
