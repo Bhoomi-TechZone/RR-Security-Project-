@@ -22,20 +22,21 @@ const TABS = [
 ];
 
 function MastersTabs({ activeTab, onTabChange, isFromOrgSettings }) {
-  const displayTabs = TABS.filter(tab => tab.id === activeTab);
+  const displayTabs = TABS;
 
   return (
     <div className={styles.tabsWrapper}>
       <div className={styles.tabsList} role="tablist" aria-label="System Masters Tabs">
         {displayTabs.map((tab) => {
           const Icon = tab.icon;
+          const isActive = tab.id === activeTab;
           return (
             <button
               key={tab.id}
               role="tab"
-              aria-selected={true}
-              className={`${styles.tabBtn} ${styles.tabActive}`}
-              style={{ cursor: 'default' }}
+              aria-selected={isActive}
+              className={`${styles.tabBtn} ${isActive ? styles.tabActive : ''}`}
+              onClick={() => onTabChange && onTabChange(tab.id)}
             >
               <Icon size={16} />
               <span>{tab.label}</span>

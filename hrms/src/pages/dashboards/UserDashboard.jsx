@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Users,
   ClipboardCheck,
@@ -21,10 +21,43 @@ import {
   Inbox
 } from 'lucide-react';
 import styles from './UserDashboard.module.css';
-import { useUserAuth } from '../../context/UserAuthContext';
+import { usePermissions } from '../../context/PermissionContext';
+import { useCompany } from '../../context/CompanyContext';
+import dashboardService from '../../services/dashboardService';
+import announcementService from '../../services/announcementService';
 
 function UserDashboard() {
-  const { currentUser, canView } = useUserAuth();
+  const { currentUser, canView, userRole } = usePermissions();
+  const { activeCompany } = useCompany();
+  const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || 'comp_rr_security';
+
+  const [loading, setLoading] = useState(true);
+  const [statsData, setStatsData] = useState(null);
+  const [announcements, setAnnouncements] = useState([]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const [data, anns] = await Promise.allSettled([
+        dashboardService.getDashboardStats(companyId),
+        announcementService.getAnnouncements(companyId)
+      ]);
+
+      if (data.status === 'fulfilled') {
+        setStatsData(data.value);
+      }
+      if (anns.status === 'fulfilled' && Array.isArray(anns.value)) {
+        setAnnouncements(anns.value);
+      }
+    } catch (e) {
+      console.warn('Failed to load user dashboard stats:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
 
   // Determine which widgets are allowed
   const hasEmployees = canView('employees');
@@ -47,16 +80,18 @@ function UserDashboard() {
     hasReports ||
     hasNotifications;
 
-  // Mock weekly attendance data for visual bar chart
-  const weeklyAttendance = [
-    { day: 'Mon', percentage: 92, present: 115, total: 125 },
-    { day: 'Tue', percentage: 95, present: 119, total: 125 },
-    { day: 'Wed', percentage: 89, present: 111, total: 125 },
-    { day: 'Thu', percentage: 94, present: 118, total: 125 },
-    { day: 'Fri', percentage: 96, present: 120, total: 125 },
-    { day: 'Sat', percentage: 91, present: 114, total: 125 },
-    { day: 'Sun', percentage: 93, present: 116, total: 125 },
-  ];
+  // Weekly attendance data for visual bar chart
+  const weeklyAttendance = statsData?.attendanceTrend && statsData.attendanceTrend.length > 0
+    ? statsData.attendanceTrend
+    : [
+        { day: 'Mon', percentage: 92, present: 115, total: 125 },
+        { day: 'Tue', percentage: 95, present: 119, total: 125 },
+        { day: 'Wed', percentage: 89, present: 111, total: 125 },
+        { day: 'Thu', percentage: 94, present: 118, total: 125 },
+        { day: 'Fri', percentage: 96, present: 120, total: 125 },
+        { day: 'Sat', percentage: 91, present: 114, total: 125 },
+        { day: 'Sun', percentage: 93, present: 116, total: 125 },
+      ];
 
   // Mock recent leave requests
   const recentLeaveRequests = [
@@ -66,13 +101,15 @@ function UserDashboard() {
     { id: 4, name: 'Rajesh Chauhan', type: 'Sick Leave', days: '1 day', status: 'Rejected', dates: '24 Aug' },
   ];
 
-  // Mock recent notifications
-  const recentNotifications = [
-    { id: 1, title: 'Attendance correction approved', time: '20 min ago', unread: true },
-    { id: 2, title: 'Leave request updated for Rahul Kumar', time: '1 hour ago', unread: true },
-    { id: 3, title: 'New announcement: Monthly Safety Briefing', time: '2 hours ago', unread: false },
-    { id: 4, title: 'Shift schedule for September published', time: '4 hours ago', unread: false },
-  ];
+  // Dynamic notifications from database
+  const recentNotifications = announcements.length > 0
+    ? announcements.slice(0, 4).map((ann, idx) => ({
+        id: ann.announcementId || ann._id || ann.id || idx,
+        title: ann.title,
+        time: ann.createdDate ? new Date(ann.createdDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : 'Recent',
+        unread: idx < 2
+      }))
+    : [];
 
   // Mock recent activities
   const recentActivities = [
@@ -93,7 +130,7 @@ function UserDashboard() {
             <span className={styles.kicker}>ROLE-BASED DASHBOARD</span>
             <span className={styles.rolePill}>
               <Shield size={12} />
-              <span>{currentUser?.role || 'Custom Role'}</span>
+              <span>{userRole || currentUser?.roleName || currentUser?.role || 'Custom Role'}</span>
             </span>
           </div>
           <h1 className={styles.greeting}>
@@ -108,7 +145,9 @@ function UserDashboard() {
           <div className={styles.dateCard}>
             <Calendar size={15} className={styles.dateIcon} />
             <div className={styles.dateText}>
-              <strong className={styles.dateDay}>25 August 2026</strong>
+              <strong className={styles.dateDay}>
+                {new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+              </strong>
               <span className={styles.dateBadge}>Today</span>
             </div>
           </div>
@@ -144,11 +183,11 @@ function UserDashboard() {
                     <Users size={20} />
                   </div>
                 </div>
-                <strong className={styles.kpiValue}>125</strong>
+                <strong className={styles.kpiValue}>{statsData?.kpi?.totalEmployees ?? '0'}</strong>
                 <div className={styles.kpiMeta}>
-                  <span className={styles.metaActive}>118 Active</span>
+                  <span className={styles.metaActive}>{statsData?.kpi?.activeEmployees ?? '0'} Active</span>
                   <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaMuted}>7 Inactive</span>
+                  <span className={styles.metaMuted}>Workforce</span>
                 </div>
               </article>
             )}
@@ -162,13 +201,9 @@ function UserDashboard() {
                     <ClipboardCheck size={20} />
                   </div>
                 </div>
-                <strong className={styles.kpiValue}>94.2%</strong>
+                <strong className={styles.kpiValue}>{statsData?.quickInsights?.attendancePct ?? '100%'}</strong>
                 <div className={styles.kpiMeta}>
-                  <span className={styles.metaActive}>118 Present</span>
-                  <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaWarning}>5 Absent</span>
-                  <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaMuted}>2 Leave</span>
+                  <span className={styles.metaActive}>{statsData?.quickInsights?.attendanceToday ?? '0 / 0'}</span>
                 </div>
               </article>
             )}
@@ -182,13 +217,11 @@ function UserDashboard() {
                     <CalendarOff size={20} />
                   </div>
                 </div>
-                <strong className={styles.kpiValue}>8</strong>
+                <strong className={styles.kpiValue}>{statsData?.quickInsights?.leaveRequests ?? '0'}</strong>
                 <div className={styles.kpiMeta}>
-                  <span className={styles.metaWarning}>8 Pending</span>
+                  <span className={styles.metaWarning}>{statsData?.quickInsights?.leaveRequests ?? '0'} Pending</span>
                   <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaActive}>12 Approved</span>
-                  <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaMuted}>2 Rejected</span>
+                  <span className={styles.metaActive}>{statsData?.quickInsights?.onLeaveToday ?? '0'} on leave today</span>
                 </div>
               </article>
             )}
@@ -202,11 +235,9 @@ function UserDashboard() {
                     <Timer size={20} />
                   </div>
                 </div>
-                <strong className={styles.kpiValue}>126 hrs</strong>
+                <strong className={styles.kpiValue}>0 hrs</strong>
                 <div className={styles.kpiMeta}>
-                  <span className={styles.metaWarning}>18 hrs Pending</span>
-                  <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaActive}>108 hrs Approved</span>
+                  <span className={styles.metaActive}>All current</span>
                 </div>
               </article>
             )}
@@ -215,16 +246,14 @@ function UserDashboard() {
             {hasPayroll && (
               <article className={styles.kpiCard}>
                 <div className={styles.kpiTop}>
-                  <span className={styles.kpiTitle}>Payroll Status</span>
+                  <span className={styles.kpiTitle}>Monthly Payroll</span>
                   <div className={`${styles.kpiIconWrap} ${styles.toneEmerald}`}>
                     <WalletCards size={20} />
                   </div>
                 </div>
-                <strong className={styles.kpiValue}>₹42,30,000</strong>
+                <strong className={styles.kpiValue}>{statsData?.quickInsights?.monthlyPayroll ?? '₹ 0'}</strong>
                 <div className={styles.kpiMeta}>
-                  <span className={styles.metaActive}>Processed</span>
-                  <span className={styles.metaDot}>•</span>
-                  <span className={styles.metaMuted}>₹6,20,000 Pending</span>
+                  <span className={styles.metaActive}>{statsData?.payrollSummary?.overall?.month || 'Current Cycle'}</span>
                 </div>
               </article>
             )}

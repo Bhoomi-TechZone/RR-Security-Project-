@@ -204,9 +204,15 @@ function AdminUserManagement() {
           companyName: activeCompany?.name || ''
         });
 
-        setUsers(prev => prev.map(u => (u.id === editingUser.id || u._id === editingUser._id) ? { ...u, ...updated } : u));
-        if (selectedUserForDetails && (selectedUserForDetails.id === editingUser.id || selectedUserForDetails._id === editingUser._id)) {
-          setSelectedUserForDetails(prev => ({ ...prev, ...updated }));
+        const formatted = {
+          ...updated,
+          id: updated?.id || updated?._id || targetId,
+          userId: updated?.userId || editingUser.userId
+        };
+
+        setUsers(prev => prev.map(u => (u.id === targetId || u._id === targetId || u.userId === targetId) ? { ...u, ...formatted } : u));
+        if (selectedUserForDetails && (selectedUserForDetails.id === targetId || selectedUserForDetails._id === targetId || selectedUserForDetails.userId === targetId)) {
+          setSelectedUserForDetails(prev => ({ ...prev, ...formatted }));
         }
 
         showToast(`User ${userData.name} updated successfully.`);
@@ -217,8 +223,13 @@ function AdminUserManagement() {
           companyName: activeCompany?.name || ''
         });
 
-        setUsers(prev => [created, ...prev]);
-        showToast(`User account ${created.name} (${created.userId}) created successfully.`);
+        const formattedCreated = {
+          ...created,
+          id: created?.id || created?._id || created?.userId,
+        };
+
+        setUsers(prev => [formattedCreated, ...prev.filter(u => u.id !== formattedCreated.id && u.userId !== formattedCreated.userId)]);
+        showToast(`User account ${formattedCreated.name} (${formattedCreated.userId}) created successfully.`);
 
         // Refresh next user id
         const nextId = await userService.getNextUserId(currentCompanyId);

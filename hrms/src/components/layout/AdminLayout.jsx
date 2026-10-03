@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 import styles from './AdminLayout.module.css';
+import authService from '../../services/authService';
 
 /**
  * AdminLayout Component
@@ -10,8 +11,14 @@ import styles from './AdminLayout.module.css';
  */
 function AdminLayout({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // If component is mounted inside the role-based /user panel, UserLayout already handles sidebar and header
+  if (location.pathname.startsWith('/user')) {
+    return <>{children}</>;
+  }
 
   // Handle sidebar action based on viewport size
   const handleToggleSidebar = () => {
@@ -22,8 +29,9 @@ function AdminLayout({ children }) {
     }
   };
 
-  // Mock logout action
+  // Logout action
   const handleLogout = () => {
+    authService.logout();
     navigate('/login');
   };
 

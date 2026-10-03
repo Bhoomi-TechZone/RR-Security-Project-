@@ -16,6 +16,7 @@ import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
 
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import { authService } from '../../services/authService';
 import masterService from '../../services/masterService';
 import clientService from '../../services/clientService';
@@ -28,6 +29,7 @@ const ITEMS_PER_PAGE = 10;
 function Employees() {
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
+  const { canAdd, canEdit, canDelete, canExport } = usePermissions();
 
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
@@ -458,14 +460,16 @@ function Employees() {
             <h1 className={styles.title}>Employees</h1>
             <p className={styles.description}>Manage employees across your client companies for {activeCompany?.name || 'Company Profile'}.</p>
           </div>
-          <button
-            className={styles.addBtn}
-            onClick={() => { setEditingEmployee(null); setIsFormOpen(true); }}
-            aria-label="Add a new employee"
-          >
-            <Plus size={16} />
-            <span>Add Employee</span>
-          </button>
+          {canAdd('employees') && (
+            <button
+              className={styles.addBtn}
+              onClick={() => { setEditingEmployee(null); setIsFormOpen(true); }}
+              aria-label="Add a new employee"
+            >
+              <Plus size={16} />
+              <span>Add Employee</span>
+            </button>
+          )}
         </header>
 
         {/* Summary Cards */}

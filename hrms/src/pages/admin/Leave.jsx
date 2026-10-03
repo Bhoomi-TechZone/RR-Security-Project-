@@ -37,6 +37,7 @@ import {
   INITIAL_LEAVE_POLICIES,
 } from '../../data/leaveMasterData';
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import leaveService from '../../services/leaveService';
 import authService from '../../services/authService';
 import styles from './Leave.module.css';
@@ -444,6 +445,7 @@ export default function Leave() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { activeCompany } = useCompany();
+  const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
   const compId = activeCompany?.companyId || activeCompany?.id;
 
   const initialTab = searchParams.get('tab') || 'requests';
@@ -854,15 +856,17 @@ export default function Leave() {
           </div>
 
           <div className={styles.topActions}>
-            <button
-              type="button"
-              className={styles.exportBtn}
-              onClick={() => setExportModalOpen(true)}
-            >
-              <Download size={16} />
-              <span>Export Report</span>
-            </button>
-            {activeTab === 'requests' && (
+            {canExport('leave') && (
+              <button
+                type="button"
+                className={styles.exportBtn}
+                onClick={() => setExportModalOpen(true)}
+              >
+                <Download size={16} />
+                <span>Export Report</span>
+              </button>
+            )}
+            {activeTab === 'requests' && canAdd('leave') && (
               <button
                 type="button"
                 className={styles.primaryAddBtn}

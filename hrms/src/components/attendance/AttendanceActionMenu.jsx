@@ -2,12 +2,19 @@ import React from 'react';
 import { Eye, Edit2, CheckSquare, Trash2, MoreVertical } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './AttendanceActionMenu.module.css';
+import { usePermissions } from '../../context/PermissionContext';
 
 /**
  * AttendanceActionMenu Component
  * Renders the three-dot dropdown action menu for attendance records.
  */
 function AttendanceActionMenu({ record, onAction }) {
+  const { canEdit, canDelete, canApprove } = usePermissions();
+
+  const allowEdit = canEdit('attendance');
+  const allowDelete = canDelete('attendance');
+  const allowApprove = canApprove('attendance');
+
   return (
     <Dropdown
       align="right"
@@ -28,17 +35,19 @@ function AttendanceActionMenu({ record, onAction }) {
             <span>View Details</span>
           </button>
         </li>
-        <li>
-          <button
-            type="button"
-            className={styles.menuItem}
-            onClick={() => onAction('edit', record)}
-          >
-            <Edit2 size={14} />
-            <span>Edit Attendance</span>
-          </button>
-        </li>
-        {record.status === 'pendingCorrection' && (
+        {allowEdit && (
+          <li>
+            <button
+              type="button"
+              className={styles.menuItem}
+              onClick={() => onAction('edit', record)}
+            >
+              <Edit2 size={14} />
+              <span>Edit Attendance</span>
+            </button>
+          </li>
+        )}
+        {allowApprove && record.status === 'pendingCorrection' && (
           <li>
             <button
               type="button"
@@ -50,16 +59,18 @@ function AttendanceActionMenu({ record, onAction }) {
             </button>
           </li>
         )}
-        <li>
-          <button
-            type="button"
-            className={`${styles.menuItem} ${styles.deleteItem}`}
-            onClick={() => onAction('delete', record)}
-          >
-            <Trash2 size={14} />
-            <span>Delete Attendance</span>
-          </button>
-        </li>
+        {allowDelete && (
+          <li>
+            <button
+              type="button"
+              className={`${styles.menuItem} ${styles.deleteItem}`}
+              onClick={() => onAction('delete', record)}
+            >
+              <Trash2 size={14} />
+              <span>Delete Attendance</span>
+            </button>
+          </li>
+        )}
       </ul>
     </Dropdown>
   );

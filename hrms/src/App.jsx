@@ -43,6 +43,9 @@ import Preferences from './pages/admin/Preferences'
 import Templates from './pages/admin/Templates'
 import DocumentCompliance from './pages/admin/DocumentCompliance'
 import Reimbursements from './pages/admin/Reimbursements'
+import AdminRoute from './components/common/AdminRoute'
+import UserRoute from './components/common/UserRoute'
+import ModulePermissionRoute from './components/common/ModulePermissionRoute'
 
 function EmployeePanelPlaceholder({ title }) {
   return (
@@ -66,44 +69,82 @@ function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
 
-      {/* Admin Dashboard / Modules Routes */}
-      <Route path="/admin/dashboard" element={<AdminDashboard />} />
-      <Route path="/admin/clients" element={<Companies />} />
-      <Route path="/admin/clients/:id" element={<CompanyDetails />} />
-      <Route path="/admin/companies" element={<Companies />} />
-      <Route path="/admin/companies/:id" element={<CompanyDetails />} />
-      <Route path="/admin/employees" element={<Employees />} />
-      <Route path="/admin/employees/:id" element={<EmployeeDetails />} />
-      <Route path="/admin/employees/:id/edit" element={<EditEmployee />} />
-      <Route path="/admin/masters" element={<Masters />} />
-      <Route path="/admin/attendance" element={<Attendance />} />
-      <Route path="/admin/leave" element={<Leave />} />
-      <Route path="/admin/overtime" element={<Overtime />} />
-      <Route path="/admin/shifts" element={<ShiftManagement />} />
-      <Route path="/admin/inventory" element={<Inventory />} />
-      <Route path="/admin/advances-loans" element={<AdvanceLoanManagement />} />
-      <Route path="/admin/reimbursements" element={<Reimbursements />} />
-      <Route path="/admin/payroll" element={<PayrollManagement />} />
-      <Route path="/admin/reports" element={<Reports />} />
-      <Route path="/admin/notifications" element={<Notifications />} />
-      <Route path="/admin/roles-permissions" element={<RolePermissions />} />
-      <Route path="/admin/users" element={<AdminUserManagement />} />
-      <Route path="/admin/company-setup" element={<CompanySetup />} />
-      <Route path="/admin/work-locations" element={<WorkLocations />} />
-      <Route path="/admin/payroll-setup" element={<PayrollSetup />} />
-      <Route path="/admin/statutory-setup" element={<StatutorySetup />} />
-      <Route path="/admin/settings/statutory" element={<StatutorySetup />} />
-      <Route path="/admin/preferences" element={<Preferences />} />
-      <Route path="/admin/settings/preferences" element={<Preferences />} />
-      <Route path="/admin/templates" element={<Templates />} />
-      <Route path="/admin/settings/templates" element={<Templates />} />
-      <Route path="/admin/document-compliance" element={<DocumentCompliance />} />
-      <Route path="/admin/settings/document-compliance" element={<DocumentCompliance />} />
+      {/* Admin Dashboard / Modules Routes with strict AdminRoute guard */}
+      <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
-      {/* Role-Based User Panel Routes */}
-      <Route path="/user" element={<UserLayout />}>
+      <Route path="/admin/clients" element={<AdminRoute><Companies /></AdminRoute>} />
+      <Route path="/admin/clients/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
+      <Route path="/admin/companies" element={<AdminRoute><Companies /></AdminRoute>} />
+      <Route path="/admin/companies/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
+
+      <Route path="/admin/employees" element={<AdminRoute><Employees /></AdminRoute>} />
+      <Route path="/admin/employees/:id" element={<AdminRoute><EmployeeDetails /></AdminRoute>} />
+      <Route path="/admin/employees/:id/edit" element={<AdminRoute><EditEmployee /></AdminRoute>} />
+
+      <Route path="/admin/masters" element={<AdminRoute><Masters /></AdminRoute>} />
+      <Route path="/admin/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
+      <Route path="/admin/leave" element={<AdminRoute><Leave /></AdminRoute>} />
+      <Route path="/admin/overtime" element={<AdminRoute><Overtime /></AdminRoute>} />
+      <Route path="/admin/shifts" element={<AdminRoute><ShiftManagement /></AdminRoute>} />
+      <Route path="/admin/inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
+      <Route path="/admin/advances-loans" element={<AdminRoute><AdvanceLoanManagement /></AdminRoute>} />
+      <Route path="/admin/reimbursements" element={<AdminRoute><Reimbursements /></AdminRoute>} />
+      <Route path="/admin/payroll" element={<AdminRoute><PayrollManagement /></AdminRoute>} />
+      <Route path="/admin/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+      <Route path="/admin/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
+      <Route path="/admin/roles-permissions" element={<AdminRoute><RolePermissions /></AdminRoute>} />
+      <Route path="/admin/users" element={<AdminRoute><AdminUserManagement /></AdminRoute>} />
+      <Route path="/admin/company-setup" element={<AdminRoute><CompanySetup /></AdminRoute>} />
+      <Route path="/admin/work-locations" element={<AdminRoute><WorkLocations /></AdminRoute>} />
+      <Route path="/admin/payroll-setup" element={<AdminRoute><PayrollSetup /></AdminRoute>} />
+      <Route path="/admin/statutory-setup" element={<AdminRoute><StatutorySetup /></AdminRoute>} />
+      <Route path="/admin/settings/statutory" element={<AdminRoute><StatutorySetup /></AdminRoute>} />
+      <Route path="/admin/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
+      <Route path="/admin/settings/preferences" element={<AdminRoute><Preferences /></AdminRoute>} />
+      <Route path="/admin/templates" element={<AdminRoute><Templates /></AdminRoute>} />
+      <Route path="/admin/settings/templates" element={<AdminRoute><Templates /></AdminRoute>} />
+      <Route path="/admin/document-compliance" element={<AdminRoute><DocumentCompliance /></AdminRoute>} />
+      <Route path="/admin/settings/document-compliance" element={<AdminRoute><DocumentCompliance /></AdminRoute>} />
+
+      {/* Role-Based User Panel Routes (100% Dynamic & Permission-Protected) */}
+      <Route path="/user" element={<UserRoute><UserLayout /></UserRoute>}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<UserDashboard />} />
+
+        {/* Workforce Modules */}
+        <Route path="clients" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
+        <Route path="clients/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
+        <Route path="companies" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
+        <Route path="companies/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
+        <Route path="employees" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><Employees /></ModulePermissionRoute>} />
+        <Route path="employees/:id" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EmployeeDetails /></ModulePermissionRoute>} />
+        <Route path="employees/:id/edit" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
+        <Route path="attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Attendance"><Attendance /></ModulePermissionRoute>} />
+        <Route path="shifts" element={<ModulePermissionRoute moduleKey="shifts" moduleTitle="Shift Management"><ShiftManagement /></ModulePermissionRoute>} />
+
+        {/* Payroll Modules */}
+        <Route path="payroll" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Payroll"><PayrollManagement /></ModulePermissionRoute>} />
+        <Route path="payroll-setup" element={<ModulePermissionRoute moduleKey="payroll_setup" moduleTitle="Payroll Setup"><PayrollSetup /></ModulePermissionRoute>} />
+        <Route path="statutory-setup" element={<ModulePermissionRoute moduleKey="statutory_setup" moduleTitle="Statutory Setup"><StatutorySetup /></ModulePermissionRoute>} />
+        <Route path="advances-loans" element={<ModulePermissionRoute moduleKey="advances_loans" moduleTitle="Advances & Loans"><AdvanceLoanManagement /></ModulePermissionRoute>} />
+        <Route path="reimbursements" element={<ModulePermissionRoute moduleKey="reimbursements" moduleTitle="Reimbursements"><Reimbursements /></ModulePermissionRoute>} />
+        <Route path="overtime" element={<ModulePermissionRoute moduleKey="overtime" moduleTitle="Overtime"><Overtime /></ModulePermissionRoute>} />
+
+        {/* Management Modules */}
+        <Route path="leave" element={<ModulePermissionRoute moduleKey="leave" moduleTitle="Leave"><Leave /></ModulePermissionRoute>} />
+        <Route path="inventory" element={<ModulePermissionRoute moduleKey="inventory" moduleTitle="Inventory"><Inventory /></ModulePermissionRoute>} />
+        <Route path="reports" element={<ModulePermissionRoute moduleKey="reports" moduleTitle="Reports"><Reports /></ModulePermissionRoute>} />
+
+        {/* System & Settings Modules */}
+        <Route path="company-setup" element={<ModulePermissionRoute moduleKey="company_setup" moduleTitle="Company Setup"><CompanySetup /></ModulePermissionRoute>} />
+        <Route path="work-locations" element={<ModulePermissionRoute moduleKey="work_locations" moduleTitle="Work Locations"><WorkLocations /></ModulePermissionRoute>} />
+        <Route path="masters" element={<ModulePermissionRoute moduleKey="masters" moduleTitle="Masters"><Masters /></ModulePermissionRoute>} />
+        <Route path="roles-permissions" element={<ModulePermissionRoute moduleKey="roles_permissions" moduleTitle="Role & Permissions"><RolePermissions /></ModulePermissionRoute>} />
+        <Route path="users" element={<ModulePermissionRoute moduleKey="user_management" moduleTitle="User Management"><AdminUserManagement /></ModulePermissionRoute>} />
+        <Route path="preferences" element={<ModulePermissionRoute moduleKey="preferences" moduleTitle="Preferences"><Preferences /></ModulePermissionRoute>} />
+        <Route path="templates" element={<ModulePermissionRoute moduleKey="templates" moduleTitle="Templates"><Templates /></ModulePermissionRoute>} />
+        <Route path="document-compliance" element={<ModulePermissionRoute moduleKey="docs_compliance" moduleTitle="Docs & Compliance"><DocumentCompliance /></ModulePermissionRoute>} />
+        <Route path="notifications" element={<ModulePermissionRoute moduleKey="notifications" moduleTitle="Notifications"><Notifications /></ModulePermissionRoute>} />
       </Route>
 
       {/* Employee Panel Routes */}

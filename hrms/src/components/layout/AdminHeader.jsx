@@ -9,11 +9,13 @@ import OrganizationSettingsModal from '../settings/OrganizationSettingsModal';
 import AddCompanyProfileModal from '../company/AddCompanyProfileModal';
 import ExternalLinksDrawer from './ExternalLinksDrawer';
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 
 function AdminHeader({ onToggleSidebar, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { companies, activeCompany, switchCompany } = useCompany();
+  const { userRole, currentUser, isAdmin } = usePermissions();
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(
     location.state?.organisationSettingsOpen === true
@@ -191,8 +193,8 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
                 status={null} 
               />
               <div className={styles.profileMeta}>
-                <span className={styles.profileName}>{activeCompany?.name || 'RR Security'}</span>
-                <span className={styles.profileRole}>Administrator</span>
+                <span className={styles.profileName}>{isAdmin ? (currentUser?.name || activeCompany?.name || 'RR Security Administrator') : (currentUser?.name || 'Administrator')}</span>
+                <span className={styles.profileRole}>{isAdmin ? 'Administrator' : (userRole || 'Administrator')}</span>
               </div>
               <ChevronDown size={14} className={styles.chevron} />
             </button>

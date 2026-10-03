@@ -17,6 +17,7 @@ import {
   INVENTORY_UNITS
 } from '../../data/inventoryMasterData';
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import inventoryService from '../../services/inventoryService';
 
 import InventoryItemModal from '../../components/inventory/InventoryItemModal';
@@ -855,6 +856,7 @@ function ClearanceTable({ rows, onInspectClearance }) {
 // Main Inventory Component
 export default function Inventory() {
   const { activeCompany } = useCompany();
+  const { canAdd, canEdit, canDelete, canExport, canIssue, canReturn } = usePermissions();
   const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id;
 
   const [loading, setLoading] = useState(true);
@@ -1216,14 +1218,16 @@ export default function Inventory() {
                 <Package size={16} /> View Stock
               </button>
             )}
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => setReportsModalOpen(true)}
-            >
-              <FileSpreadsheet size={16} /> Export Report
-            </button>
-            {tab === 'stock' && (
+            {canExport('inventory') && (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setReportsModalOpen(true)}
+              >
+                <FileSpreadsheet size={16} /> Export Report
+              </button>
+            )}
+            {tab === 'stock' && canAdd('inventory') && (
               inventoryType === 'uniform' ? (
                 <button
                   type="button"

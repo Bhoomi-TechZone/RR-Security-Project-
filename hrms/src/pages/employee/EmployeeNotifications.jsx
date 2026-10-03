@@ -18,6 +18,7 @@ import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 import leaveService from '../../services/leaveService';
 import attendanceService from '../../services/attendanceService';
+import announcementService from '../../services/announcementService';
 import styles from './EmployeeNotifications.module.css';
 
 /* ─────────────────────────────────────────
@@ -373,6 +374,7 @@ function EmployeeNotifications() {
 
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [readIds, setReadIds] = useState(() => {
     try {
       const stored = localStorage.getItem(`novaspark_read_notifs_${employeeId}`);
@@ -400,9 +402,10 @@ function EmployeeNotifications() {
     async function loadEmployeeData() {
       try {
         const todayMonth = new Date().toISOString().slice(0, 7);
-        const [leaves, attendance] = await Promise.allSettled([
+        const [leaves, attendance, anns] = await Promise.allSettled([
           leaveService.getLeaveRequests(companyId, { employeeId }),
           attendanceService.getAttendanceRecords(companyId, { month: todayMonth, employeeId }),
+          announcementService.getAnnouncements(companyId, { role: 'employee', employeeId })
         ]);
 
         if (isMounted) {
@@ -411,6 +414,9 @@ function EmployeeNotifications() {
           }
           if (attendance.status === 'fulfilled' && Array.isArray(attendance.value)) {
             setAttendanceRecords(attendance.value);
+          }
+          if (anns.status === 'fulfilled' && Array.isArray(anns.value)) {
+            setAnnouncements(anns.value);
           }
         }
       } catch (err) {
@@ -582,38 +588,26 @@ function EmployeeNotifications() {
       },
     });
 
-    // 4. Company Announcements
-    list.push({
-      id: `notif-ann-holiday`,
-      type: 'announcement',
-      title: `Company Holiday Notice`,
-      description: `The office and branches will remain closed for the upcoming scheduled holiday.`,
-      date: todayDateStr,
-      time: '09:00 AM',
-      priority: true,
-      isAnnouncement: true,
-      details: {
-        scope: 'All Employees',
-        publishedBy: `${companyName} HR & Admin`,
-        message: 'Please coordinate duty handovers with your site supervisor in advance.',
-      },
-    });
-
-    list.push({
-      id: `notif-ann-workforce`,
-      type: 'announcement',
-      title: `Important Attendance Update`,
-      description: `All employees must ensure attendance is marked before 9:00 AM daily through the portal or biometric reader.`,
-      date: todayDateStr,
-      time: '09:30 AM',
-      priority: false,
-      isAnnouncement: true,
-      details: {
-        scope: 'Operations & Staff',
-        publishedBy: 'HR Operations',
-        message: 'Timely punching ensures correct automated payroll processing and overtime calculations.',
-      },
-    });
+    // 4. Company Announcements (100% Dynamic from MongoDB)
+    if (announcements.length > 0) {
+      announcements.forEach((ann) => {
+        list.push({
+          id: `notif-ann-${ann.announcementId || ann._id || ann.id}`,
+          type: 'announcement',
+          title: ann.title,
+          description: ann.message,
+          date: ann.createdDate || todayDateStr,
+          time: '09:00 AM',
+          priority: ann.priority === 'important' || ann.priority === 'urgent',
+          isAnnouncement: true,
+          details: {
+            scope: ann.audience === 'all' ? 'All Clients & Employees' : 'Employees',
+            publishedBy: ann.createdBy || `${companyName} HR & Admin`,
+            message: ann.message,
+          },
+        });
+      });
+    }
 
     // 5. Account & Document Verification Alert
     list.push({
@@ -635,7 +629,7 @@ function EmployeeNotifications() {
       ...item,
       read: readIds.includes(item.id),
     }));
-  }, [leaveRequests, attendanceRecords, readIds, companyName, employeeId]);
+  }, [leaveRequests, attendanceRecords, announcements, readIds, companyName, employeeId]);
 
   // Counts
   const totalCount = notifs.length;

@@ -3,6 +3,7 @@ import Client from '../models/clientModel.js';
 import Employee from '../models/employeeModel.js';
 import Attendance from '../models/attendanceModel.js';
 import Leave from '../models/leaveModel.js';
+import Announcement from '../models/announcementModel.js';
 
 /**
  * Helper to resolve the authenticated client context
@@ -450,6 +451,38 @@ export const getClientDashboard = async (req, res) => {
 
     const formattedProfile = formatClientProfile(client, sites);
 
+    // Fetch targeted announcements for this client
+    const targetIds = [client.clientId, client._id?.toString(), client.id].filter(Boolean);
+    const targetNames = [client.name, client.legalName].filter(Boolean);
+
+    const clientAnnouncements = await Announcement.find({
+      status: 'published',
+      $or: [
+        { audience: 'all' },
+        {
+          audience: 'clients',
+          $or: [
+            { targetClientId: null },
+            { targetClientId: '' },
+            { targetClientId: { $in: targetIds } },
+            { companyIdTarget: { $in: targetIds } },
+            { targetClientName: { $in: targetNames } },
+            { companyName: { $in: targetNames } }
+          ]
+        }
+      ]
+    }).sort({ createdAt: -1 }).limit(5).lean();
+
+    const formattedNotifications = clientAnnouncements.map(a => ({
+      id: a.announcementId || a._id?.toString(),
+      title: a.title,
+      message: a.message,
+      type: 'announcement',
+      timestamp: a.createdDate ? new Date(a.createdDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
+      read: false,
+      priority: a.priority
+    }));
+
     return res.status(200).json({
       success: true,
       profile: formattedProfile,
@@ -457,6 +490,7 @@ export const getClientDashboard = async (req, res) => {
       weeklyAttendanceTrend: weeklyTrend,
       recentEmployees,
       recentInvoices,
+      notifications: formattedNotifications,
       totalAssigned: totalEmployees
     });
   } catch (error) {
@@ -670,9 +704,41 @@ export const getClientNotifications = async (req, res) => {
       });
     }
 
-    const notifications = [
+    // Fetch targeted announcements from MongoDB
+    const targetIds = [client.clientId, client._id?.toString(), client.id].filter(Boolean);
+    const targetNames = [client.name, client.legalName].filter(Boolean);
+
+    const announcements = await Announcement.find({
+      status: 'published',
+      $or: [
+        { audience: 'all' },
+        {
+          audience: 'clients',
+          $or: [
+            { targetClientId: null },
+            { targetClientId: '' },
+            { targetClientId: { $in: targetIds } },
+            { companyIdTarget: { $in: targetIds } },
+            { targetClientName: { $in: targetNames } },
+            { companyName: { $in: targetNames } }
+          ]
+        }
+      ]
+    }).sort({ createdAt: -1 }).lean();
+
+    const formattedAnnouncements = announcements.map(a => ({
+      id: a.announcementId || a._id?.toString(),
+      title: a.title,
+      message: a.message,
+      type: 'announcement',
+      timestamp: a.createdDate ? new Date(a.createdDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
+      read: false,
+      priority: a.priority
+    }));
+
+    const systemNotifs = [
       {
-        id: 'notif-1',
+        id: `notif-sys-dept-${client.clientId || 'c1'}`,
         title: 'Daily Shift Deployment Verified',
         message: `Deployment schedule verified across active operating sites for ${client.name}.`,
         type: 'workforce',
@@ -680,19 +746,21 @@ export const getClientNotifications = async (req, res) => {
         read: false
       },
       {
-        id: 'notif-2',
+        id: `notif-sys-sla-${client.clientId || 'c1'}`,
         title: 'Contract SLA In Good Standing',
         message: `Client portal access and contract SLAs are active for ${client.name}.`,
-        type: 'announcement',
+        type: 'billing',
         timestamp: 'This week',
         read: true
       }
     ];
 
+    const allNotifs = [...formattedAnnouncements, ...systemNotifs];
+
     return res.status(200).json({
       success: true,
-      notifications,
-      unreadCount: notifications.filter(n => !n.read).length
+      notifications: allNotifs,
+      unreadCount: allNotifs.filter(n => !n.read).length
     });
   } catch (error) {
     console.error('Error in getClientNotifications:', error);

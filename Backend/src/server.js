@@ -19,6 +19,8 @@ import inventoryRoutes from './routes/inventoryRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import preferenceRoutes from './routes/preferenceRoutes.js';
 import masterRoutes from './routes/masterRoutes.js';
+import dashboardRoutes from './routes/dashboardRoutes.js';
+import announcementRoutes from './routes/announcementRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -187,6 +189,12 @@ app.use('/api/preferences', preferenceRoutes);
 
 // Dynamic Masters (Banks, Departments, Designations, Sites, etc. with Company Isolation)
 app.use('/api/masters', masterRoutes);
+
+// Dynamic Dashboard Statistics & Analytics
+app.use('/api/dashboard', dashboardRoutes);
+
+// Dynamic Announcements (Targeted to All, Clients, Employees)
+app.use('/api/announcements', announcementRoutes);
 
 
 // ===========================================

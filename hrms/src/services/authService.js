@@ -29,6 +29,7 @@ export const authService = {
         if (!rememberMe) {
           sessionStorage.setItem('novaspark_auth_token', data.token);
         }
+        window.dispatchEvent(new CustomEvent('auth-changed', { detail: data.user }));
       }
 
       return data;
@@ -100,6 +101,7 @@ export const authService = {
     localStorage.removeItem('novaspark_auth_token');
     sessionStorage.removeItem('novaspark_auth_token');
     localStorage.removeItem('novaspark_active_user');
+    window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }));
   }
 };
 

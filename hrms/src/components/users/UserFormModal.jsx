@@ -54,13 +54,16 @@ function UserFormModal({
         setUserType(isLinkedEmp ? 'employee' : 'new');
         setSelectedEmployeeId(initialUser.employeeId || '');
 
+        const matchingRole = roles.find(r => r.id === initialUser.roleId || r.roleId === initialUser.roleId || r._id === initialUser.roleId || r.name === initialUser.roleName);
+        const resolvedRoleId = matchingRole ? (matchingRole.id || matchingRole.roleId || matchingRole._id) : (initialUser.roleId || (roles[0]?.id || roles[0]?.roleId || roles[0]?._id || ''));
+
         setFormData({
           name: initialUser.name || '',
           email: initialUser.email || '',
           mobile: initialUser.mobile || '',
           password: '',
           confirmPassword: '',
-          roleId: initialUser.roleId || (roles[0]?.id || ''),
+          roleId: resolvedRoleId,
           status: initialUser.status || 'Active',
           employeeId: initialUser.employeeId || null,
           isExistingEmployee: isLinkedEmp
@@ -68,14 +71,15 @@ function UserFormModal({
       } else {
         setUserType('new');
         setSelectedEmployeeId('');
-        const defaultRole = roles.find(r => r.name === 'Supervisor') || roles[0];
+        const defaultRole = roles.find(r => r.name === 'Supervisor' || r.name === 'Manager') || roles[0];
+        const defaultRoleId = defaultRole ? (defaultRole.id || defaultRole.roleId || defaultRole._id || '') : '';
         setFormData({
           name: '',
           email: '',
           mobile: '',
           password: '',
           confirmPassword: '',
-          roleId: defaultRole?.id || '',
+          roleId: defaultRoleId,
           status: 'Active',
           employeeId: null,
           isExistingEmployee: false
@@ -90,7 +94,12 @@ function UserFormModal({
   if (!isOpen) return null;
 
   // Selected role object & permission preview
-  const selectedRole = roles.find(r => r.id === formData.roleId);
+  const selectedRole = roles.find(r => 
+    r.id === formData.roleId || 
+    r.roleId === formData.roleId || 
+    r._id === formData.roleId || 
+    r._id?.toString() === formData.roleId
+  );
   const permissionOverview = selectedRole ? getRolePermissionsOverview(selectedRole) : [];
   const enabledModules = permissionOverview.filter(m => m.isEnabled);
 
@@ -193,7 +202,12 @@ function UserFormModal({
     e.preventDefault();
     if (!validate()) return;
 
-    const roleObj = roles.find(r => r.id === formData.roleId);
+    const roleObj = roles.find(r => 
+      r.id === formData.roleId || 
+      r.roleId === formData.roleId || 
+      r._id === formData.roleId || 
+      r._id?.toString() === formData.roleId
+    );
 
     // IMPORTANT: Password is intentionally excluded from the submitted data object unless creating.
     const { password, confirmPassword, ...safeFormData } = formData;
@@ -208,6 +222,7 @@ function UserFormModal({
       mobile: safeFormData.mobile.trim(),
       isExistingEmployee: userType === 'employee' && Boolean(selectedEmployeeId || safeFormData.employeeId),
       employeeId: userType === 'employee' ? (selectedEmployeeId || safeFormData.employeeId) : null,
+      roleId: roleObj?.id || roleObj?.roleId || roleObj?._id || formData.roleId,
       roleName: roleObj ? roleObj.name : 'Custom Role'
     });
   };
@@ -528,11 +543,15 @@ function UserFormModal({
                   if (errors.roleId) setErrors(prev => ({ ...prev, roleId: null }));
                 }}
               >
-                {roles.map(r => (
-                  <option key={r.id} value={r.id}>
-                    {r.name} ({r.type === 'system' ? 'System Role' : 'Custom Role'})
-                  </option>
-                ))}
+                {roles.length === 0 && <option value="">-- No Roles Available --</option>}
+                {roles.map(r => {
+                  const val = r.id || r.roleId || r._id;
+                  return (
+                    <option key={val} value={val}>
+                      {r.name} ({r.type === 'system' ? 'System Role' : 'Custom Role'})
+                    </option>
+                  );
+                })}
               </select>
               {errors.roleId && (
                 <span className={styles.errorText}>

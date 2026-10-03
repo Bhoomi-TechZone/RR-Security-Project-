@@ -14,6 +14,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import masterService from '../../services/masterService';
 import { workLocationService } from '../../services/workLocationService';
 import clientService from '../../services/clientService';
@@ -61,6 +62,7 @@ function Masters() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
 
+  const { canAdd, canEdit, canDelete } = usePermissions();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || 'comp_rr_security';
 
@@ -725,6 +727,7 @@ function Masters() {
           onSearchChange={setSearchTerm}
           holidayYear={holidayYear}
           onHolidayYearChange={setHolidayYear}
+          canAdd={canAdd('masters')}
           onAddNew={() => {
             setEditingItem(null);
             setIsFormOpen(true);

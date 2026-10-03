@@ -4,6 +4,7 @@ import UserHeader from './UserHeader';
 import UserSidebar from './UserSidebar';
 import styles from './UserLayout.module.css';
 import { UserAuthProvider } from '../../context/UserAuthContext';
+import authService from '../../services/authService';
 
 function UserLayoutContent() {
   const navigate = useNavigate();
@@ -19,6 +20,7 @@ function UserLayoutContent() {
   };
 
   const handleLogout = () => {
+    authService.logout();
     navigate('/login');
   };
 

@@ -8,13 +8,14 @@ import {
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 
-// Navigation groups & items mapping
+// Navigation groups & items mapping with module keys
 const NAV_GROUPS = [
   {
     title: 'MAIN',
     items: [
-      { path: '/admin/dashboard', name: 'Dashboard', icon: LayoutDashboard },
+      { path: '/admin/dashboard', name: 'Dashboard', icon: LayoutDashboard, moduleKey: null },
     ]
   },
   {
@@ -24,6 +25,7 @@ const NAV_GROUPS = [
         path: '/admin/company-setup', 
         name: 'Company Setup', 
         icon: Building2,
+        moduleKey: 'company_setup',
         hasDropdown: true,
         subItems: [
           { path: '/admin/company-setup?section=company-profile', name: 'Company Profile' },
@@ -44,30 +46,31 @@ const NAV_GROUPS = [
         path: '/admin/clients', 
         name: 'Clients', 
         icon: Building2,
+        moduleKey: 'clients',
         hasDropdown: true,
         subItems: [
           { path: '/admin/clients', name: 'All Clients' },
           { path: '/admin/clients?status=active', name: 'Active Clients' },
           { path: '/admin/clients?status=inactive', name: 'Inactive Clients' },
-          // { path: '/admin/clients?action=add', name: 'Add Client' },
         ]
       },
       { 
         path: '/admin/employees', 
         name: 'Employees', 
         icon: Users,
+        moduleKey: 'employees',
         hasDropdown: true,
         subItems: [
           { path: '/admin/employees', name: 'All Employees' },
           { path: '/admin/employees?status=active', name: 'Active Employees' },
           { path: '/admin/employees?status=inactive', name: 'Inactive Employees' },
-          // { path: '/admin/employees?action=add', name: 'Add Employee' },
         ]
       },
       { 
         path: '/admin/attendance', 
         name: 'Attendance', 
         icon: ClipboardCheck,
+        moduleKey: 'attendance',
         hasDropdown: true,
         subItems: [
           { path: '/admin/attendance', name: 'Daily Attendance' },
@@ -78,6 +81,7 @@ const NAV_GROUPS = [
         path: '/admin/shifts', 
         name: 'Shift Management', 
         icon: CalendarDays,
+        moduleKey: 'shifts',
         hasDropdown: true,
         subItems: [
           { path: '/admin/shifts', name: 'Shift Roster' },
@@ -94,6 +98,7 @@ const NAV_GROUPS = [
         path: '/admin/payroll', 
         name: 'Payroll', 
         icon: WalletCards,
+        moduleKey: 'payroll',
         hasDropdown: true,
         subItems: [
           { path: '/admin/payroll', name: 'Payroll Processing' },
@@ -108,6 +113,7 @@ const NAV_GROUPS = [
         path: '/admin/payroll-setup', 
         name: 'Payroll Setup', 
         icon: SlidersHorizontal,
+        moduleKey: 'payroll_setup',
         hasDropdown: true,
         subItems: [
           { path: '/admin/payroll-setup', name: 'Pay Groups' },
@@ -121,6 +127,7 @@ const NAV_GROUPS = [
         path: '/admin/statutory-setup', 
         name: 'Statutory Setup', 
         icon: Landmark,
+        moduleKey: 'statutory_setup',
         hasDropdown: true,
         subItems: [
           { path: '/admin/statutory-setup', name: 'Overview' },
@@ -137,6 +144,7 @@ const NAV_GROUPS = [
         path: '/admin/advances-loans', 
         name: 'Advances & Loans', 
         icon: HandCoins,
+        moduleKey: 'advances_loans',
         hasDropdown: true,
         subItems: [
           { path: '/admin/advances-loans', name: 'All Requests' },
@@ -150,6 +158,7 @@ const NAV_GROUPS = [
         path: '/admin/reimbursements', 
         name: 'Reimbursements', 
         icon: Receipt,
+        moduleKey: 'reimbursements',
         hasDropdown: true,
         subItems: [
           { path: '/admin/reimbursements', name: 'All Claims' },
@@ -162,6 +171,7 @@ const NAV_GROUPS = [
         path: '/admin/overtime', 
         name: 'Overtime', 
         icon: Timer,
+        moduleKey: 'overtime',
         hasDropdown: true,
         subItems: [
           { path: '/admin/overtime', name: 'All Overtime' },
@@ -179,6 +189,7 @@ const NAV_GROUPS = [
         path: '/admin/leave', 
         name: 'Leave', 
         icon: CalendarOff,
+        moduleKey: 'leave',
         hasDropdown: true,
         subItems: [
           { path: '/admin/leave', name: 'Leave Requests' },
@@ -191,6 +202,7 @@ const NAV_GROUPS = [
         path: '/admin/inventory', 
         name: 'Inventory', 
         icon: Package,
+        moduleKey: 'inventory',
         hasDropdown: true,
         subItems: [
           { path: '/admin/inventory', name: 'Inventory Stock' },
@@ -204,6 +216,7 @@ const NAV_GROUPS = [
         path: '/admin/reports', 
         name: 'Reports', 
         icon: BarChart3,
+        moduleKey: 'reports',
         hasDropdown: true,
         subItems: [
           { path: '/admin/reports', name: 'All Reports' },
@@ -223,6 +236,7 @@ const NAV_GROUPS = [
         path: '/admin/work-locations', 
         name: 'Work Locations', 
         icon: MapPin,
+        moduleKey: 'work_locations',
         hasDropdown: true,
         subItems: [
           { path: '/admin/work-locations', name: 'All Locations' },
@@ -234,6 +248,7 @@ const NAV_GROUPS = [
         path: '/admin/masters', 
         name: 'Masters', 
         icon: Settings2,
+        moduleKey: 'masters',
         hasDropdown: true,
         subItems: [
           { path: '/admin/masters?tab=banks', name: 'Banks' },
@@ -254,6 +269,7 @@ const NAV_GROUPS = [
         path: '/admin/roles-permissions', 
         name: 'Role & Permissions', 
         icon: ShieldCheck,
+        moduleKey: 'roles_permissions',
         hasDropdown: true,
         subItems: [
           { path: '/admin/roles-permissions', name: 'Configured Roles' },
@@ -265,6 +281,7 @@ const NAV_GROUPS = [
         path: '/admin/users', 
         name: 'User Management', 
         icon: UserCog,
+        moduleKey: 'user_management',
         hasDropdown: true,
         subItems: [
           { path: '/admin/users', name: 'All Users' },
@@ -277,6 +294,7 @@ const NAV_GROUPS = [
         path: '/admin/preferences', 
         name: 'Preferences', 
         icon: SlidersHorizontal,
+        moduleKey: 'preferences',
         hasDropdown: true,
         subItems: [
           { path: '/admin/preferences', name: 'Overview' },
@@ -291,6 +309,7 @@ const NAV_GROUPS = [
         path: '/admin/templates', 
         name: 'Templates', 
         icon: FileText,
+        moduleKey: 'templates',
         hasDropdown: true,
         subItems: [
           { path: '/admin/templates', name: 'Overview' },
@@ -306,6 +325,7 @@ const NAV_GROUPS = [
         path: '/admin/document-compliance', 
         name: 'Docs & Compliance', 
         icon: FileCheck,
+        moduleKey: 'docs_compliance',
         hasDropdown: true,
         subItems: [
           { path: '/admin/document-compliance', name: 'Overview' },
@@ -319,6 +339,7 @@ const NAV_GROUPS = [
         path: '/admin/notifications', 
         name: 'Notifications', 
         icon: Bell,
+        moduleKey: 'notifications',
         hasDropdown: true,
         subItems: [
           { path: '/admin/notifications', name: 'Announcements' },
@@ -331,6 +352,7 @@ const NAV_GROUPS = [
 
 function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const { activeCompany } = useCompany();
+  const { canView, isAdmin, userRole, currentUser } = usePermissions();
   const location = useLocation();
 
   // Track expanded state of dropdown menus
@@ -446,6 +468,9 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
   };
 
+  // Admin Sidebar always displays full administration module catalog
+  const filteredNavGroups = NAV_GROUPS;
+
   return (
     <>
       {/* Mobile Drawer Backdrop */}
@@ -491,7 +516,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
         {/* Navigation list */}
         <nav className={styles.navContainer}>
-          {NAV_GROUPS.map((group, groupIdx) => (
+          {filteredNavGroups.map((group, groupIdx) => (
             <div key={groupIdx} className={styles.group}>
               {!isCollapsed && <h2 className={styles.groupTitle}>{group.title}</h2>}
               <ul className={styles.groupList}>
@@ -626,15 +651,19 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
         {/* Sidebar Footer (Profile / Logout) */}
         <div className={styles.sidebarFooter}>
-          {/* <div className={styles.profileRow}>
-            <Avatar initials="AD" size={isCollapsed ? 'sm' : 'md'} name="Admin" />
+          <div className={styles.profileRow}>
+            <Avatar 
+              initials={isAdmin ? 'AD' : (currentUser?.initials || 'AD')} 
+              size={isCollapsed ? 'sm' : 'md'} 
+              name={isAdmin ? 'Administrator' : (currentUser?.name || 'Administrator')} 
+            />
             {!isCollapsed && (
               <div className={styles.profileInfo}>
-                <span className={styles.profileName}>Admin</span>
+                <span className={styles.profileName}>{isAdmin ? (currentUser?.name || 'RR Security Administrator') : (currentUser?.name || 'Administrator')}</span>
                 <span className={styles.profileRole}>Administrator</span>
               </div>
             )}
-          </div> */}
+          </div>
           
           <button 
             type="button" 

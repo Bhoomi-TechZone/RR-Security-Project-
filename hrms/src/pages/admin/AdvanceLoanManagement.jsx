@@ -14,6 +14,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
+import { usePermissions } from '../../context/PermissionContext';
 import { mockCompanies } from '../../data/companyData';
 import { mockEmployees } from '../../data/employeeData';
 import { mockAdvanceLoanRequests } from '../../data/advanceLoanData';
@@ -1212,6 +1213,7 @@ function ExportModal({ onClose, onExport }) {
 }
 
 function AdvanceLoanManagement() {
+  const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
   const [requests, setRequests] = useState(() => {
     try {
       return (
@@ -1557,7 +1559,7 @@ function AdvanceLoanManagement() {
                 Deduction History
               </button>
             )}
-            {tab !== 'advances' && (
+            {canAdd('advances_loans') && tab !== 'advances' && (
               <button
                 type="button"
                 className={styles.secondaryButton}
@@ -1566,7 +1568,7 @@ function AdvanceLoanManagement() {
                 <Plus size={16} /> Request Loan
               </button>
             )}
-            {tab !== 'loans' && (
+            {canAdd('advances_loans') && tab !== 'loans' && (
               <button
                 type="button"
                 className={styles.primaryButton}
