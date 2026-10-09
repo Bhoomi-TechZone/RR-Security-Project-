@@ -31,6 +31,33 @@ export const clientService = {
   },
 
   /**
+   * Fetch single client details by ID or clientId
+   */
+  async getClientById(companyId, id) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE_URL}/clients/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': companyId || '',
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch client details');
+      }
+
+      return data.client;
+    } catch (error) {
+      console.error('clientService.getClientById error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get next sequential Client ID for company (e.g. CLI-001)
    */
   async getNextClientId(companyId) {

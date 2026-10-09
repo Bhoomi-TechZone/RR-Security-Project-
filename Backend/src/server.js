@@ -21,6 +21,11 @@ import preferenceRoutes from './routes/preferenceRoutes.js';
 import masterRoutes from './routes/masterRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import announcementRoutes from './routes/announcementRoutes.js';
+import statutoryRoutes from './routes/statutoryRoutes.js';
+import payrollRoutes from './routes/payrollRoutes.js';
+import reimbursementRoutes from './routes/reimbursementRoutes.js';
+import advanceLoanRoutes from './routes/advanceLoanRoutes.js';
+import payrollSetupRoutes from './routes/payrollSetupRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -195,6 +200,21 @@ app.use('/api/dashboard', dashboardRoutes);
 
 // Dynamic Announcements (Targeted to All, Clients, Employees)
 app.use('/api/announcements', announcementRoutes);
+
+// Statutory Setup & Compliance Rules (PF, ESI, PT, TDS, Bonus, Gratuity, LWF in MongoDB)
+app.use('/api/statutory', statutoryRoutes);
+
+// Dynamic Payroll Engine (Calculations, Runs, Approvals, Slips, Revisions, Arrears)
+app.use('/api/payroll', payrollRoutes);
+
+// Dynamic Reimbursement Management (Claims, Expense Types, Approvals, Payments)
+app.use('/api/reimbursements', reimbursementRoutes);
+
+// Dynamic Advance & Loan Management (Requests, Approvals, EMIs, Schedules, History)
+app.use('/api/advances-loans', advanceLoanRoutes);
+
+// Dynamic Payroll Setup (Pay Groups, Schedules, Cycles, Pay Days, Calculation Methods)
+app.use('/api/payroll-setup', payrollSetupRoutes);
 
 
 // ===========================================

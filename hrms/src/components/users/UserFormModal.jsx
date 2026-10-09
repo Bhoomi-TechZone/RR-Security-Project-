@@ -12,7 +12,8 @@ import {
   Check,
   ExternalLink,
   Eye,
-  EyeOff
+  EyeOff,
+  Loader2
 } from 'lucide-react';
 import styles from './UserFormModal.module.css';
 import { getRolePermissionsOverview } from '../../data/adminUsersData';
@@ -44,6 +45,7 @@ function UserFormModal({
   });
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -198,8 +200,9 @@ function UserFormModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!validate()) return;
 
     const roleObj = roles.find(r => 
@@ -213,18 +216,25 @@ function UserFormModal({
     const { password, confirmPassword, ...safeFormData } = formData;
     const finalUserId = isEditing ? initialUser?.userId : (nextUserId || '');
 
-    onSubmit({
-      ...safeFormData,
-      password: !isEditing ? password : undefined,
-      userId: finalUserId,
-      name: safeFormData.name.trim(),
-      email: safeFormData.email.trim(),
-      mobile: safeFormData.mobile.trim(),
-      isExistingEmployee: userType === 'employee' && Boolean(selectedEmployeeId || safeFormData.employeeId),
-      employeeId: userType === 'employee' ? (selectedEmployeeId || safeFormData.employeeId) : null,
-      roleId: roleObj?.id || roleObj?.roleId || roleObj?._id || formData.roleId,
-      roleName: roleObj ? roleObj.name : 'Custom Role'
-    });
+    try {
+      setIsSubmitting(true);
+      await onSubmit({
+        ...safeFormData,
+        password: !isEditing ? password : undefined,
+        userId: finalUserId,
+        name: safeFormData.name.trim(),
+        email: safeFormData.email.trim(),
+        mobile: safeFormData.mobile.trim(),
+        isExistingEmployee: userType === 'employee' && Boolean(selectedEmployeeId || safeFormData.employeeId),
+        employeeId: userType === 'employee' ? (selectedEmployeeId || safeFormData.employeeId) : null,
+        roleId: roleObj?.id || roleObj?.roleId || roleObj?._id || formData.roleId,
+        roleName: roleObj ? roleObj.name : 'Custom Role'
+      });
+    } catch (err) {
+      console.error('Error submitting user:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const title = isEditing ? 'Edit HRMS User' : 'Add New HRMS User';
@@ -608,15 +618,26 @@ function UserFormModal({
               type="button"
               className={styles.btnCancel}
               onClick={onClose}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className={styles.btnSubmit}
+              disabled={isSubmitting}
             >
-              <Check size={16} />
-              <span>{isEditing ? 'Save Changes' : 'Create User'}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className={styles.spinner} />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Check size={16} />
+                  <span>{isEditing ? 'Save Changes' : 'Create User'}</span>
+                </>
+              )}
             </button>
           </div>
         </form>

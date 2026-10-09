@@ -25,7 +25,7 @@ export default function ReimbursementPaymentForm({ claim, onClose, onProcess }) 
       return;
     }
 
-    onProcess(claim.id, {
+    onProcess(claim._id || claim.id || claim.claimId, {
       paidAmount: Number(paidAmt),
       paymentDate,
       paymentMode,
@@ -53,12 +53,12 @@ export default function ReimbursementPaymentForm({ claim, onClose, onProcess }) 
             <div className={styles.infoGrid}>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Beneficiary</span>
-                <span className={styles.infoVal}>{claim.employeeName} ({claim.employeeCode})</span>
+                <span className={styles.infoVal}>{claim.employeeName} ({claim.employeeCode || claim.employeeId})</span>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Approved Payable</span>
                 <span className={styles.infoVal} style={{ color: '#16a34a', fontSize: '15px' }}>
-                  ₹{maxPayable.toLocaleString()}
+                  ₹{Number(maxPayable || 0).toLocaleString('en-IN')}
                 </span>
               </div>
             </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Check, ChevronRight, ChevronLeft } from 'lucide-react';
+import { X, Check, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import styles from './EmployeeForm.module.css';
 import PersonalInfoStep from './PersonalInfoStep';
 import EmploymentStep from './EmploymentStep';
@@ -48,6 +48,7 @@ const DEFAULT_FORM_DATA = {
   companyName: '',
   department: '',
   designation: '',
+  clientAddress: '',
   siteLocation: '',
   dutyPost: '',
   shift: '',
@@ -249,7 +250,8 @@ const normalizeEmployeeForForm = (employee) => {
     companyName: employee.companyName ?? employee.clientName ?? '',
     department: employee.department ?? '',
     designation: employee.designation ?? '',
-    siteLocation: employee.siteLocation ?? employee.site ?? '',
+    clientAddress: employee.clientAddress ?? employee.siteLocation ?? employee.site ?? employee.address ?? '',
+    siteLocation: employee.clientAddress ?? employee.siteLocation ?? employee.site ?? '',
     dutyPost: employee.dutyPost ?? '',
     shift: employee.shift ?? '',
     reportingSupervisor: employee.reportingSupervisor ?? '',
@@ -345,6 +347,7 @@ function EmployeeForm({
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
 
   const isEditMode = !!employee;
@@ -444,8 +447,16 @@ function EmployeeForm({
     setFormData(updated);
   };
 
-  const handleSubmit = () => {
-    onSubmit(formData);
+  const handleSubmit = async () => {
+    if (isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      await onSubmit(formData);
+    } catch (err) {
+      console.error('Error saving employee:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isLastStep = currentStep === STEPS.length - 1;
@@ -468,7 +479,7 @@ function EmployeeForm({
               Step {currentStep + 1} of {STEPS.length}: {STEPS[currentStep].label}
             </p>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form">
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form" disabled={isSubmitting}>
             <X size={16} />
           </button>
         </header>
@@ -485,8 +496,10 @@ function EmployeeForm({
                   <button
                     key={step.id}
                     type="button"
+                    disabled={isSubmitting}
                     className={`${styles.stepItem} ${styles.stepItemClickable} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
                     onClick={() => {
+                      if (isSubmitting) return;
                       setErrors({});
                       setCurrentStep(idx);
                     }}
@@ -564,18 +577,18 @@ function EmployeeForm({
             />
           )}
           {currentStep === 6 && (
-            <EmployeeReview data={formData} onEditStep={(stepIdx) => setCurrentStep(stepIdx)} />
+            <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
           )}
         </div>
 
         {/* Footer Navigation */}
         <footer className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose} type="button">
+          <button className={styles.cancelBtn} onClick={onClose} type="button" disabled={isSubmitting}>
             Cancel
           </button>
           <div className={styles.navButtons}>
             {currentStep > 0 && (
-              <button className={styles.backBtn} onClick={handleBack} type="button">
+              <button className={styles.backBtn} onClick={handleBack} type="button" disabled={isSubmitting}>
                 <ChevronLeft size={16} />
                 <span>Back</span>
               </button>
@@ -584,13 +597,28 @@ function EmployeeForm({
             {isEditMode ? (
               <>
                 {/* Save Changes button on every step for Edit Mode */}
-                <button className={styles.submitBtn} onClick={handleSubmit} type="button" title="Save changes">
-                  <Check size={16} />
-                  <span>Save Changes</span>
+                <button
+                  className={styles.submitBtn}
+                  onClick={handleSubmit}
+                  type="button"
+                  title="Save changes"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className={styles.spinner} />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>Save Changes</span>
+                    </>
+                  )}
                 </button>
 
                 {!isLastStep && (
-                  <button className={styles.nextBtn} onClick={handleNext} type="button">
+                  <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
                     <span>Continue</span>
                     <ChevronRight size={16} />
                   </button>
@@ -600,12 +628,26 @@ function EmployeeForm({
               <>
                 {/* Standard Add Employee flow: Save only on last step, Continue on others */}
                 {isLastStep ? (
-                  <button className={styles.submitBtn} onClick={handleSubmit} type="button">
-                    <Check size={16} />
-                    <span>Save Employee</span>
+                  <button
+                    className={styles.submitBtn}
+                    onClick={handleSubmit}
+                    type="button"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={16} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={16} />
+                        <span>Save Employee</span>
+                      </>
+                    )}
                   </button>
                 ) : (
-                  <button className={styles.nextBtn} onClick={handleNext} type="button">
+                  <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
                     <span>Continue</span>
                     <ChevronRight size={16} />
                   </button>

@@ -28,6 +28,7 @@ import AssetClearanceModal from '../../components/inventory/AssetClearanceModal'
 import StockMovementTable from '../../components/inventory/StockMovementTable';
 import InventoryReportsModal from '../../components/inventory/InventoryReportsModal';
 import InventoryDetailsDrawer from '../../components/inventory/InventoryDetailsDrawer';
+import RequisitionDetailsModal from '../../components/inventory/RequisitionDetailsModal';
 
 import styles from './Inventory.module.css';
 
@@ -216,7 +217,7 @@ function Filters({ values, setValue, onReset, inventoryType = 'uniform' }) {
               className={styles.input}
               value={values.search}
               onChange={(e) => setValue('search', e.target.value)}
-              placeholder={inventoryType === 'uniform' ? 'Search uniform name, size, brand, code...' : 'Search asset name, serial, brand, code...'}
+              placeholder={inventoryType === 'uniform' ? 'Search uniform name, vendor, size, brand...' : 'Search asset name, serial, brand, code...'}
             />
           </div>
         </div>
@@ -392,7 +393,7 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, onDelete, i
           <thead>
             {isUniform ? (
               <tr>
-                <th>Uniform Code</th>
+                <th>Vendor Name</th>
                 <th>Uniform Item Name</th>
                 <th>Category</th>
                 <th>Size</th>
@@ -439,7 +440,7 @@ function StockTable({ rows, onView, onEdit, onIssue, onToggleStatus, onDelete, i
 
               return (
                 <tr key={item.id || item.itemId}>
-                  <td className={styles.codeCell}>{item.itemCode || item.itemId}</td>
+                  <td className={styles.codeCell}>{isUniform ? (item.vendorName || item.vendor || item.itemCode || '—') : (item.itemCode || item.itemId)}</td>
                   <td>
                     <div className={styles.itemCell}>
                       <span className={styles.itemIcon}>
@@ -853,6 +854,232 @@ function ClearanceTable({ rows, onInspectClearance }) {
   );
 }
 
+// 5b. Enhanced Uniform & Asset Requests Table
+function RequestsTable({ rows, onViewDetails, onAssign, onReject }) {
+  return (
+    <div className={styles.tableCard}>
+      <div className={styles.tableResponsive}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Request ID & Date</th>
+              <th>Employee Details</th>
+              <th>Client & Site</th>
+              <th>Item Requested</th>
+              <th>Type & Category</th>
+              <th>Size / Colour</th>
+              <th>Quantity</th>
+              <th>Reason & Priority</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Admin Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((req) => {
+              const isUniform = req.requestType === 'uniform' || req.category === 'Uniform' || req.category === 'Accessory';
+              const initials = (req.employeeName || 'EM')
+                .split(' ')
+                .map((w) => w[0])
+                .join('')
+                .slice(0, 2)
+                .toUpperCase();
+
+              return (
+                <tr key={req.id || req._id || req.requestId}>
+                  <td>
+                    <strong style={{ fontFamily: 'monospace', color: '#0f172a', display: 'block' }}>
+                      {req.requestId}
+                    </strong>
+                    <small style={{ color: '#64748b', fontSize: '11px' }}>
+                      {req.requestDate || '—'}
+                    </small>
+                  </td>
+
+                  <td>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <div
+                        style={{
+                          width: '34px',
+                          height: '34px',
+                          borderRadius: '50%',
+                          background: '#eff6ff',
+                          color: '#2563eb',
+                          fontWeight: 700,
+                          fontSize: '12px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div>
+                        <strong style={{ color: '#0f172a', display: 'block', fontSize: '13px' }}>
+                          {req.employeeName}
+                        </strong>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          {req.employeeId} • {req.designation || 'Security Staff'}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    <div style={{ fontWeight: 600, color: '#334155', fontSize: '12px' }}>
+                      {req.clientName || 'Central Stock'}
+                    </div>
+                    <small style={{ color: '#64748b', fontSize: '11px' }}>
+                      {req.site || 'Main Facility'}
+                    </small>
+                  </td>
+
+                  <td>
+                    <div style={{ fontWeight: 600, color: '#0f172a' }}>{req.itemName}</div>
+                    {req.brand && (
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>Make: {req.brand}</div>
+                    )}
+                  </td>
+
+                  <td>
+                    <span
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        backgroundColor: isUniform ? '#eff6ff' : '#f0fdf4',
+                        color: isUniform ? '#1d4ed8' : '#15803d',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      {isUniform ? <Shirt size={12} /> : <Shield size={12} />}
+                      {req.category || (isUniform ? 'Uniform' : 'Equipment')}
+                    </span>
+                  </td>
+
+                  <td>
+                    {isUniform ? (
+                      <div style={{ fontSize: '12px' }}>
+                        <strong>{req.size || 'Free Size'}</strong>
+                        {req.color && (
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{req.color}</div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: '12px', color: '#94a3b8' }}>N/A (Asset)</span>
+                    )}
+                  </td>
+
+                  <td>
+                    <strong style={{ color: '#0f172a', fontSize: '13px' }}>
+                      {req.quantity} {req.unit || 'Pcs'}
+                    </strong>
+                  </td>
+
+                  <td>
+                    <div style={{ fontSize: '12px', color: '#334155' }}>{req.reason}</div>
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        backgroundColor:
+                          req.urgency === 'Urgent'
+                            ? '#fee2e2'
+                            : req.urgency === 'High'
+                            ? '#fef3c7'
+                            : '#f1f5f9',
+                        color:
+                          req.urgency === 'Urgent'
+                            ? '#b91c1c'
+                            : req.urgency === 'High'
+                            ? '#b45309'
+                            : '#475569',
+                        display: 'inline-block',
+                        marginTop: '2px'
+                      }}
+                    >
+                      {req.urgency || 'Normal'} Priority
+                    </span>
+                  </td>
+
+                  <td>
+                    <StatusBadge status={req.status || 'Pending Review'} />
+                  </td>
+
+                  <td style={{ textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      <button
+                        type="button"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '6px',
+                          color: '#334155',
+                          padding: '5px 8px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s'
+                        }}
+                        onClick={() => onViewDetails(req)}
+                        title="View Full Requisition Dossier"
+                      >
+                        <Eye size={13} /> Details
+                      </button>
+
+                      {req.status === 'Pending Review' ? (
+                        <>
+                          <button
+                            type="button"
+                            className={styles.smallActionPrimary}
+                            onClick={() => onAssign(req)}
+                            title="Approve and Issue Item to Employee"
+                          >
+                            Assign
+                          </button>
+                          <button
+                            type="button"
+                            style={{
+                              background: 'none',
+                              border: '1px solid #fecaca',
+                              borderRadius: '6px',
+                              color: '#dc2626',
+                              padding: '5px 8px',
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => onReject(req)}
+                            title="Reject Request"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                          {req.adminRemarks || (req.status === 'Assigned' ? 'Custody Issued' : req.status)}
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // Main Inventory Component
 export default function Inventory() {
   const { activeCompany } = useCompany();
@@ -872,12 +1099,12 @@ export default function Inventory() {
 
   // Navigation & filter state
   const initialTab = searchParams.get('tab') || 'stock';
-  const [tab, setTab] = useState(initialTab); // 'stock' | 'issued' | 'returns' | 'movement' | 'clearance'
+  const [tab, setTab] = useState(initialTab); // 'stock' | 'requests' | 'issued' | 'returns' | 'movement' | 'clearance'
   const [inventoryType, setInventoryType] = useState('uniform'); // 'uniform' | 'asset'
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['stock', 'issued', 'returns', 'movement', 'clearance'].includes(tabParam)) {
+    if (tabParam && ['stock', 'requests', 'issued', 'returns', 'movement', 'clearance'].includes(tabParam)) {
       setTab(tabParam);
     } else {
       setTab('stock');
@@ -887,6 +1114,8 @@ export default function Inventory() {
   const [filters, setFilters] = useState({ search: '', category: '', size: '', status: '' });
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
+
+  const [requests, setRequests] = useState([]);
 
   // Modal / Drawer states
   const [itemModalOpen, setItemModalOpen] = useState(false);
@@ -920,19 +1149,24 @@ export default function Inventory() {
   const [detailsDrawerOpen, setDetailsDrawerOpen] = useState(false);
   const [drawerTargetItem, setDrawerTargetItem] = useState(null);
 
+  const [requisitionDetailsModalOpen, setRequisitionDetailsModalOpen] = useState(false);
+  const [selectedRequestForDetails, setSelectedRequestForDetails] = useState(null);
+  const [isActingOnRequest, setIsActingOnRequest] = useState(false);
+
   const notify = (message, type = 'success') => setToast({ message, type });
 
   // Fetch all inventory data from MongoDB backend API
   const fetchInventoryData = useCallback(async () => {
     try {
       setLoading(true);
-      const [itemsRes, issuedRes, returnsRes, movementsRes, clearancesRes, empRes] = await Promise.all([
+      const [itemsRes, issuedRes, returnsRes, movementsRes, clearancesRes, empRes, reqsRes] = await Promise.all([
         inventoryService.getItems(companyId),
         inventoryService.getIssuedItems(companyId),
         inventoryService.getReturnRecords(companyId),
         inventoryService.getMovements(companyId),
         inventoryService.getClearances(companyId),
-        inventoryService.getEmployees(companyId)
+        inventoryService.getEmployees(companyId),
+        inventoryService.getRequests(companyId)
       ]);
       setItems(itemsRes);
       setIssued(issuedRes);
@@ -940,6 +1174,7 @@ export default function Inventory() {
       setMovements(movementsRes);
       setClearances(clearancesRes);
       setEmployees(empRes || []);
+      setRequests(reqsRes || []);
     } catch (err) {
       console.error('Failed to load inventory data:', err);
       notify(err.message || 'Failed to load inventory from server', 'danger');
@@ -995,7 +1230,7 @@ export default function Inventory() {
   const filteredStock = useMemo(() => {
     return currentBaseItems.filter((item) => {
       const q = filters.search.toLowerCase().trim();
-      if (q && !`${item.itemName} ${item.itemCode || item.itemId} ${item.category} ${item.brand}`.toLowerCase().includes(q)) {
+      if (q && !`${item.itemName} ${item.vendorName || ''} ${item.vendor || ''} ${item.itemCode || item.itemId} ${item.category} ${item.brand}`.toLowerCase().includes(q)) {
         return false;
       }
       if (filters.category && item.category !== filters.category) return false;
@@ -1029,9 +1264,96 @@ export default function Inventory() {
     });
   }, [currentBaseReturns, filters]);
 
+  // Filtered Requisition rows
+  const filteredRequests = useMemo(() => {
+    return requests.filter((item) => {
+      const q = filters.search.toLowerCase().trim();
+      if (q && !`${item.employeeName} ${item.employeeId} ${item.itemName} ${item.requestId} ${item.reason}`.toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  }, [requests, filters]);
+
   // Active rows & pagination
-  const activeRows = tab === 'stock' ? filteredStock : tab === 'issued' ? filteredIssued : tab === 'returns' ? filteredReturns : clearances;
+  const activeRows = tab === 'stock' ? filteredStock : tab === 'requests' ? filteredRequests : tab === 'issued' ? filteredIssued : tab === 'returns' ? filteredReturns : clearances;
   const pageRows = activeRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  // Quick Assign Requisition Handler
+  const handleAssignRequisition = async (req) => {
+    try {
+      setLoading(true);
+      const res = await inventoryService.actionRequest(companyId, req.id || req.requestId, {
+        action: 'assign',
+        adminRemarks: `Approved and custody issued by admin.`
+      });
+      notify(res.message || 'Item assigned and issued to employee successfully!');
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to assign item', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Reject Requisition Handler
+  const handleRejectRequisition = async (req) => {
+    const reason = window.prompt(`Reject requisition ${req.requestId} for ${req.employeeName}?\nEnter rejection reason:`, 'Item out of stock / Requirement not applicable.');
+    if (reason === null) return;
+    try {
+      setLoading(true);
+      const res = await inventoryService.actionRequest(companyId, req.id || req.requestId, {
+        action: 'reject',
+        adminRemarks: reason
+      });
+      notify(res.message || 'Request rejected.', 'info');
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to reject request', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Requisition Modal Approve & Assign Handler
+  const handleApproveAndAssignFromModal = async ({ request, adminRemarks, condition, serialNumber }) => {
+    try {
+      setIsActingOnRequest(true);
+      const res = await inventoryService.actionRequest(companyId, request.id || request.requestId, {
+        action: 'assign',
+        adminRemarks,
+        condition,
+        serialNumber
+      });
+      notify(res.message || `✓ Item assigned and custody issued to ${request.employeeName}.`);
+      setRequisitionDetailsModalOpen(false);
+      setSelectedRequestForDetails(null);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to assign item', 'danger');
+    } finally {
+      setIsActingOnRequest(false);
+    }
+  };
+
+  // Requisition Modal Reject Handler
+  const handleRejectFromModal = async (request, remarks) => {
+    try {
+      setIsActingOnRequest(true);
+      const res = await inventoryService.actionRequest(companyId, request.id || request.requestId, {
+        action: 'reject',
+        adminRemarks: remarks
+      });
+      notify(res.message || `Requisition ${request.requestId} was rejected.`, 'info');
+      setRequisitionDetailsModalOpen(false);
+      setSelectedRequestForDetails(null);
+      await fetchInventoryData();
+    } catch (err) {
+      notify(err.message || 'Failed to reject requisition', 'danger');
+    } finally {
+      setIsActingOnRequest(false);
+    }
+  };
 
   // 1. Save or Update Item Master in Backend
   const handleSaveItemMaster = async (itemData) => {
@@ -1191,7 +1513,7 @@ export default function Inventory() {
           </button>
           <span>/</span>
           <strong>
-            {tab === 'issued' ? 'Issued Items' : tab === 'returns' ? 'Return History' : tab === 'movement' ? 'Stock Movements' : tab === 'clearance' ? 'Asset Exit Clearance' : 'Inventory Stock'}
+            {tab === 'requests' ? 'Uniform Requisitions' : tab === 'issued' ? 'Issued Items' : tab === 'returns' ? 'Return History' : tab === 'movement' ? 'Stock Movements' : tab === 'clearance' ? 'Asset Exit Clearance' : 'Inventory Stock'}
           </strong>
         </div>
 
@@ -1199,10 +1521,10 @@ export default function Inventory() {
         <header className={styles.pageHeader}>
           <div>
             <h1>
-              {tab === 'issued' ? 'Uniform & Asset Issue Register' : tab === 'returns' ? 'Uniform & Asset Return History' : tab === 'movement' ? 'Stock Movement & Audit Trail' : tab === 'clearance' ? 'Employee Exit Asset Clearance' : 'Inventory Management'}
+              {tab === 'requests' ? 'Uniform & Asset Requisitions' : tab === 'issued' ? 'Uniform & Asset Issue Register' : tab === 'returns' ? 'Uniform & Asset Return History' : tab === 'movement' ? 'Stock Movement & Audit Trail' : tab === 'clearance' ? 'Employee Exit Asset Clearance' : 'Inventory Management'}
             </h1>
             <p>
-              {tab === 'issued' ? 'Track issued uniform sets, safety gear, and assigned equipment to field personnel.' : tab === 'returns' ? 'Uniform inspection logs, returned condition grading, and recovery charges.' : tab === 'movement' ? 'Detailed inbound, outbound, opening balance, and adjustment transaction audit logs.' : tab === 'clearance' ? 'Separating employee no-due asset recovery, handover approvals, and clearance certificates.' : 'Stock registers, uniform issues, return inspection & exit clearance'}
+              {tab === 'requests' ? 'Review employee requests for uniform sets, tactical equipment and assign custody stock.' : tab === 'issued' ? 'Track issued uniform sets, safety gear, and assigned equipment to field personnel.' : tab === 'returns' ? 'Uniform inspection logs, returned condition grading, and recovery charges.' : tab === 'movement' ? 'Detailed inbound, outbound, opening balance, and adjustment transaction audit logs.' : tab === 'clearance' ? 'Separating employee no-due asset recovery, handover approvals, and clearance certificates.' : 'Stock registers, uniform issues, return inspection & exit clearance'}
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -1481,6 +1803,38 @@ export default function Inventory() {
               </>
             )}
 
+            {tab === 'requests' && (
+              <>
+                {pageRows.length ? (
+                  <RequestsTable
+                    rows={pageRows}
+                    onViewDetails={(req) => {
+                      setSelectedRequestForDetails(req);
+                      setRequisitionDetailsModalOpen(true);
+                    }}
+                    onAssign={handleAssignRequisition}
+                    onReject={handleRejectRequisition}
+                  />
+                ) : (
+                  <div className={styles.emptyWrap}>
+                    <EmptyState
+                      title="No employee uniform requisitions found."
+                      description="Requests submitted by employees from the Employee Portal will appear here for admin review and assignment."
+                      actionLabel="Reset Filters"
+                      onAction={resetFilters}
+                    />
+                  </div>
+                )}
+                <Pagination
+                  currentPage={page}
+                  totalItems={filteredRequests.length}
+                  itemsPerPage={PAGE_SIZE}
+                  onPageChange={setPage}
+                  label="Requisitions"
+                />
+              </>
+            )}
+
             {tab === 'issued' && (
               <>
                 {pageRows.length ? (
@@ -1715,6 +2069,19 @@ export default function Inventory() {
             setIssueTargetItem(item);
             setIssueModalOpen(true);
           }}
+        />
+
+        <RequisitionDetailsModal
+          isOpen={requisitionDetailsModalOpen}
+          request={selectedRequestForDetails}
+          items={items}
+          isSubmitting={isActingOnRequest}
+          onClose={() => {
+            setRequisitionDetailsModalOpen(false);
+            setSelectedRequestForDetails(null);
+          }}
+          onApproveAndAssign={handleApproveAndAssignFromModal}
+          onReject={handleRejectFromModal}
         />
 
       </div>

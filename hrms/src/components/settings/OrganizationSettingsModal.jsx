@@ -115,7 +115,6 @@ const SETTINGS_SECTIONS = [
     headerTheme: styles.themePurpleHeader,
     items: [
       { name: 'Employee Portal', route: '/admin/preferences?tab=employee-portal' },
-      { name: 'Reporting Manager Permissions', route: '/admin/preferences?tab=reporting-manager' },
       { name: 'Email Settings', route: '/admin/preferences?tab=email' },
       { name: 'Notification Settings', route: '/admin/preferences?tab=notifications' },
       { name: 'Approval Settings', route: '/admin/preferences?tab=approvals' }

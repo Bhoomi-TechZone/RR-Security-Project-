@@ -22,11 +22,11 @@ export default function ReimbursementForm({ isOpen, onClose, onSave, editingClai
   const [receiptFile, setReceiptFile] = useState(editingClaim?.receipt || null);
 
   const activeEmployee = useMemo(() => {
-    return employees.find(e => e.id === selectedEmpId) || employees[0];
+    return employees.find(e => (e.id === selectedEmpId || e._id === selectedEmpId || e.employeeId === selectedEmpId)) || employees[0] || {};
   }, [selectedEmpId, employees]);
 
   const activeExpenseMeta = useMemo(() => {
-    return expenseTypes.find(t => t.name === expenseType) || expenseTypes[0];
+    return expenseTypes.find(t => t.name === expenseType) || expenseTypes[0] || {};
   }, [expenseType, expenseTypes]);
 
   const handleFileDrop = (e) => {
@@ -38,7 +38,7 @@ export default function ReimbursementForm({ isOpen, onClose, onSave, editingClai
         fileSize: `${Math.round(file.size / 1024)} KB`,
         fileType: file.type || 'application/pdf',
         uploadedAt: new Date().toLocaleString(),
-        previewUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=60'
+        previewUrl: ''
       });
     }
   };
@@ -52,16 +52,19 @@ export default function ReimbursementForm({ isOpen, onClose, onSave, editingClai
 
     const payload = {
       ...(editingClaim || {}),
-      employeeId: activeEmployee.id,
-      employeeCode: activeEmployee.employeeCode,
-      employeeName: activeEmployee.name,
+      employeeId: activeEmployee._id || activeEmployee.id || activeEmployee.employeeId,
+      employeeCode: activeEmployee.employeeId || activeEmployee.employeeCode || '',
+      employeeName: activeEmployee.name || activeEmployee.employeeName || 'Employee',
       department: activeEmployee.department || 'Security',
       designation: activeEmployee.designation || 'Staff',
-      client: activeEmployee.companyName || 'ABC Security Services',
-      site: activeEmployee.siteLocation || activeEmployee.joiningLocation || 'Main Campus',
+      client: activeEmployee.clientName || activeEmployee.companyName || 'RR Security',
+      clientName: activeEmployee.clientName || activeEmployee.companyName || 'RR Security',
+      site: activeEmployee.site || activeEmployee.siteLocation || activeEmployee.joiningLocation || 'Main Site',
       expenseDate,
       expenseType,
+      claimedAmount: Number(amount),
       amount: Number(amount),
+      description: purpose,
       purpose,
       receipt: receiptFile,
       payrollIncluded: payWithSalary,
@@ -100,14 +103,19 @@ export default function ReimbursementForm({ isOpen, onClose, onSave, editingClai
                 onChange={(e) => setSelectedEmpId(e.target.value)}
                 required
               >
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.employeeCode} — {emp.name} ({emp.department} • {emp.designation})
-                  </option>
-                ))}
+                {employees.map(emp => {
+                  const empKey = emp._id || emp.id || emp.employeeId;
+                  const empCode = emp.employeeId || emp.employeeCode || '';
+                  const empName = emp.name || emp.employeeName || 'Employee';
+                  return (
+                    <option key={empKey} value={empKey}>
+                      {empCode} — {empName} ({emp.department || 'General'} • {emp.designation || 'Staff'})
+                    </option>
+                  );
+                })}
               </select>
               <span className={styles.helperText}>
-                Site: <strong>{activeEmployee?.siteLocation || 'Main Gate'}</strong> | Client: <strong>{activeEmployee?.companyName || 'ABC Security'}</strong>
+                Site: <strong>{activeEmployee?.site || activeEmployee?.siteLocation || 'Main Site'}</strong> | Client: <strong>{activeEmployee?.clientName || activeEmployee?.companyName || 'RR Security'}</strong>
               </span>
             </div>
 

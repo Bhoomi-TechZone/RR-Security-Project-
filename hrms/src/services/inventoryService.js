@@ -106,6 +106,8 @@ class InventoryService {
   async getIssuedItems(companyId, params = {}) {
     const query = new URLSearchParams();
     if (params.employeeId) query.append('employeeId', params.employeeId);
+    if (params.employeeName) query.append('employeeName', params.employeeName);
+    if (params.employeeEmail) query.append('employeeEmail', params.employeeEmail);
     if (params.issueType) query.append('issueType', params.issueType);
     if (params.status) query.append('status', params.status);
     if (params.search) query.append('search', params.search);
@@ -179,6 +181,7 @@ class InventoryService {
   async getReturnRecords(companyId, params = {}) {
     const query = new URLSearchParams();
     if (params.employeeId) query.append('employeeId', params.employeeId);
+    if (params.employeeName) query.append('employeeName', params.employeeName);
     if (params.condition) query.append('condition', params.condition);
     if (params.search) query.append('search', params.search);
 
@@ -270,6 +273,79 @@ class InventoryService {
     const data = await res.json();
     if (!res.ok) {
       throw new Error(data.message || 'Failed to approve clearance');
+    }
+    return data;
+  }
+
+  /**
+   * ==========================================
+   * 6. UNIFORM & ASSET REQUISITIONS / REQUESTS
+   * ==========================================
+   */
+
+  async getRequests(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.employeeId) query.append('employeeId', params.employeeId);
+    if (params.employeeName) query.append('employeeName', params.employeeName);
+    if (params.requestType) query.append('requestType', params.requestType);
+    if (params.status) query.append('status', params.status);
+    if (params.search) query.append('search', params.search);
+
+    const res = await fetch(`${API_BASE_URL}/inventory/requests?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch inventory requests');
+    }
+    return data.requests || [];
+  }
+
+  async createRequest(companyId, requestData) {
+    const res = await fetch(`${API_BASE_URL}/inventory/requests`, {
+      method: 'POST',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        ...requestData,
+        companyId: companyId
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to submit uniform/asset request');
+    }
+    return data;
+  }
+
+  async actionRequest(companyId, id, actionData) {
+    const res = await fetch(`${API_BASE_URL}/inventory/requests/${id}/action`, {
+      method: 'POST',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        ...actionData,
+        companyId: companyId
+      })
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to action request');
+    }
+    return data;
+  }
+
+  async deleteRequest(companyId, id) {
+    const res = await fetch(`${API_BASE_URL}/inventory/requests/${id}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(companyId)
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to delete request');
     }
     return data;
   }

@@ -389,10 +389,36 @@ function Attendance() {
   // --- Instant Edit Handler (Direct Save without Approval) ---
   const handleEditRecordSubmit = async (formData) => {
     try {
+      const present = Number(formData.present) || 0;
+      const weekOff = Number(formData.weekOff) || 0;
+      const holidays = Number(formData.holidays) || 0;
+      const cl = Number(formData.cl) || 0;
+      const sl = Number(formData.sl) || 0;
+      const el = Number(formData.el) || 0;
+      const lwp = Number(formData.lwp) || 0;
+      const totalPaidDays = formData.totalPaidDays !== undefined 
+        ? Number(formData.totalPaidDays) 
+        : (present + weekOff + holidays + cl + sl + el);
+      const workingDays = formData.workingDays !== undefined
+        ? Number(formData.workingDays)
+        : totalPaidDays;
+
       const payload = {
         companyId: compId,
         employeeId: formData.employeeId,
         employeeName: formData.employeeName,
+        fatherName: formData.fatherName || '',
+        month: formData.month || '',
+        year: Number(formData.year) || new Date().getFullYear(),
+        present,
+        weekOff,
+        holidays,
+        cl,
+        sl,
+        el,
+        lwp,
+        totalPaidDays,
+        workingDays,
         clientName: formData.clientName || formData.companyName || 'RR Security',
         companyName: formData.companyName || formData.clientName || 'RR Security',
         site: formData.site || 'Main Site',
@@ -400,7 +426,8 @@ function Attendance() {
         date: formData.date || selectedDate,
         checkIn: formData.checkIn || null,
         checkOut: formData.checkOut || null,
-        status: formData.status || 'present',
+        workingHours: `${present} days`,
+        status: formData.status || (present > 0 ? 'present' : 'present'),
         lateMinutes: Number(formData.lateMinutes) || 0,
         remarks: formData.remarks || '',
       };
@@ -419,7 +446,7 @@ function Attendance() {
       await attendanceService.reviewCorrectionRequest(compId, corrId, 'approve');
       await fetchRecords(selectedDate);
       setReviewRequest(null);
-      showToast('Correction approved and attendance updated directly in MongoDB database.');
+      showToast('✓ Correction approved and attendance record updated successfully.');
     } catch (err) {
       showToast(`Failed to approve correction: ${err.message}`, 'danger');
     }
@@ -430,7 +457,7 @@ function Attendance() {
       await attendanceService.reviewCorrectionRequest(compId, corrId, 'reject', reason);
       await fetchRecords(selectedDate);
       setReviewRequest(null);
-      showToast('Correction request rejected and updated in MongoDB database.', 'danger');
+      showToast('Correction request rejected.', 'danger');
     } catch (err) {
       showToast(`Failed to reject correction: ${err.message}`, 'danger');
     }
@@ -441,7 +468,7 @@ function Attendance() {
     try {
       await attendanceService.saveAttendanceRecord(compId, recordData);
       await fetchRecords(selectedDate);
-      showToast('Attendance record saved directly to MongoDB database.');
+      showToast('✓ Attendance record saved successfully.');
     } catch (err) {
       showToast(`Failed to save attendance: ${err.message}`, 'danger');
     }
@@ -463,6 +490,17 @@ function Attendance() {
     }).map((r) => ({
       'Employee ID': r.employeeId,
       'Employee Name': r.employeeName,
+      'Father Name': r.fatherName || '—',
+      'Month': r.month || '—',
+      'Year': r.year || (r.date ? r.date.split('-')[0] : '—'),
+      'Present': r.present !== undefined ? r.present : (r.status === 'present' ? 1 : 0),
+      'Week Off': r.weekOff !== undefined ? r.weekOff : 0,
+      'Holidays': r.holidays !== undefined ? r.holidays : 0,
+      'CL (Casual Leave)': r.cl !== undefined ? r.cl : 0,
+      'SL (Sick Leave)': r.sl !== undefined ? r.sl : 0,
+      'EL (Earn Leave)': r.el !== undefined ? r.el : 0,
+      'LWP (Leave Without Pay)': r.lwp !== undefined ? r.lwp : 0,
+      'Working Days': r.workingDays !== undefined ? r.workingDays : (r.totalPaidDays !== undefined ? r.totalPaidDays : '—'),
       'Client Name': r.companyName || r.clientName || 'General',
       'Site': r.site || 'Main Site',
       'Department': r.department || 'Security',
@@ -580,7 +618,7 @@ function Attendance() {
       const targetDate = date || (res.records && res.records[0]?.date) || selectedDate;
 
       setShowImportModal(false);
-      showToast(`✓ Successfully stored ${res.count || newRecords.length} attendance records directly in MongoDB database!`);
+      showToast(`✓ Successfully imported and updated ${res.count || newRecords.length} attendance records.`);
 
       if (targetDate) {
         handleDateChange(targetDate);

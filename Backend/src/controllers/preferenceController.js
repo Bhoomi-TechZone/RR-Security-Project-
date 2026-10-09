@@ -9,6 +9,7 @@ const DEFAULT_EMPLOYEE_PORTAL = {
   allowApplyLeave: true,
   allowLeaveBalance: true,
   allowSalarySlips: true,
+  allowAssetsUniform: true,
   allowProfile: true,
   allowNotifications: true,
   lastUpdated: new Date().toISOString(),
@@ -240,6 +241,7 @@ export const updateEmployeePortalPreferences = async (req, res) => {
       allowAttendance,
       allowLeaves,
       allowSalarySlips,
+      allowAssetsUniform,
       allowProfile,
       allowNotifications,
     } = req.body;
@@ -252,6 +254,7 @@ export const updateEmployeePortalPreferences = async (req, res) => {
       allowApplyLeave: allowLeaves !== undefined ? allowLeaves : true,
       allowLeaveBalance: allowLeaves !== undefined ? allowLeaves : true,
       allowSalarySlips: allowSalarySlips !== undefined ? allowSalarySlips : true,
+      allowAssetsUniform: allowAssetsUniform !== undefined ? allowAssetsUniform : true,
       allowProfile: allowProfile !== undefined ? allowProfile : true,
       allowNotifications: allowNotifications !== undefined ? allowNotifications : true,
       lastUpdated: new Date().toISOString(),

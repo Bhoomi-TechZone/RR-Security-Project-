@@ -36,7 +36,7 @@ export default function ReimbursementTable({
             </tr>
           ) : (
             claims.map((claim) => (
-              <tr key={claim.id}>
+              <tr key={claim._id || claim.id || claim.claimId}>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <button
                     type="button"
@@ -46,22 +46,22 @@ export default function ReimbursementTable({
                   >
                     {claim.claimId}
                   </button>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{claim.submittedDate}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>{claim.submittedDate || claim.expenseDate}</div>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <div className={styles.empCell}>
                     <div className={styles.empAvatar}>
-                      {claim.employeeName.split(' ').map(n => n[0]).join('')}
+                      {(claim.employeeName || 'EM').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
                     </div>
                     <div className={styles.empInfo}>
                       <span className={styles.empName}>{claim.employeeName}</span>
-                      <span className={styles.empCode}>{claim.employeeCode}</span>
+                      <span className={styles.empCode}>{claim.employeeCode || claim.employeeId}</span>
                     </div>
                   </div>
                 </td>
                 <td>
-                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{claim.department}</div>
-                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>{claim.site}</div>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{claim.department || 'General'}</div>
+                  <div style={{ fontSize: '11.5px', color: '#64748b' }}>{claim.site || 'Main Site'}</div>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '12.5px', color: '#334155' }}>{claim.expenseDate}</span>
@@ -72,11 +72,11 @@ export default function ReimbursementTable({
                   </span>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  <span className={styles.amountVal}>₹{claim.amount.toLocaleString()}</span>
+                  <span className={styles.amountVal}>₹{Number(claim.claimedAmount || claim.amount || 0).toLocaleString('en-IN')}</span>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
-                  {claim.approvedAmount > 0 ? (
-                    <span className={styles.approvedAmountVal}>₹{claim.approvedAmount.toLocaleString()}</span>
+                  {Number(claim.approvedAmount || 0) > 0 ? (
+                    <span className={styles.approvedAmountVal}>₹{Number(claim.approvedAmount).toLocaleString('en-IN')}</span>
                   ) : (
                     <span style={{ color: '#94a3b8', fontSize: '12.5px' }}>-</span>
                   )}

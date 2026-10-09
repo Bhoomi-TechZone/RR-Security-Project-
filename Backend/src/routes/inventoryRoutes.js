@@ -13,7 +13,11 @@ import {
   createReturnRecord,
   getStockMovements,
   getClearanceRecords,
-  approveClearance
+  approveClearance,
+  getInventoryRequests,
+  createInventoryRequest,
+  actionInventoryRequest,
+  deleteInventoryRequest
 } from '../controllers/inventoryController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
@@ -59,4 +63,16 @@ router.route('/clearances')
 router.route('/clearances/:id/approve')
   .post(adminOnly, approveClearance);
 
+// Uniform & Asset Requests (Requisitions)
+router.route('/requests')
+  .get(getInventoryRequests)
+  .post(createInventoryRequest);
+
+router.route('/requests/:id/action')
+  .post(adminOnly, actionInventoryRequest);
+
+router.route('/requests/:id')
+  .delete(deleteInventoryRequest);
+
 export default router;
+

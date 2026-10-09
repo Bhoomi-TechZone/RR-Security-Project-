@@ -1,9 +1,7 @@
-import React, { useState } from 'react';
-import { MoreVertical } from 'lucide-react';
-import StatusBadge from '../common/StatusBadge';
+import React from 'react';
 import EmptyState from '../common/EmptyState';
 import AttendanceActionMenu from './AttendanceActionMenu';
-import { formatTime, getStatusLabel } from '../../data/attendanceData';
+import { getDaysInMonth } from './AttendanceCorrectionModal';
 import styles from './AttendanceTable.module.css';
 
 function getInitialsBg(initials) {
@@ -11,19 +9,27 @@ function getInitialsBg(initials) {
     '#2563eb', '#16a34a', '#d97706', '#dc2626',
     '#7c3aed', '#0369a1', '#0f766e', '#9333ea'
   ];
-  const idx = (initials.charCodeAt(0) + (initials.charCodeAt(1) || 0)) % colors.length;
+  const str = String(initials || 'EM');
+  const idx = (str.charCodeAt(0) + (str.charCodeAt(1) || 0)) % colors.length;
   return colors[idx];
 }
 
-const formatDateDisplay = (dateStr) => {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return new Intl.DateTimeFormat('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric'
-  }).format(d);
+const formatMonthYearDisplay = (rec) => {
+  if (rec.month && rec.year) {
+    return `${rec.month} ${rec.year}`;
+  }
+  if (rec.month) return rec.month;
+  if (rec.date) {
+    const d = new Date(rec.date);
+    if (!isNaN(d.getTime())) {
+      return new Intl.DateTimeFormat('en-GB', {
+        month: 'short',
+        year: 'numeric'
+      }).format(d);
+    }
+    return rec.date;
+  }
+  return '—';
 };
 
 function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
@@ -57,141 +63,161 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
           <thead>
             <tr>
               <th>Employee</th>
-              <th>Date</th>
-              <th>Client / Site</th>
-              <th>Department</th>
-              <th>Check In</th>
-              <th>Check Out</th>
-              <th>Working Hours</th>
-              <th>Status</th>
+              <th>Father Name</th>
+              <th>Month / Year</th>
+              <th style={{ color: '#16a34a' }}>Present</th>
+              <th style={{ color: '#2563eb' }}>Week Off</th>
+              <th style={{ color: '#d97706' }}>Holidays</th>
+              <th style={{ color: '#7c3aed' }} title="Casual Leave">CL</th>
+              <th style={{ color: '#0284c7' }} title="Sick Leave">SL</th>
+              <th style={{ color: '#0d9488' }} title="Earn Leave">EL</th>
+              <th style={{ color: '#dc2626' }} title="Leave Without Pay">LWP</th>
+              <th>Working Days</th>
               <th className={styles.actionsCol}></th>
             </tr>
           </thead>
           <tbody>
-            {records.map((rec) => (
-              <tr key={rec.id} className={styles.row} onClick={() => onView(rec)}>
-                <td>
-                  <div className={styles.empCell}>
-                    <div
-                      className={styles.avatar}
-                      style={{ background: getInitialsBg(rec.initials) }}
-                    >
-                      {rec.initials}
+            {records.map((rec) => {
+              const present = rec.present !== undefined ? rec.present : (rec.status === 'present' ? 1 : 0);
+              const weekOff = rec.weekOff !== undefined ? rec.weekOff : 0;
+              const holidays = rec.holidays !== undefined ? rec.holidays : 0;
+              const cl = rec.cl !== undefined ? rec.cl : 0;
+              const sl = rec.sl !== undefined ? rec.sl : 0;
+              const el = rec.el !== undefined ? rec.el : 0;
+              const lwp = rec.lwp !== undefined ? rec.lwp : 0;
+              const workingDays = rec.workingDays || (rec.month && rec.year ? getDaysInMonth(rec.month, rec.year) : (rec.totalPaidDays !== undefined ? rec.totalPaidDays : (present + weekOff + holidays + cl + sl + el)));
+
+              return (
+                <tr key={rec.id} className={styles.row} onClick={() => onView(rec)}>
+                  <td>
+                    <div className={styles.empCell}>
+                      <div
+                        className={styles.avatar}
+                        style={{ background: getInitialsBg(rec.initials) }}
+                      >
+                        {rec.initials || 'EM'}
+                      </div>
+                      <div>
+                        <div className={styles.empName}>{rec.employeeName}</div>
+                        <div className={styles.empId}>{rec.employeeId}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className={styles.empName}>{rec.employeeName}</div>
-                      <div className={styles.empId}>{rec.employeeId}</div>
-                    </div>
-                  </div>
-                </td>
-                <td>
-                  <span className={styles.dateText}>{formatDateDisplay(rec.date)}</span>
-                </td>
-                <td>
-                  <div className={styles.companyCell}>
-                    <span className={styles.company}>{rec.companyName}</span>
-                    <span className={styles.site}>{rec.site}</span>
-                  </div>
-                </td>
-                <td className={styles.deptCell}>{rec.department}</td>
-                <td>
-                  <span className={rec.lateMinutes > 0 ? styles.lateTime : ''}>
-                    {formatTime(rec.checkIn)}
-                  </span>
-                  {rec.lateMinutes > 0 && (
-                    <span className={styles.lateTag}>+{rec.lateMinutes}m late</span>
-                  )}
-                </td>
-                <td>
-                  <span className={rec.earlyOutMinutes > 0 ? styles.earlyTime : ''}>
-                    {formatTime(rec.checkOut)}
-                  </span>
-                  {rec.earlyOutMinutes > 0 && (
-                    <span className={styles.earlyTag}>{rec.earlyOutMinutes}m early</span>
-                  )}
-                </td>
-                <td className={styles.hoursCell}>
-                  {rec.workingHours || '—'}
-                </td>
-                <td>
-                  <StatusBadge status={rec.status}>
-                    {getStatusLabel(rec.status)}
-                  </StatusBadge>
-                </td>
-                <td
-                  className={styles.actionsCell}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <AttendanceActionMenu
-                    record={rec}
-                    onAction={handleAction}
-                  />
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td>
+                    <span className={styles.fatherNameText}>{rec.fatherName || '—'}</span>
+                  </td>
+                  <td>
+                    <span className={styles.monthText}>{formatMonthYearDisplay(rec)}</span>
+                  </td>
+                  <td>
+                    <span className={styles.presentBadge}>{present}</span>
+                  </td>
+                  <td>
+                    <span className={styles.weekOffText}>{weekOff}</span>
+                  </td>
+                  <td>
+                    <span className={styles.holidaysText}>{holidays}</span>
+                  </td>
+                  <td>
+                    <span className={styles.leaveVal} style={{ color: '#6d28d9' }}>{cl}</span>
+                  </td>
+                  <td>
+                    <span className={styles.leaveVal} style={{ color: '#0369a1' }}>{sl}</span>
+                  </td>
+                  <td>
+                    <span className={styles.leaveVal} style={{ color: '#0f766e' }}>{el}</span>
+                  </td>
+                  <td>
+                    <span className={styles.leaveVal} style={{ color: '#dc2626' }}>{lwp}</span>
+                  </td>
+                  <td>
+                    <span className={styles.totalPaidBadge}>
+                      {workingDays} Days
+                    </span>
+                  </td>
+                  <td
+                    className={styles.actionsCell}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <AttendanceActionMenu
+                      record={rec}
+                      onAction={handleAction}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className={styles.cards}>
-        {records.map((rec) => (
-          <div key={rec.id} className={styles.card} onClick={() => onView(rec)}>
-            <div className={styles.cardHeader}>
-              <div className={styles.empCell}>
-                <div
-                  className={styles.avatar}
-                  style={{ background: getInitialsBg(rec.initials) }}
-                >
-                  {rec.initials}
+        {records.map((rec) => {
+          const present = rec.present !== undefined ? rec.present : (rec.status === 'present' ? 1 : 0);
+          const weekOff = rec.weekOff !== undefined ? rec.weekOff : 0;
+          const holidays = rec.holidays !== undefined ? rec.holidays : 0;
+          const cl = rec.cl !== undefined ? rec.cl : 0;
+          const sl = rec.sl !== undefined ? rec.sl : 0;
+          const el = rec.el !== undefined ? rec.el : 0;
+          const lwp = rec.lwp !== undefined ? rec.lwp : 0;
+          const workingDays = rec.workingDays || (rec.month && rec.year ? getDaysInMonth(rec.month, rec.year) : (rec.totalPaidDays !== undefined ? rec.totalPaidDays : (present + weekOff + holidays + cl + sl + el)));
+
+          return (
+            <div key={rec.id} className={styles.card} onClick={() => onView(rec)}>
+              <div className={styles.cardHeader}>
+                <div className={styles.empCell}>
+                  <div
+                    className={styles.avatar}
+                    style={{ background: getInitialsBg(rec.initials) }}
+                  >
+                    {rec.initials || 'EM'}
+                  </div>
+                  <div>
+                    <div className={styles.empName}>{rec.employeeName}</div>
+                    <div className={styles.empId}>
+                      {rec.employeeId} {rec.fatherName ? `· S/O: ${rec.fatherName}` : ''}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className={styles.empName}>{rec.employeeName}</div>
-                  <div className={styles.empId}>{rec.employeeId} · {rec.site}</div>
-                </div>
-              </div>
-              <StatusBadge status={rec.status}>
-                {getStatusLabel(rec.status)}
-              </StatusBadge>
-            </div>
-            <div className={styles.cardBody}>
-              <div className={styles.cardRow}>
-                <span>Date</span>
-                <span className={styles.dateText}>{formatDateDisplay(rec.date)}</span>
-              </div>
-              <div className={styles.cardRow}>
-                <span>In</span>
-                <span>
-                  {formatTime(rec.checkIn)}
-                  {rec.lateMinutes > 0 && <span className={styles.lateTag}> +{rec.lateMinutes}m</span>}
+                <span className={styles.totalPaidBadge}>
+                  {workingDays} Working Days
                 </span>
               </div>
-              <div className={styles.cardRow}>
-                <span>Out</span>
-                <span>
-                  {formatTime(rec.checkOut)}
-                  {rec.earlyOutMinutes > 0 && <span className={styles.earlyTag}> -{rec.earlyOutMinutes}m</span>}
-                </span>
+              <div className={styles.cardBody}>
+                <div className={styles.cardRow}>
+                  <span>Month / Year</span>
+                  <span className={styles.monthText}>{formatMonthYearDisplay(rec)}</span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span>Present / Week Off / Holidays</span>
+                  <span>
+                    <strong style={{ color: '#16a34a' }}>{present}P</strong> / <strong style={{ color: '#2563eb' }}>{weekOff}WO</strong> / <strong style={{ color: '#d97706' }}>{holidays}H</strong>
+                  </span>
+                </div>
+                <div className={styles.cardRow}>
+                  <span>Leaves (CL / SL / EL / LWP)</span>
+                  <span>
+                    {cl} CL &bull; {sl} SL &bull; {el} EL &bull; <span style={{ color: '#dc2626' }}>{lwp} LWP</span>
+                  </span>
+                </div>
               </div>
-              <div className={styles.cardRow}>
-                <span>Hours</span>
-                <span className={styles.hoursCell}>{rec.workingHours || '—'}</span>
+              <div
+                className={styles.cardActions}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <AttendanceActionMenu
+                  record={rec}
+                  onAction={handleAction}
+                />
               </div>
             </div>
-            <div
-              className={styles.cardActions}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <AttendanceActionMenu
-                record={rec}
-                onAction={handleAction}
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </>
   );
 }
 
 export default AttendanceTable;
+

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, Loader2 } from 'lucide-react';
 import styles from './TransferEmployeeModal.module.css';
 
 /**
@@ -17,6 +17,7 @@ function TransferEmployeeModal({
   const [site, setSite] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const modalRef = useRef(null);
 
@@ -27,6 +28,7 @@ function TransferEmployeeModal({
       setSite('');
       setEffectiveDate(new Date().toISOString().split('T')[0]); // Default to today
       setError('');
+      setIsSubmitting(false);
     }
   }, [isOpen, employee]);
 
@@ -49,8 +51,10 @@ function TransferEmployeeModal({
 
   if (!isOpen || !employee) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     const targetComp = targetCompanyId.trim();
     if (!targetComp) {
       setError('Please select or enter a client company to transfer to.');
@@ -69,15 +73,23 @@ function TransferEmployeeModal({
     const targetClientId = matchedCompany ? (matchedCompany.clientId || matchedCompany.id || matchedCompany._id) : `CLI-${Date.now().toString().slice(-6)}`;
     const targetClientName = matchedCompany ? matchedCompany.name : targetComp;
 
-    onTransfer(employee.id || employee._id || employee.employeeId, {
-      clientId: targetClientId,
-      clientName: targetClientName,
-      companyId: targetClientId,
-      companyName: targetClientName,
-      site: site.trim(),
-      siteLocation: site.trim(),
-      effectiveDate
-    });
+    setIsSubmitting(true);
+    setError('');
+    try {
+      await onTransfer(employee.id || employee._id || employee.employeeId, {
+        clientId: targetClientId,
+        clientName: targetClientName,
+        companyId: targetClientId,
+        companyName: targetClientName,
+        site: site.trim(),
+        siteLocation: site.trim(),
+        effectiveDate
+      });
+    } catch (err) {
+      setError(err.message || 'Failed to transfer employee.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -95,7 +107,7 @@ function TransferEmployeeModal({
             </div>
             <h2 id="transfer-modal-title" className={styles.title}>Transfer Employee</h2>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal" disabled={isSubmitting}>
             <X size={16} />
           </button>
         </header>
@@ -111,8 +123,8 @@ function TransferEmployeeModal({
               <span className={styles.value}>{employee.clientName || employee.companyName || 'N/A'}</span>
             </div>
             <div className={styles.summaryRow}>
-              <span className={styles.label}>Current Site:</span>
-              <span className={styles.value}>{employee.siteLocation || employee.site || 'N/A'}</span>
+              <span className={styles.label}>Current Client Address:</span>
+              <span className={styles.value}>{employee.clientAddress || employee.siteLocation || employee.site || employee.address || 'N/A'}</span>
             </div>
           </div>
 
@@ -131,7 +143,12 @@ function TransferEmployeeModal({
                   className={styles.select}
                   value={targetCompanyId}
                   onChange={(e) => {
-                    setTargetCompanyId(e.target.value);
+                    const compId = e.target.value;
+                    setTargetCompanyId(compId);
+                    const matched = clients.find((c) => c.clientId === compId || c.id === compId || c._id === compId || c.name === compId);
+                    if (matched && matched.address) {
+                      setSite(matched.address);
+                    }
                     setError('');
                   }}
                   required
@@ -166,12 +183,12 @@ function TransferEmployeeModal({
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="transfer-site" className={styles.fieldLabel}>Site *</label>
+            <label htmlFor="transfer-site" className={styles.fieldLabel}>Client Address *</label>
             <input
               id="transfer-site"
               type="text"
               className={styles.input}
-              placeholder="e.g. Main Gate, Warehouse A"
+              placeholder="Client address"
               value={site}
               onChange={(e) => {
                 setSite(e.target.value);
@@ -197,11 +214,18 @@ function TransferEmployeeModal({
           </div>
 
           <div className={styles.actions}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>
+            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={isSubmitting}>
               Cancel
             </button>
-            <button type="submit" className={styles.submitBtn}>
-              Transfer Employee
+            <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Loader2 size={15} className={styles.spinner} />
+                  <span>Transferring...</span>
+                </span>
+              ) : (
+                'Transfer Employee'
+              )}
             </button>
           </div>
         </form>

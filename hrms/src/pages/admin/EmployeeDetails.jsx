@@ -4,7 +4,7 @@ import {
   User, Briefcase, FileText, CreditCard, IndianRupee,
   Edit2, ArrowLeftRight, Download, Power, CheckCircle, Clock,
   Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X, Eye,
-  Shield, Award, MessageSquare, Calendar, Key
+  Shield, Award, MessageSquare, Calendar, Key, Trash2
 } from 'lucide-react';
 import styles from './EmployeeDetails.module.css';
 
@@ -95,6 +95,7 @@ function EmployeeDetails() {
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false, title: '', description: '', confirmLabel: '', variant: 'danger', actionType: null
   });
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   const showToast = (msg, type = 'success') => setToast({ message: msg, type });
@@ -281,33 +282,55 @@ function EmployeeDetails() {
     }
   };
 
-  const handleToggleStatus = () => {
-    const isAct = String(employee.status || '').toLowerCase() === 'active';
+  const handleDeleteEmployee = () => {
     setConfirmModal({
       isOpen: true,
-      title: isAct ? 'Deactivate Employee?' : 'Activate Employee?',
-      description: isAct
-        ? `Are you sure you want to deactivate ${employee.name}?`
-        : `Are you sure you want to activate ${employee.name}?`,
-      confirmLabel: isAct ? 'Deactivate' : 'Activate',
-      variant: isAct ? 'danger' : 'primary',
-      actionType: isAct ? 'deactivate' : 'activate'
+      title: 'Delete Employee?',
+      description: `Are you sure you want to permanently delete ${employee.name} (${employee.employeeId || id})? This action will remove all data from the database and cannot be undone.`,
+      confirmLabel: 'Delete Employee',
+      variant: 'danger',
+      actionType: 'delete'
     });
   };
 
   const handleConfirmAction = async () => {
-    const newStatus = confirmModal.actionType === 'deactivate' ? 'Inactive' : 'Active';
-    try {
-      await updateEmployee({ status: newStatus });
-      setConfirmModal(prev => ({ ...prev, isOpen: false }));
-      showToast(
-        newStatus === 'Inactive'
-          ? '✓ Employee deactivated successfully.'
-          : '✓ Employee activated successfully.',
-        'success'
-      );
-    } catch (err) {
-      // handled
+    setIsProcessingAction(true);
+    if (confirmModal.actionType === 'delete') {
+      try {
+        const token = authService.getToken();
+        const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token || ''}`,
+            'x-company-id': currentCompanyId
+          }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to delete employee');
+        showToast('✓ Employee deleted permanently.', 'success');
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        setTimeout(() => navigate('/admin/employees'), 900);
+      } catch (err) {
+        showToast(err.message || 'Failed to delete employee.', 'error');
+      } finally {
+        setIsProcessingAction(false);
+      }
+    } else {
+      const newStatus = confirmModal.actionType === 'deactivate' ? 'Inactive' : 'Active';
+      try {
+        await updateEmployee({ status: newStatus });
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        showToast(
+          newStatus === 'Inactive'
+            ? '✓ Employee deactivated successfully.'
+            : '✓ Employee activated successfully.',
+          'success'
+        );
+      } catch (err) {
+        // handled
+      } finally {
+        setIsProcessingAction(false);
+      }
     }
   };
 
@@ -387,6 +410,7 @@ function EmployeeDetails() {
           description={confirmModal.description}
           confirmLabel={confirmModal.confirmLabel}
           variant={confirmModal.variant}
+          loading={isProcessingAction}
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         />
@@ -526,12 +550,13 @@ function EmployeeDetails() {
               <span>Download</span>
             </button>
             <button
-              className={`${styles.statusToggleBtn} ${isActive ? styles.deactivateBtn : styles.activateBtn}`}
-              onClick={handleToggleStatus}
-              aria-label={isActive ? 'Deactivate employee' : 'Activate employee'}
+              className={`${styles.statusToggleBtn} ${styles.deactivateBtn}`}
+              onClick={handleDeleteEmployee}
+              aria-label="Delete employee"
+              style={{ color: '#ef4444', borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}
             >
-              <Power size={15} />
-              <span>{isActive ? 'Deactivate' : 'Activate'}</span>
+              <Trash2 size={15} />
+              <span>Delete</span>
             </button>
           </div>
         </div>
@@ -605,7 +630,7 @@ function EmployeeDetails() {
                   <InfoRow icon={<Layers size={15} />} label="Department" value={employee.department} />
                   <InfoRow icon={<Briefcase size={15} />} label="Designation" value={employee.designation} />
                   <InfoRow label="Employee Type" value={employee.employeeType || 'N/A'} />
-                  <InfoRow icon={<MapPin size={15} />} label="Site/Location" value={employee.siteLocation || 'N/A'} />
+                  <InfoRow icon={<MapPin size={15} />} label="Client Address" value={employee.clientAddress || employee.siteLocation || employee.site || employee.address || 'N/A'} />
                   <InfoRow label="Duty Post" value={employee.dutyPost || 'N/A'} />
                 </div>
               </div>

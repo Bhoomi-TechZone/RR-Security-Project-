@@ -42,11 +42,40 @@ function AttendanceDetailsDrawer({ record, onClose, onEdit }) {
           <div>
             <div className={styles.empName}>{record.employeeName}</div>
             <div className={styles.empId}>{record.employeeId}</div>
-            <StatusBadge status={record.status}>
-              {getStatusLabel(record.status)}
-            </StatusBadge>
+            {record.fatherName && (
+              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                S/O / D/O: <strong>{record.fatherName}</strong>
+              </div>
+            )}
+            <div style={{ marginTop: 4 }}>
+              <StatusBadge status={record.status}>
+                {getStatusLabel(record.status)}
+              </StatusBadge>
+            </div>
           </div>
         </div>
+
+        {/* Monthly Breakdown if present */}
+        {(record.present !== undefined || record.month || record.year) && (
+          <div className={styles.section}>
+            <div className={styles.sectionTitle}>
+              <User size={14} /> Monthly Record ({record.month || '—'} {record.year || ''})
+            </div>
+            <Row label="Father Name" value={record.fatherName} />
+            <Row label="Present Days" value={record.present} />
+            <Row label="Week Off" value={record.weekOff} />
+            <Row label="Holidays" value={record.holidays} />
+            <Row label="Casual Leave (CL)" value={record.cl} />
+            <Row label="Sick Leave (SL)" value={record.sl} />
+            <Row label="Earn Leave (EL)" value={record.el} />
+            <Row label="Leave Without Pay (LWP)" value={record.lwp} />
+            <Row 
+              label="Working Days" 
+              value={record.workingDays !== undefined ? `${record.workingDays} Days` : (record.totalPaidDays !== undefined ? `${record.totalPaidDays} Days` : '—')} 
+              highlight 
+            />
+          </div>
+        )}
 
         {/* Location section */}
         <div className={styles.section}>

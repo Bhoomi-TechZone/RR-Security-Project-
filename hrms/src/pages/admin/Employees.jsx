@@ -72,6 +72,7 @@ function Employees() {
     employee: null,
     actionType: null,
   });
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   // Toast
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -273,6 +274,16 @@ function Employees() {
     } else if (actionType === 'credentials') {
       setCredentialsEmployee(employee);
       setIsCredentialsOpen(true);
+    } else if (actionType === 'delete') {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Delete Employee?',
+        description: `Are you sure you want to permanently delete ${employee.name} (${employee.employeeId || employee.id})? This action will remove the record from the database and cannot be undone.`,
+        confirmLabel: 'Delete Employee',
+        variant: 'danger',
+        employee,
+        actionType: 'delete',
+      });
     } else if (actionType === 'deactivate') {
       setConfirmModal({
         isOpen: true,
@@ -325,36 +336,53 @@ function Employees() {
     }
   };
 
-  // Confirm activate / deactivate action
+  // Confirm delete / activate / deactivate action
   const handleConfirmAction = async () => {
     const { employee, actionType } = confirmModal;
     if (!employee) return;
     const token = authService.getToken();
-    const newStatus = actionType === 'deactivate' ? 'Inactive' : 'Active';
+    const empId = employee.id || employee._id || employee.employeeId;
+
+    setIsProcessingAction(true);
     try {
-      const empId = employee.id || employee._id || employee.employeeId;
-      const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-          'x-company-id': currentCompanyId,
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Failed to update employee status');
-      showToast(
-        actionType === 'deactivate'
-          ? '✓ Employee deactivated successfully.'
-          : '✓ Employee activated successfully.',
-        'success'
-      );
-      await fetchEmployees();
+      if (actionType === 'delete') {
+        const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token || ''}`,
+            'x-company-id': currentCompanyId,
+          },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to delete employee');
+        showToast(`✓ Employee "${employee.name}" deleted successfully.`, 'success');
+        await fetchEmployees();
+      } else {
+        const newStatus = actionType === 'deactivate' ? 'Inactive' : 'Active';
+        const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token || ''}`,
+            'x-company-id': currentCompanyId,
+          },
+          body: JSON.stringify({ status: newStatus }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Failed to update employee status');
+        showToast(
+          actionType === 'deactivate'
+            ? '✓ Employee deactivated successfully.'
+            : '✓ Employee activated successfully.',
+          'success'
+        );
+        await fetchEmployees();
+      }
     } catch (err) {
-      console.error('Error changing employee status:', err);
-      showToast(err.message || 'Failed to update status', 'error');
+      console.error('Error in employee action:', err);
+      showToast(err.message || 'Failed to process request', 'error');
     } finally {
+      setIsProcessingAction(false);
       setConfirmModal((prev) => ({ ...prev, isOpen: false }));
     }
   };
@@ -441,6 +469,7 @@ function Employees() {
           description={confirmModal.description}
           confirmLabel={confirmModal.confirmLabel}
           variant={confirmModal.variant}
+          loading={isProcessingAction}
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
         />

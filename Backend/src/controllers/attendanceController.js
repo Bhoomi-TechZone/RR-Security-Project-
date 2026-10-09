@@ -139,8 +139,9 @@ export const bulkImportAttendance = async (req, res) => {
       const recordDate = rec.date || defaultDate || new Date().toISOString().split('T')[0];
       const rawEmpId = (rec.employeeId || `EMP${String(i + 1).padStart(3, '0')}`).trim();
       const rawEmpName = (rec.employeeName || 'Employee').trim();
+      const rawFatherName = (rec.fatherName || '').trim();
 
-      // Look up corresponding employee in system to align employeeId and employeeName
+      // Look up corresponding employee in system to align employeeId, employeeName and fatherName
       const matchedEmp = await Employee.findOne({
         $or: [
           { employeeId: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
@@ -151,6 +152,7 @@ export const bulkImportAttendance = async (req, res) => {
 
       const empId = matchedEmp?.employeeId || rawEmpId;
       const empName = matchedEmp?.name || rawEmpName;
+      const fatherName = rawFatherName || matchedEmp?.fatherName || '';
       const targetCompanyId = matchedEmp?.companyId || companyId;
       const client = (rec.clientName || rec.companyName || matchedEmp?.clientName || 'RR Security').trim();
       const site = (rec.site || matchedEmp?.site || 'Main Site').trim();
@@ -166,6 +168,20 @@ export const bulkImportAttendance = async (req, res) => {
           .toUpperCase() ||
         'EM';
 
+      // Parse monthly attendance numbers if provided
+      const present = rec.present !== undefined ? Number(rec.present) : (rec.status === 'present' ? 1 : 0);
+      const weekOff = rec.weekOff !== undefined ? Number(rec.weekOff) : 0;
+      const holidays = rec.holidays !== undefined ? Number(rec.holidays) : 0;
+      const cl = rec.cl !== undefined ? Number(rec.cl) : 0;
+      const sl = rec.sl !== undefined ? Number(rec.sl) : 0;
+      const el = rec.el !== undefined ? Number(rec.el) : 0;
+      const lwp = rec.lwp !== undefined ? Number(rec.lwp) : 0;
+      const totalPaidDays = rec.totalPaidDays !== undefined ? Number(rec.totalPaidDays) : (present + weekOff + holidays + cl + sl + el);
+      const workingDays = rec.workingDays !== undefined ? Number(rec.workingDays) : totalPaidDays;
+
+      const month = String(rec.month || '').trim();
+      const year = rec.year ? Number(rec.year) : (recordDate ? Number(recordDate.split('-')[0]) : new Date().getFullYear());
+
       // Upsert directly into MongoDB by companyId, employeeId, and date
       const updated = await Attendance.findOneAndUpdate(
         {
@@ -176,15 +192,28 @@ export const bulkImportAttendance = async (req, res) => {
         {
           $set: {
             employeeName: empName,
+            fatherName,
             initials,
             clientName: client,
             companyName: client,
             site,
             department,
+            date: recordDate,
+            month,
+            year,
+            present,
+            weekOff,
+            holidays,
+            cl,
+            sl,
+            el,
+            lwp,
+            totalPaidDays,
+            workingDays,
             checkIn: rec.checkIn || null,
             checkOut: rec.checkOut || null,
-            workingHours: rec.workingHours || null,
-            status: rec.status || 'present',
+            workingHours: rec.workingHours || (present > 0 ? `${present} days` : null),
+            status: rec.status || (present > 0 ? 'present' : 'present'),
             lateMinutes: rec.lateMinutes || (rec.status === 'late' ? 15 : 0),
             earlyOutMinutes: rec.earlyOutMinutes || 0,
             adminEmail,
@@ -225,11 +254,23 @@ export const saveAttendanceRecord = async (req, res) => {
     const {
       employeeId,
       employeeName,
+      fatherName: reqFatherName,
       clientName,
       companyName,
       site,
       department,
       date,
+      month,
+      year,
+      present,
+      weekOff,
+      holidays,
+      cl,
+      sl,
+      el,
+      lwp,
+      totalPaidDays,
+      workingDays,
       checkIn,
       checkOut,
       workingHours,
@@ -275,6 +316,7 @@ export const saveAttendanceRecord = async (req, res) => {
 
     const rawEmpId = String(employeeId).trim();
     const rawEmpName = String(employeeName || 'Employee').trim();
+    const rawFatherName = String(reqFatherName || '').trim();
 
     const matchedEmp = await Employee.findOne({
       $or: [
@@ -286,6 +328,7 @@ export const saveAttendanceRecord = async (req, res) => {
 
     const finalEmpId = matchedEmp?.employeeId || rawEmpId;
     const finalEmpName = matchedEmp?.name || rawEmpName;
+    const finalFatherName = rawFatherName || matchedEmp?.fatherName || '';
     const finalCompanyId = matchedEmp?.companyId || companyId || 'RRS8392014SEC';
 
     const initials =
@@ -301,11 +344,24 @@ export const saveAttendanceRecord = async (req, res) => {
       {
         $set: {
           employeeName: finalEmpName,
+          fatherName: finalFatherName,
           initials,
           clientName: clientName || companyName || matchedEmp?.clientName || 'RR Security',
           companyName: clientName || companyName || matchedEmp?.clientName || 'RR Security',
           site: site || matchedEmp?.site || 'Main Site',
           department: department || matchedEmp?.department || 'Security',
+          date,
+          month: month || '',
+          year: year ? Number(year) : (date ? Number(date.split('-')[0]) : new Date().getFullYear()),
+          present: present !== undefined ? Number(present) : (status === 'present' ? 1 : 0),
+          weekOff: weekOff !== undefined ? Number(weekOff) : 0,
+          holidays: holidays !== undefined ? Number(holidays) : 0,
+          cl: cl !== undefined ? Number(cl) : 0,
+          sl: sl !== undefined ? Number(sl) : 0,
+          el: el !== undefined ? Number(el) : 0,
+          lwp: lwp !== undefined ? Number(lwp) : 0,
+          totalPaidDays: totalPaidDays !== undefined ? Number(totalPaidDays) : undefined,
+          workingDays: workingDays !== undefined ? Number(workingDays) : undefined,
           checkIn: checkIn || null,
           checkOut: checkOut || null,
           workingHours: computedHours || (status === 'absent' || status === 'onLeave' ? null : '8h 00m'),

@@ -316,7 +316,7 @@ function DeleteLeaveConfirmModal({ isOpen, request, isDeleting, onClose, onConfi
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: '#dc2626', background: '#fef2f2', padding: '8px 10px', borderRadius: 6 }}>
             <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-            <span>This will delete the leave, restore the employee's leave quota in MongoDB, and remove the On Leave attendance entry.</span>
+            <span>This will delete the leave request, restore the employee's leave quota, and remove the On Leave attendance entry.</span>
           </div>
         </div>
 
@@ -851,7 +851,7 @@ export default function Leave() {
               {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : 'Leave Management'}
             </h1>
             <p className={styles.subtitle}>
-              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments in MongoDB database.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Live database leave records, employee quotas, approvals with instant Attendance synchronization.'}
+              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Manage employee leave requests, approvals, and attendance balance synchronization.'}
             </p>
           </div>
 

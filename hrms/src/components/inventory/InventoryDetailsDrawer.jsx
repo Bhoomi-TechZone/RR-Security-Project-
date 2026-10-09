@@ -90,6 +90,10 @@ export default function InventoryDetailsDrawer({
                 <strong>{item.category}</strong>
               </div>
               <div className={styles.specItem}>
+                <span>Vendor Name:</span>
+                <strong>{item.vendorName || item.vendor || '—'}</strong>
+              </div>
+              <div className={styles.specItem}>
                 <span>Size:</span>
                 <strong>{item.size || 'Free Size'}</strong>
               </div>

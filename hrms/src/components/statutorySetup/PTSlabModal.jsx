@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Layers } from 'lucide-react';
+import { X, Layers, Loader2 } from 'lucide-react';
 import styles from './StatutoryModal.module.css';
 
 const INDIAN_STATES = [
@@ -17,6 +17,7 @@ function PTSlabModal({
 }) {
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
 
   const isEdit = !!editingItem;
@@ -69,16 +70,25 @@ function PTSlabModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!validate()) return;
-    onSubmit({
-      ...formData,
-      minSalary: Number(formData.minSalary),
-      maxSalary: Number(formData.maxSalary),
-      taxAmount: Number(formData.taxAmount),
-      februaryTaxAmount: formData.februaryTaxAmount ? Number(formData.februaryTaxAmount) : undefined
-    });
+    
+    try {
+      setIsSubmitting(true);
+      await onSubmit({
+        ...formData,
+        minSalary: Number(formData.minSalary),
+        maxSalary: Number(formData.maxSalary),
+        taxAmount: Number(formData.taxAmount),
+        februaryTaxAmount: formData.februaryTaxAmount ? Number(formData.februaryTaxAmount) : undefined
+      });
+    } catch (err) {
+      console.error('Error submitting PT slab:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -205,8 +215,19 @@ function PTSlabModal({
           </div>
 
           <footer className={styles.footer}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-            <button type="submit" className={styles.submitBtn}>{isEdit ? 'Save Changes' : 'Create Slab'}</button>
+            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className={styles.spinner} />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                isEdit ? 'Save Changes' : 'Create Slab'
+              )}
+            </button>
           </footer>
         </form>
       </div>

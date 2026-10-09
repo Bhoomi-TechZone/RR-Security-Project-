@@ -27,8 +27,18 @@ const inventoryItemSchema = new mongoose.Schema(
     },
     itemCode: {
       type: String,
-      required: true,
+      required: false,
       uppercase: true,
+      trim: true
+    },
+    vendorName: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    vendor: {
+      type: String,
+      default: '',
       trim: true
     },
     itemName: {

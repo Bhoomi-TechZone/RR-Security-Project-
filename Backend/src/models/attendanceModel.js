@@ -74,6 +74,56 @@ const attendanceSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    fatherName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    month: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    year: {
+      type: Number,
+      default: null,
+    },
+    present: {
+      type: Number,
+      default: 0,
+    },
+    weekOff: {
+      type: Number,
+      default: 0,
+    },
+    holidays: {
+      type: Number,
+      default: 0,
+    },
+    cl: {
+      type: Number,
+      default: 0,
+    },
+    sl: {
+      type: Number,
+      default: 0,
+    },
+    el: {
+      type: Number,
+      default: 0,
+    },
+    lwp: {
+      type: Number,
+      default: 0,
+    },
+    totalPaidDays: {
+      type: Number,
+      default: 0,
+    },
+    workingDays: {
+      type: Number,
+      default: null,
+    },
     companyId: {
       type: String,
       required: true,

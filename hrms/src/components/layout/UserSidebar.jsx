@@ -212,6 +212,7 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/inventory', name: 'Inventory Stock' },
+          { path: '/user/inventory?tab=requests', name: 'Uniform Requisitions' },
           { path: '/user/inventory?tab=issued', name: 'Issued Items' },
           { path: '/user/inventory?tab=returns', name: 'Return History' },
           { path: '/user/inventory?tab=movement', name: 'Stock Movements' },

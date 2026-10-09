@@ -4,6 +4,7 @@ import InventoryIssued from '../models/inventoryIssuedModel.js';
 import InventoryReturn from '../models/inventoryReturnModel.js';
 import InventoryMovement from '../models/inventoryMovementModel.js';
 import InventoryClearance from '../models/inventoryClearanceModel.js';
+import InventoryRequest from '../models/inventoryRequestModel.js';
 
 /**
  * ============================================================================
@@ -27,7 +28,7 @@ export const getInventoryItems = async (req, res) => {
       });
     }
 
-    const filter = { companyId, adminEmail, recordType: 'item' };
+    const filter = { companyId, recordType: 'item' };
 
     if (req.query.itemType) {
       filter.itemType = req.query.itemType;
@@ -44,7 +45,8 @@ export const getInventoryItems = async (req, res) => {
         { itemName: { $regex: q, $options: 'i' } },
         { itemCode: { $regex: q, $options: 'i' } },
         { brand: { $regex: q, $options: 'i' } },
-        { category: { $regex: q, $options: 'i' } }
+        { category: { $regex: q, $options: 'i' } },
+        { vendorName: { $regex: q, $options: 'i' } }
       ];
     }
 
@@ -83,6 +85,8 @@ export const createInventoryItem = async (req, res) => {
 
     const {
       itemCode,
+      vendorName,
+      vendor,
       itemName,
       itemType,
       category,
@@ -105,25 +109,13 @@ export const createInventoryItem = async (req, res) => {
       description
     } = req.body;
 
-    if (!itemCode || !itemName || !category) {
+    const resolvedVendor = (vendorName || vendor || '').trim();
+    const resolvedItemCode = (itemCode || resolvedVendor || `UNI-${Date.now().toString().slice(-6)}`).trim().toUpperCase();
+
+    if (!itemName || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Item Code, Item Name, and Category are required.'
-      });
-    }
-
-    // Check unique itemCode per company
-    const existing = await InventoryItem.findOne({
-      companyId,
-      adminEmail,
-      recordType: 'item',
-      itemCode: itemCode.trim().toUpperCase()
-    });
-
-    if (existing) {
-      return res.status(400).json({
-        success: false,
-        message: `Item Code "${itemCode}" already exists. Please choose a unique code.`
+        message: 'Item Name and Category are required.'
       });
     }
 
@@ -135,7 +127,9 @@ export const createInventoryItem = async (req, res) => {
       companyId,
       adminEmail,
       itemId,
-      itemCode: itemCode.trim().toUpperCase(),
+      itemCode: resolvedItemCode,
+      vendorName: resolvedVendor,
+      vendor: resolvedVendor,
       itemName: itemName.trim(),
       itemType: itemType || (category === 'Uniform' || category === 'Accessory' ? 'uniform' : 'asset'),
       category: category.trim(),
@@ -231,6 +225,8 @@ export const updateInventoryItem = async (req, res) => {
 
     const {
       itemCode,
+      vendorName,
+      vendor,
       itemName,
       itemType,
       category,
@@ -254,6 +250,12 @@ export const updateInventoryItem = async (req, res) => {
       status,
       description
     } = req.body;
+
+    if (vendorName !== undefined || vendor !== undefined) {
+      const v = (vendorName !== undefined ? vendorName : vendor || '').trim();
+      item.vendorName = v;
+      item.vendor = v;
+    }
 
     if (itemCode) {
       const codeUpper = itemCode.trim().toUpperCase();
@@ -430,15 +432,38 @@ export const getIssuedItems = async (req, res) => {
       });
     }
 
-    const filter = { companyId, adminEmail, recordType: 'issued' };
+    const filter = { companyId, recordType: 'issued' };
 
-    if (req.query.employeeId) filter.employeeId = req.query.employeeId;
+    const isEmployeeRole = req.user && (req.user.role === 'employee' || req.user.role === 'guard');
+    const targetEmployeeId = req.query.employeeId || (isEmployeeRole ? (req.user.employeeId || req.user.employeeCode || req.user.id || req.user._id) : null);
+    const targetEmployeeName = req.query.employeeName || (isEmployeeRole ? (req.user.name || req.user.fullName) : null);
+    const targetEmployeeEmail = req.query.employeeEmail || (isEmployeeRole ? req.user.email?.toLowerCase() : null);
+
+    if (targetEmployeeId || targetEmployeeName || targetEmployeeEmail) {
+      const empOr = [];
+      if (targetEmployeeId) {
+        empOr.push({ employeeId: targetEmployeeId });
+        empOr.push({ employeeId: { $regex: new RegExp(`^${targetEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+        empOr.push({ employeeCode: targetEmployeeId });
+        empOr.push({ employeeCode: { $regex: new RegExp(`^${targetEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+      }
+      if (targetEmployeeName) {
+        empOr.push({ employeeName: { $regex: new RegExp(`^${targetEmployeeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+      }
+      if (targetEmployeeEmail) {
+        empOr.push({ employeeEmail: targetEmployeeEmail.toLowerCase() });
+      }
+      if (empOr.length > 0) {
+        filter.$and = [{ $or: empOr }];
+      }
+    }
+
     if (req.query.issueType) filter.issueType = req.query.issueType;
     if (req.query.status && req.query.status !== 'all') filter.status = req.query.status;
 
     if (req.query.search) {
       const q = req.query.search.trim();
-      filter.$or = [
+      const searchOr = [
         { employeeName: { $regex: q, $options: 'i' } },
         { employeeId: { $regex: q, $options: 'i' } },
         { itemName: { $regex: q, $options: 'i' } },
@@ -446,6 +471,11 @@ export const getIssuedItems = async (req, res) => {
         { clientName: { $regex: q, $options: 'i' } },
         { issueId: { $regex: q, $options: 'i' } }
       ];
+      if (filter.$and) {
+        filter.$and.push({ $or: searchOr });
+      } else {
+        filter.$or = searchOr;
+      }
     }
 
     const issued = await InventoryIssued.find(filter).sort({ createdAt: -1 });
@@ -843,20 +873,43 @@ export const getReturnRecords = async (req, res) => {
       });
     }
 
-    const filter = { companyId, adminEmail, recordType: 'return' };
+    const filter = { companyId, recordType: 'return' };
 
-    if (req.query.employeeId) filter.employeeId = req.query.employeeId;
+    const isEmployeeRole = req.user && (req.user.role === 'employee' || req.user.role === 'guard');
+    const targetEmployeeId = req.query.employeeId || (isEmployeeRole ? (req.user.employeeId || req.user.employeeCode || req.user.id || req.user._id) : null);
+    const targetEmployeeName = req.query.employeeName || (isEmployeeRole ? (req.user.name || req.user.fullName) : null);
+
+    if (targetEmployeeId || targetEmployeeName) {
+      const empOr = [];
+      if (targetEmployeeId) {
+        empOr.push({ employeeId: targetEmployeeId });
+        empOr.push({ employeeId: { $regex: new RegExp(`^${targetEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+        empOr.push({ employeeCode: targetEmployeeId });
+      }
+      if (targetEmployeeName) {
+        empOr.push({ employeeName: { $regex: new RegExp(`^${targetEmployeeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+      }
+      if (empOr.length > 0) {
+        filter.$and = [{ $or: empOr }];
+      }
+    }
+
     if (req.query.condition && req.query.condition !== 'all') filter.condition = req.query.condition;
 
     if (req.query.search) {
       const q = req.query.search.trim();
-      filter.$or = [
+      const searchOr = [
         { employeeName: { $regex: q, $options: 'i' } },
         { employeeId: { $regex: q, $options: 'i' } },
         { itemName: { $regex: q, $options: 'i' } },
         { itemCode: { $regex: q, $options: 'i' } },
         { returnId: { $regex: q, $options: 'i' } }
       ];
+      if (filter.$and) {
+        filter.$and.push({ $or: searchOr });
+      } else {
+        filter.$or = searchOr;
+      }
     }
 
     const returns = await InventoryReturn.find(filter).sort({ createdAt: -1 });
@@ -1064,7 +1117,7 @@ export const getStockMovements = async (req, res) => {
       });
     }
 
-    const filter = { companyId, adminEmail, recordType: 'movement' };
+    const filter = { companyId, recordType: 'movement' };
 
     if (req.query.itemId) filter.itemId = req.query.itemId;
     if (req.query.movementType && req.query.movementType !== 'all') {
@@ -1110,7 +1163,7 @@ export const getClearanceRecords = async (req, res) => {
       });
     }
 
-    const filter = { companyId, adminEmail, recordType: 'clearance' };
+    const filter = { companyId, recordType: 'clearance' };
     if (req.query.employeeId) filter.employeeId = req.query.employeeId;
     if (req.query.clearanceStatus && req.query.clearanceStatus !== 'all') {
       filter.clearanceStatus = req.query.clearanceStatus;
@@ -1181,3 +1234,371 @@ export const approveClearance = async (req, res) => {
     });
   }
 };
+
+/**
+ * ============================================================================
+ * 6. EMPLOYEE UNIFORM & ASSET REQUESTS / REQUISITIONS
+ * ============================================================================
+ */
+
+/**
+ * @desc    Get asset / uniform requests with filters
+ * @route   GET /api/inventory/requests
+ */
+export const getInventoryRequests = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company ID is required.'
+      });
+    }
+
+    const filter = { companyId, recordType: 'request' };
+
+    const isEmployeeRole = req.user && (req.user.role === 'employee' || req.user.role === 'guard');
+    const targetEmployeeId = req.query.employeeId || (isEmployeeRole ? (req.user.employeeId || req.user.employeeCode || req.user.id || req.user._id) : null);
+    const targetEmployeeName = req.query.employeeName || (isEmployeeRole ? (req.user.name || req.user.fullName) : null);
+
+    if (targetEmployeeId || targetEmployeeName) {
+      const empOr = [];
+      if (targetEmployeeId) {
+        empOr.push({ employeeId: targetEmployeeId });
+        empOr.push({ employeeId: { $regex: new RegExp(`^${targetEmployeeId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+        empOr.push({ employeeCode: targetEmployeeId });
+      }
+      if (targetEmployeeName) {
+        empOr.push({ employeeName: { $regex: new RegExp(`^${targetEmployeeName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+      }
+      if (empOr.length > 0) {
+        filter.$and = [{ $or: empOr }];
+      }
+    }
+
+    if (req.query.requestType && req.query.requestType !== 'all') filter.requestType = req.query.requestType;
+    if (req.query.status && req.query.status !== 'all') filter.status = req.query.status;
+
+    if (req.query.search) {
+      const q = req.query.search.trim();
+      const searchOr = [
+        { employeeName: { $regex: q, $options: 'i' } },
+        { employeeId: { $regex: q, $options: 'i' } },
+        { itemName: { $regex: q, $options: 'i' } },
+        { itemCode: { $regex: q, $options: 'i' } },
+        { requestId: { $regex: q, $options: 'i' } },
+        { reason: { $regex: q, $options: 'i' } }
+      ];
+      if (filter.$and) {
+        filter.$and.push({ $or: searchOr });
+      } else {
+        filter.$or = searchOr;
+      }
+    }
+
+    const requests = await InventoryRequest.find(filter).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: requests.length,
+      requests: requests.map((r) => r.toJSON())
+    });
+  } catch (error) {
+    console.error('Error in getInventoryRequests:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve asset requests.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Create new uniform / asset requisition request by employee
+ * @route   POST /api/inventory/requests
+ */
+export const createInventoryRequest = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Company ID is required.'
+      });
+    }
+
+    const {
+      requestType,
+      employeeId,
+      employeeName,
+      designation,
+      department,
+      clientName,
+      site,
+      itemId,
+      itemCode,
+      itemName,
+      category,
+      brand,
+      size,
+      color,
+      quantity,
+      unit,
+      reason,
+      urgency,
+      deliveryLocation,
+      notes
+    } = req.body;
+
+    if (!itemName) {
+      return res.status(400).json({
+        success: false,
+        message: 'Item name is required.'
+      });
+    }
+
+    const requestId = `REQ-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const newRequest = await InventoryRequest.create({
+      recordType: 'request',
+      companyId,
+      adminEmail,
+      requestId,
+      requestDate: new Date().toISOString().slice(0, 10),
+      requestType: requestType || (category === 'Uniform' ? 'uniform' : 'asset'),
+      employeeId: employeeId || req.user?.employeeId || 'EMP-001',
+      employeeName: employeeName || req.user?.name || 'Employee',
+      designation: designation || req.user?.designation || 'Security Staff',
+      department: department || req.user?.department || 'Operations',
+      clientName: clientName || '',
+      site: site || '',
+      itemId: itemId || '',
+      itemCode: itemCode || `REQ-${Math.floor(100 + Math.random() * 900)}`,
+      itemName,
+      category: category || 'Uniform',
+      brand: brand || '',
+      size: size || 'Free Size',
+      color: color || 'Standard',
+      quantity: Number(quantity) || 1,
+      unit: unit || 'Pcs',
+      reason: reason || 'New Joining',
+      urgency: urgency || 'Normal',
+      deliveryLocation: deliveryLocation || 'Site Location',
+      notes: notes || '',
+      status: 'Pending Review'
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Asset request ${requestId} submitted successfully.`,
+      request: newRequest.toJSON()
+    });
+  } catch (error) {
+    console.error('Error in createInventoryRequest:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create asset request.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Action on request (Approve, Assign, or Reject) by Admin
+ * @route   POST /api/inventory/requests/:id/action
+ */
+export const actionInventoryRequest = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const { id } = req.params;
+    const { action, adminRemarks, issueDate, condition, serialNumber } = req.body;
+
+    const query = {
+      recordType: 'request',
+      $or: [{ requestId: id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : null }]
+    };
+    if (companyId) query.companyId = companyId;
+
+    const request = await InventoryRequest.findOne(query);
+
+    if (!request) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request record not found.'
+      });
+    }
+
+    const actionBy = req.user?.name || 'Admin';
+    const actionDate = new Date().toISOString().slice(0, 10);
+
+    if (action === 'reject') {
+      request.status = 'Rejected';
+      request.adminRemarks = adminRemarks || 'Request rejected by administration.';
+      request.actionBy = actionBy;
+      request.actionDate = actionDate;
+      await request.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Request ${request.requestId} was rejected.`,
+        request: request.toJSON()
+      });
+    }
+
+    if (action === 'approve') {
+      request.status = 'Approved';
+      request.adminRemarks = adminRemarks || 'Approved by admin, pending stock dispatch.';
+      request.actionBy = actionBy;
+      request.actionDate = actionDate;
+      await request.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Request ${request.requestId} approved successfully.`,
+        request: request.toJSON()
+      });
+    }
+
+    if (action === 'assign') {
+      // Create new InventoryIssued record
+      const issueId = `ISS-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+      const issueType = request.requestType || (request.category === 'Uniform' ? 'uniform' : 'asset');
+
+      const issuedRecord = await InventoryIssued.create({
+        recordType: 'issued',
+        companyId: request.companyId,
+        adminEmail: request.adminEmail,
+        issueId,
+        issueDate: issueDate || actionDate,
+        issueType,
+        employeeId: request.employeeId,
+        employeeName: request.employeeName,
+        designation: request.designation,
+        department: request.department,
+        clientName: request.clientName,
+        site: request.site,
+        itemId: request.itemId || issueId,
+        itemCode: request.itemCode || 'UNI-01',
+        itemName: request.itemName,
+        category: request.category || 'Uniform',
+        brand: request.brand || 'NovaGear',
+        size: request.size || 'Free Size',
+        color: request.color || 'Standard',
+        unit: request.unit || 'Pcs',
+        quantity: request.quantity || 1,
+        condition: condition || 'Brand New',
+        issuedBy: actionBy,
+        status: 'Issued',
+        remarks: adminRemarks || `Issued against Requisition ${request.requestId}`,
+        serialNumber: serialNumber || ''
+      });
+
+      // Update InventoryItem stock if itemId exists
+      if (request.itemId) {
+        const item = await InventoryItem.findOne({
+          $or: [{ itemId: request.itemId }, { itemCode: request.itemCode }],
+          companyId: request.companyId
+        });
+        if (item) {
+          item.issuedQuantity = (item.issuedQuantity || 0) + (request.quantity || 1);
+          item.availableQuantity = Math.max(0, (item.availableQuantity || 0) - (request.quantity || 1));
+          if (item.availableQuantity === 0) item.status = 'Out of Stock';
+          else if (item.availableQuantity <= (item.minimumStock || 10)) item.status = 'Low Stock';
+          await item.save();
+
+          // Log movement
+          await InventoryMovement.create({
+            recordType: 'movement',
+            companyId: request.companyId,
+            adminEmail: request.adminEmail,
+            movementId: `MOV-${Date.now().toString().slice(-6)}`,
+            date: actionDate,
+            itemId: item.itemId || item.id,
+            itemCode: item.itemCode,
+            itemName: item.itemName,
+            category: item.category,
+            movementType: 'Issue Out',
+            quantity: request.quantity || 1,
+            referenceType: 'Requisition Assign',
+            referenceNo: issueId,
+            partyName: request.employeeName,
+            balanceAfter: item.availableQuantity,
+            recordedBy: actionBy,
+            notes: `Assigned against employee requisition ${request.requestId}`
+          });
+        }
+      }
+
+      request.status = 'Assigned';
+      request.assignedIssueId = issueId;
+      request.adminRemarks = adminRemarks || `Assigned with Custody ID: ${issueId}`;
+      request.actionBy = actionBy;
+      request.actionDate = actionDate;
+      await request.save();
+
+      return res.status(200).json({
+        success: true,
+        message: `Asset assigned and issued to ${request.employeeName} (Issue ID: ${issueId})`,
+        request: request.toJSON(),
+        issued: issuedRecord.toJSON()
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid action provided.'
+    });
+  } catch (error) {
+    console.error('Error in actionInventoryRequest:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process request action.',
+      error: error.message
+    });
+  }
+};
+
+/**
+ * @desc    Delete / Cancel request
+ * @route   DELETE /api/inventory/requests/:id
+ */
+export const deleteInventoryRequest = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const { id } = req.params;
+
+    const query = {
+      recordType: 'request',
+      $or: [{ requestId: id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : null }]
+    };
+    if (companyId) query.companyId = companyId;
+
+    const result = await InventoryRequest.findOneAndDelete(query);
+
+    if (!result) {
+      return res.status(404).json({
+        success: false,
+        message: 'Request not found.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Requisition deleted successfully.'
+    });
+  } catch (error) {
+    console.error('Error in deleteInventoryRequest:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete request.',
+      error: error.message
+    });
+  }
+};
+

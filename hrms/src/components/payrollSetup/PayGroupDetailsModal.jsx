@@ -33,7 +33,7 @@ function PayGroupDetailsModal({
   if (!isOpen || !payGroup) return null;
 
   const assignedComponents = salaryComponents.filter(c => 
-    (payGroup.salaryComponentIds || []).includes(c.id)
+    (payGroup.salaryComponentIds || []).includes(c.id || c._id)
   );
 
   const earnings = assignedComponents.filter(c => c.type === 'earning');

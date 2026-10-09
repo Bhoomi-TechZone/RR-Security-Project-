@@ -380,6 +380,26 @@
   background-color: var(--primary-dark);
 }
 
+.btnSubmit:disabled,
+.btnCancel:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* User Source / Employee Association Selector */
 .sourceSelector {
   display: grid;
