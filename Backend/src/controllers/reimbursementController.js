@@ -1,5 +1,6 @@
 import { ReimbursementClaim, ExpenseType } from '../models/reimbursementModel.js';
 import Employee from '../models/employeeModel.js';
+import { createSystemNotification } from './notificationController.js';
 
 const DEFAULT_EXPENSE_TYPES = [
   { name: 'Travel / Conveyance', code: 'TRV', category: 'Travel', maxLimit: 15000, requiresReceipt: true, taxExempt: true, status: 'Active', description: 'Fuel, cab, public transit, and travel expenses incurred during official duty.' },
@@ -179,6 +180,24 @@ export const createReimbursementClaim = async (req, res) => {
           notes: `Expense of ₹${claimedAmt.toLocaleString('en-IN')} submitted for ${data.expenseType}.`,
         },
       ],
+    });
+
+    // Dynamically notify Company Admin
+    await createSystemNotification({
+      companyId,
+      adminEmail,
+      recipientRole: 'admin',
+      recipientId: 'admin',
+      type: 'reimbursement',
+      title: `New Reimbursement Claim: ${data.expenseType || 'Expense'}`,
+      message: `${empName} (${data.employeeId || empCode}) submitted a claim of ₹${claimedAmt.toLocaleString('en-IN')} for ${data.expenseType}.`,
+      employeeId: data.employeeId || empCode,
+      employeeName: empName,
+      clientName: clientName || '',
+      targetModule: 'reimbursements',
+      targetUrl: '/admin/reimbursements',
+      referenceId: claimId,
+      priority: claimedAmt > 10000 ? 'important' : 'normal'
     });
 
     return res.status(201).json({
@@ -366,6 +385,26 @@ export const reviewReimbursementClaim = async (req, res) => {
     }
 
     await claim.save();
+
+    // Dynamically notify employee of review outcome
+    if (claim.employeeId) {
+      await createSystemNotification({
+        companyId: claim.companyId,
+        adminEmail: claim.adminEmail,
+        recipientRole: 'employee',
+        recipientId: claim.employeeId,
+        employeeId: claim.employeeId,
+        employeeName: claim.employeeName,
+        type: 'reimbursement',
+        title: `Reimbursement Claim ${claim.approvalStatus}: ${claim.expenseType}`,
+        message: action === 'approve'
+          ? `Your claim ${claim.claimId} of ₹${Number(claim.approvedAmount || claim.claimedAmount).toLocaleString('en-IN')} for ${claim.expenseType} has been approved.`
+          : `Your claim ${claim.claimId} for ${claim.expenseType} was ${claim.approvalStatus.toLowerCase()}.`,
+        targetUrl: '/employee/notifications',
+        referenceId: claim.claimId,
+        priority: action === 'approve' ? 'normal' : 'important'
+      });
+    }
 
     return res.status(200).json({
       success: true,

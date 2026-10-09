@@ -505,10 +505,13 @@
   margin-top: 1px;
 }
 
-.iconLeave    { background: #e0f2fe; color: #0369a1; }
-.iconSalary   { background: #f0fdf4; color: #15803d; }
-.iconDocument { background: #fef3c7; color: #b45309; }
-.iconAnnounce { background: #fef9c3; color: #a16207; }
+.iconLeave     { background: #e0f2fe; color: #0369a1; }
+.iconSalary    { background: #f0fdf4; color: #15803d; }
+.iconDocument  { background: #fef3c7; color: #b45309; }
+.iconAnnounce  { background: #fef9c3; color: #a16207; }
+.iconInventory { background: #eff6ff; color: #1d4ed8; }
+.iconReimburse { background: #fdf2f8; color: #be185d; }
+.iconLoan      { background: #faf5ff; color: #7e22ce; }
 
 /* Content */
 .notifContent {
@@ -571,10 +574,13 @@
   border-radius: var(--radius-xs);
 }
 
-.badgeLeave    { background: #e0f2fe; color: #0369a1; }
-.badgeSalary   { background: #f0fdf4; color: #15803d; }
-.badgeDocument { background: #fef3c7; color: #b45309; }
-.badgeAnn      { background: #fef9c3; color: #a16207; }
+.badgeLeave     { background: #e0f2fe; color: #0369a1; }
+.badgeSalary    { background: #f0fdf4; color: #15803d; }
+.badgeDocument  { background: #fef3c7; color: #b45309; }
+.badgeAnn       { background: #fef9c3; color: #a16207; }
+.badgeInventory { background: #eff6ff; color: #1d4ed8; }
+.badgeReimburse { background: #fdf2f8; color: #be185d; }
+.badgeLoan      { background: #faf5ff; color: #7e22ce; }
 
 .notifDate {
   font-size: 11px;

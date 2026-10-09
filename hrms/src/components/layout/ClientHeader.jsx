@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Menu,
@@ -12,11 +12,44 @@ import styles from './ClientHeader.module.css';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
 import { useClientAuth } from '../../context/ClientAuthContext';
+import clientPortalService from '../../services/clientPortalService';
 
 function ClientHeader({ onToggleSidebar, onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { clientCompany, clientUser } = useClientAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadUnread = async () => {
+      try {
+        const notifs = await clientPortalService.getNotifications();
+        if (isMounted && Array.isArray(notifs)) {
+          const stored = localStorage.getItem(`novaspark_read_notifs_client_${clientCompany?.clientId || 'CLI-001'}`);
+          const readIds = stored ? JSON.parse(stored) : [];
+          const unread = notifs.filter(n => !n.read && !readIds.includes(n.id) && !readIds.includes(n.rawId)).length;
+          setUnreadCount(unread);
+        }
+      } catch (_) {}
+    };
+
+    loadUnread();
+    const interval = setInterval(loadUnread, 5000);
+    const handleRefresh = () => loadUnread();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
+  }, [clientCompany?.clientId, location.pathname]);
 
   const getBreadcrumb = () => {
     const path = location.pathname;
@@ -73,8 +106,29 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
             onClick={() => navigate('/client/notifications')}
             aria-label="View notifications"
             title="Notifications"
+            style={{ position: 'relative' }}
           >
             <Bell size={19} strokeWidth={2} />
+            {unreadCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '-4px',
+                  right: '-4px',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  borderRadius: '9999px',
+                  padding: '2px 5px',
+                  minWidth: '16px',
+                  textAlign: 'center',
+                  lineHeight: '1'
+                }}
+              >
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 

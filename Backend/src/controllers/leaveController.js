@@ -4,6 +4,7 @@ import LeaveBalance from '../models/leaveBalanceModel.js';
 import Attendance from '../models/attendanceModel.js';
 import Employee from '../models/employeeModel.js';
 import Master from '../models/masterModel.js';
+import { createSystemNotification } from './notificationController.js';
 
 // Default standard leave types to auto-seed if none exist for a company
 const DEFAULT_LEAVE_TYPES = [
@@ -416,6 +417,26 @@ export const createLeaveRequest = async (req, res) => {
       await balanceDoc.save();
     }
 
+    if (!isAdmin) {
+      try {
+        await createSystemNotification({
+          companyId,
+          recipientRole: 'admin',
+          type: 'leave-application',
+          title: `New Leave Application (${leaveCode || 'CL'}) - ${employeeName || employeeId}`,
+          message: `${employeeName || employeeId} applied for ${totalDays} day(s) ${leaveType || 'Leave'} (${fromDate}${toDate && toDate !== fromDate ? ` to ${toDate}` : ''}). Reason: ${reason.trim()}`,
+          employeeId,
+          employeeName: employeeName || 'Employee',
+          clientName: clientName || site || '',
+          targetUrl: '/admin/leave?tab=requests',
+          referenceId: leaveId,
+          priority: 'normal',
+        });
+      } catch (notifErr) {
+        console.error('Failed to trigger leave notification:', notifErr.message);
+      }
+    }
+
     return res.status(201).json({
       success: true,
       message: isAdmin
@@ -502,6 +523,23 @@ export const reviewLeaveRequest = async (req, res) => {
         await balanceDoc.save();
       }
 
+      // Notify employee
+      if (leaveDoc.employeeId) {
+        await createSystemNotification({
+          companyId: leaveDoc.companyId,
+          recipientRole: 'employee',
+          recipientId: leaveDoc.employeeId,
+          employeeId: leaveDoc.employeeId,
+          employeeName: leaveDoc.employeeName,
+          type: 'leave-approval',
+          title: `Leave Application Approved: ${leaveDoc.leaveType || 'Leave'}`,
+          message: `Your ${leaveDoc.days}-day leave application (${leaveDoc.fromDate} to ${leaveDoc.toDate}) has been approved.`,
+          targetUrl: '/employee/leave',
+          referenceId: leaveDoc.leaveId,
+          priority: 'normal'
+        });
+      }
+
       return res.status(200).json({
         success: true,
         message: `Leave request approved and synced to attendance for ${leaveDoc.employeeName}.`,
@@ -537,6 +575,23 @@ export const reviewLeaveRequest = async (req, res) => {
           balanceDoc.markModified('balances');
           await balanceDoc.save();
         }
+      }
+
+      // Notify employee
+      if (leaveDoc.employeeId) {
+        await createSystemNotification({
+          companyId: leaveDoc.companyId,
+          recipientRole: 'employee',
+          recipientId: leaveDoc.employeeId,
+          employeeId: leaveDoc.employeeId,
+          employeeName: leaveDoc.employeeName,
+          type: 'leave-approval',
+          title: `Leave Application Rejected`,
+          message: `Your leave application (${leaveDoc.fromDate} to ${leaveDoc.toDate}) was not approved.${reason ? ` Reason: ${reason}` : ''}`,
+          targetUrl: '/employee/leave',
+          referenceId: leaveDoc.leaveId,
+          priority: 'important'
+        });
       }
 
       return res.status(200).json({

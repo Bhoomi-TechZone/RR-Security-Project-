@@ -66,6 +66,10 @@ function LoginForm() {
         ? result.user.role.charAt(0).toUpperCase() + result.user.role.slice(1)
         : 'User'
 
+      // Instantly dispatch auth state event to refresh all active contexts and notification listeners
+      window.dispatchEvent(new CustomEvent('auth_state_changed', { detail: result.user }));
+      window.dispatchEvent(new CustomEvent('user_logged_in', { detail: result.user }));
+
       setAlert({
         type: 'success',
         title: 'Login successful',
@@ -73,7 +77,7 @@ function LoginForm() {
       })
 
       const targetPath = result.redirect || (result.user?.role === 'admin' ? '/admin/dashboard' : `/${result.user?.role}/dashboard`)
-      setTimeout(() => navigate(targetPath), 800)
+      setTimeout(() => navigate(targetPath), 400)
     } catch (err) {
       setLoading(false)
       setAlert({

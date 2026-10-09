@@ -113,6 +113,15 @@ export function ClientAuthProvider({ children }) {
 
   useEffect(() => {
     refreshProfile();
+    const handleAuthChange = () => {
+      refreshProfile();
+    };
+    window.addEventListener('auth_state_changed', handleAuthChange);
+    window.addEventListener('user_logged_in', handleAuthChange);
+    return () => {
+      window.removeEventListener('auth_state_changed', handleAuthChange);
+      window.removeEventListener('user_logged_in', handleAuthChange);
+    };
   }, [refreshProfile]);
 
   useEffect(() => {

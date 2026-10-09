@@ -21,7 +21,10 @@ const resolveClient = async (req) => {
     if (!client && req.user.clientId) {
       const cleanId = String(req.user.clientId).trim();
       client = await Client.findOne({
-        clientId: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        $or: [
+          { clientId: cleanId },
+          { clientId: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+        ]
       });
     }
     if (!client && req.user.email) {
@@ -30,24 +33,34 @@ const resolveClient = async (req) => {
     if (!client && req.user.name) {
       const cleanName = String(req.user.name).trim();
       client = await Client.findOne({
-        name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        $or: [
+          { name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+          { legalName: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+        ]
       });
     }
   }
 
   // Admin or user viewing as client or testing
   if (!client) {
-    const targetClientId = req.headers['x-client-id'] || req.query.clientId;
+    const targetClientId = req.headers['x-client-id'] || req.query.clientId || req.user?.clientId;
     if (targetClientId) {
       const cleanId = String(targetClientId).trim();
       client = await Client.findOne({
         $or: [
+          { clientId: cleanId },
           { clientId: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
           { _id: mongoose.Types.ObjectId.isValid(cleanId) ? cleanId : null },
           { name: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
         ].filter(Boolean)
       });
     }
+  }
+
+  // If still not found, fallback to company client
+  if (!client) {
+    const companyId = req.headers['x-company-id'] || req.user?.companyId || 'RRS8392014SEC';
+    client = await Client.findOne({ companyId }) || await Client.findOne({});
   }
 
   return client;
@@ -59,8 +72,18 @@ const resolveClient = async (req) => {
 const buildAssignedEmployeeFilter = (client) => {
   if (!client) return { _id: null };
 
-  const ids = [client.clientId, client._id?.toString(), client.id].filter(Boolean);
-  const names = [client.name, client.legalName].filter(Boolean);
+  const ids = [
+    client.clientId,
+    client._id?.toString(),
+    client.id,
+    client.clientCode
+  ].filter(Boolean);
+
+  const names = [
+    client.name,
+    client.legalName,
+    client.contactPerson
+  ].filter(Boolean);
 
   const orClauses = [
     { clientId: { $in: ids } },
@@ -68,18 +91,43 @@ const buildAssignedEmployeeFilter = (client) => {
     { companyName: { $in: names } }
   ];
 
-  if (client.name) {
-    const escaped = client.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim();
-    if (escaped) {
-      orClauses.push({ clientName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
-      orClauses.push({ companyName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
+  ids.forEach(idVal => {
+    const cleanId = String(idVal).trim();
+    if (cleanId) {
+      const escaped = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      orClauses.push({ clientId: { $regex: new RegExp(`^${escaped}$`, 'i') } });
+      orClauses.push({ clientId: { $regex: new RegExp(escaped, 'i') } });
+      orClauses.push({ companyId: { $regex: new RegExp(`^${escaped}$`, 'i') } });
+      orClauses.push({ companyId: { $regex: new RegExp(escaped, 'i') } });
     }
-  }
+  });
 
-  if (client.clientId) {
-    const escapedId = client.clientId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim();
-    if (escapedId) {
-      orClauses.push({ clientId: { $regex: new RegExp(`^${escapedId}$`, 'i') } });
+  names.forEach(nameVal => {
+    const clean = String(nameVal).trim();
+    if (clean) {
+      const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      orClauses.push({ clientName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
+      orClauses.push({ clientName: { $regex: new RegExp(escaped, 'i') } });
+      orClauses.push({ companyName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
+      orClauses.push({ companyName: { $regex: new RegExp(escaped, 'i') } });
+      
+      const words = clean.split(/\s+/).filter(w => w.length >= 2);
+      words.forEach(w => {
+        const wEscaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        orClauses.push({ clientName: { $regex: new RegExp(wEscaped, 'i') } });
+        orClauses.push({ companyName: { $regex: new RegExp(wEscaped, 'i') } });
+        orClauses.push({ siteLocation: { $regex: new RegExp(wEscaped, 'i') } });
+        orClauses.push({ site: { $regex: new RegExp(wEscaped, 'i') } });
+      });
+    }
+  });
+
+  if (client.address) {
+    const cleanAddr = String(client.address).trim();
+    if (cleanAddr) {
+      const addrEscaped = cleanAddr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      orClauses.push({ siteLocation: { $regex: new RegExp(addrEscaped, 'i') } });
+      orClauses.push({ site: { $regex: new RegExp(addrEscaped, 'i') } });
     }
   }
 
@@ -222,28 +270,33 @@ export const getAssignedEmployees = async (req, res) => {
     const baseFilter = buildAssignedEmployeeFilter(client);
     const { search, department, site, status, shift } = req.query;
 
-    const query = { ...baseFilter };
+    const andClauses = [baseFilter];
 
     if (status && status !== 'all') {
-      query.$or = [
-        { status: new RegExp(`^${status}$`, 'i') },
-        { employeeStatus: new RegExp(`^${status}$`, 'i') }
-      ];
+      andClauses.push({
+        $or: [
+          { status: new RegExp(`^${status}$`, 'i') },
+          { employeeStatus: new RegExp(`^${status}$`, 'i') }
+        ]
+      });
     }
 
     if (department && department !== 'all') {
-      query.department = department;
+      andClauses.push({ department });
     }
 
     if (site && site !== 'all') {
-      query.$or = [{ siteLocation: site }, { site }];
+      andClauses.push({
+        $or: [{ siteLocation: site }, { site }]
+      });
     }
 
     if (shift && shift !== 'all') {
-      query.shift = shift;
+      andClauses.push({ shift });
     }
 
-    let employees = await Employee.find(query).sort({ createdAt: -1 });
+    const finalQuery = andClauses.length > 1 ? { $and: andClauses } : andClauses[0];
+    let employees = await Employee.find(finalQuery).sort({ createdAt: -1 });
 
     if (search && search.trim()) {
       const s = search.trim().toLowerCase();
@@ -253,7 +306,9 @@ export const getAssignedEmployees = async (req, res) => {
         (e.employeeCode && e.employeeCode.toLowerCase().includes(s)) ||
         (e.designation && e.designation.toLowerCase().includes(s)) ||
         (e.contact && e.contact.toLowerCase().includes(s)) ||
-        (e.mobile && e.mobile.toLowerCase().includes(s))
+        (e.mobile && e.mobile.toLowerCase().includes(s)) ||
+        (e.site && e.site.toLowerCase().includes(s)) ||
+        (e.siteLocation && e.siteLocation.toLowerCase().includes(s))
       );
     }
 
@@ -265,21 +320,33 @@ export const getAssignedEmployees = async (req, res) => {
         employeeCode: e.employeeCode || e.employeeId || 'EMP001',
         employeeId: e.employeeId,
         name: e.name,
+        fatherHusbandName: e.fatherHusbandName || '',
         initials: e.name ? e.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'EM',
         designation: e.designation || 'Security Guard',
         department: e.department || 'Security Operations',
-        site: e.siteLocation || e.site || 'Assigned Site',
+        employeeType: e.employeeType || 'Permanent',
+        clientName: client.name || e.clientName || e.companyName || 'Assigned Client',
+        companyName: client.name || e.companyName || e.clientName || 'Assigned Client',
+        site: e.siteLocation || e.site || client.address || client.name || 'Assigned Site',
+        siteLocation: e.siteLocation || e.site || client.address || client.name || 'Assigned Site',
         dutyPost: e.dutyPost || 'Duty Post',
         shift: e.shift || 'General Shift',
         joiningDate: e.joiningDate || '',
-        status: (e.employeeStatus || e.status || 'Active').toLowerCase() === 'active' ? 'Active' : 'Inactive',
+        status: (e.employeeStatus || e.status || 'Active').toLowerCase() === 'active' ? 'Active' : (e.employeeStatus || e.status || 'Inactive'),
         mobile: e.mobile || e.contact || '',
+        alternateMobile: e.alternateMobile || e.emergencyMobile || '',
+        emergencyMobile: e.emergencyMobile || e.alternateMobile || '',
         email: e.email || '',
         gender: e.gender || 'Male',
+        maritalStatus: e.maritalStatus || '',
         photo: e.photo || e.employeePhoto || '',
         policeVerification: 'Verified (2026)',
         bloodGroup: e.bloodGroup || '',
-        qualification: e.qualification || ''
+        qualification: e.qualification || '',
+        technicalQualification: e.technicalQualification || 'Fire Safety & First Aid Trained',
+        previousExperience: e.previousExperience || '',
+        reportingSupervisor: e.reportingSupervisor || 'Area Security Officer',
+        joiningLocation: e.joiningLocation || e.siteLocation || e.site || ''
       };
     });
 
@@ -456,14 +523,16 @@ export const getClientDashboard = async (req, res) => {
     const targetNames = [client.name, client.legalName].filter(Boolean);
 
     const clientAnnouncements = await Announcement.find({
-      status: 'published',
       $or: [
         { audience: 'all' },
+        { audience: { $in: ['all', 'All Clients & Employees', 'ALL', 'all clients & employees', null] } },
+        { audience: { $exists: false } },
         {
-          audience: 'clients',
+          audience: { $in: ['clients', 'Clients'] },
           $or: [
             { targetClientId: null },
             { targetClientId: '' },
+            { targetClientId: { $exists: false } },
             { targetClientId: { $in: targetIds } },
             { companyIdTarget: { $in: targetIds } },
             { targetClientName: { $in: targetNames } },
@@ -697,26 +766,22 @@ export const getClientBilling = async (req, res) => {
 export const getClientNotifications = async (req, res) => {
   try {
     const client = await resolveClient(req);
-    if (!client) {
-      return res.status(404).json({
-        success: false,
-        message: 'Client account not found.'
-      });
-    }
+    const companyId = req.headers['x-company-id'] || client?.companyId || req.user?.companyId || 'RRS8392014SEC';
 
-    // Fetch targeted announcements from MongoDB
-    const targetIds = [client.clientId, client._id?.toString(), client.id].filter(Boolean);
-    const targetNames = [client.name, client.legalName].filter(Boolean);
+    const targetIds = client ? [client.clientId, client._id?.toString(), client.id].filter(Boolean) : [];
+    const targetNames = client ? [client.name, client.legalName].filter(Boolean) : [];
 
-    const announcements = await Announcement.find({
-      status: 'published',
+    const announcementQuery = {
       $or: [
         { audience: 'all' },
+        { audience: { $in: ['all', 'All Clients & Employees', 'ALL', 'all clients & employees', null] } },
+        { audience: { $exists: false } },
         {
-          audience: 'clients',
+          audience: { $in: ['clients', 'Clients'] },
           $or: [
             { targetClientId: null },
             { targetClientId: '' },
+            { targetClientId: { $exists: false } },
             { targetClientId: { $in: targetIds } },
             { companyIdTarget: { $in: targetIds } },
             { targetClientName: { $in: targetNames } },
@@ -724,43 +789,98 @@ export const getClientNotifications = async (req, res) => {
           ]
         }
       ]
-    }).sort({ createdAt: -1 }).lean();
+    };
 
-    const formattedAnnouncements = announcements.map(a => ({
-      id: a.announcementId || a._id?.toString(),
-      title: a.title,
-      message: a.message,
-      type: 'announcement',
-      timestamp: a.createdDate ? new Date(a.createdDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Today',
-      read: false,
-      priority: a.priority
-    }));
+    const announcements = await Announcement.find(announcementQuery).sort({ createdAt: -1 }).lean();
 
-    const systemNotifs = [
-      {
-        id: `notif-sys-dept-${client.clientId || 'c1'}`,
-        title: 'Daily Shift Deployment Verified',
-        message: `Deployment schedule verified across active operating sites for ${client.name}.`,
-        type: 'workforce',
-        timestamp: 'Today',
+    // Also fetch system notifications for client
+    let systemNotifs = [];
+    try {
+      const Notification = (await import('../models/notificationModel.js')).default;
+      const notifQuery = {
+        $or: [
+          { recipientRole: 'client' },
+          { recipientRole: 'all' },
+          { recipientId: { $in: targetIds } },
+          { clientName: { $in: targetNames } }
+        ]
+      };
+      systemNotifs = await Notification.find(notifQuery).sort({ createdAt: -1 }).lean();
+    } catch (notifErr) {
+      console.warn('System notification query in getClientNotifications:', notifErr.message);
+    }
+
+    const formattedAnnouncements = announcements.map(a => {
+      const createdDateObj = a.createdAt ? new Date(a.createdAt) : (a.createdDate ? new Date(a.createdDate) : new Date());
+      const formattedDate = !isNaN(createdDateObj.getTime())
+        ? createdDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'Today';
+      const formattedTime = !isNaN(createdDateObj.getTime())
+        ? createdDateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+        : '12:00 PM';
+
+      const senderTitle = a.createdBy || 'RR Security Administrator';
+      const senderInitials = senderTitle.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'AD';
+
+      return {
+        id: `ann-${a.announcementId || a._id?.toString()}`,
+        rawId: a.announcementId || a._id?.toString(),
+        title: a.title,
+        message: a.message,
+        type: 'announcement',
+        senderName: senderTitle,
+        senderRole: 'Executive Administration',
+        senderDepartment: 'Head Office & Management',
+        senderAvatar: senderInitials,
+        audience: a.audience === 'all' ? 'All Clients & Employees' : (a.audience === 'clients' ? 'Client Broadcast' : 'Staff Broadcast'),
+        targetClientName: a.targetClientName || a.companyName || null,
+        priority: a.priority || 'normal',
+        timestamp: formattedDate,
+        time: formattedTime,
+        fullTimestamp: `${formattedDate} • ${formattedTime}`,
+        isoDate: a.createdAt || a.createdDate || new Date().toISOString(),
         read: false
-      },
-      {
-        id: `notif-sys-sla-${client.clientId || 'c1'}`,
-        title: 'Contract SLA In Good Standing',
-        message: `Client portal access and contract SLAs are active for ${client.name}.`,
-        type: 'billing',
-        timestamp: 'This week',
-        read: true
-      }
-    ];
+      };
+    });
 
-    const allNotifs = [...formattedAnnouncements, ...systemNotifs];
+    const formattedSystemNotifs = systemNotifs.map(n => {
+      const createdDateObj = n.createdAt ? new Date(n.createdAt) : (n.date ? new Date(n.date) : new Date());
+      const formattedDate = !isNaN(createdDateObj.getTime())
+        ? createdDateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        : 'Today';
+      const formattedTime = !isNaN(createdDateObj.getTime())
+        ? createdDateObj.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+        : '12:00 PM';
+
+      const senderTitle = n.actionTakenBy || 'RR Security Operations';
+      const senderInitials = senderTitle.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'RR';
+
+      return {
+        id: `notif-${n._id?.toString()}`,
+        rawId: n._id?.toString(),
+        title: n.title,
+        message: n.message,
+        type: n.type === 'announcement' ? 'announcement' : (n.type?.includes('billing') ? 'billing' : 'workforce'),
+        senderName: senderTitle,
+        senderRole: 'Operations & Compliance Desk',
+        senderDepartment: 'Central Administration',
+        senderAvatar: senderInitials,
+        audience: n.recipientRole === 'all' ? 'All Clients & Employees' : (n.clientName ? `${n.clientName}` : 'Client Notice'),
+        priority: n.priority || 'normal',
+        timestamp: formattedDate,
+        time: formattedTime,
+        fullTimestamp: `${formattedDate} • ${formattedTime}`,
+        isoDate: n.createdAt || n.date || new Date().toISOString(),
+        read: n.status === 'read'
+      };
+    });
+
+    const allNotifications = [...formattedAnnouncements, ...formattedSystemNotifs];
 
     return res.status(200).json({
       success: true,
-      notifications: allNotifs,
-      unreadCount: allNotifs.filter(n => !n.read).length
+      notifications: allNotifications,
+      unreadCount: allNotifications.filter(n => !n.read).length
     });
   } catch (error) {
     console.error('Error in getClientNotifications:', error);

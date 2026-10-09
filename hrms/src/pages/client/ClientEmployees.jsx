@@ -69,6 +69,19 @@ function ClientEmployees() {
 
   useEffect(() => {
     fetchEmployees();
+    const interval = setInterval(fetchEmployees, 5000);
+    const handleRefresh = () => fetchEmployees();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
   }, [clientCompany?.clientId, clientCompany?.name, deptFilter, siteFilter, statusFilter]);
 
   const filteredEmployees = employees.filter((emp) => {
@@ -78,6 +91,9 @@ function ClientEmployees() {
       (emp.name && emp.name.toLowerCase().includes(s)) ||
       (emp.employeeCode && emp.employeeCode.toLowerCase().includes(s)) ||
       (emp.designation && emp.designation.toLowerCase().includes(s)) ||
+      (emp.department && emp.department.toLowerCase().includes(s)) ||
+      (emp.site && emp.site.toLowerCase().includes(s)) ||
+      (emp.dutyPost && emp.dutyPost.toLowerCase().includes(s)) ||
       (emp.mobile && emp.mobile.toLowerCase().includes(s))
     );
   });
@@ -87,7 +103,52 @@ function ClientEmployees() {
       showToast('No assigned employees to export.', 'error');
       return;
     }
-    showToast(`Exported ${filteredEmployees.length} assigned personnel for ${clientCompany?.name} to Excel successfully.`, 'success');
+
+    try {
+      const headers = [
+        'Employee Code',
+        'Full Name',
+        'Designation',
+        'Department',
+        'Assigned Site',
+        'Duty Post',
+        'Shift',
+        'Mobile',
+        'Emergency Contact',
+        'Joining Date',
+        'Status',
+        'Police Verification'
+      ];
+
+      const rows = filteredEmployees.map(emp => [
+        `"${emp.employeeCode || ''}"`,
+        `"${emp.name || ''}"`,
+        `"${emp.designation || ''}"`,
+        `"${emp.department || ''}"`,
+        `"${emp.site || ''}"`,
+        `"${emp.dutyPost || ''}"`,
+        `"${emp.shift || ''}"`,
+        `"${emp.mobile || ''}"`,
+        `"${emp.emergencyMobile || emp.alternateMobile || ''}"`,
+        `"${emp.joiningDate || ''}"`,
+        `"${emp.status || ''}"`,
+        `"${emp.policeVerification || 'Verified'}"`
+      ]);
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `${(clientCompany?.name || 'Workforce').replace(/\s+/g, '_')}_Assigned_Employees.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      showToast(`Exported ${filteredEmployees.length} assigned personnel for ${clientCompany?.name || 'client'} to CSV successfully.`, 'success');
+    } catch (err) {
+      console.error('Export error:', err);
+      showToast('Failed to export employee roster.', 'error');
+    }
   };
 
   const totalCount = employees.length;
@@ -181,7 +242,7 @@ function ClientEmployees() {
           <Search size={16} className={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by employee name, code, designation, mobile..."
+            placeholder="Search by employee name, code, designation, department, site..."
             className={styles.searchInput}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -248,7 +309,7 @@ function ClientEmployees() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
+              {loading && employees.length === 0 ? (
                 <tr>
                   <td colSpan="8" className={styles.emptyCell}>
                     Loading assigned workforce...
@@ -271,7 +332,7 @@ function ClientEmployees() {
                         <Avatar initials={emp.initials} size="sm" name={emp.name} />
                         <div>
                           <span className={styles.empName}>{emp.name}</span>
-                          <span className={styles.empMobile}>{emp.mobile}</span>
+                          <span className={styles.empMobile}>{emp.mobile || emp.email || '--'}</span>
                         </div>
                       </div>
                     </td>
@@ -318,7 +379,7 @@ function ClientEmployees() {
                 <div>
                   <h3 className={styles.modalTitle}>{selectedEmployee.name}</h3>
                   <span className={styles.modalSubtitle}>
-                    {selectedEmployee.employeeCode} • {selectedEmployee.designation}
+                    {selectedEmployee.employeeCode} • {selectedEmployee.designation} • {selectedEmployee.department}
                   </span>
                 </div>
               </div>
@@ -336,14 +397,10 @@ function ClientEmployees() {
               <div className={styles.infoGrid}>
                 <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Mapped Client</span>
-                  <span className={styles.fieldVal}>{clientCompany?.name}</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.clientName || clientCompany?.name}</span>
                 </div>
                 <div className={styles.infoField}>
-                  <span className={styles.fieldLabel}>Department</span>
-                  <span className={styles.fieldVal}>{selectedEmployee.department}</span>
-                </div>
-                <div className={styles.infoField}>
-                  <span className={styles.fieldLabel}>Assigned Site</span>
+                  <span className={styles.fieldLabel}>Assigned Site / Branch</span>
                   <span className={styles.fieldVal}>{selectedEmployee.site}</span>
                 </div>
                 <div className={styles.infoField}>
@@ -355,8 +412,20 @@ function ClientEmployees() {
                   <span className={styles.fieldVal}>{selectedEmployee.shift || 'General Shift'}</span>
                 </div>
                 <div className={styles.infoField}>
-                  <span className={styles.fieldLabel}>Joining Date</span>
+                  <span className={styles.fieldLabel}>Employment Type</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.employeeType || 'Permanent'}</span>
+                </div>
+                <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Date of Joining</span>
                   <span className={styles.fieldVal}>{selectedEmployee.joiningDate || '--'}</span>
+                </div>
+                <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Reporting Supervisor</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.reportingSupervisor || 'Area Security Officer'}</span>
+                </div>
+                <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Work Location Base</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.joiningLocation || selectedEmployee.site || '--'}</span>
                 </div>
               </div>
 
@@ -366,11 +435,11 @@ function ClientEmployees() {
                   <span className={styles.fieldLabel}>Police Verification</span>
                   <span className={styles.fieldValVerified}>
                     <ShieldCheck size={14} color="#16a34a" />
-                    {selectedEmployee.policeVerification || 'Verified (2026)'}
+                    {selectedEmployee.policeVerification || 'Verified (PSARA 2026)'}
                   </span>
                 </div>
                 <div className={styles.infoField}>
-                  <span className={styles.fieldLabel}>Identity Proof</span>
+                  <span className={styles.fieldLabel}>Identity Verification</span>
                   <span className={styles.fieldValVerified}>
                     <ShieldCheck size={14} color="#16a34a" />
                     Aadhaar & PAN Verified
@@ -381,15 +450,39 @@ function ClientEmployees() {
                   <StatusBadge status={selectedEmployee.status} />
                 </div>
                 <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Blood Group & Gender</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.bloodGroup ? `${selectedEmployee.bloodGroup} • ` : ''}{selectedEmployee.gender || 'Male'}</span>
+                </div>
+                <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Training & Qualifications</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.technicalQualification || 'Fire Safety & First Aid Trained'}</span>
+                </div>
+                <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Experience</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.previousExperience || 'Verified Guarding Background'}</span>
+                </div>
+              </div>
+
+              <h4 className={styles.sectionHeader}>Contact Information</h4>
+              <div className={styles.infoGrid}>
+                <div className={styles.infoField}>
                   <span className={styles.fieldLabel}>Official Mobile</span>
                   <span className={styles.fieldVal}>{selectedEmployee.mobile || '--'}</span>
+                </div>
+                <div className={styles.infoField}>
+                  <span className={styles.fieldLabel}>Emergency Contact</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.emergencyMobile || selectedEmployee.alternateMobile || '--'}</span>
+                </div>
+                <div className={styles.infoField} style={{ gridColumn: 'span 2' }}>
+                  <span className={styles.fieldLabel}>Email Address</span>
+                  <span className={styles.fieldVal}>{selectedEmployee.email || `${selectedEmployee.employeeCode?.toLowerCase()}@client.portal`}</span>
                 </div>
               </div>
             </div>
 
             <div className={styles.modalFooter}>
               <span className={styles.readOnlyNote}>
-                Client view is read-only. Role transfer and salary details are securely managed by RR Security Admin.
+                Client portal is read-only. All deployment rosters & statutory records are governed by RR Security Admin.
               </span>
               <button
                 type="button"

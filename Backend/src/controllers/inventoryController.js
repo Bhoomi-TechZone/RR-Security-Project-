@@ -5,6 +5,7 @@ import InventoryReturn from '../models/inventoryReturnModel.js';
 import InventoryMovement from '../models/inventoryMovementModel.js';
 import InventoryClearance from '../models/inventoryClearanceModel.js';
 import InventoryRequest from '../models/inventoryRequestModel.js';
+import { createSystemNotification } from './notificationController.js';
 
 /**
  * ============================================================================
@@ -1392,6 +1393,30 @@ export const createInventoryRequest = async (req, res) => {
       status: 'Pending Review'
     });
 
+    // Dynamically notify Company Admin with professional phrasing
+    const isUniform = category === 'Uniform' || requestType === 'uniform';
+    const requisitionTitle = `${isUniform ? 'Uniform' : 'Asset'} Requisition: ${itemName}`;
+    const sizeInfo = size && size !== 'Free Size' && size !== 'Standard' ? ` (Size: ${size})` : '';
+    const locationInfo = (clientName || site) ? ` (Duty Site: ${clientName || site})` : '';
+    const requisitionMessage = `${employeeName || 'Staff'} (${employeeId || 'ID'}) submitted a request for ${Number(quantity) || 1}x ${itemName}${sizeInfo}${locationInfo}.`;
+
+    await createSystemNotification({
+      companyId,
+      adminEmail,
+      recipientRole: 'admin',
+      recipientId: 'admin',
+      type: isUniform ? 'uniform-request' : 'asset-request',
+      title: requisitionTitle,
+      message: requisitionMessage,
+      employeeId: employeeId || '',
+      employeeName: employeeName || 'Employee',
+      clientName: clientName || site || '',
+      targetModule: 'inventory',
+      targetUrl: '/admin/inventory?tab=requests',
+      referenceId: requestId,
+      priority: urgency === 'Urgent' ? 'urgent' : urgency === 'High' ? 'important' : 'normal'
+    });
+
     return res.status(201).json({
       success: true,
       message: `Asset request ${requestId} submitted successfully.`,
@@ -1433,15 +1458,33 @@ export const actionInventoryRequest = async (req, res) => {
       });
     }
 
-    const actionBy = req.user?.name || 'Admin';
+    const actionBy = req.user?.name || 'Administrator';
     const actionDate = new Date().toISOString().slice(0, 10);
+    const isUniform = request.category === 'Uniform' || request.requestType === 'uniform';
+    const itemLabel = isUniform ? 'Uniform' : 'Asset';
 
     if (action === 'reject') {
       request.status = 'Rejected';
-      request.adminRemarks = adminRemarks || 'Request rejected by administration.';
+      request.adminRemarks = adminRemarks || `Request rejected by ${actionBy}.`;
       request.actionBy = actionBy;
       request.actionDate = actionDate;
       await request.save();
+
+      // Notify the Employee with clear admin attribution
+      await createSystemNotification({
+        companyId: request.companyId,
+        adminEmail: request.adminEmail,
+        recipientRole: 'employee',
+        recipientId: request.employeeId,
+        employeeId: request.employeeId,
+        employeeName: request.employeeName,
+        type: isUniform ? 'uniform-request' : 'asset-request',
+        title: `${itemLabel} Requisition Rejected: ${request.itemName}`,
+        message: `Your requisition request for ${request.itemName} was rejected by ${actionBy}.${adminRemarks ? ` Reason: ${adminRemarks}` : ''}`,
+        targetUrl: '/employee/notifications',
+        referenceId: request.requestId,
+        priority: 'important'
+      });
 
       return res.status(200).json({
         success: true,
@@ -1452,10 +1495,26 @@ export const actionInventoryRequest = async (req, res) => {
 
     if (action === 'approve') {
       request.status = 'Approved';
-      request.adminRemarks = adminRemarks || 'Approved by admin, pending stock dispatch.';
+      request.adminRemarks = adminRemarks || `Approved by ${actionBy}, pending stock dispatch.`;
       request.actionBy = actionBy;
       request.actionDate = actionDate;
       await request.save();
+
+      // Notify the Employee with clear admin attribution
+      await createSystemNotification({
+        companyId: request.companyId,
+        adminEmail: request.adminEmail,
+        recipientRole: 'employee',
+        recipientId: request.employeeId,
+        employeeId: request.employeeId,
+        employeeName: request.employeeName,
+        type: isUniform ? 'uniform-request' : 'asset-request',
+        title: `${itemLabel} Requisition Approved: ${request.itemName}`,
+        message: `Your requisition request for ${request.quantity || 1}x ${request.itemName} has been approved by ${actionBy}.`,
+        targetUrl: '/employee/notifications',
+        referenceId: request.requestId,
+        priority: 'normal'
+      });
 
       return res.status(200).json({
         success: true,
@@ -1496,6 +1555,29 @@ export const actionInventoryRequest = async (req, res) => {
         status: 'Issued',
         remarks: adminRemarks || `Issued against Requisition ${request.requestId}`,
         serialNumber: serialNumber || ''
+      });
+
+      request.status = 'Assigned';
+      request.assignedIssueId = issueId;
+      request.actionBy = actionBy;
+      request.actionDate = actionDate;
+      request.adminRemarks = adminRemarks || `Issued under record ${issueId} by ${actionBy}.`;
+      await request.save();
+
+      // Notify the Employee with clear admin attribution
+      await createSystemNotification({
+        companyId: request.companyId,
+        adminEmail: request.adminEmail,
+        recipientRole: 'employee',
+        recipientId: request.employeeId,
+        employeeId: request.employeeId,
+        employeeName: request.employeeName,
+        type: isUniform ? 'uniform-request' : 'asset-request',
+        title: `${itemLabel} Requisition Issued: ${request.itemName}`,
+        message: `Your requisition request for ${request.quantity || 1}x ${request.itemName} has been assigned & issued to you by ${actionBy} (Issue ID: ${issueId}).`,
+        targetUrl: '/employee/notifications',
+        referenceId: issueId,
+        priority: 'normal'
       });
 
       // Update InventoryItem stock if itemId exists
