@@ -206,6 +206,7 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/inventory', name: 'Inventory Stock' },
+          { path: '/admin/inventory?tab=requests', name: 'Uniform Requisitions' },
           { path: '/admin/inventory?tab=issued', name: 'Issued Items' },
           { path: '/admin/inventory?tab=returns', name: 'Return History' },
           { path: '/admin/inventory?tab=movement', name: 'Stock Movements' },
@@ -299,7 +300,6 @@ const NAV_GROUPS = [
         subItems: [
           { path: '/admin/preferences', name: 'Overview' },
           { path: '/admin/preferences?tab=employee-portal', name: 'Employee Portal' },
-          { path: '/admin/preferences?tab=reporting-manager', name: 'Manager Permissions' },
           { path: '/admin/preferences?tab=email', name: 'Email Settings' },
           { path: '/admin/preferences?tab=notifications', name: 'Notification Settings' },
           { path: '/admin/preferences?tab=approvals', name: 'Approval Settings' },

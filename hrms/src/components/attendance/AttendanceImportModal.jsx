@@ -1,17 +1,21 @@
 import React, { useState, useRef } from 'react';
-import { X, UploadCloud, FileSpreadsheet, Download, CheckCircle, AlertTriangle, FileText } from 'lucide-react';
+import { X, UploadCloud, FileSpreadsheet, Download, CheckCircle, AlertTriangle, FileText, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { getDaysInMonth } from './AttendanceCorrectionModal';
 import styles from './AttendanceImportModal.module.css';
 
 /**
  * AttendanceImportModal
  * Supports uploading both Excel (.xlsx, .xls) and CSV (.csv) files.
- * Provides sample template download in both Excel (.xlsx) and CSV formats.
- * Standardizes date formats (DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, Excel date numbers) to standard ISO YYYY-MM-DD.
+ * Provides sample template download with required columns:
+ * EMPID, EMPLOYEE NAME, FATHER NAME, MONTH, YEAR, PRESENT, WEEK OFF, HOLIDAYS, CL, SL, EL
+ * (CL = Casual Leave, SL = Sick Leave, EL = Earn Leave)
  */
 function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', activeCompanyId = '', currentDate }) {
   const defaultMonth = new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().split('T')[0];
+  const currentYear = new Date().getFullYear();
+  const currentMonthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
 
   const [targetMonth, setTargetMonth] = useState(defaultMonth);
   const [defaultDate, setDefaultDate] = useState(currentDate || todayDate);
@@ -62,11 +66,10 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
     return defaultDate;
   };
 
-  // Standardize time format: e.g. "09:05AM" -> "09:05 AM" or 0.378 (Excel decimal time)
+  // Standardize time format: e.g. "09:05AM" -> "09:05 AM"
   const normalizeTime = (val) => {
     if (!val && val !== 0) return '';
 
-    // Excel decimal time fraction (e.g. 0.378472 -> 09:05 AM)
     if (typeof val === 'number' && val >= 0 && val <= 1) {
       const totalMinutes = Math.round(val * 24 * 60);
       const hours = Math.floor(totalMinutes / 60);
@@ -79,7 +82,6 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
     let str = String(val).trim();
     if (!str) return '';
 
-    // Check for "09:05AM" without space
     const matchAmpm = str.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/i);
     if (matchAmpm) {
       const h = String(matchAmpm[1]).padStart(2, '0');
@@ -88,7 +90,6 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
       return `${h}:${m} ${p}`;
     }
 
-    // Check for 24-hour "17:00" or "09:05"
     const match24 = str.match(/^(\d{1,2}):(\d{2})$/);
     if (match24) {
       const h = Number(match24[1]);
@@ -101,88 +102,77 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
     return str;
   };
 
-  // Helper to calculate working hours string
-  const calculateHours = (inTime, outTime, providedHours) => {
-    if (providedHours && String(providedHours).trim()) {
-      const hStr = String(providedHours).trim();
-      if (/^\d+(\.\d+)?$/.test(hStr)) {
-        const num = Number(hStr);
-        const h = Math.floor(num);
-        const m = Math.round((num - h) * 60);
-        return `${h}h ${String(m).padStart(2, '0')}m`;
-      }
-      return hStr.includes('h') ? hStr : `${hStr}h 00m`;
+  // Convert month name to two digit number
+  const getMonthNum = (monthStr) => {
+    if (!monthStr) return targetMonth.split('-')[1] || '01';
+    const clean = String(monthStr).trim().toLowerCase();
+    const months = {
+      jan: '01', january: '01',
+      feb: '02', february: '02',
+      mar: '03', march: '03',
+      apr: '04', april: '04',
+      may: '05',
+      jun: '06', june: '06',
+      jul: '07', july: '07',
+      aug: '08', august: '08',
+      sep: '09', sept: '09', september: '09',
+      oct: '10', october: '10',
+      nov: '11', november: '11',
+      dec: '12', december: '12'
+    };
+    if (months[clean]) return months[clean];
+    const num = parseInt(clean, 10);
+    if (!isNaN(num) && num >= 1 && num <= 12) {
+      return String(num).padStart(2, '0');
     }
-
-    if (!inTime || !outTime) return '0h 00m';
-    try {
-      const parseTimeMinutes = (timeStr) => {
-        const cleaned = String(timeStr).trim().toUpperCase();
-        const isPM = cleaned.includes('PM');
-        const isAM = cleaned.includes('AM');
-        const numbers = cleaned.replace(/[^0-9:]/g, '');
-        let [hours, mins] = numbers.split(':').map(Number);
-        if (isNaN(hours)) return null;
-        if (isNaN(mins)) mins = 0;
-        if (isPM && hours < 12) hours += 12;
-        if (isAM && hours === 12) hours = 0;
-        return hours * 60 + mins;
-      };
-
-      const inMins = parseTimeMinutes(inTime);
-      const outMins = parseTimeMinutes(outTime);
-      if (inMins !== null && outMins !== null && outMins > inMins) {
-        const diff = outMins - inMins;
-        const h = Math.floor(diff / 60);
-        const m = diff % 60;
-        return `${h}h ${String(m).padStart(2, '0')}m`;
-      }
-    } catch {
-      // ignore
-    }
-    return '8h 00m';
+    return targetMonth.split('-')[1] || '01';
   };
 
-  // Download Sample Template as genuine Excel (.xlsx)
+  // Download Sample Template as genuine Excel (.xlsx) with exact requested columns only (no sample data)
   const handleDownloadExcelSample = () => {
-    const sampleData = [
-      {
-        'Employee ID': 'EMP-001',
-        'Employee Name': 'Rishab Sharma',
-        'Client Name': 'TNT Company',
-        'Site': 'Gurgaon HQ',
-        'Department': 'Security',
-        'Date': defaultDate,
-        'Check In': '09:00 AM',
-        'Check Out': '05:00 PM',
-        'Working Hours': '8',
-        'Status': 'Present'
-      },
-      {
-        'Employee ID': 'EMP-002',
-        'Employee Name': 'Amit Kumar',
-        'Client Name': 'TNT Company',
-        'Site': 'Main Gate',
-        'Department': 'Security',
-        'Date': defaultDate,
-        'Check In': '09:15 AM',
-        'Check Out': '05:00 PM',
-        'Working Hours': '8',
-        'Status': 'Present'
-      }
+    const headers = [
+      [
+        'EMPID',
+        'EMPLOYEE NAME',
+        'FATHER NAME',
+        'MONTH',
+        'YEAR',
+        'PRESENT',
+        'WEEK OFF',
+        'HOLIDAYS',
+        'CL',
+        'SL',
+        'EL',
+        'LWP'
+      ]
     ];
 
-    const worksheet = XLSX.utils.json_to_sheet(sampleData);
+    const worksheet = XLSX.utils.aoa_to_sheet(headers);
+    // Set column widths for clean readability
+    worksheet['!cols'] = [
+      { wch: 14 }, // EMPID
+      { wch: 22 }, // EMPLOYEE NAME
+      { wch: 22 }, // FATHER NAME
+      { wch: 14 }, // MONTH
+      { wch: 10 }, // YEAR
+      { wch: 12 }, // PRESENT
+      { wch: 12 }, // WEEK OFF
+      { wch: 12 }, // HOLIDAYS
+      { wch: 8 },  // CL
+      { wch: 8 },  // SL
+      { wch: 8 },  // EL
+      { wch: 8 }   // LWP
+    ];
+
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
     XLSX.writeFile(workbook, `Attendance_Template_${targetMonth}.xlsx`);
   };
 
-  // Download Sample Template as CSV (.csv)
+  // Download Sample Template as CSV (.csv) with exact requested columns only (no sample data)
   const handleDownloadCsvSample = () => {
-    const csvContent = 'Employee ID,Employee Name,Client Name,Site,Department,Date,Check In,Check Out,Working Hours,Status\n' +
-      `EMP-001,Rishab Sharma,TNT Company,Gurgaon HQ,Security,${defaultDate},09:00 AM,05:00 PM,8,Present\n` +
-      `EMP-002,Amit Kumar,TNT Company,Main Gate,Security,${defaultDate},09:15 AM,05:00 PM,8,Present\n`;
+    const csvContent = 'EMPID,EMPLOYEE NAME,FATHER NAME,MONTH,YEAR,PRESENT,WEEK OFF,HOLIDAYS,CL,SL,EL,LWP\n';
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -203,37 +193,88 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
     }
 
     const headers = Object.keys(rawRows[0] || {});
-    const normalizeHeader = (h) => String(h).toLowerCase().replace(/[^a-z0-9]/g, '');
+    const normalizeHeader = (h) => String(h || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const findKey = (possibleNames) => {
+      const normalizedPossibles = possibleNames.map(p => normalizeHeader(p));
+
+      // 1. Pass 1: Exact match on normalized header names
+      const exactMatch = headers.find(h => {
+        const norm = normalizeHeader(h);
+        return normalizedPossibles.includes(norm);
+      });
+      if (exactMatch) return exactMatch;
+
+      // 2. Pass 2: Safe substring matching (only for aliases with length >= 3 to avoid collision like 'p' or 'id')
       return headers.find(h => {
         const norm = normalizeHeader(h);
-        return possibleNames.some(p => norm.includes(p));
+        return normalizedPossibles.some(p => p.length >= 3 && (norm.startsWith(p) || norm.endsWith(p) || norm.includes(p)));
       });
     };
 
-    const empIdKey = findKey(['employeeid', 'empid', 'id', 'code']);
-    const empNameKey = findKey(['employeename', 'name', 'employee']);
-    const companyKey = findKey(['companyname', 'company', 'client']);
-    const siteKey = findKey(['site', 'location']);
+    // Requested fields mapping
+    const empIdKey = findKey(['empid', 'employeeid', 'empcode', 'employeecode', 'employee_id', 'emp_id']);
+    const empNameKey = findKey(['employeename', 'employee_name', 'empname', 'emp_name', 'name', 'employee']);
+    const fatherNameKey = findKey(['fathername', 'father_name', 'fathersname', 'father', 'guardian']);
+    const monthKey = findKey(['month', 'monthname', 'salarymonth', 'attmonth']);
+    const yearKey = findKey(['year', 'salaryyear', 'attyear']);
+    const presentKey = findKey(['present', 'presentdays', 'present_days', 'totalpresent', 'p_days', 'pdays']);
+    const weekOffKey = findKey(['weekoff', 'week_off', 'wo', 'weeklyoff', 'weekly_off']);
+    const holidaysKey = findKey(['holidays', 'holiday', 'publicholidays', 'public_holidays', 'hl', 'ph']);
+    const clKey = findKey(['cl', 'casualleave', 'casual_leave', 'casual']);
+    const slKey = findKey(['sl', 'sickleave', 'sick_leave', 'sick']);
+    const elKey = findKey(['el', 'earnleave', 'earnedleave', 'earn_leave', 'pl', 'paidleave']);
+    const lwpKey = findKey(['lwp', 'leavewithoutpay', 'leave_without_pay', 'lop', 'lossofpay', 'unpaid', 'unpaidleave']);
+
+    // Legacy optional fields mapping
+    const companyKey = findKey(['companyname', 'company_name', 'clientname', 'client_name', 'client', 'company']);
+    const siteKey = findKey(['site', 'location', 'branch']);
     const deptKey = findKey(['department', 'dept']);
-    const dateKey = findKey(['date', 'day']);
-    const checkInKey = findKey(['checkin', 'intime', 'in']);
-    const checkOutKey = findKey(['checkout', 'outtime', 'out']);
-    const hoursKey = findKey(['workinghours', 'hours', 'totalhours']);
-    const statusKey = findKey(['status']);
+    const dateKey = findKey(['date', 'attendancedate', 'attendance_date', 'day']);
+    const checkInKey = findKey(['checkin', 'check_in', 'intime', 'in_time']);
+    const checkOutKey = findKey(['checkout', 'check_out', 'outtime', 'out_time']);
+    const hoursKey = findKey(['workinghours', 'working_hours', 'totalhours', 'total_hours', 'hours']);
+    const statusKey = findKey(['status', 'attendancestatus']);
+
+    const parseNum = (val, fallback = 0) => {
+      if (val === undefined || val === null || val === '') return fallback;
+      const n = Number(String(val).trim());
+      return isNaN(n) ? fallback : n;
+    };
 
     const formattedRows = [];
 
     rawRows.forEach((row, i) => {
       const empId = (empIdKey ? row[empIdKey] : row[headers[0]]) || `EMP${String(i + 1).padStart(3, '0')}`;
       const empName = (empNameKey ? row[empNameKey] : row[headers[1]]) || 'Employee';
-      const companyName = (companyKey ? row[companyKey] : '') || activeCompanyName;
+      const fatherName = fatherNameKey && row[fatherNameKey] !== undefined ? String(row[fatherNameKey]).trim() : '';
+      
+      const parsedMonthStr = monthKey && row[monthKey] !== undefined ? String(row[monthKey]).trim() : (targetMonth ? targetMonth.split('-')[1] : currentMonthName);
+      const parsedYearStr = yearKey && row[yearKey] !== undefined ? String(row[yearKey]).trim() : (targetMonth ? targetMonth.split('-')[0] : String(currentYear));
+
+      const present = parseNum(presentKey ? row[presentKey] : undefined, 0);
+      const weekOff = parseNum(weekOffKey ? row[weekOffKey] : undefined, 0);
+      const holidays = parseNum(holidaysKey ? row[holidaysKey] : undefined, 0);
+      const cl = parseNum(clKey ? row[clKey] : undefined, 0);
+      const sl = parseNum(slKey ? row[slKey] : undefined, 0);
+      const el = parseNum(elKey ? row[elKey] : undefined, 0);
+      const lwp = parseNum(lwpKey ? row[lwpKey] : undefined, 0);
+
+      const totalPaidDays = present + weekOff + holidays + cl + sl + el;
+      const workingDays = parsedMonthStr ? getDaysInMonth(parsedMonthStr, parsedYearStr) : totalPaidDays;
+
+      const companyName = (companyKey ? row[companyKey] : '') || activeCompanyName || 'RR Security';
       const site = (siteKey ? row[siteKey] : '') || 'Main Site';
       const department = (deptKey ? row[deptKey] : '') || 'Security';
 
-      const rawDate = dateKey ? row[dateKey] : defaultDate;
-      const rowDate = normalizeDate(rawDate);
+      // Determine standard date
+      let rowDate = defaultDate;
+      if (dateKey && row[dateKey]) {
+        rowDate = normalizeDate(row[dateKey]);
+      } else if (parsedYearStr && parsedMonthStr) {
+        const mNum = getMonthNum(parsedMonthStr);
+        rowDate = `${parsedYearStr}-${mNum}-01`;
+      }
 
       const checkIn = normalizeTime(checkInKey ? row[checkInKey] : '');
       const checkOut = normalizeTime(checkOutKey ? row[checkOutKey] : '');
@@ -244,9 +285,11 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
       else if (rawStatus.includes('half')) status = 'halfDay';
       else if (rawStatus.includes('leave')) status = 'onLeave';
       else if (rawStatus.includes('late')) status = 'late';
-      else if (!checkIn && !checkOut && rawStatus !== 'present') status = 'absent';
+      else if (present === 0 && (cl > 0 || sl > 0 || el > 0)) status = 'onLeave';
 
-      const workingHours = calculateHours(checkIn, checkOut, hoursKey ? row[hoursKey] : null);
+      const workingHours = hoursKey && row[hoursKey] 
+        ? String(row[hoursKey]) 
+        : (present > 0 ? `${present} days` : '8h 00m');
 
       const initials = String(empName)
         .split(' ')
@@ -259,8 +302,20 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
         id: `ATT-IMP-${Date.now()}-${i + 1}`,
         employeeId: String(empId).trim(),
         employeeName: String(empName).trim(),
+        fatherName: String(fatherName).trim(),
+        month: parsedMonthStr,
+        year: parsedYearStr ? Number(parsedYearStr) : currentYear,
+        present,
+        weekOff,
+        holidays,
+        cl,
+        sl,
+        el,
+        lwp,
+        totalPaidDays,
+        workingDays,
         initials,
-        companyName: String(companyName || activeCompanyName).trim(),
+        companyName: String(companyName).trim(),
         companyId: activeCompanyId,
         site: String(site).trim(),
         department: String(department).trim(),
@@ -349,7 +404,6 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
     e.preventDefault();
     if (parsedRows.length === 0) return;
 
-    // Use the parsed date from the first record as target active date if available
     const firstDate = parsedRows[0]?.date || defaultDate;
 
     onImport({
@@ -357,17 +411,6 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
       date: firstDate,
       records: parsedRows
     });
-  };
-
-  const getStatusBadgeClass = (status) => {
-    switch (status) {
-      case 'present': return `${styles.statusTag} ${styles.statusPresent}`;
-      case 'absent': return `${styles.statusTag} ${styles.statusAbsent}`;
-      case 'halfDay': return `${styles.statusTag} ${styles.statusHalfDay}`;
-      case 'onLeave': return `${styles.statusTag} ${styles.statusLeave}`;
-      case 'late': return `${styles.statusTag} ${styles.statusLate}`;
-      default: return styles.statusTag;
-    }
   };
 
   return (
@@ -381,7 +424,9 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
             </div>
             <div>
               <h3 className={styles.title}>Import Attendance Records</h3>
-              <p className={styles.sub}>Upload monthly or daily attendance from Excel (.xlsx/.xls) or CSV</p>
+              <p className={styles.sub}>
+                Upload monthly or daily attendance from Excel (.xlsx/.xls) or CSV
+              </p>
             </div>
           </div>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
@@ -423,24 +468,31 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
           {/* Sample Template Download Options */}
           <div className={styles.templateDownloadCard}>
             <div className={styles.templateInfo}>
-              <FileText size={18} />
-              <span>Download official attendance template with all required columns:</span>
+              <FileText size={20} style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: '#166534' }}>
+                  Download Sample Format
+                </div>
+                <div style={{ fontSize: 12, color: '#15803d' }}>
+                  Download sample attendance template file in Excel or CSV format
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
               <button
                 type="button"
                 className={styles.downloadBtn}
                 onClick={handleDownloadExcelSample}
-                title="Download genuine Excel format"
+                title="Download Excel Template (.xlsx)"
               >
                 <Download size={14} />
-                Download Excel Template (.xlsx)
+                Download Excel (.xlsx)
               </button>
               <button
                 type="button"
                 className={styles.downloadBtn}
                 onClick={handleDownloadCsvSample}
-                title="Download standard CSV format"
+                title="Download CSV Template (.csv)"
               >
                 <Download size={14} />
                 Download CSV (.csv)
@@ -466,7 +518,9 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
               />
               <UploadCloud className={styles.dropzoneIcon} />
               <div className={styles.dropzoneTitle}>Click to upload or drag & drop Excel / CSV file</div>
-              <div className={styles.dropzoneDesc}>Supports Microsoft Excel (.xlsx, .xls) and CSV (.csv) formats</div>
+              <div className={styles.dropzoneDesc}>
+                Supports Microsoft Excel (.xlsx, .xls) and CSV (.csv) formats
+              </div>
             </div>
           ) : (
             <div className={styles.fileActiveBar}>
@@ -497,11 +551,13 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
             </div>
           )}
 
-          {/* Preview Table with Separate Columns */}
+          {/* Preview Table with Explicit Requested Columns */}
           {parsedRows.length > 0 && (
             <div className={styles.previewContainer}>
               <div className={styles.previewHeader}>
-                <span className={styles.previewTitle}>Parsed Records Preview ({parsedRows.length} employees)</span>
+                <span className={styles.previewTitle}>
+                  Parsed Records Preview ({parsedRows.length} Employees)
+                </span>
                 <div className={styles.previewBadges}>
                   <span className={styles.badgeSuccess}>
                     ✓ Ready to Import ({parsedRows.length})
@@ -514,34 +570,40 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
                   <thead>
                     <tr>
                       <th>#</th>
-                      <th>Employee ID</th>
-                      <th>Employee Name</th>
-                      <th>Client</th>
-                      <th>Site</th>
-                      <th>Department</th>
-                      <th>Date</th>
-                      <th>Check In</th>
-                      <th>Check Out</th>
-                      <th>Working Hours</th>
-                      <th>Status</th>
+                      <th>EMPID</th>
+                      <th>EMPLOYEE NAME</th>
+                      <th>FATHER NAME</th>
+                      <th>MONTH</th>
+                      <th>YEAR</th>
+                      <th style={{ color: '#16a34a' }}>PRESENT</th>
+                      <th style={{ color: '#2563eb' }}>WEEK OFF</th>
+                      <th style={{ color: '#d97706' }}>HOLIDAYS</th>
+                      <th style={{ color: '#7c3aed' }} title="Casual Leave">CL</th>
+                      <th style={{ color: '#0284c7' }} title="Sick Leave">SL</th>
+                      <th style={{ color: '#0d9488' }} title="Earn Leave">EL</th>
+                      <th style={{ color: '#dc2626' }} title="Leave Without Pay">LWP</th>
+                      <th style={{ fontWeight: 700 }}>WORKING DAYS</th>
                     </tr>
                   </thead>
                   <tbody>
                     {parsedRows.map((row, idx) => (
                       <tr key={row.id || idx}>
                         <td style={{ color: '#94a3b8' }}>{idx + 1}</td>
-                        <td style={{ fontWeight: 600 }}>{row.employeeId}</td>
-                        <td>{row.employeeName}</td>
-                        <td>{row.companyName}</td>
-                        <td>{row.site}</td>
-                        <td>{row.department}</td>
-                        <td>{row.date}</td>
-                        <td>{row.checkIn || '—'}</td>
-                        <td>{row.checkOut || '—'}</td>
-                        <td>{row.workingHours || '—'}</td>
+                        <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.employeeId}</td>
+                        <td style={{ fontWeight: 600 }}>{row.employeeName}</td>
+                        <td>{row.fatherName || '—'}</td>
+                        <td>{row.month || '—'}</td>
+                        <td>{row.year || '—'}</td>
+                        <td style={{ fontWeight: 600, color: '#15803d' }}>{row.present}</td>
+                        <td style={{ color: '#1d4ed8' }}>{row.weekOff}</td>
+                        <td style={{ color: '#b45309' }}>{row.holidays}</td>
+                        <td style={{ color: '#6d28d9', fontWeight: 600 }}>{row.cl}</td>
+                        <td style={{ color: '#0369a1', fontWeight: 600 }}>{row.sl}</td>
+                        <td style={{ color: '#0f766e', fontWeight: 600 }}>{row.el}</td>
+                        <td style={{ color: '#dc2626', fontWeight: 600 }}>{row.lwp}</td>
                         <td>
-                          <span className={getStatusBadgeClass(row.status)}>
-                            {row.status}
+                          <span className={styles.badgePaidDays}>
+                            {row.workingDays || row.totalPaidDays} Days
                           </span>
                         </td>
                       </tr>
@@ -577,3 +639,4 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
 }
 
 export default AttendanceImportModal;
+

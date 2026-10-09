@@ -21,20 +21,20 @@ export default function RateRevisionForm({
 
   // Active Employee lookup
   const activeEmployee = useMemo(() => {
-    return employees.find(e => e.id === selectedEmpId) || employees[0];
+    return employees.find(e => (e.id === selectedEmpId || e._id === selectedEmpId || e.employeeId === selectedEmpId)) || employees[0] || {};
   }, [selectedEmpId, employees]);
 
   // Current / Old Rate from employee
   const oldRate = useMemo(() => {
-    if (editingRevision) return editingRevision.oldRate;
-    return activeEmployee?.grossSalary || activeEmployee?.basic || 20000;
+    if (editingRevision) return editingRevision.oldRate || 0;
+    return activeEmployee?.grossSalary || activeEmployee?.basic || 0;
   }, [editingRevision, activeEmployee]);
 
   // Old Salary Components breakdown
   const oldBasic = useMemo(() => activeEmployee?.basic || Math.round(oldRate * 0.6), [activeEmployee, oldRate]);
   const oldVda = useMemo(() => activeEmployee?.vda || Math.round(oldRate * 0.1), [activeEmployee, oldRate]);
   const oldHra = useMemo(() => activeEmployee?.hra || Math.round(oldRate * 0.2), [activeEmployee, oldRate]);
-  const oldOther = useMemo(() => activeEmployee?.otherAllowance || (oldRate - (oldBasic + oldVda + oldHra)), [activeEmployee, oldRate, oldBasic, oldVda, oldHra]);
+  const oldOther = useMemo(() => activeEmployee?.otherAllowance || Math.max(0, oldRate - (oldBasic + oldVda + oldHra)), [activeEmployee, oldRate, oldBasic, oldVda, oldHra]);
   const oldOtRate = useMemo(() => activeEmployee?.overtimeRate || Math.round((oldBasic + oldVda) / 100), [activeEmployee, oldBasic, oldVda]);
 
   // Live Component calculations based on new rate
@@ -57,11 +57,11 @@ export default function RateRevisionForm({
 
     const payload = {
       ...(editingRevision || {}),
-      employeeId: activeEmployee.id,
-      employeeCode: activeEmployee.employeeCode,
-      employeeName: activeEmployee.name,
-      client: activeEmployee.companyName || 'ABC Security Services',
-      site: activeEmployee.siteLocation || activeEmployee.joiningLocation || 'Main Site',
+      employeeId: activeEmployee._id || activeEmployee.id || activeEmployee.employeeId,
+      employeeCode: activeEmployee.employeeId || activeEmployee.employeeCode || '',
+      employeeName: activeEmployee.name || activeEmployee.employeeName || 'Employee',
+      client: activeEmployee.clientName || activeEmployee.companyName || 'Main Client',
+      site: activeEmployee.site || activeEmployee.siteLocation || 'Main Site',
       designation: activeEmployee.designation || 'Staff',
       effectiveFrom,
       oldRate,
@@ -95,7 +95,7 @@ export default function RateRevisionForm({
         <div className={styles.header}>
           <div>
             <h2 className={styles.title}>
-              {editingRevision ? `Edit Rate Revision (${editingRevision.revisionId})` : 'Create Rate Revision'}
+              {editingRevision ? `Edit Rate Revision (${editingRevision.revisionId || editingRevision.id})` : 'Create Rate Revision'}
             </h2>
             <p className={styles.subtitle}>
               Adjust compensation rates, salary component breakdown, and effective dates.
@@ -108,6 +108,7 @@ export default function RateRevisionForm({
 
         <form onSubmit={handleSubmit} className={styles.form}>
           <div className={styles.body}>
+
             {/* Employee Selection */}
             <div className={styles.formGroup}>
               <label className={styles.label}>
@@ -123,11 +124,16 @@ export default function RateRevisionForm({
                 disabled={!!editingRevision}
                 required
               >
-                {employees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.employeeCode} — {emp.name} ({emp.department} • {emp.designation})
-                  </option>
-                ))}
+                {employees.map(emp => {
+                  const empKey = emp._id || emp.id || emp.employeeId;
+                  const empCode = emp.employeeId || emp.employeeCode || '';
+                  const empName = emp.name || emp.employeeName || '';
+                  return (
+                    <option key={empKey} value={empKey}>
+                      {empCode} — {empName} ({emp.department || 'General'} • {emp.designation || 'Staff'})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -135,11 +141,11 @@ export default function RateRevisionForm({
             <div style={{ background: 'var(--surface-hover, #f8fafc)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border, #e2e8f0)', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Client</span>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{activeEmployee?.companyName || 'ABC Security'}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{activeEmployee?.clientName || activeEmployee?.companyName || 'Main Client'}</div>
               </div>
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Site / Post</span>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{activeEmployee?.siteLocation || 'Main Gate'}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{activeEmployee?.site || activeEmployee?.siteLocation || 'Main Site'}</div>
               </div>
               <div>
                 <span style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>Designation</span>

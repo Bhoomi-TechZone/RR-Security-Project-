@@ -41,7 +41,19 @@ function CompanyDetailsHeader({ company, onEdit, onToggleStatus, onOpenCredentia
             <StatusBadge status={company.status} />
           </div>
           <p className={styles.industry}>
-            {company.industry || 'Facility Management & Services'}
+            {company.typeOfService ? (
+              {
+                'SecurityGuard': 'Security Guard Services',
+                'Housekeeping': 'Housekeeping Services',
+                'Manufacturing': 'Manufacturing & Industrial Security',
+                'UnarmedSecurity': 'Unarmed Security Services',
+                'ArmedSecurity': 'Armed Security Services',
+                'Finance': 'Finance & Banking Security',
+                'Retail': 'Retail & Mall Security',
+                'Construction': 'Construction Site Security',
+                'Other': 'Specialized Services'
+              }[company.typeOfService] || company.typeOfService
+            ) : (company.industry || 'Facility Management & Services')}
           </p>
         </div>
       </div>

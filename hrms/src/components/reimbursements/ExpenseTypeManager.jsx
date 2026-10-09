@@ -46,7 +46,7 @@ export default function ExpenseTypeManager({
           </thead>
           <tbody>
             {expenseTypes.map((type) => (
-              <tr key={type.id}>
+              <tr key={type._id || type.id || type.code}>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <strong style={{ color: '#0f172a' }}>{type.name}</strong>
                 </td>
@@ -60,7 +60,7 @@ export default function ExpenseTypeManager({
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>
                   <strong style={{ color: '#0f172a', fontFamily: 'Consolas, monospace', fontSize: '13.5px' }}>
-                    ₹{type.maxLimit.toLocaleString()}
+                    ₹{Number(type.maxLimit || 0).toLocaleString('en-IN')}
                   </strong>
                 </td>
                 <td style={{ whiteSpace: 'nowrap' }}>

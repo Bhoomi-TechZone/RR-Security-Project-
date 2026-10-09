@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import clientService from '../../services/clientService';
 import styles from './CompanyForm.module.css';
@@ -41,6 +41,7 @@ function CompanyForm({
   });
 
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -129,15 +130,28 @@ function CompanyForm({
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setFormData((prev) => ({ ...prev, document: file }));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData((prev) => ({
+          ...prev,
+          document: {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            data: reader.result
+          }
+        }));
+      };
+      reader.readAsDataURL(file);
       if (errors.document) {
         setErrors((prev) => ({ ...prev, document: '' }));
       }
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
 
     const initials = formData.name
       .split(' ')
@@ -151,7 +165,7 @@ function CompanyForm({
       if (typeof formData.document === 'string') {
         docPayload = formData.document;
       } else if (typeof formData.document === 'object') {
-        docPayload = formData.document.name || null;
+        docPayload = formData.document.data || formData.document.name || null;
       }
     }
 
@@ -163,11 +177,18 @@ function CompanyForm({
       gstin: (formData.gstin || '').toUpperCase()
     };
 
-    onSubmit(dataToSubmit);
+    try {
+      setIsSubmitting(true);
+      await onSubmit(dataToSubmit);
+    } catch (err) {
+      console.error('Error saving client:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
+    <div className={styles.overlay} onClick={isSubmitting ? undefined : onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <div>
@@ -180,7 +201,7 @@ function CompanyForm({
                 : 'Add a new client company to your organization.'}
             </p>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form">
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form" disabled={isSubmitting}>
             <X size={20} />
           </button>
         </div>
@@ -683,11 +704,18 @@ function CompanyForm({
           </div>
 
           <div className={styles.footer}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>
+            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={isSubmitting}>
               Cancel
             </button>
-            <button type="submit" className={styles.submitBtn}>
-              {company ? 'Update Client' : 'Add Client'}
+            <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Loader2 size={16} className={styles.spinner} />
+                  <span>Saving...</span>
+                </span>
+              ) : (
+                company ? 'Update Client' : 'Add Client'
+              )}
             </button>
           </div>
         </form>

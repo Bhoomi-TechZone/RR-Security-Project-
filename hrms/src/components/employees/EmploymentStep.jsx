@@ -22,11 +22,14 @@ function EmploymentStep({
     const selectedClient = (clients || []).find(
       c => (c.clientId === selectedClientId || c.id === selectedClientId || c._id === selectedClientId)
     );
+    const clientAddress = selectedClient ? (selectedClient.address || '') : '';
     onChange({
       ...data,
       clientId: selectedClientId,
       clientName: selectedClient ? selectedClient.name : '',
-      companyName: selectedClient ? selectedClient.name : ''
+      companyName: selectedClient ? selectedClient.name : '',
+      siteLocation: clientAddress,
+      clientAddress: clientAddress
     });
   };
 
@@ -217,40 +220,23 @@ function EmploymentStep({
           </select>
         </div>
 
-        {/* Site/Location */}
+        {/* Client Address */}
         <div className={styles.fieldGroup}>
-          <label htmlFor="emp-site-location" className={styles.label}>Site/Location</label>
-          <select
-            id="emp-site-location"
-            className={styles.select}
-            value={data.siteLocation || ''}
+          <label htmlFor="emp-client-address" className={styles.label}>Client Address</label>
+          <input
+            id="emp-client-address"
+            type="text"
+            className={styles.input}
+            placeholder={selectedClientId ? 'Client address' : 'Select client to auto-fill address'}
+            value={data.clientAddress !== undefined ? data.clientAddress : (data.siteLocation || '')}
             onChange={(e) => {
-              const val = e.target.value;
-              const foundSite = siteList.find(s => (s.name || s.siteName) === val);
-              if (foundSite) {
-                const clientOfSite = (clients || []).find(c => (c.clientId === foundSite.clientId || c.id === foundSite.clientId || c._id === foundSite.clientId || c.name === foundSite.clientName));
-                onChange({
-                  ...data,
-                  siteLocation: val,
-                  clientId: clientOfSite ? (clientOfSite.clientId || clientOfSite.id || clientOfSite._id) : (foundSite.clientId || data.clientId),
-                  clientName: clientOfSite ? clientOfSite.name : (foundSite.clientName || data.clientName)
-                });
-              } else {
-                handleChange('siteLocation', val);
-              }
+              onChange({
+                ...data,
+                clientAddress: e.target.value,
+                siteLocation: e.target.value
+              });
             }}
-          >
-            <option value="">
-              {siteList.length > 0 ? 'Select Site' : 'No active sites in Masters'}
-            </option>
-            {siteList.map(s => {
-              const sName = s.name || s.siteName || s;
-              return <option key={sName} value={sName}>{sName}</option>;
-            })}
-            {data.siteLocation && !siteList.some(s => (s.name || s.siteName || s) === data.siteLocation) && (
-              <option value={data.siteLocation}>{data.siteLocation}</option>
-            )}
-          </select>
+          />
         </div>
 
         {/* Duty Post */}

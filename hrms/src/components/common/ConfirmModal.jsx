@@ -1,12 +1,12 @@
 import React, { useEffect, useRef } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, Loader2 } from 'lucide-react';
 import styles from './ConfirmModal.module.css';
 
 /**
  * ConfirmModal — Reusable confirmation dialog
- * Props: isOpen, title, description, confirmLabel, variant ('danger'|'primary'), onConfirm, onCancel
+ * Props: isOpen, title, description, confirmLabel, variant ('danger'|'primary'), onConfirm, onCancel, loading
  */
-function ConfirmModal({ isOpen, title, description, confirmLabel = 'Confirm', variant = 'danger', onConfirm, onCancel }) {
+function ConfirmModal({ isOpen, title, description, confirmLabel = 'Confirm', variant = 'danger', onConfirm, onCancel, loading = false }) {
   const confirmRef = useRef(null);
 
   // Focus confirm button when opened
@@ -20,11 +20,11 @@ function ConfirmModal({ isOpen, title, description, confirmLabel = 'Confirm', va
   useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e) => {
-      if (e.key === 'Escape') onCancel();
+      if (e.key === 'Escape' && !loading) onCancel();
     };
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, onCancel]);
+  }, [isOpen, onCancel, loading]);
 
   if (!isOpen) return null;
 
@@ -37,13 +37,21 @@ function ConfirmModal({ isOpen, title, description, confirmLabel = 'Confirm', va
         <h2 id="confirm-modal-title" className={styles.title}>{title}</h2>
         {description && <p className={styles.description}>{description}</p>}
         <div className={styles.actions}>
-          <button className={styles.cancelBtn} onClick={onCancel}>Cancel</button>
+          <button className={styles.cancelBtn} onClick={onCancel} disabled={loading}>Cancel</button>
           <button
             ref={confirmRef}
             className={`${styles.confirmBtn} ${variant === 'danger' ? styles.danger : styles.primary}`}
             onClick={onConfirm}
+            disabled={loading}
           >
-            {confirmLabel}
+            {loading ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <Loader2 size={15} className={styles.spinner} />
+                <span>Processing...</span>
+              </span>
+            ) : (
+              confirmLabel
+            )}
           </button>
         </div>
       </div>

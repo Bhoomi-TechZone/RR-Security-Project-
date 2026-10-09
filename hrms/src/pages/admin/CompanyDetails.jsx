@@ -15,8 +15,8 @@ import StatusBadge from '../../components/common/StatusBadge';
 
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
-import { mockCompanies } from '../../data/companyData';
-import { mockEmployees } from '../../data/employeeData';
+import clientService from '../../services/clientService';
+import employeeService from '../../services/employeeService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -41,72 +41,44 @@ function CompanyDetails() {
   // Toast Notification state
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
-  // Fetch client details from API and local storage
+  // Fetch client details purely dynamically from API and company store
   const fetchClientDetails = useCallback(async () => {
     setLoading(true);
     setNotFound(false);
     let foundClient = null;
 
-    // 1. Try local storage for fast render
+    // 1. Fetch live from backend database API
     try {
-      const keys = [
-        `novaspark_clients_${currentCompanyId}`,
-        'novaspark_companies',
-        'novaspark_clients'
-      ];
-      for (const key of keys) {
-        const saved = localStorage.getItem(key);
+      if (currentCompanyId) {
+        foundClient = await clientService.getClientById(currentCompanyId, id);
+      }
+    } catch (e) {
+      console.warn('Direct client lookup failed, checking client list:', e);
+    }
+
+    if (!foundClient && currentCompanyId) {
+      try {
+        const allClients = await clientService.getClients(currentCompanyId);
+        if (Array.isArray(allClients)) {
+          foundClient = allClients.find((c) =>
+            c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))
+          );
+        }
+      } catch (e) {
+        console.warn('Could not fetch clients list:', e);
+      }
+    }
+
+    // 2. Fallback to active company local cache if offline
+    if (!foundClient) {
+      try {
+        const saved = localStorage.getItem(`novaspark_clients_${currentCompanyId}`);
         if (saved) {
           const list = JSON.parse(saved);
           if (Array.isArray(list)) {
-            const match = list.find((c) =>
+            foundClient = list.find((c) =>
               c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))
             );
-            if (match) {
-              foundClient = match;
-              break;
-            }
-          }
-        }
-      }
-      if (!foundClient) {
-        const matchMock = mockCompanies.find((c) => c.id === id || c.clientId === id);
-        if (matchMock) foundClient = matchMock;
-      }
-    } catch (e) { }
-
-    // 2. Fetch from backend API
-    const token = authService.getToken();
-    if (token) {
-      try {
-        const res = await fetch(`${API_BASE_URL}/clients/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'x-company-id': currentCompanyId
-          }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.client) {
-            foundClient = data.client;
-          }
-        } else {
-          // Try fetching all clients and searching
-          const allRes = await fetch(`${API_BASE_URL}/clients`, {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'x-company-id': currentCompanyId
-            }
-          });
-          if (allRes.ok) {
-            const allData = await allRes.json();
-            const list = allData.clients || allData;
-            if (Array.isArray(list)) {
-              const match = list.find((c) =>
-                c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))
-              );
-              if (match) foundClient = match;
-            }
           }
         }
       } catch (e) { }
@@ -118,41 +90,23 @@ function CompanyDetails() {
       setNotFound(true);
     }
 
-    // Also fetch employees
+    // Fetch live workforce employees dynamically
     let empsList = [];
     try {
-      const empKeys = [
-        `novaspark_employees_${currentCompanyId}`,
-        'novaspark_employees'
-      ];
-      for (const key of empKeys) {
-        const saved = localStorage.getItem(key);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            empsList = parsed;
-            break;
-          }
+      if (currentCompanyId) {
+        const liveEmps = await employeeService.getEmployees(currentCompanyId);
+        if (Array.isArray(liveEmps)) {
+          empsList = liveEmps;
         }
       }
-      if (empsList.length === 0) empsList = mockEmployees;
-    } catch (e) { }
-
-    if (token) {
+    } catch (e) {
       try {
-        const empRes = await fetch(`${API_BASE_URL}/employees`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'x-company-id': currentCompanyId
-          }
-        });
-        if (empRes.ok) {
-          const empData = await empRes.json();
-          if (Array.isArray(empData.employees || empData)) {
-            empsList = empData.employees || empData;
-          }
+        const saved = localStorage.getItem(`novaspark_employees_${currentCompanyId}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) empsList = parsed;
         }
-      } catch (e) { }
+      } catch (_) {}
     }
 
     setEmployees(empsList);
@@ -396,7 +350,14 @@ function CompanyDetails() {
 
         {/* Dynamic Tab Panel content */}
         <div className={styles.tabPanel} role="tabpanel">
-          {activeTab === 'overview' && <CompanyOverview company={company} />}
+          {activeTab === 'overview' && (
+            <CompanyOverview 
+              company={{ 
+                ...company, 
+                employees: clientEmployees.length > 0 ? clientEmployees.length : (company.employees || 0) 
+              }} 
+            />
+          )}
 
           {activeTab === 'employees' && (
             <div className={styles.employeesSection}>

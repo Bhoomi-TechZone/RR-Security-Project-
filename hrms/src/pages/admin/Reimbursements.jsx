@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  Receipt, Plus, Download, Tag, BarChart3, Check, X, AlertCircle
+  Receipt, Plus, Download, Tag, BarChart3, Check, X, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
 import styles from './Reimbursements.module.css';
 
@@ -9,13 +9,13 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { usePermissions } from '../../context/PermissionContext';
+import { useCompany } from '../../context/CompanyContext';
 
-import { mockEmployees } from '../../data/employeeData';
-import {
-  INITIAL_EXPENSE_TYPES,
-  INITIAL_REIMBURSEMENT_CLAIMS,
-  calculateReimbursementMetrics
-} from '../../data/reimbursementData';
+// Services
+import reimbursementService from '../../services/reimbursementService';
+import employeeService from '../../services/employeeService';
+
+import { calculateReimbursementMetrics } from '../../data/reimbursementData';
 
 // Modular Reusable Components
 import ReimbursementSummaryCards from '../../components/reimbursements/ReimbursementSummaryCards';
@@ -31,6 +31,8 @@ export default function Reimbursements() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
+  const { activeCompanyId, activeCompany } = useCompany();
+  const compId = activeCompanyId || activeCompany?.companyId || 'RRS8392014SEC';
 
   // Active Main Tab ('claims', 'expense-types', 'reports')
   const initialTab = searchParams.get('tab') || 'claims';
@@ -44,6 +46,12 @@ export default function Reimbursements() {
   const [selectedExpenseType, setSelectedExpenseType] = useState('All');
   const [selectedPaymentStatus, setSelectedPaymentStatus] = useState('All');
   const [selectedMonth, setSelectedMonth] = useState('');
+
+  // Dynamic MongoDB State
+  const [claimsList, setClaimsList] = useState([]);
+  const [expenseTypes, setExpenseTypes] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
@@ -76,27 +84,6 @@ export default function Reimbursements() {
     setSearchParams(newTab === 'claims' ? {} : { tab: newTab });
   };
 
-  // --- STATE FOR CLAIMS & EXPENSE TYPES ---
-  const [claimsList, setClaimsList] = useState(() => {
-    const saved = localStorage.getItem('novaspark_reimbursements');
-    return saved ? JSON.parse(saved) : INITIAL_REIMBURSEMENT_CLAIMS;
-  });
-
-  const [expenseTypes, setExpenseTypes] = useState(() => {
-    const saved = localStorage.getItem('novaspark_expense_types');
-    return saved ? JSON.parse(saved) : INITIAL_EXPENSE_TYPES;
-  });
-
-  const saveClaims = (updated) => {
-    setClaimsList(updated);
-    localStorage.setItem('novaspark_reimbursements', JSON.stringify(updated));
-  };
-
-  const saveExpenseTypes = (updated) => {
-    setExpenseTypes(updated);
-    localStorage.setItem('novaspark_expense_types', JSON.stringify(updated));
-  };
-
   // --- TOAST NOTIFICATION STATE ---
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => {
@@ -122,35 +109,92 @@ export default function Reimbursements() {
     onConfirm: () => {}
   });
 
-  // Extract unique departments and sites from mockEmployees
+  // Fetch all live data from MongoDB
+  const fetchReimbursementData = useCallback(async () => {
+    if (!compId) return;
+    try {
+      setIsLoading(true);
+      const [claims, types, emps] = await Promise.all([
+        reimbursementService.getClaims(compId),
+        reimbursementService.getExpenseTypes(compId),
+        employeeService.getEmployees(compId),
+      ]);
+      setClaimsList(claims || []);
+      setExpenseTypes(types || []);
+      setEmployees(emps || []);
+    } catch (err) {
+      console.error('Failed to load reimbursement data from database:', err);
+      showToast(err.message || 'Failed to load reimbursements', 'danger');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [compId]);
+
+  useEffect(() => {
+    fetchReimbursementData();
+  }, [fetchReimbursementData]);
+
+  // Extract unique departments and sites from live employees and claims
   const departments = useMemo(() => {
-    const depts = new Set(mockEmployees.map(e => e.department).filter(Boolean));
+    const depts = new Set([
+      ...employees.map(e => e.department).filter(Boolean),
+      ...claimsList.map(c => c.department).filter(Boolean)
+    ]);
     return ['All', ...Array.from(depts)];
-  }, []);
+  }, [employees, claimsList]);
 
   const locations = useMemo(() => {
-    const locs = new Set(mockEmployees.map(e => e.siteLocation || e.joiningLocation).filter(Boolean));
+    const locs = new Set([
+      ...employees.map(e => e.site || e.siteLocation || e.joiningLocation).filter(Boolean),
+      ...claimsList.map(c => c.site).filter(Boolean)
+    ]);
     return ['All', ...Array.from(locs)];
-  }, []);
+  }, [employees, claimsList]);
 
-  // Summary Metrics
-  const metrics = useMemo(() => calculateReimbursementMetrics(claimsList), [claimsList]);
+  // Summary Metrics calculated dynamically from real claims
+  const metrics = useMemo(() => {
+    const normalized = claimsList.map(c => ({
+      ...c,
+      id: c._id || c.id || c.claimId,
+      amount: Number(c.claimedAmount || c.amount || 0),
+      approvedAmount: Number(c.approvedAmount || 0),
+      paidAmount: Number(c.paidAmount || 0),
+      date: c.expenseDate || '',
+    }));
+    return calculateReimbursementMetrics(normalized);
+  }, [claimsList]);
 
   // Filtered Claims
   const filteredClaims = useMemo(() => {
-    return claimsList.filter(claim => {
+    return claimsList.map(c => ({
+      ...c,
+      id: c._id || c.id || c.claimId,
+      amount: Number(c.claimedAmount || c.amount || 0),
+      approvedAmount: Number(c.approvedAmount || 0),
+      paidAmount: Number(c.paidAmount || 0),
+      submittedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '',
+      approvalHistory: Array.isArray(c.auditTrail) && c.auditTrail.length > 0 ? c.auditTrail.map(a => ({
+        action: a.action,
+        person: a.by,
+        role: 'Approver',
+        date: a.date,
+        time: '',
+        comment: a.notes
+      })) : []
+    })).filter(claim => {
       // Search
-      const q = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
-        claim.claimId.toLowerCase().includes(q) ||
-        claim.employeeCode.toLowerCase().includes(q) ||
-        claim.employeeName.toLowerCase().includes(q) ||
-        claim.expenseType.toLowerCase().includes(q);
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q || 
+        (claim.claimId && claim.claimId.toLowerCase().includes(q)) ||
+        (claim.employeeCode && claim.employeeCode.toLowerCase().includes(q)) ||
+        (claim.employeeName && claim.employeeName.toLowerCase().includes(q)) ||
+        (claim.expenseType && claim.expenseType.toLowerCase().includes(q)) ||
+        (claim.merchantName && claim.merchantName.toLowerCase().includes(q));
 
       // Sub Status Filter
       let matchesSubStatus = true;
       if (subStatusFilter === 'Pending Approval') {
-        matchesSubStatus = claim.approvalStatus.includes('Pending') || claim.approvalStatus === 'Submitted';
+        matchesSubStatus = claim.approvalStatus === 'Pending Approval' || claim.approvalStatus === 'Submitted' || (claim.approvalStatus && claim.approvalStatus.includes('Pending'));
       } else if (subStatusFilter === 'Approved') {
         matchesSubStatus = claim.approvalStatus === 'Approved';
       } else if (subStatusFilter === 'Ready for Payment') {
@@ -163,7 +207,7 @@ export default function Reimbursements() {
 
       // Dropdown Filters
       const matchesDept = selectedDepartment === 'All' || claim.department === selectedDepartment;
-      const matchesLoc = selectedLocation === 'All' || claim.site.includes(selectedLocation);
+      const matchesLoc = selectedLocation === 'All' || (claim.site && claim.site.includes(selectedLocation));
       const matchesType = selectedExpenseType === 'All' || claim.expenseType === selectedExpenseType;
       const matchesPayment = selectedPaymentStatus === 'All' || claim.paymentStatus === selectedPaymentStatus;
       const matchesMonth = !selectedMonth || (claim.expenseDate && claim.expenseDate.startsWith(selectedMonth));
@@ -184,228 +228,114 @@ export default function Reimbursements() {
 
   // --- ACTIONS HANDLERS ---
 
-  // 1. Submit New / Edited Claim
-  const handleSaveClaim = (claimData) => {
-    if (editingClaim) {
-      const updated = claimsList.map(c => c.id === claimData.id ? claimData : c);
-      saveClaims(updated);
-      showToast(`Reimbursement claim ${claimData.claimId} updated successfully.`);
-    } else {
-      const newClaimId = `CLM-2026-${String(claimsList.length + 1).padStart(3, '0')}`;
-      const newEntry = {
-        ...claimData,
-        id: `clm-${Date.now()}`,
-        claimId: newClaimId,
-        submittedDate: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        approvalStatus: 'Pending Manager Approval',
-        currentApprover: 'Reporting Manager',
-        paymentStatus: 'Unpaid',
-        paidAmount: 0,
-        approvedAmount: 0,
-        approvalHistory: [
-          {
-            action: 'Submitted',
-            person: claimData.employeeName,
-            role: 'Employee',
-            date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            comment: claimData.purpose || 'Claim submitted with receipts.'
-          }
-        ]
-      };
-      saveClaims([newEntry, ...claimsList]);
-      showToast(`Reimbursement claim ${newClaimId} created successfully.`);
-    }
-    setIsCreateModalOpen(false);
-    setEditingClaim(null);
-  };
-
-  // 2. Approve Claim Handler
-  const handleApproveClaim = (claimId, approvedAmt, remark) => {
-    const nowStrDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const nowStrTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updated = claimsList.map(c => {
-      if (c.id === claimId) {
-        let nextStatus = 'Approved';
-        let nextApprover = 'Accounts Department';
-
-        if (c.approvalStatus === 'Pending Manager Approval' || c.approvalStatus === 'Submitted') {
-          nextStatus = 'Pending HR/Admin Approval';
-          nextApprover = 'HR / Admin Head';
-        } else if (c.approvalStatus === 'Pending HR/Admin Approval') {
-          nextStatus = 'Pending Accounts Verification';
-          nextApprover = 'Accounts Department';
-        } else {
-          nextStatus = 'Approved';
-          nextApprover = 'Ready for Payment';
-        }
-
-        const newHistory = [
-          ...c.approvalHistory,
-          {
-            action: nextStatus === 'Approved' ? 'Verified & Approved' : 'Approved',
-            person: 'Admin HR',
-            role: 'HR/Admin',
-            date: nowStrDate,
-            time: nowStrTime,
-            comment: remark || `Approved amount ₹${approvedAmt.toLocaleString()}. Forwarded to next stage.`
-          }
-        ];
-
-        return {
-          ...c,
-          approvedAmount: Number(approvedAmt),
-          approvalStatus: nextStatus,
-          currentApprover: nextApprover,
-          approvalHistory: newHistory
-        };
+  // 1. Submit New / Edited Claim in MongoDB
+  const handleSaveClaim = async (claimData) => {
+    try {
+      if (editingClaim) {
+        const idToUpdate = editingClaim._id || editingClaim.id || editingClaim.claimId;
+        await reimbursementService.updateClaim(compId, idToUpdate, claimData);
+        showToast(`✓ Reimbursement claim ${claimData.claimId || editingClaim.claimId} updated successfully.`);
+      } else {
+        const created = await reimbursementService.createClaim(compId, claimData);
+        showToast(`✓ Reimbursement claim ${created?.claimId || 'created'} saved to database.`);
       }
-      return c;
-    });
-
-    saveClaims(updated);
-    if (selectedClaimForDrawer && selectedClaimForDrawer.id === claimId) {
-      setSelectedClaimForDrawer(updated.find(c => c.id === claimId));
-    }
-    setApproveModalClaim(null);
-    showToast(`Claim ${approveModalClaim?.claimId} approved successfully.`);
-  };
-
-  // 3. Reject Claim Handler
-  const handleRejectClaim = (claimId, reason) => {
-    const nowStrDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const nowStrTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updated = claimsList.map(c => {
-      if (c.id === claimId) {
-        return {
-          ...c,
-          approvalStatus: 'Rejected',
-          currentApprover: 'Closed',
-          rejectionReason: reason,
-          approvalHistory: [
-            ...c.approvalHistory,
-            {
-              action: 'Rejected',
-              person: 'Admin HR',
-              role: 'HR/Admin',
-              date: nowStrDate,
-              time: nowStrTime,
-              comment: `Rejection Reason: ${reason}`
-            }
-          ]
-        };
-      }
-      return c;
-    });
-
-    saveClaims(updated);
-    if (selectedClaimForDrawer && selectedClaimForDrawer.id === claimId) {
-      setSelectedClaimForDrawer(updated.find(c => c.id === claimId));
-    }
-    setRejectModalClaim(null);
-    showToast(`Claim ${rejectModalClaim?.claimId} has been rejected.`, 'info');
-  };
-
-  // 4. Send Back Claim Handler
-  const handleSendBackClaim = (claimId, reason) => {
-    const nowStrDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const nowStrTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updated = claimsList.map(c => {
-      if (c.id === claimId) {
-        return {
-          ...c,
-          approvalStatus: 'Sent Back',
-          currentApprover: `${c.employeeName} (Awaiting Correction)`,
-          sendBackReason: reason,
-          approvalHistory: [
-            ...c.approvalHistory,
-            {
-              action: 'Sent Back',
-              person: 'Admin HR',
-              role: 'HR/Admin',
-              date: nowStrDate,
-              time: nowStrTime,
-              comment: `Correction required: ${reason}`
-            }
-          ]
-        };
-      }
-      return c;
-    });
-
-    saveClaims(updated);
-    if (selectedClaimForDrawer && selectedClaimForDrawer.id === claimId) {
-      setSelectedClaimForDrawer(updated.find(c => c.id === claimId));
-    }
-    setSendBackModalClaim(null);
-    showToast(`Claim ${sendBackModalClaim?.claimId} sent back for employee correction.`, 'info');
-  };
-
-  // 5. Process Payment Handler
-  const handleProcessPayment = (claimId, paymentData) => {
-    const nowStrDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-    const nowStrTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-    const updated = claimsList.map(c => {
-      if (c.id === claimId) {
-        return {
-          ...c,
-          paymentStatus: 'Paid',
-          paidAmount: Number(paymentData.paidAmount),
-          paymentDate: paymentData.paymentDate,
-          paymentMode: paymentData.paymentMode,
-          transactionNumber: paymentData.transactionNumber,
-          payrollIncluded: paymentData.payrollIncluded,
-          payrollMonth: paymentData.payrollMonth,
-          reimbursementHead: paymentData.reimbursementHead,
-          approvalHistory: [
-            ...c.approvalHistory,
-            {
-              action: 'Payment Completed',
-              person: 'Accounts Officer',
-              role: 'Accounts',
-              date: nowStrDate,
-              time: nowStrTime,
-              comment: `Settled ₹${Number(paymentData.paidAmount).toLocaleString()} via ${paymentData.paymentMode} (${paymentData.transactionNumber || 'Cash/Manual'}).`
-            }
-          ]
-        };
-      }
-      return c;
-    });
-
-    saveClaims(updated);
-    if (selectedClaimForDrawer && selectedClaimForDrawer.id === claimId) {
-      setSelectedClaimForDrawer(updated.find(c => c.id === claimId));
-    }
-    setPaymentModalClaim(null);
-    showToast(`Payment of ₹${paymentData.paidAmount} processed successfully for ${paymentModalClaim?.claimId}!`);
-  };
-
-  // --- EXPENSE TYPE CRUD HANDLERS ---
-  const handleSaveExpenseType = (typeData) => {
-    if (typeData.id) {
-      const updated = expenseTypes.map(t => t.id === typeData.id ? typeData : t);
-      saveExpenseTypes(updated);
-      showToast(`Expense category "${typeData.name}" updated.`);
-    } else {
-      const newType = {
-        ...typeData,
-        id: `exp-${Date.now()}`
-      };
-      saveExpenseTypes([...expenseTypes, newType]);
-      showToast(`Expense category "${typeData.name}" added successfully.`);
+      setIsCreateModalOpen(false);
+      setEditingClaim(null);
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to save reimbursement claim', 'danger');
     }
   };
 
-  const handleToggleExpenseTypeStatus = (type) => {
-    const nextStatus = type.status === 'Active' ? 'Inactive' : 'Active';
-    const updated = expenseTypes.map(t => t.id === type.id ? { ...t, status: nextStatus } : t);
-    saveExpenseTypes(updated);
-    showToast(`Expense category "${type.name}" marked ${nextStatus}.`);
+  // 2. Approve Claim Handler in MongoDB
+  const handleApproveClaim = async (claimId, approvedAmt, remark) => {
+    try {
+      await reimbursementService.reviewClaim(compId, claimId, {
+        action: 'approve',
+        approvedAmount: Number(approvedAmt),
+        remarks: remark
+      });
+      setApproveModalClaim(null);
+      if (selectedClaimForDrawer) setSelectedClaimForDrawer(null);
+      showToast(`✓ Claim approved for ₹${Number(approvedAmt).toLocaleString('en-IN')}.`);
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to approve claim', 'danger');
+    }
+  };
+
+  // 3. Reject Claim Handler in MongoDB
+  const handleRejectClaim = async (claimId, reason) => {
+    try {
+      await reimbursementService.reviewClaim(compId, claimId, {
+        action: 'reject',
+        rejectionReason: reason
+      });
+      setRejectModalClaim(null);
+      if (selectedClaimForDrawer) setSelectedClaimForDrawer(null);
+      showToast('Claim rejected.', 'info');
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to reject claim', 'danger');
+    }
+  };
+
+  // 4. Send Back Claim Handler in MongoDB
+  const handleSendBackClaim = async (claimId, reason) => {
+    try {
+      await reimbursementService.reviewClaim(compId, claimId, {
+        action: 'send_back',
+        sendBackReason: reason
+      });
+      setSendBackModalClaim(null);
+      if (selectedClaimForDrawer) setSelectedClaimForDrawer(null);
+      showToast('Claim sent back for employee correction.', 'info');
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to send back claim', 'danger');
+    }
+  };
+
+  // 5. Process Payment Handler in MongoDB
+  const handleProcessPayment = async (claimId, paymentData) => {
+    try {
+      await reimbursementService.processPayment(compId, claimId, {
+        paidAmount: Number(paymentData.paidAmount),
+        paymentDate: paymentData.paymentDate,
+        paymentMethod: paymentData.paymentMode || paymentData.paymentMethod || 'Bank Transfer',
+        paymentReference: paymentData.transactionNumber || paymentData.paymentReference,
+        payrollMonth: paymentData.payrollMonth,
+        remarks: paymentData.remarks
+      });
+      setPaymentModalClaim(null);
+      if (selectedClaimForDrawer) setSelectedClaimForDrawer(null);
+      showToast(`✓ Payment of ₹${Number(paymentData.paidAmount).toLocaleString('en-IN')} processed successfully!`);
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to record payment', 'danger');
+    }
+  };
+
+  // --- EXPENSE TYPE CRUD HANDLERS IN MONGODB ---
+  const handleSaveExpenseType = async (typeData) => {
+    try {
+      await reimbursementService.saveExpenseType(compId, typeData);
+      showToast(`✓ Expense category "${typeData.name}" saved in database.`);
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to save expense category', 'danger');
+    }
+  };
+
+  const handleToggleExpenseTypeStatus = async (type) => {
+    try {
+      const nextStatus = type.status === 'Active' ? 'Inactive' : 'Active';
+      await reimbursementService.saveExpenseType(compId, { ...type, status: nextStatus });
+      showToast(`Expense category "${type.name}" marked ${nextStatus}.`);
+      fetchReimbursementData();
+    } catch (err) {
+      showToast(err.message || 'Failed to update expense category status', 'danger');
+    }
   };
 
   const handleExport = (type) => {
@@ -468,6 +398,16 @@ export default function Reimbursements() {
           </div>
 
           <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={fetchReimbursementData}
+              disabled={isLoading}
+              title="Refresh from Database"
+            >
+              <RefreshCw size={15} className={isLoading ? styles.spinning : ''} />
+              <span>Refresh</span>
+            </button>
             {canExport('reimbursements') && (
               <button
                 type="button"
@@ -494,6 +434,14 @@ export default function Reimbursements() {
             )}
           </div>
         </header>
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '1rem', color: '#64748b' }}>
+            <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
+            <span>Loading live reimbursement data from database...</span>
+          </div>
+        )}
 
         {/* Reusable Component 1: ReimbursementSummaryCards */}
         <ReimbursementSummaryCards metrics={metrics} />
@@ -580,7 +528,7 @@ export default function Reimbursements() {
             onSave={handleSaveClaim}
             editingClaim={editingClaim}
             expenseTypes={expenseTypes}
-            employees={mockEmployees}
+            employees={employees}
           />
         )}
 
@@ -629,11 +577,12 @@ export default function Reimbursements() {
 // ACTION DIALOGS (Approve, Reject, Send Back)
 // ----------------------------------------------------------------------
 function ApproveClaimDialog({ claim, onClose, onApprove }) {
-  const [approvedAmt, setApprovedAmt] = useState(claim.amount);
+  const claimAmount = Number(claim.claimedAmount || claim.amount || 0);
+  const [approvedAmt, setApprovedAmt] = useState(claimAmount);
   const [remark, setRemark] = useState('');
   const [varianceReason, setVarianceReason] = useState('');
 
-  const hasVariance = Number(approvedAmt) !== Number(claim.amount);
+  const hasVariance = Number(approvedAmt) !== claimAmount;
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -644,7 +593,7 @@ function ApproveClaimDialog({ claim, onClose, onApprove }) {
     const finalRemark = hasVariance 
       ? `Approved: ₹${approvedAmt} (Variance Note: ${varianceReason}). ${remark}`
       : (remark || 'Approved as claimed.');
-    onApprove(claim.id, approvedAmt, finalRemark);
+    onApprove(claim._id || claim.id || claim.claimId, approvedAmt, finalRemark);
   };
 
   return (
@@ -662,7 +611,7 @@ function ApproveClaimDialog({ claim, onClose, onApprove }) {
             <div className={styles.infoGrid} style={{ background: '#f8fafc' }}>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Employee</span>
-                <span className={styles.infoVal}>{claim.employeeName} ({claim.employeeCode})</span>
+                <span className={styles.infoVal}>{claim.employeeName} ({claim.employeeCode || claim.employeeId})</span>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Expense Category</span>
@@ -670,7 +619,7 @@ function ApproveClaimDialog({ claim, onClose, onApprove }) {
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Claimed Amount</span>
-                <span className={styles.infoVal} style={{ fontSize: '15px' }}>₹{claim.amount.toLocaleString()}</span>
+                <span className={styles.infoVal} style={{ fontSize: '15px' }}>₹{claimAmount.toLocaleString('en-IN')}</span>
               </div>
               <div className={styles.infoItem}>
                 <span className={styles.infoLabel}>Expense Date</span>
@@ -686,7 +635,7 @@ function ApproveClaimDialog({ claim, onClose, onApprove }) {
                 type="number"
                 className={styles.input}
                 min={1}
-                max={claim.amount}
+                max={claimAmount}
                 value={approvedAmt}
                 onChange={(e) => setApprovedAmt(e.target.value)}
                 required
@@ -740,6 +689,7 @@ function ApproveClaimDialog({ claim, onClose, onApprove }) {
 
 function RejectClaimDialog({ claim, onClose, onReject }) {
   const [reason, setReason] = useState('');
+  const claimAmount = Number(claim.claimedAmount || claim.amount || 0);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -747,7 +697,7 @@ function RejectClaimDialog({ claim, onClose, onReject }) {
       alert('Rejection reason is mandatory.');
       return;
     }
-    onReject(claim.id, reason);
+    onReject(claim._id || claim.id || claim.claimId, reason);
   };
 
   return (
@@ -767,7 +717,7 @@ function RejectClaimDialog({ claim, onClose, onReject }) {
             <div className={`${styles.calloutBox} ${styles.calloutBoxWarning}`} style={{ borderColor: '#fca5a5', background: '#fef2f2', color: '#991b1b' }}>
               <AlertCircle size={18} style={{ flexShrink: 0 }} />
               <div>
-                You are rejecting claim <strong>{claim.claimId}</strong> for <strong>{claim.employeeName}</strong> (₹{claim.amount.toLocaleString()}).
+                You are rejecting claim <strong>{claim.claimId}</strong> for <strong>{claim.employeeName}</strong> (₹{claimAmount.toLocaleString('en-IN')}).
               </div>
             </div>
 
@@ -810,7 +760,7 @@ function SendBackClaimDialog({ claim, onClose, onSendBack }) {
       alert('Correction requirement is mandatory when sending back a claim.');
       return;
     }
-    onSendBack(claim.id, reason);
+    onSendBack(claim._id || claim.id || claim.claimId, reason);
   };
 
   return (

@@ -32,17 +32,17 @@ function PayGroupModal({
         setFormData({
           name: '',
           code: '',
-          paySchedule: schedules.length > 0 ? schedules[0].name : 'Monthly Payroll',
-          payCycle: cycles.length > 0 ? cycles[0].name : 'Standard Monthly (1st to End of Month)',
-          payDay: payDays.length > 0 ? payDays[0].name : '7th of Every Month',
-          salaryCalculationMethod: calculationMethods.length > 0 ? calculationMethods[0].name : 'Calendar Days Basis',
-          salaryComponentIds: ['sal-1', 'sal-2', 'sal-3', 'sal-4', 'sal-6'],
+          paySchedule: schedules.length > 0 ? schedules[0].name : '',
+          payCycle: cycles.length > 0 ? cycles[0].name : '',
+          payDay: payDays.length > 0 ? payDays[0].name : '',
+          salaryCalculationMethod: calculationMethods.length > 0 ? calculationMethods[0].name : '',
+          salaryComponentIds: salaryComponents.length > 0 ? salaryComponents.slice(0, 5).map(c => c.id || c._id) : [],
           description: '',
           status: 'active'
         });
       }
     }
-  }, [isOpen, editingItem, schedules, cycles, payDays, calculationMethods]);
+  }, [isOpen, editingItem, schedules, cycles, payDays, calculationMethods, salaryComponents]);
 
   useEffect(() => {
     if (isOpen && modalRef.current) {

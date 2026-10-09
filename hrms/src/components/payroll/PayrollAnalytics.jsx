@@ -1,35 +1,75 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { TrendingUp, PieChart, Wallet, ArrowUpRight } from 'lucide-react';
+import { formatRupee } from '../../utils/payrollUtils';
 import styles from './PayrollAnalytics.module.css';
 
-export default function PayrollAnalytics() {
-  const trendData = [
-    { month: 'May 2026', amount: '₹4.50 Cr', value: 4.5, percent: 93 },
-    { month: 'June 2026', amount: '₹4.70 Cr', value: 4.7, percent: 97 },
-    { month: 'July 2026', amount: '₹4.73 Cr', value: 4.73, percent: 98 },
-    { month: 'August 2026', amount: '₹4.82 Cr', value: 4.82, percent: 100, isCurrent: true },
-  ];
+export default function PayrollAnalytics({ records = [], selectedMonth = '2026-08', monthLabel = 'August 2026' }) {
+  // Dynamically calculate component breakdown from real records
+  const { earningsData, deductionsData, totalGross, totalDeductions, totalNet } = useMemo(() => {
+    let basic = 0;
+    let hra = 0;
+    let allowances = 0;
+    let overtime = 0;
 
-  const earningsData = [
-    { label: 'Basic Salary', amount: '₹2.85 Cr', percent: 59, color: '#2563eb' },
-    { label: 'HRA', amount: '₹1.02 Cr', percent: 21, color: '#3b82f6' },
-    { label: 'Allowances', amount: '₹0.58 Cr', percent: 12, color: '#60a5fa' },
-    { label: 'Overtime', amount: '₹0.37 Cr', percent: 8, color: '#93c5fd' },
-  ];
+    let pf = 0;
+    let esi = 0;
+    let advances = 0;
+    let otherDeductions = 0;
 
-  const deductionsData = [
-    { label: 'PF Contribution', amount: '₹8.42 L', percent: 51, color: '#dc2626' },
-    { label: 'Advance Adjustments', amount: '₹4.20 L', percent: 25, color: '#ef4444' },
-    { label: 'ESI Contribution', amount: '₹2.18 L', percent: 14, color: '#f87171' },
-    { label: 'Other Deductions', amount: '₹1.65 L', percent: 10, color: '#fca5a5' },
-  ];
+    records.forEach(r => {
+      basic += Number(r.basicSalary || r.basic || 0);
+      hra += Number(r.hra || 0);
+      allowances += Number((r.transportAllowance || 0) + (r.otherAllowance || 0) + (r.vda || 0) + (r.bonus || 0) + (r.arrears || 0));
+      overtime += Number(r.overtimePay || r.overtimeAmount || 0);
+
+      pf += Number(r.pf || 0);
+      esi += Number(r.esi || 0);
+      advances += Number(r.advanceDeduction || r.advanceLoan || 0);
+      otherDeductions += Number(r.otherDeduction || r.pt || r.lwf || r.tds || 0);
+    });
+
+    const sumGross = basic + hra + allowances + overtime;
+    const sumDeductions = pf + esi + advances + otherDeductions;
+    const sumNet = Math.max(0, sumGross - sumDeductions);
+
+    const safeGross = sumGross > 0 ? sumGross : 1;
+    const safeDeductions = sumDeductions > 0 ? sumDeductions : 1;
+
+    const earnings = [
+      { label: 'Basic Salary', amount: formatRupee(basic), percent: Math.round((basic / safeGross) * 100), color: '#2563eb' },
+      { label: 'HRA', amount: formatRupee(hra), percent: Math.round((hra / safeGross) * 100), color: '#3b82f6' },
+      { label: 'Allowances & VDA', amount: formatRupee(allowances), percent: Math.round((allowances / safeGross) * 100), color: '#60a5fa' },
+      { label: 'Overtime Pay', amount: formatRupee(overtime), percent: Math.round((overtime / safeGross) * 100), color: '#93c5fd' },
+    ];
+
+    const deductions = [
+      { label: 'PF Contribution', amount: formatRupee(pf), percent: Math.round((pf / safeDeductions) * 100), color: '#dc2626' },
+      { label: 'Advance & Loan Adjustments', amount: formatRupee(advances), percent: Math.round((advances / safeDeductions) * 100), color: '#ef4444' },
+      { label: 'ESI Contribution', amount: formatRupee(esi), percent: Math.round((esi / safeDeductions) * 100), color: '#f87171' },
+      { label: 'Tax & Other Deductions', amount: formatRupee(otherDeductions), percent: Math.round((otherDeductions / safeDeductions) * 100), color: '#fca5a5' },
+    ];
+
+    return {
+      earningsData: earnings,
+      deductionsData: deductions,
+      totalGross: sumGross,
+      totalDeductions: sumDeductions,
+      totalNet: sumNet
+    };
+  }, [records]);
+
+  const trendData = useMemo(() => {
+    return [
+      { month: monthLabel, amount: formatRupee(totalNet), percent: 100, isCurrent: true }
+    ];
+  }, [monthLabel, totalNet]);
 
   return (
     <div className={styles.analyticsSection}>
       <div className={styles.sectionHeader}>
         <div>
           <h2 className={styles.sectionTitle}>Payroll Analytics &amp; Cost Distribution</h2>
-          <p className={styles.sectionSub}>Macro financial trend and statutory composition overview</p>
+          <p className={styles.sectionSub}>Macro financial distribution and statutory composition for {monthLabel}</p>
         </div>
       </div>
 
@@ -39,10 +79,10 @@ export default function PayrollAnalytics() {
           <div className={styles.cardHeader}>
             <div className={styles.titleWrap}>
               <TrendingUp size={16} className={styles.blueIcon} />
-              <h3 className={styles.cardTitle}>Monthly Payroll Trend</h3>
+              <h3 className={styles.cardTitle}>Current Month Net Payroll</h3>
             </div>
             <span className={styles.trendBadge}>
-              <ArrowUpRight size={14} /> +7.1% (Q2)
+              <ArrowUpRight size={14} /> Live Sync
             </span>
           </div>
 
@@ -73,9 +113,9 @@ export default function PayrollAnalytics() {
           <div className={styles.cardHeader}>
             <div className={styles.titleWrap}>
               <PieChart size={16} className={styles.purpleIcon} />
-              <h3 className={styles.cardTitle}>Salary Component Summary</h3>
+              <h3 className={styles.cardTitle}>Earnings Component Breakdown</h3>
             </div>
-            <span className={styles.totalValue}>Total ₹4.82 Cr</span>
+            <span className={styles.totalValue}>Gross: {formatRupee(totalGross)}</span>
           </div>
 
           <div className={styles.stackedTrack}>
@@ -110,9 +150,9 @@ export default function PayrollAnalytics() {
           <div className={styles.cardHeader}>
             <div className={styles.titleWrap}>
               <Wallet size={16} className={styles.amberIcon} />
-              <h3 className={styles.cardTitle}>Deduction Summary</h3>
+              <h3 className={styles.cardTitle}>Deductions Summary</h3>
             </div>
-            <span className={styles.totalValue}>Total ₹16.45 L</span>
+            <span className={styles.totalValue}>Total: {formatRupee(totalDeductions)}</span>
           </div>
 
           <div className={styles.stackedTrack}>

@@ -7,6 +7,7 @@ import {
   FileText,
   LayoutDashboard,
   LogOut,
+  Shirt,
   Zap
 } from 'lucide-react';
 import styles from './EmployeeSidebar.module.css';
@@ -19,6 +20,7 @@ const ALL_NAV_ITEMS = [
   { path: '/employee/attendance', name: 'My Attendance', icon: CalendarCheck, key: 'allowAttendance' },
   { path: '/employee/leave', name: 'My Leave', icon: CalendarDays, key: 'allowLeaves' },
   { path: '/employee/salary-slips', name: 'My Salary Slips', icon: FileText, key: 'allowSalarySlips' },
+  { path: '/employee/assets', name: 'Assets / Uniform', icon: Shirt, key: 'allowAssetsUniform' },
   { path: '/employee/notifications', name: 'Notifications', icon: Bell, key: 'allowNotifications' }
 ];
 
@@ -30,6 +32,7 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
     allowAttendance: true,
     allowLeaves: true,
     allowSalarySlips: true,
+    allowAssetsUniform: true,
     allowProfile: true,
     allowNotifications: true
   });

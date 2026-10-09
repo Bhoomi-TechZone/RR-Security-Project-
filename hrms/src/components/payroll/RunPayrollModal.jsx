@@ -10,6 +10,10 @@ export default function RunPayrollModal({
   monthLabel = 'August 2026',
   companies = [],
   departments = [],
+  employeeCount = 0,
+  estimatedGross = 0,
+  estimatedDeductions = 0,
+  estimatedNet = 0,
   onComplete,
   onViewIssues
 }) {
@@ -19,7 +23,7 @@ export default function RunPayrollModal({
   const [progress, setProgress] = useState(0);
   const [processedCount, setProcessedCount] = useState(0);
   const [currentStage, setCurrentStage] = useState('');
-  const totalEmployees = 1250;
+  const totalEmployees = employeeCount > 0 ? employeeCount : 1;
 
   // Reset state when opening modal
   useEffect(() => {
@@ -168,15 +172,15 @@ export default function RunPayrollModal({
                 </div>
                 <div className={styles.summaryTile}>
                   <span>Estimated Gross</span>
-                  <strong className={styles.textGreen}>{formatRupee(52000000)}</strong>
+                  <strong className={styles.textGreen}>{formatRupee(estimatedGross || 0)}</strong>
                 </div>
                 <div className={styles.summaryTile}>
                   <span>Estimated Deductions</span>
-                  <strong className={styles.textRed}>-{formatRupee(3750000)}</strong>
+                  <strong className={styles.textRed}>-{formatRupee(estimatedDeductions || 0)}</strong>
                 </div>
                 <div className={`${styles.summaryTile} ${styles.summaryTileNet}`}>
                   <span>Estimated Net Payroll</span>
-                  <strong className={styles.textPrimary}>{formatRupee(48250000)}</strong>
+                  <strong className={styles.textPrimary}>{formatRupee(estimatedNet || 0)}</strong>
                 </div>
               </div>
             </div>

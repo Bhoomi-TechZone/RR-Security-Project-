@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Landmark } from 'lucide-react';
+import { X, Landmark, Loader2 } from 'lucide-react';
 import styles from './StatutoryModal.module.css';
 
 const INDIAN_STATES = [
@@ -16,6 +16,7 @@ function LWFStateModal({
 }) {
   const [formData, setFormData] = useState({});
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
 
   const isEdit = !!editingItem;
@@ -63,14 +64,23 @@ function LWFStateModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!validate()) return;
-    onSubmit({
-      ...formData,
-      employeeContribution: Number(formData.employeeContribution),
-      employerContribution: Number(formData.employerContribution)
-    });
+
+    try {
+      setIsSubmitting(true);
+      await onSubmit({
+        ...formData,
+        employeeContribution: Number(formData.employeeContribution),
+        employerContribution: Number(formData.employerContribution)
+      });
+    } catch (err) {
+      console.error('Error submitting LWF rule:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -199,8 +209,19 @@ function LWFStateModal({
           </div>
 
           <footer className={styles.footer}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>Cancel</button>
-            <button type="submit" className={styles.submitBtn}>{isEdit ? 'Save Changes' : 'Create LWF Rule'}</button>
+            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={isSubmitting}>
+              Cancel
+            </button>
+            <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={16} className={styles.spinner} />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                isEdit ? 'Save Changes' : 'Create LWF Rule'
+              )}
+            </button>
           </footer>
         </form>
       </div>

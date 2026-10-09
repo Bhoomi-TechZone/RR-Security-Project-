@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Key, Eye, EyeOff, Sparkles, ShieldCheck, Copy, Check, Lock } from 'lucide-react';
+import { X, Key, Eye, EyeOff, Sparkles, ShieldCheck, Copy, Check, Lock, Loader2 } from 'lucide-react';
 import styles from './EmployeeCredentialsModal.module.css';
 
 /**
@@ -244,8 +244,17 @@ function EmployeeCredentialsModal({
               Cancel
             </button>
             <button type="submit" className={styles.submitBtn} disabled={isSubmitting}>
-              <Lock size={14} />
-              <span>{isSubmitting ? 'Saving...' : 'Save Credentials'}</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 size={14} className={styles.spinner} />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Lock size={14} />
+                  <span>Save Credentials</span>
+                </>
+              )}
             </button>
           </div>
         </form>

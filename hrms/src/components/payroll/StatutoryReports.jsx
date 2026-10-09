@@ -32,6 +32,20 @@ export default function StatutoryReports({
     return true;
   });
 
+  // Dynamic sums for PF & ESI
+  const pfEmployeeCount = filteredPF.length;
+  const totalEmployeePF = filteredPF.reduce((sum, r) => sum + Number(r.employeePF || 0), 0);
+  const totalEmployerPF = filteredPF.reduce((sum, r) => sum + Number(r.employerPF || 0), 0);
+  const totalPF = filteredPF.reduce((sum, r) => sum + Number(r.totalPF || (r.employeePF * 2) || 0), 0);
+
+  const esiEmployeeCount = filteredESI.length;
+  const totalEmployeeESI = filteredESI.reduce((sum, r) => sum + Number(r.employeeESI || 0), 0);
+  const totalEmployerESI = filteredESI.reduce((sum, r) => sum + Number(r.employerESI || 0), 0);
+  const totalESI = filteredESI.reduce((sum, r) => sum + Number(r.totalESI || 0), 0);
+
+  const employeesCovered = new Set([...filteredPF.map(r => r.employeeId), ...filteredESI.map(r => r.employeeId)]).size;
+  const reportsGenerated = (filteredPF.length > 0 || filteredESI.length > 0) ? 6 : 0;
+
   return (
     <div className={styles.container}>
       {/* 4 Summary Cards */}
@@ -39,8 +53,8 @@ export default function StatutoryReports({
         <div className={styles.summaryCard}>
           <div className={styles.cardInfo}>
             <span className={styles.cardLabel}>PF Contribution</span>
-            <strong className={styles.cardVal}>{formatRupee(summary?.pfContribution || 842500)}</strong>
-            <small className={styles.cardSub}>Employee: ₹4.21L + Employer: ₹4.21L</small>
+            <strong className={styles.cardVal}>{formatRupee(totalPF)}</strong>
+            <small className={styles.cardSub}>Employee: {formatRupee(totalEmployeePF)} + Employer: {formatRupee(totalEmployerPF)}</small>
           </div>
           <div className={`${styles.iconWrap} ${styles.blueIcon}`}>
             <ShieldCheck size={22} />
@@ -50,8 +64,8 @@ export default function StatutoryReports({
         <div className={styles.summaryCard}>
           <div className={styles.cardInfo}>
             <span className={styles.cardLabel}>ESI Contribution</span>
-            <strong className={styles.cardVal}>{formatRupee(summary?.esiContribution || 218400)}</strong>
-            <small className={styles.cardSub}>Employee: ₹1.09L + Employer: ₹1.09L</small>
+            <strong className={styles.cardVal}>{formatRupee(totalESI)}</strong>
+            <small className={styles.cardSub}>Employee: {formatRupee(totalEmployeeESI)} + Employer: {formatRupee(totalEmployerESI)}</small>
           </div>
           <div className={`${styles.iconWrap} ${styles.greenIcon}`}>
             <ShieldCheck size={22} />
@@ -61,7 +75,7 @@ export default function StatutoryReports({
         <div className={styles.summaryCard}>
           <div className={styles.cardInfo}>
             <span className={styles.cardLabel}>Employees Covered</span>
-            <strong className={styles.cardVal}>{(summary?.employeesCovered || 1184).toLocaleString('en-IN')}</strong>
+            <strong className={styles.cardVal}>{employeesCovered.toLocaleString('en-IN')}</strong>
             <small className={styles.cardSub}>Statutory compliance active</small>
           </div>
           <div className={`${styles.iconWrap} ${styles.purpleIcon}`}>
@@ -72,7 +86,7 @@ export default function StatutoryReports({
         <div className={styles.summaryCard}>
           <div className={styles.cardInfo}>
             <span className={styles.cardLabel}>Reports Generated</span>
-            <strong className={styles.cardVal}>{summary?.reportsGenerated || 6}</strong>
+            <strong className={styles.cardVal}>{reportsGenerated}</strong>
             <small className={styles.cardSub}>PF, ESI, Form 5 &amp; Form 10</small>
           </div>
           <div className={`${styles.iconWrap} ${styles.amberIcon}`}>
@@ -97,19 +111,19 @@ export default function StatutoryReports({
           <div className={styles.reportStatsGrid}>
             <div className={styles.reportStat}>
               <span>Employees</span>
-              <strong>1,184</strong>
+              <strong>{pfEmployeeCount.toLocaleString('en-IN')}</strong>
             </div>
             <div className={styles.reportStat}>
               <span>Employee Contribution</span>
-              <strong>{formatRupee(421250)}</strong>
+              <strong>{formatRupee(totalEmployeePF)}</strong>
             </div>
             <div className={styles.reportStat}>
               <span>Employer Contribution</span>
-              <strong>{formatRupee(421250)}</strong>
+              <strong>{formatRupee(totalEmployerPF)}</strong>
             </div>
             <div className={styles.reportStat}>
               <span>Total PF Remittance</span>
-              <strong className={styles.textGreen}>{formatRupee(842500)}</strong>
+              <strong className={styles.textGreen}>{formatRupee(totalPF)}</strong>
             </div>
           </div>
 
@@ -147,19 +161,19 @@ export default function StatutoryReports({
           <div className={styles.reportStatsGrid}>
             <div className={styles.reportStat}>
               <span>Employees</span>
-              <strong>1,184</strong>
+              <strong>{esiEmployeeCount.toLocaleString('en-IN')}</strong>
             </div>
             <div className={styles.reportStat}>
               <span>Employee Contribution</span>
-              <strong>{formatRupee(109200)}</strong>
+              <strong>{formatRupee(totalEmployeeESI)}</strong>
             </div>
             <div className={styles.reportStat}>
               <span>Employer Contribution</span>
-              <strong>{formatRupee(109200)}</strong>
+              <strong>{formatRupee(totalEmployerESI)}</strong>
             </div>
             <div className={styles.reportStat}>
               <span>Total ESI Remittance</span>
-              <strong className={styles.textGreen}>{formatRupee(218400)}</strong>
+              <strong className={styles.textGreen}>{formatRupee(totalESI)}</strong>
             </div>
           </div>
 

@@ -98,6 +98,63 @@
   white-space: nowrap;
 }
 
+.fatherNameText {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.monthText {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #334155;
+  white-space: nowrap;
+}
+
+.presentBadge {
+  font-weight: 700;
+  color: #15803d;
+  background: #ecfdf5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  border: 1px solid #bbf7d0;
+  font-size: 13px;
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+}
+
+.weekOffText {
+  font-weight: 600;
+  color: #1d4ed8;
+  font-size: 13px;
+}
+
+.holidaysText {
+  font-weight: 600;
+  color: #b45309;
+  font-size: 13px;
+}
+
+.leaveVal {
+  font-weight: 600;
+  font-size: 13px;
+  display: inline-block;
+  min-width: 16px;
+}
+
+.totalPaidBadge {
+  display: inline-block;
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #86efac;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 
 /* Company / site cell */
 .companyCell {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, Loader2 } from 'lucide-react';
 import FormInput from '../common/FormInput';
 import styles from './LocationFormModal.module.css';
 
@@ -18,6 +18,7 @@ function LocationFormModal({ isOpen, onClose, onSubmit, editingLocation = null }
     status: 'active'
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
 
   const isEdit = !!editingLocation;
@@ -91,10 +92,19 @@ function LocationFormModal({ isOpen, onClose, onSubmit, editingLocation = null }
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     if (!validate()) return;
-    onSubmit(formData);
+    
+    try {
+      setIsSubmitting(true);
+      await onSubmit(formData);
+    } catch (err) {
+      console.error('Error submitting location:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -231,14 +241,23 @@ function LocationFormModal({ isOpen, onClose, onSubmit, editingLocation = null }
               type="button"
               onClick={onClose}
               className={styles.cancelBtn}
+              disabled={isSubmitting}
             >
               Cancel
             </button>
             <button
               type="submit"
               className={styles.submitBtn}
+              disabled={isSubmitting}
             >
-              {isEdit ? 'Update Location' : 'Add Location'}
+              {isSubmitting ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Loader2 size={16} className={styles.spinner} />
+                  <span>Saving...</span>
+                </span>
+              ) : (
+                isEdit ? 'Update Location' : 'Add Location'
+              )}
             </button>
           </div>
         </form>

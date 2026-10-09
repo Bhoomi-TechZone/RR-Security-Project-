@@ -259,7 +259,7 @@ export const PERMISSION_MODULES = [
     key: 'preferences',
     name: 'Preferences',
     category: 'Settings',
-    description: 'Employee portal preferences, manager permissions, email settings, notifications, and approval workflows',
+    description: 'Employee portal preferences, email settings, notifications, and approval workflows',
     actions: [
       { key: 'view', label: 'View', description: 'View system preferences and policy configurations' },
       { key: 'edit', label: 'Edit', description: 'Configure portal access, approval thresholds and notifications' }

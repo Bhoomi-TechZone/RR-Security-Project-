@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   BadgeIndianRupee,
@@ -8,26 +8,23 @@ import {
   Plus,
   Search,
   WalletCards,
-  X
+  X,
+  Loader2,
+  RefreshCw,
+  Download
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 import { usePermissions } from '../../context/PermissionContext';
-import { mockCompanies } from '../../data/companyData';
-import { mockEmployees } from '../../data/employeeData';
-import { mockAdvanceLoanRequests } from '../../data/advanceLoanData';
-import { mockDeductionSchedules } from '../../data/deductionData';
-import { mockDeductionHistory } from '../../data/deductionHistoryData';
+import { useCompany } from '../../context/CompanyContext';
+import { advanceLoanService } from '../../services/advanceLoanService';
+import { employeeService } from '../../services/employeeService';
+import { clientService } from '../../services/clientService';
 import styles from './AdvanceLoanManagement.module.css';
 
-const REQUEST_KEY = 'novaspark_advance_loan_requests';
-const SCHEDULE_KEY = 'novaspark_deduction_schedules';
-const HISTORY_KEY = 'novaspark_deduction_history';
 const PAGE_SIZE = 8;
-const DEFAULT_FROM = '2026-08-01';
-const DEFAULT_TO = '2026-08-24';
 
 const money = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -36,14 +33,27 @@ const money = (value) =>
     maximumFractionDigits: 0
   }).format(Number(value || 0));
 
-const dateLabel = (value) =>
-  value
-    ? new Intl.DateTimeFormat('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric'
-      }).format(new Date(`${value}T00:00:00`))
-    : '—';
+const dateLabel = (value) => {
+  if (!value) return '—';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date(value.includes('T') ? value : `${value}T00:00:00`));
+  } catch {
+    return value;
+  }
+};
+
+const getEmpDisplayName = (emp) => {
+  if (!emp) return '';
+  if (emp.name) return emp.name;
+  const first = emp.personalInfo?.firstName || '';
+  const last = emp.personalInfo?.lastName || '';
+  const full = `${first} ${last}`.trim();
+  return full || emp.employeeId || 'Employee';
+};
 
 const typeLabel = (value) => (value === 'loan' ? 'Loan' : 'Advance');
 
@@ -59,7 +69,9 @@ const statusLabel = (value) =>
   }[value] || value);
 
 const typeClass = (value) => (value === 'loan' ? styles.loan : styles.advance);
-const statusClass = (value) => styles[value] || styles.pending;function SummaryCards({ requests, tab }) {
+const statusClass = (value) => styles[value] || styles.pending;
+
+function SummaryCards({ requests, tab }) {
   const currentRequests = useMemo(() => {
     if (tab === 'advances') return requests.filter((r) => r.type === 'advance');
     if (tab === 'loans') return requests.filter((r) => r.type === 'loan');
@@ -70,10 +82,10 @@ const statusClass = (value) => styles[value] || styles.pending;function SummaryC
   const pending = currentRequests.filter((item) => item.status === 'pending').length;
   const approved = currentRequests
     .filter((item) => ['approved', 'completed'].includes(item.status))
-    .reduce((sum, item) => sum + item.approvedAmount, 0);
+    .reduce((sum, item) => sum + (Number(item.approvedAmount) || Number(item.amount) || 0), 0);
   const outstanding = currentRequests
     .filter((item) => ['approved', 'completed'].includes(item.status))
-    .reduce((sum, item) => sum + item.remainingAmount, 0);
+    .reduce((sum, item) => sum + (Number(item.remainingAmount) || 0), 0);
 
   const prefix = tab === 'advances' ? 'Advance' : tab === 'loans' ? 'Loan' : 'Request';
 
@@ -115,7 +127,7 @@ function Overview({ requests, tab }) {
     return {
       type,
       count: list.length,
-      amount: list.reduce((sum, item) => sum + item.amount, 0)
+      amount: list.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
     };
   });
   const states = ['approved', 'pending', 'rejected'];
@@ -155,7 +167,7 @@ function Overview({ requests, tab }) {
   );
 }
 
-function Filters({ values, setValue, reset, tab }) {
+function Filters({ values, setValue, reset, tab, clients, employees }) {
   const isSingleType = tab === 'advances' || tab === 'loans';
 
   const field = (label, key, options, placeholder) => (
@@ -205,16 +217,16 @@ function Filters({ values, setValue, reset, tab }) {
         {field(
           'Client',
           'client',
-          mockCompanies.map((item) => item.name),
+          clients.map((item) => item.clientName || item.companyName || item.name || item),
           'All Clients'
         )}
 
         {field(
           'Employee',
           'employee',
-          mockEmployees.map((item) => ({
-            value: item.employeeId,
-            label: `${item.name} — ${item.employeeId}`
+          employees.map((item) => ({
+            value: item.employeeId || item._id,
+            label: `${getEmpDisplayName(item)} — ${item.employeeId || item._id}`
           })),
           'All Employees'
         )}
@@ -265,6 +277,7 @@ function RequestTable({
   onApprove,
   onReject,
   onEdit,
+  onDelete,
   onSchedule,
   onHistory
 }) {
@@ -290,18 +303,20 @@ function RequestTable({
           </thead>
           <tbody>
             {rows.map((row) => (
-              <tr key={row.id}>
+              <tr key={row._id || row.id || row.requestId}>
                 <td className={styles.muted}>{row.requestId}</td>
                 <td>
                   <div className={styles.employeeCell}>
-                    <span className={styles.avatar}>{row.initials}</span>
+                    <span className={styles.avatar}>
+                      {row.initials || (row.employeeName ? row.employeeName.slice(0, 2).toUpperCase() : 'EM')}
+                    </span>
                     <div>
                       <strong>{row.employeeName}</strong>
                       <small>{row.employeeId}</small>
                     </div>
                   </div>
                 </td>
-                <td>{row.clientName}</td>
+                <td>{row.clientName || '—'}</td>
                 <td>
                   <span className={`${styles.typeBadge} ${typeClass(row.type)}`}>
                     {typeLabel(row.type)}
@@ -315,7 +330,7 @@ function RequestTable({
                 <td>
                   {row.deductionMethod === 'salary-adjustment'
                     ? 'Salary Adjustment'
-                    : `${money(row.emiAmount)} × ${row.numberOfMonths}`}
+                    : `${money(row.emiAmount)} × ${row.numberOfMonths || 1}`}
                 </td>
                 <td>
                   <span
@@ -329,11 +344,11 @@ function RequestTable({
                     type="button"
                     className={styles.iconButton}
                     aria-label="Open request actions"
-                    onClick={() => setMenu(menu === row.id ? null : row.id)}
+                    onClick={() => setMenu(menu === (row._id || row.requestId) ? null : (row._id || row.requestId))}
                   >
                     <MoreVertical size={17} />
                   </button>
-                  {menu === row.id && (
+                  {menu === (row._id || row.requestId) && (
                     <div className={styles.actionMenu}>
                       <button
                         type="button"
@@ -373,6 +388,16 @@ function RequestTable({
                           >
                             Edit Request
                           </button>
+                          <button
+                            type="button"
+                            style={{ color: '#ef4444' }}
+                            onClick={() => {
+                              onDelete(row);
+                              setMenu(null);
+                            }}
+                          >
+                            Delete Request
+                          </button>
                         </>
                       )}
                       {['approved', 'completed'].includes(row.status) && (
@@ -398,15 +423,27 @@ function RequestTable({
                         </>
                       )}
                       {row.status === 'rejected' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onView(row);
-                            setMenu(null);
-                          }}
-                        >
-                          View Rejection Reason
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onView(row);
+                              setMenu(null);
+                            }}
+                          >
+                            View Rejection Reason
+                          </button>
+                          <button
+                            type="button"
+                            style={{ color: '#ef4444' }}
+                            onClick={() => {
+                              onDelete(row);
+                              setMenu(null);
+                            }}
+                          >
+                            Delete Request
+                          </button>
+                        </>
                       )}
                     </div>
                   )}
@@ -451,22 +488,22 @@ function FormField({ label, error, children, full = false }) {
   );
 }
 
-function ModalActions({ close, save, label }) {
+function ModalActions({ close, save, label, loading }) {
   return (
     <div className={styles.modalActions}>
-      <button type="button" className={styles.secondaryButton} onClick={close}>
+      <button type="button" className={styles.secondaryButton} onClick={close} disabled={loading}>
         Cancel
       </button>
-      <button type="button" className={styles.primaryButton} onClick={save}>
-        {label}
+      <button type="button" className={styles.primaryButton} onClick={save} disabled={loading}>
+        {loading ? <Loader2 size={16} className={styles.spin} /> : label}
       </button>
     </div>
   );
 }
 
-function RequestForm({ request, onClose, onSave }) {
+function RequestForm({ request, onClose, onSave, employees = [] }) {
   const reqType = request?.type || 'advance';
-  const isEditing = Boolean(request?.id);
+  const isEditing = Boolean(request?._id || request?.id);
 
   const calculateEmi = (amt, rateVal, numMonths) => {
     const p = Number(amt || 0);
@@ -477,6 +514,8 @@ function RequestForm({ request, onClose, onSave }) {
     const total = p + interest;
     return Math.ceil(total / n);
   };
+
+  const currentYearMonth = new Date().toISOString().slice(0, 7);
 
   const initialAmount = isEditing ? request.amount : '';
   const initialRate = isEditing ? (request.interestRate ?? 0) : (reqType === 'loan' ? 0 : '');
@@ -500,14 +539,18 @@ function RequestForm({ request, onClose, onSave }) {
           deductionMethod: reqType === 'loan' ? 'monthly-emi' : 'salary-adjustment',
           emiAmount: initialEmi,
           numberOfMonths: initialMonths,
-          firstDeductionMonth: '2026-09',
-          adjustmentMonth: '2026-09',
+          firstDeductionMonth: currentYearMonth,
+          adjustmentMonth: currentYearMonth,
           remarks: ''
         }
   );
 
   const [errors, setErrors] = useState({});
-  const employee = mockEmployees.find((item) => item.employeeId === form.employeeId);
+  const [submitting, setSubmitting] = useState(false);
+
+  const selectedEmployee = employees.find(
+    (item) => (item.employeeId || item._id) === form.employeeId
+  );
 
   const update = (key, value) => {
     setForm((current) => {
@@ -524,7 +567,7 @@ function RequestForm({ request, onClose, onSave }) {
     });
   };
 
-  const save = () => {
+  const handleSave = async () => {
     const next = {};
     const autoEmi = calculateEmi(form.amount, form.interestRate, form.numberOfMonths);
     const effectiveEmi = Number(form.emiAmount || autoEmi || 0);
@@ -551,23 +594,29 @@ function RequestForm({ request, onClose, onSave }) {
       next.firstDeductionMonth = 'First deduction month is required.';
     }
     setErrors(next);
+
     if (!Object.keys(next).length) {
-      onSave({
-        ...form,
-        type: reqType,
-        employee,
-        amount: Number(form.amount),
-        interestRate: reqType === 'loan' ? Number(form.interestRate || 0) : undefined,
-        emiAmount:
-          form.deductionMethod === 'monthly-emi'
-            ? effectiveEmi
-            : Number(form.amount),
-        numberOfMonths:
-          form.deductionMethod === 'monthly-emi'
-            ? Number(form.numberOfMonths)
-            : 1,
-        reason: form.reason === 'Other' ? form.otherReason.trim() : form.reason
-      });
+      try {
+        setSubmitting(true);
+        await onSave({
+          ...form,
+          type: reqType,
+          employee: selectedEmployee,
+          amount: Number(form.amount),
+          interestRate: reqType === 'loan' ? Number(form.interestRate || 0) : 0,
+          emiAmount:
+            form.deductionMethod === 'monthly-emi'
+              ? effectiveEmi
+              : Number(form.amount),
+          numberOfMonths:
+            form.deductionMethod === 'monthly-emi'
+              ? Number(form.numberOfMonths)
+              : 1,
+          reason: form.reason === 'Other' ? form.otherReason?.trim() : form.reason
+        });
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -584,7 +633,7 @@ function RequestForm({ request, onClose, onSave }) {
 
   return (
     <Modal
-      title={isEditing ? `Edit ${typeLabel(reqType)} Request` : `${typeLabel(reqType)} Request`}
+      title={isEditing ? `Edit ${typeLabel(reqType)} Request` : `New ${typeLabel(reqType)} Request`}
       onClose={onClose}
     >
       <div className={styles.formGrid}>
@@ -593,13 +642,17 @@ function RequestForm({ request, onClose, onSave }) {
             className={styles.select}
             value={form.employeeId}
             onChange={(event) => update('employeeId', event.target.value)}
+            disabled={isEditing}
           >
             <option value="">Select Employee</option>
-            {mockEmployees.map((item) => (
-              <option key={item.employeeId} value={item.employeeId}>
-                {item.name} — {item.employeeId}
-              </option>
-            ))}
+            {employees.map((item) => {
+              const empId = item.employeeId || item._id;
+              return (
+                <option key={empId} value={empId}>
+                  {getEmpDisplayName(item)} — {empId}
+                </option>
+              );
+            })}
           </select>
         </FormField>
 
@@ -607,7 +660,12 @@ function RequestForm({ request, onClose, onSave }) {
           <input
             className={styles.input}
             readOnly
-            value={employee?.companyName || request?.clientName || ''}
+            value={
+              selectedEmployee?.employmentDetails?.clientName ||
+              selectedEmployee?.companyName ||
+              request?.clientName ||
+              'RR Security'
+            }
             placeholder={form.employeeId ? '' : 'Auto-filled from employee'}
           />
         </FormField>
@@ -616,7 +674,12 @@ function RequestForm({ request, onClose, onSave }) {
           <input
             className={styles.input}
             readOnly
-            value={employee?.department || request?.department || ''}
+            value={
+              selectedEmployee?.employmentDetails?.department ||
+              selectedEmployee?.department ||
+              request?.department ||
+              ''
+            }
             placeholder={form.employeeId ? '' : 'Auto-filled from employee'}
           />
         </FormField>
@@ -625,7 +688,12 @@ function RequestForm({ request, onClose, onSave }) {
           <input
             className={styles.input}
             readOnly
-            value={employee?.designation || request?.designation || ''}
+            value={
+              selectedEmployee?.employmentDetails?.designation ||
+              selectedEmployee?.designation ||
+              request?.designation ||
+              ''
+            }
             placeholder={form.employeeId ? '' : 'Auto-filled from employee'}
           />
         </FormField>
@@ -634,7 +702,16 @@ function RequestForm({ request, onClose, onSave }) {
           <input
             className={styles.input}
             readOnly
-            value={employee ? money(employee.salaryStructure?.basic) : ''}
+            value={
+              selectedEmployee
+                ? money(
+                    selectedEmployee.salaryStructure?.basic ||
+                    selectedEmployee.salaryDetails?.basic ||
+                    selectedEmployee.currentSalary ||
+                    0
+                  )
+                : ''
+            }
             placeholder={form.employeeId ? '' : 'Auto-filled from employee'}
           />
         </FormField>
@@ -651,7 +728,7 @@ function RequestForm({ request, onClose, onSave }) {
         </FormField>
 
         {reqType === 'loan' && (
-          <FormField label="Rate of Interest (%)" error={errors.interestRate}>
+          <FormField label="Rate of Interest (% p.a.)" error={errors.interestRate}>
             <input
               className={styles.input}
               type="number"
@@ -781,7 +858,12 @@ function RequestForm({ request, onClose, onSave }) {
         </FormField>
       </div>
 
-      <ModalActions close={onClose} save={save} label={isEditing ? 'Save Changes' : `Submit ${typeLabel(reqType)} Request`} />
+      <ModalActions
+        close={onClose}
+        save={handleSave}
+        label={isEditing ? 'Save Changes' : `Submit ${typeLabel(reqType)} Request`}
+        loading={submitting}
+      />
     </Modal>
   );
 }
@@ -801,7 +883,7 @@ function DetailsDrawer({ request, onClose, onApprove, onReject }) {
   const totalPayable = Number(request.amount || 0) + totalInterest;
 
   const basicFields = [
-    ['Client', request.clientName],
+    ['Client', request.clientName || 'RR Security'],
     ['Request Type', typeLabel(request.type)],
     [`${typeLabel(request.type)} Principal`, money(request.amount)],
     ...(isLoan && request.interestRate !== undefined && request.interestRate !== null
@@ -817,15 +899,16 @@ function DetailsDrawer({ request, onClose, onApprove, onReject }) {
       'Deduction',
       request.deductionMethod === 'salary-adjustment'
         ? 'Salary Adjustment'
-        : `${money(request.emiAmount)} × ${request.numberOfMonths} months`
+        : `${money(request.emiAmount)} × ${request.numberOfMonths || 1} months`
     ]
   ];
 
   const approvedFields = [
-    ['Approved Amount', money(request.approvedAmount)],
+    ['Approved Amount', money(request.approvedAmount || request.totalRepayable || request.amount)],
     ['Approved Date', dateLabel(request.approvedDate)],
+    ['Approved By', request.approvedBy || 'Admin'],
     ['Monthly Deduction', money(request.emiAmount)],
-    ['Number of Deductions', request.numberOfMonths],
+    ['Number of Deductions', request.numberOfMonths || 1],
     ['Remaining Amount', money(request.remainingAmount)]
   ];
 
@@ -883,6 +966,23 @@ function DetailsDrawer({ request, onClose, onApprove, onReject }) {
               ))}
             </>
           )}
+
+          {request.auditTrail?.length > 0 && (
+            <div style={{ marginTop: '1.5rem' }}>
+              <h4 style={{ fontSize: '0.85rem', color: '#64748b', textTransform: 'uppercase', marginBottom: '0.5rem' }}>Audit Trail</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.85rem' }}>
+                {request.auditTrail.map((item, idx) => (
+                  <div key={idx} style={{ background: '#f8fafc', padding: '0.5rem 0.75rem', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 600 }}>
+                      <span>{item.action}</span>
+                      <small style={{ color: '#64748b' }}>{dateLabel(item.date)}</small>
+                    </div>
+                    <div style={{ color: '#475569', fontSize: '0.8rem' }}>by {item.by}: {item.notes}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {request.status === 'pending' && (
@@ -908,7 +1008,7 @@ function DetailsDrawer({ request, onClose, onApprove, onReject }) {
   );
 }
 
-function ApproveModal({ request, onClose, onConfirm }) {
+function ApproveModal({ request, onClose, onConfirm, loading }) {
   if (!request) return null;
 
   return (
@@ -924,15 +1024,15 @@ function ApproveModal({ request, onClose, onConfirm }) {
         <strong>
           {request.deductionMethod === 'salary-adjustment'
             ? 'Salary Adjustment'
-            : `${money(request.emiAmount)} × ${request.numberOfMonths}`}
+            : `${money(request.emiAmount)} × ${request.numberOfMonths || 1}`}
         </strong>
       </div>
-      <ModalActions close={onClose} save={onConfirm} label="Approve Request" />
+      <ModalActions close={onClose} save={onConfirm} label="Approve Request" loading={loading} />
     </Modal>
   );
 }
 
-function RejectModal({ request, reason, setReason, onClose, onConfirm }) {
+function RejectModal({ request, reason, setReason, onClose, onConfirm, loading }) {
   if (!request) return null;
 
   return (
@@ -948,7 +1048,7 @@ function RejectModal({ request, reason, setReason, onClose, onConfirm }) {
         onChange={(event) => setReason(event.target.value)}
         placeholder="Enter reason..."
       />
-      <ModalActions close={onClose} save={onConfirm} label="Reject Request" />
+      <ModalActions close={onClose} save={onConfirm} label="Reject Request" loading={loading} />
     </Modal>
   );
 }
@@ -976,15 +1076,14 @@ function ScheduleTable({ schedules, onView }) {
           </thead>
           <tbody>
             {schedules.map((item) => {
-              const percent = item.approvedAmount
-                ? Math.min(
-                    100,
-                    Math.round((item.deductedAmount / item.approvedAmount) * 100)
-                  )
+              const approvedAmt = Number(item.approvedAmount || 0);
+              const deductedAmt = Number(item.deductedAmount || 0);
+              const percent = approvedAmt
+                ? Math.min(100, Math.round((deductedAmt / approvedAmt) * 100))
                 : 0;
 
               return (
-                <tr key={item.id}>
+                <tr key={item._id || item.id || item.requestId}>
                   <td>
                     {item.employeeName}
                     <small className={styles.block}>{item.employeeId}</small>
@@ -997,10 +1096,10 @@ function ScheduleTable({ schedules, onView }) {
                   </td>
                   <td>{money(item.approvedAmount)}</td>
                   <td>{money(item.monthlyDeduction)}</td>
-                  <td>{item.totalMonths}</td>
+                  <td>{item.totalMonths || 1}</td>
                   <td>{money(item.deductedAmount)}</td>
                   <td>{money(item.remainingAmount)}</td>
-                  <td>Sep 2026</td>
+                  <td>{item.nextDeductionMonth || 'Next Cycle'}</td>
                   <td>
                     <span
                       className={`${styles.statusBadge} ${statusClass(item.status)}`}
@@ -1053,7 +1152,7 @@ function HistoryTable({ rows }) {
           </thead>
           <tbody>
             {rows.map((item) => (
-              <tr key={item.id}>
+              <tr key={item._id || item.id || Math.random()}>
                 <td>
                   {item.employeeName}
                   <small className={styles.block}>{item.employeeId}</small>
@@ -1071,7 +1170,7 @@ function HistoryTable({ rows }) {
                     {statusLabel(item.status)}
                   </span>
                 </td>
-                <td>{item.remarks}</td>
+                <td>{item.remarks || '—'}</td>
               </tr>
             ))}
           </tbody>
@@ -1084,13 +1183,18 @@ function HistoryTable({ rows }) {
 function ScheduleDrawer({ schedule, onClose }) {
   if (!schedule) return null;
 
-  const months = Array.from({ length: schedule.totalMonths }, (_, index) => ({
-    month: `2026-${String(9 + index).padStart(2, '0')}`,
-    status:
-      index < Math.ceil(schedule.deductedAmount / schedule.monthlyDeduction)
-        ? 'Deducted'
-        : 'Pending'
-  }));
+  const installments = schedule.installments?.length > 0
+    ? schedule.installments
+    : Array.from({ length: schedule.totalMonths || 1 }, (_, index) => ({
+        month: schedule.nextDeductionMonth
+          ? `${schedule.nextDeductionMonth} (+${index}m)`
+          : `Month ${index + 1}`,
+        amount: schedule.monthlyDeduction,
+        status:
+          index < Math.ceil((schedule.deductedAmount || 0) / (schedule.monthlyDeduction || 1))
+            ? 'Deducted'
+            : 'Pending'
+      }));
 
   return (
     <Modal title="Deduction Schedule" onClose={onClose}>
@@ -1105,17 +1209,21 @@ function ScheduleDrawer({ schedule, onClose }) {
       <table className={styles.innerTable}>
         <thead>
           <tr>
-            <th>Month</th>
+            <th>Month / Cycle</th>
             <th>Amount</th>
             <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {months.map((item) => (
-            <tr key={item.month}>
+          {installments.map((item, idx) => (
+            <tr key={idx}>
               <td>{item.month}</td>
-              <td>{money(schedule.monthlyDeduction)}</td>
-              <td>{item.status}</td>
+              <td>{money(item.amount || schedule.monthlyDeduction)}</td>
+              <td>
+                <span className={`${styles.statusBadge} ${statusClass(item.status?.toLowerCase() || 'pending')}`}>
+                  {item.status || 'Pending'}
+                </span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -1124,7 +1232,7 @@ function ScheduleDrawer({ schedule, onClose }) {
   );
 }
 
-function ExportModal({ onClose, onExport }) {
+function ExportModal({ onClose, onExport, clients = [], employees = [] }) {
   const [format, setFormat] = useState('excel');
   const [reportType, setReportType] = useState('requests');
 
@@ -1145,52 +1253,9 @@ function ExportModal({ onClose, onExport }) {
           </select>
         </FormField>
 
-        <FormField label="From Date">
-          <input className={styles.input} type="date" defaultValue={DEFAULT_FROM} />
-        </FormField>
-
-        <FormField label="To Date">
-          <input className={styles.input} type="date" defaultValue={DEFAULT_TO} />
-        </FormField>
-
-        <FormField label="Client">
-          <select className={styles.select}>
-            <option>All Clients</option>
-            {mockCompanies.map((item) => (
-              <option key={item.id}>{item.name}</option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Employee">
-          <select className={styles.select}>
-            <option>All Employees</option>
-            {mockEmployees.map((item) => (
-              <option key={item.employeeId}>{item.name}</option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Request Type">
-          <select className={styles.select}>
-            <option>All Types</option>
-            <option>Advance</option>
-            <option>Loan</option>
-          </select>
-        </FormField>
-
-        <FormField label="Approval Status">
-          <select className={styles.select}>
-            <option>All Status</option>
-            <option>Pending</option>
-            <option>Approved</option>
-            <option>Rejected</option>
-          </select>
-        </FormField>
-
         <FormField label="Format" full>
           <div className={styles.radioRow}>
-            {['excel', 'csv', 'pdf'].map((item) => (
+            {['csv', 'excel', 'json'].map((item) => (
               <label key={item}>
                 <input
                   type="radio"
@@ -1213,36 +1278,18 @@ function ExportModal({ onClose, onExport }) {
 }
 
 function AdvanceLoanManagement() {
-  const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
-  const [requests, setRequests] = useState(() => {
-    try {
-      return (
-        JSON.parse(localStorage.getItem(REQUEST_KEY)) || mockAdvanceLoanRequests
-      );
-    } catch {
-      return mockAdvanceLoanRequests;
-    }
-  });
+  const { canAdd } = usePermissions();
+  const { company } = useCompany();
+  const companyId = company?.companyId || company?.id || 'RRS8392014SEC';
 
-  const [schedules, setSchedules] = useState(() => {
-    try {
-      return (
-        JSON.parse(localStorage.getItem(SCHEDULE_KEY)) || mockDeductionSchedules
-      );
-    } catch {
-      return mockDeductionSchedules;
-    }
-  });
-
-  const [history] = useState(() => {
-    try {
-      return (
-        JSON.parse(localStorage.getItem(HISTORY_KEY)) || mockDeductionHistory
-      );
-    } catch {
-      return mockDeductionHistory;
-    }
-  });
+  const [requests, setRequests] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [history, setHistory] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [employees, setEmployees] = useState([]);
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'all');
@@ -1255,15 +1302,17 @@ function AdvanceLoanManagement() {
       setTab('all');
     }
   }, [searchParams]);
+
   const [filters, setFilters] = useState({
     search: '',
     type: '',
     client: '',
     employee: '',
     status: '',
-    fromDate: DEFAULT_FROM,
-    toDate: DEFAULT_TO
+    fromDate: '',
+    toDate: ''
   });
+
   const [page, setPage] = useState(1);
   const [requestModal, setRequestModal] = useState(false);
   const [details, setDetails] = useState(null);
@@ -1275,6 +1324,37 @@ function AdvanceLoanManagement() {
   const [toast, setToast] = useState(null);
 
   const notify = (message, type = 'success') => setToast({ message, type });
+
+  // Fetch all data from MongoDB
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [reqList, schedList, histList, statsData, empList, clientList] = await Promise.all([
+        advanceLoanService.getRequests(companyId, filters),
+        advanceLoanService.getSchedules(companyId),
+        advanceLoanService.getHistory(companyId),
+        advanceLoanService.getStats(companyId),
+        employeeService.getEmployees(companyId),
+        clientService.getClients(companyId)
+      ]);
+
+      setRequests(reqList || []);
+      setSchedules(schedList || []);
+      setHistory(histList || []);
+      setStats(statsData || null);
+      setEmployees(empList || []);
+      setClients(clientList || []);
+    } catch (err) {
+      console.error('Error fetching advance/loan data from MongoDB:', err);
+      notify(err.message || 'Failed to load advance & loan records', 'danger');
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, filters]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const setFilter = (key, value) => {
     setPage(1);
@@ -1289,8 +1369,8 @@ function AdvanceLoanManagement() {
       client: '',
       employee: '',
       status: '',
-      fromDate: DEFAULT_FROM,
-      toDate: DEFAULT_TO
+      fromDate: '',
+      toDate: ''
     });
   };
 
@@ -1317,19 +1397,23 @@ function AdvanceLoanManagement() {
     });
   }, [requests, filters, tab]);
 
-  const filteredSchedules = schedules.filter(
-    (item) =>
-      (!filters.employee || item.employeeId === filters.employee) &&
-      (!filters.client || item.clientName === filters.client) &&
-      (!filters.type || item.type === filters.type)
-  );
+  const filteredSchedules = useMemo(() => {
+    return schedules.filter(
+      (item) =>
+        (!filters.employee || item.employeeId === filters.employee) &&
+        (!filters.client || item.clientName === filters.client) &&
+        (!filters.type || item.type === filters.type)
+    );
+  }, [schedules, filters]);
 
-  const filteredHistory = history.filter(
-    (item) =>
-      (!filters.employee || item.employeeId === filters.employee) &&
-      (!filters.client || item.clientName === filters.client) &&
-      (!filters.type || item.type === filters.type)
-  );
+  const filteredHistory = useMemo(() => {
+    return history.filter(
+      (item) =>
+        (!filters.employee || item.employeeId === filters.employee) &&
+        (!filters.client || item.clientName === filters.client) &&
+        (!filters.type || item.type === filters.type)
+    );
+  }, [history, filters]);
 
   const activeRows =
     tab === 'schedule'
@@ -1340,146 +1424,123 @@ function AdvanceLoanManagement() {
 
   const rows = activeRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const saveRequest = (data) => {
-    const isEditing = Boolean(requestModal?.id);
-    const isLoan = data.type === 'loan';
-    const totalInterest = isLoan
-      ? Math.round(
-          (Number(data.amount || 0) *
-            Number(data.interestRate || 0) *
-            (Number(data.numberOfMonths || 1) / 12)) /
-            100
-        )
-      : 0;
-    const totalRepayable = Number(data.amount || 0) + totalInterest;
+  const saveRequest = async (data) => {
+    const isEditing = Boolean(requestModal?._id || requestModal?.id);
+    const targetId = requestModal?._id || requestModal?.id;
 
-    const payload = {
-      id: requestModal?.id || Date.now(),
-      requestId:
-        requestModal?.requestId || `REQ-${Date.now().toString().slice(-4)}`,
-      employeeId: data.employee.employeeId,
-      employeeName: data.employee.name,
-      initials: data.employee.initials,
-      clientId: data.employee.companyId,
-      clientName: data.employee.companyName,
-      department: data.employee.department,
-      designation: data.employee.designation,
-      currentSalary: data.employee.salaryStructure?.basic || 20000,
-      type: data.type,
-      amount: data.amount,
-      interestRate: data.interestRate,
-      totalInterest,
-      totalRepayable,
-      reason: data.reason,
-      requestDate: DEFAULT_TO,
-      deductionMethod: data.deductionMethod,
-      adjustmentMonth: data.adjustmentMonth,
-      emiAmount: data.emiAmount,
-      numberOfMonths: data.numberOfMonths,
-      firstDeductionMonth: data.firstDeductionMonth,
-      approvedAmount: 0,
-      approvedDate: null,
-      deductedAmount: 0,
-      remainingAmount: totalRepayable,
-      status: 'pending',
-      rejectionReason: null,
-      remarks: data.remarks
-    };
-
-    setRequests((current) =>
-      isEditing
-        ? current.map((item) => (item.id === requestModal.id ? payload : item))
-        : [payload, ...current]
-    );
-
-    setRequestModal(false);
-    notify(
-      isEditing
-        ? '✓ Request updated successfully.'
-        : `✓ ${typeLabel(data.type)} request submitted successfully.`
-    );
+    try {
+      if (isEditing) {
+        await advanceLoanService.updateRequest(companyId, targetId, data);
+        notify('✓ Request updated successfully in database.');
+      } else {
+        await advanceLoanService.createRequest(companyId, data);
+        notify(`✓ ${typeLabel(data.type)} request submitted successfully to database.`);
+      }
+      setRequestModal(false);
+      fetchData();
+    } catch (err) {
+      console.error('Error saving request:', err);
+      notify(err.message || 'Failed to save request', 'danger');
+    }
   };
 
-  const confirmApprove = () => {
+  const confirmApprove = async () => {
     if (!approve) return;
-    const isLoan = approve.type === 'loan';
-    const totalInterest = isLoan
-      ? Math.round(
-          (Number(approve.amount || 0) *
-            Number(approve.interestRate || 0) *
-            (Number(approve.numberOfMonths || 1) / 12)) /
-            100
-        )
-      : 0;
-    const totalRepayable = Number(approve.amount || 0) + totalInterest;
-
-    const schedule = {
-      id: Date.now(),
-      requestId: approve.requestId,
-      employeeId: approve.employeeId,
-      employeeName: approve.employeeName,
-      initials: approve.initials,
-      clientName: approve.clientName,
-      type: approve.type,
-      approvedAmount: totalRepayable,
-      monthlyDeduction: approve.emiAmount,
-      totalMonths: approve.numberOfMonths,
-      deductedAmount: 0,
-      remainingAmount: totalRepayable,
-      nextDeductionMonth: '2026-09',
-      status: 'active'
-    };
-
-    setRequests((current) =>
-      current.map((item) =>
-        item.id === approve.id
-          ? {
-              ...item,
-              status: 'approved',
-              approvedAmount: totalRepayable,
-              approvedDate: DEFAULT_TO,
-              remainingAmount: totalRepayable
-            }
-          : item
-      )
-    );
-
-    setSchedules((current) => [schedule, ...current]);
-    setApprove(null);
-    setDetails(null);
-    notify('✓ Request approved successfully.');
+    try {
+      setActionLoading(true);
+      const targetId = approve._id || approve.id || approve.requestId;
+      await advanceLoanService.approveRequest(companyId, targetId);
+      setApprove(null);
+      setDetails(null);
+      notify('✓ Request approved and added to active deduction schedules in database.');
+      fetchData();
+    } catch (err) {
+      console.error('Error approving request:', err);
+      notify(err.message || 'Failed to approve request', 'danger');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!reject) return;
     if (!rejectReason.trim()) {
       notify('Rejection reason is required.', 'danger');
       return;
     }
 
-    setRequests((current) =>
-      current.map((item) =>
-        item.id === reject.id
-          ? {
-              ...item,
-              status: 'rejected',
-              rejectionReason: rejectReason.trim()
-            }
-          : item
-      )
-    );
-
-    setReject(null);
-    setDetails(null);
-    setRejectReason('');
-    notify('✓ Request rejected.');
+    try {
+      setActionLoading(true);
+      const targetId = reject._id || reject.id || reject.requestId;
+      await advanceLoanService.rejectRequest(companyId, targetId, rejectReason.trim());
+      setReject(null);
+      setDetails(null);
+      setRejectReason('');
+      notify('✓ Request marked as rejected in database.');
+      fetchData();
+    } catch (err) {
+      console.error('Error rejecting request:', err);
+      notify(err.message || 'Failed to reject request', 'danger');
+    } finally {
+      setActionLoading(false);
+    }
   };
 
-  const exportReport = () => {
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Are you sure you want to delete ${row.requestId}?`)) return;
+    try {
+      const targetId = row._id || row.id || row.requestId;
+      await advanceLoanService.deleteRequest(companyId, targetId);
+      notify('✓ Request deleted from database.');
+      fetchData();
+    } catch (err) {
+      console.error('Error deleting request:', err);
+      notify(err.message || 'Failed to delete request', 'danger');
+    }
+  };
+
+  const exportReport = ({ format, reportType }) => {
     setExportOpen(false);
-    notify('Preparing report...');
-    setTimeout(() => notify('✓ Report exported successfully.'), 500);
+    try {
+      let dataToExport = [];
+      if (reportType === 'requests') dataToExport = requests;
+      else if (reportType === 'approved') dataToExport = requests.filter(r => ['approved', 'completed'].includes(r.status));
+      else if (reportType === 'schedule') dataToExport = schedules;
+      else if (reportType === 'history') dataToExport = history;
+      else if (reportType === 'outstanding') dataToExport = requests.filter(r => (r.remainingAmount || 0) > 0);
+
+      if (!dataToExport.length) {
+        notify('No records to export', 'danger');
+        return;
+      }
+
+      if (format === 'json') {
+        const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute('href', dataStr);
+        dlAnchor.setAttribute('download', `Advance_Loan_${reportType}_${new Date().toISOString().slice(0, 10)}.json`);
+        dlAnchor.click();
+      } else {
+        // CSV export
+        const keys = Object.keys(dataToExport[0] || {}).filter(k => typeof dataToExport[0][k] !== 'object' && k !== '__v');
+        const csvContent = 'data:text/csv;charset=utf-8,' + [
+          keys.join(','),
+          ...dataToExport.map(row => keys.map(k => `"${(row[k] ?? '').toString().replace(/"/g, '""')}"`).join(','))
+        ].join('\n');
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute('href', encodeURI(csvContent));
+        dlAnchor.setAttribute('download', `Advance_Loan_${reportType}_${new Date().toISOString().slice(0, 10)}.csv`);
+        dlAnchor.click();
+      }
+
+      notify('✓ Report exported successfully.');
+    } catch (err) {
+      console.error('Export error:', err);
+      notify('Failed to export report', 'danger');
+    }
   };
+
+  const currentMonthName = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(new Date());
 
   return (
     <AdminLayout>
@@ -1550,6 +1611,14 @@ function AdvanceLoanManagement() {
             </p>
           </div>
           <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={fetchData}
+              title="Refresh Data from MongoDB"
+            >
+              <RefreshCw size={15} /> Refresh
+            </button>
             {tab === 'all' && (
               <button
                 type="button"
@@ -1580,195 +1649,206 @@ function AdvanceLoanManagement() {
           </div>
         </header>
 
-        <SummaryCards requests={requests} tab={tab} />
-        <Overview requests={requests} tab={tab} />
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px', gap: '10px' }}>
+            <Loader2 size={28} className={styles.spin} />
+            <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>Connecting to MongoDB database...</span>
+          </div>
+        ) : (
+          <>
+            <SummaryCards requests={requests} tab={tab} />
+            <Overview requests={requests} tab={tab} />
 
-        <div className={styles.infoCard}>
-          <strong>Salary Adjustment</strong>
-          <span>
-            {tab === 'advances'
-              ? "Approved advances will be deducted from the employee's next salary payout."
-              : tab === 'loans'
-              ? "Approved loans will be deducted monthly based on configured EMI schedules."
-              : "Approved advances and loan deductions will be adjusted against the employee's monthly salary."}
-          </span>
-        </div>
-
-        {tab !== 'schedule' && tab !== 'history' && (
-          <section className={styles.sectionIntro}>
-            <div>
-              <h2 className={styles.sectionTitle}>
+            <div className={styles.infoCard}>
+              <strong>Salary Adjustment</strong>
+              <span>
                 {tab === 'advances'
-                  ? 'Salary Advance Requests'
+                  ? "Approved advances will be deducted from the employee's next salary payout."
                   : tab === 'loans'
-                  ? 'Employee Loan Applications'
-                  : 'Advance & Loan Requests'}
-              </h2>
-              <p className={styles.sectionSubtext}>
-                {tab === 'advances'
-                  ? 'View and manage employee advance requests.'
-                  : tab === 'loans'
-                  ? 'View and manage employee loan applications.'
-                  : 'View and manage employee financial requests.'}
-              </p>
+                  ? "Approved loans will be deducted monthly based on configured EMI schedules."
+                  : "Approved advances and loan deductions will be adjusted against the employee's monthly salary."}
+              </span>
             </div>
-            <div className={styles.introActions}>
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => setExportOpen(true)}
-              >
-                Export Report
-              </button>
-              {tab !== 'advances' && (
+
+            {tab !== 'schedule' && tab !== 'history' && (
+              <section className={styles.sectionIntro}>
+                <div>
+                  <h2 className={styles.sectionTitle}>
+                    {tab === 'advances'
+                      ? 'Salary Advance Requests'
+                      : tab === 'loans'
+                      ? 'Employee Loan Applications'
+                      : 'Advance & Loan Requests'}
+                  </h2>
+                  <p className={styles.sectionSubtext}>
+                    {tab === 'advances'
+                      ? 'View and manage employee advance requests.'
+                      : tab === 'loans'
+                      ? 'View and manage employee loan applications.'
+                      : 'View and manage employee financial requests.'}
+                  </p>
+                </div>
+                <div className={styles.introActions}>
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => setExportOpen(true)}
+                  >
+                    <Download size={15} /> Export Report
+                  </button>
+                  {tab !== 'advances' && (
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setRequestModal({ type: 'loan' })}
+                    >
+                      <Plus size={16} /> Request Loan
+                    </button>
+                  )}
+                  {tab !== 'loans' && (
+                    <button
+                      type="button"
+                      className={styles.primaryButton}
+                      onClick={() => setRequestModal({ type: 'advance' })}
+                    >
+                      <Plus size={16} /> Request Advance
+                    </button>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {(tab === 'schedule' || tab === 'history') && (
+              <section className={styles.sectionIntro}>
+                <div>
+                  <h2 className={styles.sectionTitle}>
+                    {tab === 'schedule'
+                      ? 'Deduction Schedule'
+                      : 'Deduction History'}
+                  </h2>
+                  <p className={styles.sectionSubtext}>
+                    {tab === 'schedule'
+                      ? 'Track approved advances and loans against monthly salary.'
+                      : 'View previously recorded salary deductions.'}
+                  </p>
+                </div>
                 <button
                   type="button"
                   className={styles.secondaryButton}
-                  onClick={() => setRequestModal({ type: 'loan' })}
+                  onClick={() => setExportOpen(true)}
                 >
-                  <Plus size={16} /> Request Loan
+                  <Download size={15} /> Export Report
                 </button>
-              )}
-              {tab !== 'loans' && (
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={() => setRequestModal({ type: 'advance' })}
-                >
-                  <Plus size={16} /> Request Advance
-                </button>
-              )}
-            </div>
-          </section>
-        )}
+              </section>
+            )}
 
-        {(tab === 'schedule' || tab === 'history') && (
-          <section className={styles.sectionIntro}>
-            <div>
-              <h2 className={styles.sectionTitle}>
-                {tab === 'schedule'
-                  ? 'Deduction Schedule'
-                  : 'Deduction History'}
-              </h2>
-              <p className={styles.sectionSubtext}>
-                {tab === 'schedule'
-                  ? 'Track approved advances and loans against monthly salary.'
-                  : 'View previously recorded salary deductions.'}
-              </p>
-            </div>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => setExportOpen(true)}
-            >
-              Export Report
-            </button>
-          </section>
-        )}
-
-        {tab !== 'schedule' && tab !== 'history' && (
-          <Filters values={filters} setValue={setFilter} reset={reset} tab={tab} />
-        )}
-
-        {tab === 'schedule' || tab === 'history' ? (
-          <Filters values={filters} setValue={setFilter} reset={reset} tab={tab} />
-        ) : null}
-
-        {rows.length ? (
-          tab === 'schedule' ? (
-            <ScheduleTable schedules={rows} onView={setScheduleDetails} />
-          ) : tab === 'history' ? (
-            <HistoryTable rows={rows} />
-          ) : (
-            <RequestTable
-              rows={rows}
-              onView={setDetails}
-              onApprove={setApprove}
-              onReject={(request) => {
-                setReject(request);
-                setRejectReason('');
-              }}
-              onEdit={setRequestModal}
-              onSchedule={(request) =>
-                setScheduleDetails(
-                  schedules.find((item) => item.requestId === request.requestId)
-                )
-              }
-              onHistory={() => setTab('history')}
+            <Filters
+              values={filters}
+              setValue={setFilter}
+              reset={reset}
+              tab={tab}
+              clients={clients}
+              employees={employees}
             />
-          )
-        ) : (
-          <div className={styles.emptyWrap}>
-            <EmptyState
-              title={
+
+            {rows.length ? (
+              tab === 'schedule' ? (
+                <ScheduleTable schedules={rows} onView={setScheduleDetails} />
+              ) : tab === 'history' ? (
+                <HistoryTable rows={rows} />
+              ) : (
+                <RequestTable
+                  rows={rows}
+                  onView={setDetails}
+                  onApprove={setApprove}
+                  onReject={(request) => {
+                    setReject(request);
+                    setRejectReason('');
+                  }}
+                  onEdit={setRequestModal}
+                  onDelete={handleDelete}
+                  onSchedule={(request) =>
+                    setScheduleDetails(
+                      schedules.find((item) => item.requestId === request.requestId)
+                    )
+                  }
+                  onHistory={() => setTab('history')}
+                />
+              )
+            ) : (
+              <div className={styles.emptyWrap}>
+                <EmptyState
+                  title={
+                    tab === 'schedule'
+                      ? 'No active deduction schedules found.'
+                      : tab === 'history'
+                      ? 'No deduction history found.'
+                      : 'No advance or loan requests found.'
+                  }
+                  description="Try changing your filters or create a new request."
+                  actionLabel="Reset Filters"
+                  onAction={reset}
+                />
+              </div>
+            )}
+
+            <Pagination
+              currentPage={page}
+              totalItems={activeRows.length}
+              itemsPerPage={PAGE_SIZE}
+              onPageChange={setPage}
+              label={
                 tab === 'schedule'
-                  ? 'No active deduction schedules found.'
+                  ? 'schedules'
                   : tab === 'history'
-                  ? 'No deduction history found.'
-                  : 'No advance or loan requests found.'
+                  ? 'history records'
+                  : 'requests'
               }
-              description="Try changing your filters."
-              actionLabel="Reset Filters"
-              onAction={reset}
             />
-          </div>
-        )}
 
-        <Pagination
-          currentPage={page}
-          totalItems={activeRows.length}
-          itemsPerPage={PAGE_SIZE}
-          onPageChange={setPage}
-          label={
-            tab === 'schedule'
-              ? 'schedules'
-              : tab === 'history'
-              ? 'history records'
-              : 'requests'
-          }
-        />
+            <div className={styles.analyticsGrid}>
+              <section className={styles.analyticsCard}>
+                <h2 className={styles.sectionTitle}>Pending Approvals</h2>
+                <p>
+                  {requests.filter((item) => item.status === 'pending').length}{' '}
+                  requests are waiting for approval.
+                </p>
+                {requests
+                  .filter((item) => item.status === 'pending')
+                  .slice(0, 4)
+                  .map((item) => (
+                    <button
+                      type="button"
+                      className={styles.pendingRow}
+                      key={item._id || item.requestId}
+                      onClick={() => setDetails(item)}
+                    >
+                      <span>
+                        {item.requestId} · {item.employeeName}
+                      </span>
+                      <strong>{money(item.amount)}</strong>
+                    </button>
+                  ))}
+              </section>
 
-        <div className={styles.analyticsGrid}>
-          <section className={styles.analyticsCard}>
-            <h2 className={styles.sectionTitle}>Pending Approvals</h2>
-            <p>
-              {requests.filter((item) => item.status === 'pending').length}{' '}
-              requests are waiting for approval.
-            </p>
-            {requests
-              .filter((item) => item.status === 'pending')
-              .slice(0, 4)
-              .map((item) => (
-                <button
-                  type="button"
-                  className={styles.pendingRow}
-                  key={item.id}
-                  onClick={() => setDetails(item)}
-                >
+              <section className={styles.analyticsCard}>
+                <h2 className={styles.sectionTitle}>Monthly Deduction Summary</h2>
+                <p>{currentMonthName}</p>
+                <div className={styles.deductionNumbers}>
                   <span>
-                    {item.requestId} · {item.employeeName}
+                    Expected <strong>{money(stats?.monthlyDeduction?.expected || 0)}</strong>
                   </span>
-                  <strong>{money(item.amount)}</strong>
-                </button>
-              ))}
-          </section>
-
-          <section className={styles.analyticsCard}>
-            <h2 className={styles.sectionTitle}>Monthly Deduction Summary</h2>
-            <p>September 2026</p>
-            <div className={styles.deductionNumbers}>
-              <span>
-                Expected <strong>{money(245000)}</strong>
-              </span>
-              <span>
-                Deducted <strong>{money(180000)}</strong>
-              </span>
-              <span>
-                Remaining <strong>{money(65000)}</strong>
-              </span>
+                  <span>
+                    Deducted <strong>{money(stats?.monthlyDeduction?.deducted || 0)}</strong>
+                  </span>
+                  <span>
+                    Remaining <strong>{money(stats?.monthlyDeduction?.remaining || 0)}</strong>
+                  </span>
+                </div>
+              </section>
             </div>
-          </section>
-        </div>
+          </>
+        )}
 
         <DetailsDrawer
           request={details}
@@ -1782,8 +1862,9 @@ function AdvanceLoanManagement() {
 
         {Boolean(requestModal) && (
           <RequestForm
-            key={`request-${requestModal?.id || requestModal?.type || 'new'}`}
+            key={`request-${requestModal?._id || requestModal?.id || requestModal?.type || 'new'}`}
             request={requestModal}
+            employees={employees}
             onClose={() => setRequestModal(false)}
             onSave={saveRequest}
           />
@@ -1794,6 +1875,7 @@ function AdvanceLoanManagement() {
             request={approve}
             onClose={() => setApprove(null)}
             onConfirm={confirmApprove}
+            loading={actionLoading}
           />
         )}
 
@@ -1804,6 +1886,7 @@ function AdvanceLoanManagement() {
             setReason={setRejectReason}
             onClose={() => setReject(null)}
             onConfirm={confirmReject}
+            loading={actionLoading}
           />
         )}
 
@@ -1816,6 +1899,8 @@ function AdvanceLoanManagement() {
 
         {exportOpen && (
           <ExportModal
+            clients={clients}
+            employees={employees}
             onClose={() => setExportOpen(false)}
             onExport={exportReport}
           />

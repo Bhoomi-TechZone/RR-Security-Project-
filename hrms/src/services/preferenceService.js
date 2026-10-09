@@ -65,6 +65,7 @@ export const preferenceService = {
         allowAttendance: true,
         allowLeaves: true,
         allowSalarySlips: true,
+        allowAssetsUniform: true,
         allowProfile: true,
         allowNotifications: true,
       };

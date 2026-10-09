@@ -52,20 +52,19 @@
   color: var(--text-primary);
 }
 
-.deactivate:hover {
-  color: var(--danger);
-  background-color: var(--danger-bg);
+.deleteItem {
+  color: var(--danger, #ef4444);
 }
 
-.deactivate:hover svg {
-  color: var(--danger);
+.deleteItem:hover {
+  color: #dc2626 !important;
+  background-color: var(--danger-bg, #fef2f2) !important;
 }
 
-.activate:hover {
-  color: var(--success);
-  background-color: var(--success-bg);
+.deleteItem svg {
+  color: var(--danger, #ef4444) !important;
 }
 
-.activate:hover svg {
-  color: var(--success);
+.deleteItem:hover svg {
+  color: #dc2626 !important;
 }

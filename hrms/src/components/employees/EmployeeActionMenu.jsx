@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit2, ArrowLeftRight, Download, Power, MoreVertical, Key } from 'lucide-react';
+import { Eye, Edit2, ArrowLeftRight, Download, Trash2, MoreVertical, Key } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './EmployeeActionMenu.module.css';
 import { usePermissions } from '../../context/PermissionContext';
@@ -9,8 +9,7 @@ import { usePermissions } from '../../context/PermissionContext';
  * Renders the three-dot action menu for each employee in the table/cards.
  */
 function EmployeeActionMenu({ employee, onAction }) {
-  const isEmployeeActive = String(employee.status || '').toLowerCase() === 'active';
-  const { canEdit, canDelete, canExport, canView } = usePermissions();
+  const { canEdit, canDelete, canExport } = usePermissions();
 
   const allowEdit = canEdit('employees');
   const allowDelete = canDelete('employees');
@@ -67,11 +66,11 @@ function EmployeeActionMenu({ employee, onAction }) {
         {allowDelete && (
           <li>
             <button 
-              className={`${styles.menuItem} ${isEmployeeActive ? styles.deactivate : styles.activate}`}
-              onClick={() => onAction(isEmployeeActive ? 'deactivate' : 'activate', employee)}
+              className={`${styles.menuItem} ${styles.deleteItem}`}
+              onClick={() => onAction('delete', employee)}
             >
-              <Power size={14} />
-              <span>{isEmployeeActive ? 'Deactivate Employee' : 'Activate Employee'}</span>
+              <Trash2 size={14} />
+              <span>Delete Employee</span>
             </button>
           </li>
         )}

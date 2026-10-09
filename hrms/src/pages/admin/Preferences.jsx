@@ -18,7 +18,6 @@ import preferenceService from '../../services/preferenceService';
 // Initial Mock data
 import { 
   mockEmployeePortalConfig, 
-  mockReportingManagerConfig, 
   mockEmailConfig, 
   mockNotificationConfig, 
   mockApprovalConfig, 
@@ -28,7 +27,6 @@ import {
 const TABS = [
   { id: 'overview', label: 'Overview', icon: SlidersHorizontal },
   { id: 'employee-portal', label: 'Employee Portal', icon: UserCheck },
-  { id: 'reporting-manager', label: 'Reporting Manager Permissions', icon: ShieldCheck },
   { id: 'email', label: 'Email Settings', icon: Mail },
   { id: 'notifications', label: 'Notification Settings', icon: Bell },
   { id: 'approvals', label: 'Approval Settings', icon: GitMerge }
@@ -66,10 +64,7 @@ function Preferences() {
   // 1. Employee Portal State
   const [employeePortal, setEmployeePortal] = useState(mockEmployeePortalConfig);
 
-  // 2. Reporting Manager Permissions State
-  const [reportingManager, setReportingManager] = useState(mockReportingManagerConfig);
-
-  // 3. Email Settings State
+  // 2. Email Settings State
   const [emailConfig, setEmailConfig] = useState(mockEmailConfig);
   const [showPassword, setShowPassword] = useState(false);
   const [isTestEmailOpen, setIsTestEmailOpen] = useState(false);
@@ -92,9 +87,6 @@ function Preferences() {
         if (prefs) {
           if (prefs.employeePortal && typeof prefs.employeePortal === 'object') {
             setEmployeePortal(prev => ({ ...prev, ...prefs.employeePortal }));
-          }
-          if (prefs.reportingManager && typeof prefs.reportingManager === 'object') {
-            setReportingManager(prev => ({ ...prev, ...prefs.reportingManager }));
           }
           if (prefs.emailConfig && typeof prefs.emailConfig === 'object') {
             setEmailConfig(prev => ({ ...prev, ...prefs.emailConfig }));
@@ -176,40 +168,6 @@ function Preferences() {
           showToast('Employee Portal preferences reset to default in database.', 'info');
         } catch (err) {
           showToast(err.message || 'Failed to reset employee portal preferences.', 'error');
-        } finally {
-          setIsSaving(false);
-        }
-      }
-    });
-  };
-
-  const saveReportingManager = async () => {
-    try {
-      setIsSaving(true);
-      const updated = { ...reportingManager, lastUpdated: new Date().toLocaleString() };
-      await preferenceService.updatePreferences(companyId, { reportingManager: updated });
-      setReportingManager(updated);
-      showToast('Reporting Manager permissions saved to database successfully!');
-    } catch (err) {
-      showToast(err.message || 'Failed to save reporting manager permissions.', 'error');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const resetReportingManager = () => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Reset Reporting Manager Permissions?',
-      message: 'This will revert manager default permissions to system defaults.',
-      onConfirm: async () => {
-        try {
-          setIsSaving(true);
-          await preferenceService.updatePreferences(companyId, { reportingManager: mockReportingManagerConfig });
-          setReportingManager(mockReportingManagerConfig);
-          showToast('Reporting Manager permissions reset to default in database.', 'info');
-        } catch (err) {
-          showToast(err.message || 'Failed to reset permissions.', 'error');
         } finally {
           setIsSaving(false);
         }
@@ -469,7 +427,7 @@ function Preferences() {
             </nav>
             <h1 className={styles.pageTitle}>Preferences</h1>
             <p className={styles.pageSubtitle}>
-              Configure employee portal access, reporting manager permissions, notifications, email and approval workflows.
+              Configure employee portal access, notifications, email and approval workflows.
             </p>
           </div>
         </header>
@@ -543,51 +501,7 @@ function Preferences() {
                 </div>
               </div>
 
-              {/* Card 2: Reporting Manager Permissions */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Reporting Manager Permissions</h3>
-                    <StatusBadge status="Active" />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    Organisation-level default permissions and operational restrictions for managers.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Active Permissions:</span>
-                    <span className={styles.metaValue}>
-                      {[
-                        reportingManager.viewAssignedEmployees,
-                        reportingManager.viewEmployeeAttendance,
-                        reportingManager.approveLeave,
-                        reportingManager.approveOvertime,
-                        reportingManager.viewOvertime,
-                        reportingManager.viewEmployeeDocuments,
-                        reportingManager.viewEmployeeReports,
-                        reportingManager.viewAssignedSiteBranchEmployees
-                      ].filter(Boolean).length} / 8 Enabled
-                    </span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Attendance Regularization:</span>
-                    <span className={styles.metaValue}>{reportingManager.allowAttendanceRegularization ? 'Allowed' : 'Restricted'}</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('reporting-manager')}
-                  >
-                    <span>Configure Manager Roles</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 3: Email Settings */}
+              {/* Card 2: Email Settings */}
               <div className={styles.overviewCard}>
                 <div>
                   <div className={styles.overviewCardHeader}>
@@ -795,7 +709,22 @@ function Preferences() {
                     </div>
                   </label>
 
-                  {/* 5. Profile */}
+                  {/* 5. Assets / Uniform */}
+                  <label className={`${styles.checklistItem} ${employeePortal.allowAssetsUniform ? styles.checklistItemActive : ''}`}>
+                    <input 
+                      type="checkbox" 
+                      className={styles.checkboxInput}
+                      checked={Boolean(employeePortal.allowAssetsUniform)}
+                      disabled={!employeePortal.enabled}
+                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowAssetsUniform: e.target.checked })}
+                    />
+                    <div className={styles.checklistText}>
+                      <span className={styles.checklistLabel}>Assets / Uniform</span>
+                      <span className={styles.checklistDesc}>View assigned uniforms, security kits, safety assets and acknowledgment status.</span>
+                    </div>
+                  </label>
+
+                  {/* 6. Profile */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowProfile ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
@@ -810,7 +739,7 @@ function Preferences() {
                     </div>
                   </label>
 
-                  {/* 6. Notification */}
+                  {/* 7. Notification */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowNotifications ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
@@ -855,162 +784,7 @@ function Preferences() {
             </div>
           )}
 
-          {/* 3. REPORTING MANAGER PERMISSIONS TAB */}
-          {activeTab === 'reporting-manager' && (
-            <div className={styles.configCard}>
-              <div className={styles.cardHeader}>
-                <div className={styles.cardTitleWrap}>
-                  <h2 className={styles.cardTitle}>Reporting Manager Permissions</h2>
-                  <p className={styles.cardSubtitle}>
-                    Configure default organization-level operational boundaries and authorities for supervisors and reporting managers.
-                  </p>
-                </div>
-                <StatusBadge status="Active" />
-              </div>
-
-              <div className={styles.cardBody}>
-                <h3 style={{ fontSize: '14px', fontWeight: 700, margin: '0 0 14px', color: '#0f172a' }}>
-                  Manager Default Authorities:
-                </h3>
-
-                {/* 8 Reporting Manager Checkboxes */}
-                <div className={styles.checklistGrid}>
-                  
-                  <label className={`${styles.checklistItem} ${reportingManager.viewAssignedEmployees ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.viewAssignedEmployees}
-                      onChange={(e) => setReportingManager({ ...reportingManager, viewAssignedEmployees: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Assigned Employees</span>
-                      <span className={styles.checklistDesc}>Permit managers to view list of direct reports and assigned team roster.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.viewEmployeeAttendance ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.viewEmployeeAttendance}
-                      onChange={(e) => setReportingManager({ ...reportingManager, viewEmployeeAttendance: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Employee Attendance</span>
-                      <span className={styles.checklistDesc}>Inspect real-time daily check-ins, punch anomalies & muster roll.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.approveLeave ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.approveLeave}
-                      onChange={(e) => setReportingManager({ ...reportingManager, approveLeave: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>Approve Leave</span>
-                      <span className={styles.checklistDesc}>Authorize managers to review, approve or reject subordinates' leave requests.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.approveOvertime ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.approveOvertime}
-                      onChange={(e) => setReportingManager({ ...reportingManager, approveOvertime: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>Approve Overtime</span>
-                      <span className={styles.checklistDesc}>Sanction extra hours, extended shift assignments & OT claim payout.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.viewOvertime ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.viewOvertime}
-                      onChange={(e) => setReportingManager({ ...reportingManager, viewOvertime: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Overtime</span>
-                      <span className={styles.checklistDesc}>View overtime logs, comp-off accruals and historical OT analytics.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.viewEmployeeDocuments ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.viewEmployeeDocuments}
-                      onChange={(e) => setReportingManager({ ...reportingManager, viewEmployeeDocuments: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Employee Documents</span>
-                      <span className={styles.checklistDesc}>Permit inspection of ID proofs, certificates & compliance files.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.viewEmployeeReports ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.viewEmployeeReports}
-                      onChange={(e) => setReportingManager({ ...reportingManager, viewEmployeeReports: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Employee Reports</span>
-                      <span className={styles.checklistDesc}>Generate team performance, attendance compliance & duty summary reports.</span>
-                    </div>
-                  </label>
-
-                  <label className={`${styles.checklistItem} ${reportingManager.viewAssignedSiteBranchEmployees ? styles.checklistItemActive : ''}`}>
-                    <input 
-                      type="checkbox" 
-                      className={styles.checkboxInput}
-                      checked={reportingManager.viewAssignedSiteBranchEmployees}
-                      onChange={(e) => setReportingManager({ ...reportingManager, viewAssignedSiteBranchEmployees: e.target.checked })}
-                    />
-                    <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>View Assigned Site/Branch Employees</span>
-                      <span className={styles.checklistDesc}>Grant site-wide employee visibility when stationed as site supervisor.</span>
-                    </div>
-                  </label>
-
-                </div>
-
-                {/* Clarification Callout */}
-                <div className={styles.calloutBox}>
-                  <ShieldCheck size={18} style={{ flexShrink: 0, marginTop: 1 }} />
-                  <div>
-                    <strong>Permission Matrix Formula:</strong> <code>Role Permission + Organisation Preference = Effective Access</code>.
-                    This configuration sets organisation-level boundaries without altering custom granular roles in <em>Role & Permission Management</em>.
-                  </div>
-                </div>
-              </div>
-
-              <div className={styles.cardFooter}>
-                <div className={styles.footerLeft}>
-                  Last updated: <strong>{reportingManager.lastUpdated || 'Not configured'}</strong>
-                </div>
-                <div className={styles.footerActions}>
-                  <button type="button" className={styles.btnSecondary} onClick={resetReportingManager}>
-                    <RotateCcw size={14} />
-                    <span>Reset</span>
-                  </button>
-                  <button type="button" className={styles.btnPrimary} onClick={saveReportingManager}>
-                    <Save size={14} />
-                    <span>Save Changes</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 4. EMAIL SETTINGS TAB */}
+          {/* 3. EMAIL SETTINGS TAB */}
           {activeTab === 'email' && (
             <div className={styles.configCard}>
               <div className={styles.cardHeader}>

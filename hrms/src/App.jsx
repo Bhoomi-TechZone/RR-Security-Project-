@@ -9,6 +9,7 @@ import MyAttendance from './pages/employee/MyAttendance'
 import MyLeave from './pages/employee/MyLeave'
 import MySalarySlips from './pages/employee/MySalarySlips'
 import EmployeeNotifications from './pages/employee/EmployeeNotifications'
+import MyAssetsUniform from './pages/employee/MyAssetsUniform'
 import EmployeeLayout from './components/layout/EmployeeLayout'
 import ClientLayout from './components/layout/ClientLayout'
 import ClientDashboard from './pages/dashboards/ClientDashboard'
@@ -154,6 +155,8 @@ function App() {
         <Route path="attendance" element={<MyAttendance />} />
         <Route path="leave" element={<MyLeave />} />
         <Route path="salary-slips" element={<MySalarySlips />} />
+        <Route path="assets" element={<MyAssetsUniform />} />
+        <Route path="uniforms" element={<MyAssetsUniform />} />
         <Route path="notifications" element={<EmployeeNotifications />} />
       </Route>
 

@@ -36,6 +36,7 @@ export default function InventoryItemModal({
     billPhoto: null,
     billPhotoName: '',
     itemCode: '',
+    vendorName: '',
     itemName: '',
     category: isUniform ? 'Uniform' : 'Equipment',
     size: isUniform ? 'L' : 'Standard',
@@ -63,6 +64,7 @@ export default function InventoryItemModal({
         billPhoto: initialData.billPhoto || null,
         billPhotoName: initialData.billPhotoName || (initialData.billPhoto ? 'Bill_Receipt.jpg' : ''),
         itemCode: initialData.itemCode || '',
+        vendorName: initialData.vendorName || initialData.vendor || initialData.itemCode || '',
         itemName: initialData.itemName || '',
         category: initialData.category || (isUniform ? 'Uniform' : 'Equipment'),
         size: initialData.size || (isUniform ? 'Free Size' : 'Standard'),
@@ -86,6 +88,7 @@ export default function InventoryItemModal({
         billPhoto: null,
         billPhotoName: '',
         itemCode: '',
+        vendorName: '',
         itemName: '',
         category: isUniform ? 'Uniform' : 'Equipment',
         size: isUniform ? 'L' : 'Standard',
@@ -154,26 +157,28 @@ export default function InventoryItemModal({
     if (isSubmitting) return;
     const nextErrors = {};
 
-    const isCodeChanged = !initialData || formData.itemCode.trim().toLowerCase() !== (initialData.itemCode || initialData.itemId || '').trim().toLowerCase();
+    if (isUniform) {
+      if (!formData.vendorName?.trim() && !formData.itemCode?.trim()) {
+        nextErrors.vendorName = 'Vendor Name is required.';
+      }
+    } else {
+      const isCodeChanged = !initialData || formData.itemCode.trim().toLowerCase() !== (initialData.itemCode || initialData.itemId || '').trim().toLowerCase();
 
-    if (!formData.itemCode.trim()) {
-      nextErrors.itemCode = isUniform
-        ? 'Uniform Code is required (e.g. UNI-SHT-L)'
-        : 'Item Identity Number is required (e.g. AST-WT-01)';
-    } else if (
-      isCodeChanged &&
-      existingItems.some((itm) => {
-        const isCurrent = initialData && (
-          (initialData._id && (itm._id === initialData._id || itm.id === initialData._id)) ||
-          (initialData.id && (itm.id === initialData.id || itm._id === initialData.id)) ||
-          (initialData.itemId && (itm.itemId === initialData.itemId || itm.id === initialData.itemId))
-        );
-        return !isCurrent && itm.itemCode?.toLowerCase() === formData.itemCode.trim().toLowerCase();
-      })
-    ) {
-      nextErrors.itemCode = isUniform
-        ? 'Uniform Code must be unique. This code already exists on another item.'
-        : 'Item Identity Number must be unique. This number already exists on another item.';
+      if (!formData.itemCode.trim()) {
+        nextErrors.itemCode = 'Item Identity Number is required (e.g. AST-WT-01)';
+      } else if (
+        isCodeChanged &&
+        existingItems.some((itm) => {
+          const isCurrent = initialData && (
+            (initialData._id && (itm._id === initialData._id || itm.id === initialData._id)) ||
+            (initialData.id && (itm.id === initialData.id || itm._id === initialData.id)) ||
+            (initialData.itemId && (itm.itemId === initialData.itemId || itm.id === initialData.itemId))
+          );
+          return !isCurrent && itm.itemCode?.toLowerCase() === formData.itemCode.trim().toLowerCase();
+        })
+      ) {
+        nextErrors.itemCode = 'Item Identity Number must be unique. This number already exists on another item.';
+      }
     }
 
     if (!formData.itemName.trim()) {
@@ -202,10 +207,14 @@ export default function InventoryItemModal({
     }
 
     const finalQuantity = Number(formData.quantity ?? formData.openingStock ?? 0);
+    const resolvedVendor = (formData.vendorName || formData.itemCode || '').trim();
+    const resolvedCode = (formData.itemCode || resolvedVendor || `UNI-${Date.now().toString().slice(-6)}`).trim().toUpperCase();
 
     const payload = {
       ...formData,
-      itemCode: formData.itemCode.trim().toUpperCase(),
+      vendorName: resolvedVendor,
+      vendor: resolvedVendor,
+      itemCode: resolvedCode,
       itemName: formData.itemName.trim(),
       quantity: finalQuantity,
       openingStock: finalQuantity,
@@ -334,17 +343,20 @@ export default function InventoryItemModal({
 
                 <div className={styles.formGroup}>
                   <label className={styles.label}>
-                    Uniform Code <span className={styles.req}>*</span>
+                    Vendor Name <span className={styles.req}>*</span>
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. UNI-SHT-L"
-                    className={`${styles.input} ${errors.itemCode ? styles.inputError : ''}`}
-                    value={formData.itemCode}
-                    onChange={(e) => handleChange('itemCode', e.target.value.toUpperCase())}
+                    placeholder="e.g. NovaGear Textiles / National Uniforms"
+                    className={`${styles.input} ${errors.vendorName ? styles.inputError : ''}`}
+                    value={formData.vendorName || formData.itemCode}
+                    onChange={(e) => {
+                      handleChange('vendorName', e.target.value);
+                      handleChange('itemCode', e.target.value);
+                    }}
                     disabled={isSubmitting}
                   />
-                  {errors.itemCode && <span className={styles.errorText}>{errors.itemCode}</span>}
+                  {errors.vendorName && <span className={styles.errorText}>{errors.vendorName}</span>}
                 </div>
               </div>
 

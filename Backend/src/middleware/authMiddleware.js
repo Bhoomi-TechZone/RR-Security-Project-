@@ -251,6 +251,8 @@ export const authorizeRoles = (...roles) => {
   };
 };
 
+export const authorize = authorizeRoles;
+
 /**
  * Restrict access to Admin or Permitted Role Users
  */
