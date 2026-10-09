@@ -17,40 +17,46 @@ function EmployeeHeader({ onToggleSidebar, onLogout }) {
   const currentUser = authService.getCurrentUser() || authService.getUser() || {};
   const userName = currentUser.name || currentUser.employeeName || 'Employee';
   const userInitials = (userName.split(' ').map((n) => n[0]).join('').substring(0, 2) || 'EM').toUpperCase();
+  const companyId = currentUser.companyId || 'RRS8392014SEC';
   const userRole = currentUser.designation || currentUser.role || 'Employee';
   const employeeId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP-001';
 
-  const [unreadCount, setUnreadCount] = useState(() => {
-    try {
-      const stored = localStorage.getItem(`novaspark_unread_count_${employeeId}`);
-      if (stored !== null) return parseInt(stored, 10) || 0;
-      return 0;
-    } catch {
-      return 0;
-    }
-  });
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    const updateUnread = (e) => {
+    let isMounted = true;
+    const fetchCount = async () => {
       try {
-        if (e && e.detail && typeof e.detail.unreadCount === 'number') {
-          setUnreadCount(e.detail.unreadCount);
-          return;
-        }
-        const stored = localStorage.getItem(`novaspark_unread_count_${employeeId}`);
-        setUnreadCount(stored !== null ? (parseInt(stored, 10) || 0) : 0);
+        const count = await notificationService.getUnreadCount(companyId, employeeId);
+        if (isMounted) setUnreadCount(count);
       } catch {
-        setUnreadCount(0);
+        const stored = localStorage.getItem(`novaspark_unread_count_${employeeId}`);
+        if (isMounted && stored !== null) setUnreadCount(parseInt(stored, 10) || 0);
       }
     };
 
-    window.addEventListener('storage', updateUnread);
-    window.addEventListener('notif_read_updated', updateUnread);
+    fetchCount();
+    const interval = setInterval(fetchCount, 5000);
+    const handleRefresh = () => fetchCount();
+
+    window.addEventListener('storage', handleRefresh);
+    window.addEventListener('notif_read_updated', (e) => {
+      if (e?.detail?.unreadCount !== undefined) setUnreadCount(e.detail.unreadCount);
+      else fetchCount();
+    });
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
     return () => {
-      window.removeEventListener('storage', updateUnread);
-      window.removeEventListener('notif_read_updated', updateUnread);
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('storage', handleRefresh);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
     };
-  }, [employeeId]);
+  }, [companyId, employeeId]);
 
   return (
     <header className={styles.header} aria-label="Employee header">

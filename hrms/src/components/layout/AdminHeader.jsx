@@ -10,6 +10,7 @@ import AddCompanyProfileModal from '../company/AddCompanyProfileModal';
 import ExternalLinksDrawer from './ExternalLinksDrawer';
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
+import notificationService from '../../services/notificationService';
 
 function AdminHeader({ onToggleSidebar, onLogout }) {
   const location = useLocation();
@@ -22,7 +23,36 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
   );
   const [isLinksDrawerOpen, setIsLinksDrawerOpen] = useState(false);
   const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState(null);
+
+  const companyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchUnread = async () => {
+      try {
+        const count = await notificationService.getUnreadCount(companyId);
+        if (isMounted) setUnreadCount(count);
+      } catch {}
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 5000); // Polling every 5s for instant live alerts
+    const handleRefresh = () => fetchUnread();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
+  }, [companyId]);
 
   const fromOrganisationSettings = location.state?.fromOrganisationSettings === true;
 
@@ -161,9 +191,18 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
 
         {/* Notifications */}
         <div className={styles.notificationWrapper}>
-          <button className={styles.actionBtn} aria-label="View recent alerts">
+          <button 
+            className={styles.actionBtn} 
+            aria-label="View notifications"
+            onClick={() => navigate('/admin/notifications?tab=notifications')}
+            title="System & Employee Activity Notifications"
+          >
             <Bell size={19} strokeWidth={2} />
-            <span className={styles.badge} aria-label="5 unread notifications">5</span>
+            {unreadCount > 0 && (
+              <span className={styles.badge} aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 

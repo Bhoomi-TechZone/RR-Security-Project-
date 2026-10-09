@@ -13,6 +13,7 @@ import styles from './UserHeader.module.css';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
 import { usePermissions } from '../../context/PermissionContext';
+import notificationService from '../../services/notificationService';
 import ExternalLinksDrawer from './ExternalLinksDrawer';
 
 function UserHeader({ onToggleSidebar, onLogout }) {
@@ -20,6 +21,27 @@ function UserHeader({ onToggleSidebar, onLogout }) {
   const navigate = useNavigate();
   const { currentUser, userRole } = usePermissions();
   const [isLinksDrawerOpen, setIsLinksDrawerOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  const companyId = currentUser?.companyId || 'RRS8392014SEC';
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const fetchUnread = async () => {
+      try {
+        const count = await notificationService.getUnreadCount(companyId);
+        if (isMounted) setUnreadCount(count);
+      } catch {}
+    };
+
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [companyId]);
 
   const getBreadcrumb = () => {
     const path = location.pathname;
@@ -75,7 +97,11 @@ function UserHeader({ onToggleSidebar, onLogout }) {
             title="Notifications"
           >
             <Bell size={19} strokeWidth={2} />
-            <span className={styles.badge} aria-label="3 unread notifications">3</span>
+            {unreadCount > 0 && (
+              <span className={styles.badge} aria-label={`${unreadCount} unread notifications`}>
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
         </div>
 

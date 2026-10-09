@@ -26,6 +26,7 @@ import payrollRoutes from './routes/payrollRoutes.js';
 import reimbursementRoutes from './routes/reimbursementRoutes.js';
 import advanceLoanRoutes from './routes/advanceLoanRoutes.js';
 import payrollSetupRoutes from './routes/payrollSetupRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -95,7 +96,13 @@ app.use(cors({
   allowedHeaders: [
     'Content-Type',
     'Authorization',
-    'x-company-id'
+    'x-company-id',
+    'x-client-id',
+    'x-employee-id',
+    'x-user-id',
+    'x-requested-with',
+    'Accept',
+    'Origin'
   ]
 }));
 
@@ -215,6 +222,9 @@ app.use('/api/advances-loans', advanceLoanRoutes);
 
 // Dynamic Payroll Setup (Pay Groups, Schedules, Cycles, Pay Days, Calculation Methods)
 app.use('/api/payroll-setup', payrollSetupRoutes);
+
+// Dynamic System & Activity Notifications (Assets, Uniforms, Reimbursements, Loans, Leaves)
+app.use('/api/notifications', notificationRoutes);
 
 
 // ===========================================

@@ -4,16 +4,25 @@ import {
   Bell,
   Building2,
   CalendarCheck,
+  Check,
+  CheckCircle2,
+  Clock,
   Eye,
   FileWarning,
   IndianRupee,
+  Loader2,
   MoreVertical,
+  Package,
   Pencil,
   Plus,
+  Receipt,
+  RefreshCw,
   Search,
+  Shirt,
   Trash2,
+  WalletCards,
   X,
-  RefreshCw
+  XCircle
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import ConfirmModal from '../../components/common/ConfirmModal';
@@ -22,8 +31,12 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import announcementService from '../../services/announcementService';
 import clientService from '../../services/clientService';
+import employeeService from '../../services/employeeService';
+import notificationService from '../../services/notificationService';
 import inventoryService from '../../services/inventoryService';
-import { notificationData } from '../../data/notificationData';
+import reimbursementService from '../../services/reimbursementService';
+import advanceLoanService from '../../services/advanceLoanService';
+import leaveService from '../../services/leaveService';
 import styles from './Notifications.module.css';
 
 const TABS = [
@@ -32,6 +45,7 @@ const TABS = [
 ];
 
 const PAGE_SIZE = 10;
+
 const formatDate = (value) => {
   if (!value) return '—';
   const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
@@ -56,10 +70,17 @@ const priorityOptions = [
 ];
 
 const notificationTypeOptions = [
-  { value: 'all', label: 'All' },
+  { value: 'all', label: 'All Types' },
+  { value: 'asset-request', label: 'Asset Request' },
+  { value: 'uniform-request', label: 'Uniform Request' },
+  { value: 'reimbursement', label: 'Reimbursement Claim' },
+  { value: 'advance-loan', label: 'Advance & Loan' },
+  { value: 'leave-application', label: 'Leave Application' },
   { value: 'leave-approval', label: 'Leave Approval' },
+  { value: 'attendance-correction', label: 'Attendance Correction' },
   { value: 'salary-processed', label: 'Salary Processed' },
-  { value: 'document-expiry', label: 'Document Expiry' }
+  { value: 'document-expiry', label: 'Document Expiry' },
+  { value: 'general', label: 'General Alert' }
 ];
 
 const badgeClass = (value) => ({
@@ -67,15 +88,25 @@ const badgeClass = (value) => ({
   draft: styles.draftBadge,
   read: styles.readBadge,
   unread: styles.unreadBadge,
+  approved: styles.approvedBadge,
+  rejected: styles.rejectedBadge,
+  pending: styles.unreadBadge,
   all: styles.infoBadge,
   clients: styles.clientBadge,
   employees: styles.employeeBadge
 }[value] || '');
 
 const iconMap = {
-  'leave-approval': CalendarCheck,
+  'asset-request': Package,
+  'uniform-request': Shirt,
+  'reimbursement': Receipt,
+  'advance-loan': WalletCards,
+  'leave-application': CalendarCheck,
+  'leave-approval': CheckCircle2,
+  'attendance-correction': Clock,
   'salary-processed': IndianRupee,
-  'document-expiry': FileWarning
+  'document-expiry': FileWarning,
+  'general': Bell
 };
 
 function AnnouncementForm({ isOpen, mode = 'create', initialData = null, clients = [], employees = [], onClose, onSave }) {
@@ -148,87 +179,81 @@ function AnnouncementForm({ isOpen, mode = 'create', initialData = null, clients
             {errors.title && <span className={styles.errorText}>{errors.title}</span>}
           </div>
 
-          <div className={styles.fieldGroup}>
-            <label>Audience *</label>
-            <select value={form.audience} onChange={(event) => updateField('audience', event.target.value)}>
-              {audienceOptions.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+          <div className={styles.twoCol}>
+            <div className={styles.fieldGroup}>
+              <label>Target Audience</label>
+              <select value={form.audience} onChange={(event) => updateField('audience', event.target.value)}>
+                {audienceOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.fieldGroup}>
+              <label>Priority</label>
+              <select value={form.priority} onChange={(event) => updateField('priority', event.target.value)}>
+                {priorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {form.audience === 'clients' && (
             <div className={styles.fieldGroup}>
-              <label>Target Client</label>
+              <label>Target Specific Client (Optional)</label>
               <select
-                value={form.targetClientId || ''}
+                value={form.targetClientId}
                 onChange={(event) => {
                   const selected = clients.find((c) => (c.clientId || c.id || c._id) === event.target.value);
                   updateField('targetClientId', event.target.value);
-                  updateField('targetClientName', selected ? selected.name : '');
+                  updateField('targetClientName', selected ? (selected.clientName || selected.companyName || selected.name) : '');
                 }}
               >
                 <option value="">All Clients</option>
-                {clients.map((client) => {
-                  const id = client.clientId || client.id || client._id;
-                  return (
-                    <option key={id} value={id}>
-                      {client.name} {client.clientId ? `(${client.clientId})` : ''}
-                    </option>
-                  );
-                })}
+                {clients.map((c) => (
+                  <option key={c.clientId || c.id || c._id} value={c.clientId || c.id || c._id}>
+                    {c.clientName || c.companyName || c.name || c.clientId}
+                  </option>
+                ))}
               </select>
-              {form.targetClientName && <small className={styles.helperText}>Targeted to: {form.targetClientName}</small>}
             </div>
           )}
 
           {form.audience === 'employees' && (
             <div className={styles.fieldGroup}>
-              <label>Target Employee</label>
+              <label>Target Specific Employee (Optional)</label>
               <select
-                value={form.employeeId || ''}
+                value={form.employeeId}
                 onChange={(event) => {
                   const selected = employees.find((e) => (e.employeeId || e.id || e._id) === event.target.value);
                   updateField('employeeId', event.target.value);
-                  updateField('employeeName', selected ? selected.name : '');
+                  updateField('employeeName', selected ? (selected.name || `${selected.personalInfo?.firstName || ''} ${selected.personalInfo?.lastName || ''}`.trim()) : '');
                 }}
               >
                 <option value="">All Employees</option>
-                {employees.map((employee) => {
-                  const id = employee.employeeId || employee.id || employee._id;
-                  return (
-                    <option key={id} value={id}>
-                      {employee.name} — {employee.employeeId || employee.employeeCode || id}
-                    </option>
-                  );
-                })}
+                {employees.map((e) => (
+                  <option key={e.employeeId || e.id || e._id} value={e.employeeId || e.id || e._id}>
+                    {e.name || `${e.personalInfo?.firstName || ''} ${e.personalInfo?.lastName || ''}`.trim() || e.employeeId} — {e.employeeId}
+                  </option>
+                ))}
               </select>
-              {form.employeeName && <small className={styles.helperText}>Targeted to: {form.employeeName}</small>}
             </div>
           )}
 
           <div className={styles.fieldGroup}>
-            <label>Priority</label>
-            <select value={form.priority || 'normal'} onChange={(event) => updateField('priority', event.target.value)}>
-              {priorityOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles.fieldGroup}>
-            <label>Message *</label>
+            <label>Message Content *</label>
             <textarea
+              rows={5}
               value={form.message}
               onChange={(event) => updateField('message', event.target.value)}
-              placeholder="Write your announcement..."
-              rows={5}
+              placeholder="Write the announcement message details here..."
             />
             {errors.message && <span className={styles.errorText}>{errors.message}</span>}
           </div>
         </div>
 
-        <div className={styles.modalActions}>
+        <div className={styles.modalFooter}>
           <button type="button" className={styles.secondaryButton} onClick={onClose}>Cancel</button>
           <button type="button" className={styles.primaryButton} onClick={handleSubmit}>
             {mode === 'edit' ? 'Save Changes' : 'Post Announcement'}
@@ -272,10 +297,11 @@ function AnnouncementDetailsDrawer({ item, onClose }) {
   );
 }
 
-function NotificationDetailsDrawer({ item, onClose, onMarkAsRead }) {
+function NotificationDetailsDrawer({ item, onClose, onMarkAsRead, onApprove, onReject }) {
   if (!item) return null;
 
   const Icon = iconMap[item.type] || Bell;
+  const isActionable = ['uniform-request', 'asset-request', 'reimbursement', 'advance-loan', 'leave-application'].includes(item.type);
 
   return (
     <div className={styles.drawerOverlay} onClick={onClose}>
@@ -289,22 +315,73 @@ function NotificationDetailsDrawer({ item, onClose, onMarkAsRead }) {
         </div>
 
         <div className={styles.drawerBody}>
-          <div className={styles.detailRow}><span>Notification Type</span><strong>{notificationTypeOptions.find((option) => option.value === item.type)?.label || item.type}</strong></div>
+          <div className={styles.detailRow}>
+            <span>Notification Type</span>
+            <strong>{notificationTypeOptions.find((option) => option.value === item.type)?.label || item.type}</strong>
+          </div>
           <div className={styles.detailRow}><span>Title</span><strong>{item.title}</strong></div>
           <div className={styles.detailRow}><span>Message</span><strong>{item.message}</strong></div>
-          <div className={styles.detailRow}><span>Employee</span><strong>{item.employeeName ? `${item.employeeName} — ${item.employeeId}` : '—'}</strong></div>
-          <div className={styles.detailRow}><span>Client</span><strong>{item.clientName || '—'}</strong></div>
-          <div className={styles.detailRow}><span>Date</span><strong>{formatDate(item.date)}</strong></div>
-          <div className={styles.detailRow}><span>Status</span><span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>{item.status === 'unread' ? 'Unread' : 'Read'}</span></div>
+          {item.employeeName && (
+            <div className={styles.detailRow}>
+              <span>Associated Employee</span>
+              <strong>{item.employeeName} {item.employeeId ? `(${item.employeeId})` : ''}</strong>
+            </div>
+          )}
+          {item.clientName && (
+            <div className={styles.detailRow}><span>Client / Site</span><strong>{item.clientName}</strong></div>
+          )}
+          {item.referenceId && (
+            <div className={styles.detailRow}><span>Reference ID</span><strong>{item.referenceId}</strong></div>
+          )}
+          <div className={styles.detailRow}><span>Date</span><strong>{formatDate(item.date || item.createdAt)}</strong></div>
+          <div className={styles.detailRow}>
+            <span>Status</span>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {item.actionStatus && item.actionStatus !== 'pending' && item.actionStatus !== 'none' && (
+                <span className={`${styles.statusBadge} ${badgeClass(item.actionStatus)}`}>
+                  {item.actionStatus === 'approved' ? <><Check size={12} /> Approved</> : <><XCircle size={12} /> Rejected</>}
+                </span>
+              )}
+              <span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>{item.status === 'unread' ? 'Unread' : 'Read'}</span>
+            </div>
+          </div>
         </div>
 
-        {item.status === 'unread' && (
-          <div className={styles.drawerActions}>
-            <button type="button" className={styles.primaryButton} onClick={() => onMarkAsRead(item.id)}>
-              <Icon size={16} /> Mark as Read
+        <div className={styles.drawerActions}>
+          {isActionable && item.actionStatus && item.actionStatus !== 'pending' && item.actionStatus !== 'none' ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className={`${styles.statusBadge} ${badgeClass(item.actionStatus)}`} style={{ padding: '8px 16px', fontSize: '0.875rem' }}>
+                {item.actionStatus === 'approved' ? <><Check size={15} /> Request Approved</> : <><XCircle size={15} /> Request Rejected</>}
+              </span>
+            </div>
+          ) : isActionable ? (
+            <>
+              <button
+                type="button"
+                className={styles.approveButton}
+                onClick={() => onApprove(item)}
+              >
+                <Check size={16} /> Approve
+              </button>
+              <button
+                type="button"
+                className={styles.rejectButton}
+                onClick={() => onReject(item)}
+              >
+                <XCircle size={16} /> Reject
+              </button>
+            </>
+          ) : null}
+          {item.status === 'unread' && (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => onMarkAsRead(item._id || item.id)}
+            >
+              <CheckCircle2 size={15} /> Mark as Read
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </aside>
     </div>
   );
@@ -313,8 +390,8 @@ function NotificationDetailsDrawer({ item, onClose, onMarkAsRead }) {
 function NotificationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { activeCompany } = useCompany();
-  const companyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const { activeCompany, company } = useCompany();
+  const companyId = activeCompany?.companyId || company?.companyId || activeCompany?.id || company?.id || 'RRS8392014SEC';
 
   const tabParam = searchParams.get('tab') || 'announcements';
   const statusParam = searchParams.get('status');
@@ -323,7 +400,8 @@ function NotificationsPage() {
 
   const [activeTab, setActiveTab] = useState(tabParam);
   const [announcements, setAnnouncements] = useState([]);
-  const [notifications, setNotifications] = useState(notificationData);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [clients, setClients] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -344,18 +422,27 @@ function NotificationsPage() {
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // Fetch dynamic announcements, clients, and employees
+  // Fetch dynamic announcements, notifications, clients, and employees from MongoDB
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [annList, clientList, empList] = await Promise.allSettled([
+      const [annList, notifRes, clientList, empList] = await Promise.allSettled([
         announcementService.getAnnouncements(companyId),
+        notificationService.getNotifications(companyId, {
+          type: notificationTypeFilter,
+          status: notificationStatusFilter,
+          search: notificationSearch
+        }),
         clientService.getClients(companyId),
-        inventoryService.getEmployees(companyId)
+        employeeService.getEmployees(companyId)
       ]);
 
       if (annList.status === 'fulfilled' && Array.isArray(annList.value)) {
         setAnnouncements(annList.value);
+      }
+      if (notifRes.status === 'fulfilled' && notifRes.value) {
+        setNotifications(notifRes.value.data || []);
+        setUnreadCount(notifRes.value.unreadCount || 0);
       }
       if (clientList.status === 'fulfilled' && Array.isArray(clientList.value)) {
         setClients(clientList.value);
@@ -368,10 +455,23 @@ function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, notificationTypeFilter, notificationStatusFilter, notificationSearch]);
 
   useEffect(() => {
     loadData();
+    const interval = setInterval(loadData, 5000);
+    const handleRefresh = () => loadData();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
   }, [loadData]);
 
   // Sync state with URL params
@@ -391,8 +491,6 @@ function NotificationsPage() {
     setActiveTab(newTab);
     setSearchParams(newTab === 'announcements' ? {} : { tab: newTab });
   };
-
-  const unreadCount = notifications.filter((item) => item.status === 'unread').length;
 
   const filteredAnnouncements = useMemo(() => {
     const query = announcementSearch.toLowerCase();
@@ -452,11 +550,11 @@ function NotificationsPage() {
   };
 
   const handleDeleteAnnouncement = async () => {
+    if (!deleteTarget) return;
     try {
-      if (!deleteTarget) return;
       const id = deleteTarget.announcementId || deleteTarget._id || deleteTarget.id;
       await announcementService.deleteAnnouncement(id);
-      setToast({ type: 'success', message: '✓ Announcement deleted successfully.' });
+      setToast({ type: 'success', message: '✓ Announcement removed successfully.' });
       setDeleteModalOpen(false);
       setDeleteTarget(null);
       await loadData();
@@ -465,10 +563,93 @@ function NotificationsPage() {
     }
   };
 
-  const handleMarkAsRead = (id) => {
-    setNotifications((current) => current.map((item) => item.id === id ? { ...item, status: 'read' } : item));
-    setSelectedNotification((current) => (current && current.id === id ? { ...current, status: 'read' } : current));
-    setToast({ type: 'success', message: '✓ Notification marked as read.' });
+  const handleApproveNotification = async (item) => {
+    try {
+      const refId = item.referenceId || item._id || item.id;
+      if (item.type === 'uniform-request' || item.type === 'asset-request') {
+        await inventoryService.actionRequest(companyId, refId, {
+          action: 'approve',
+          adminRemarks: 'Approved from notifications hub'
+        });
+      } else if (item.type === 'reimbursement') {
+        await reimbursementService.reviewClaim(companyId, refId, {
+          action: 'approve',
+          reason: 'Approved from notifications hub'
+        });
+      } else if (item.type === 'advance-loan') {
+        await advanceLoanService.approveRequest(companyId, refId, {
+          remarks: 'Approved from notifications hub'
+        });
+      } else if (item.type === 'leave-application') {
+        await leaveService.reviewLeaveRequest(companyId, refId, 'approve', 'Approved from notifications hub');
+      }
+
+      await notificationService.updateAction(companyId, item._id || item.id, 'approved');
+      setToast({ type: 'success', message: `✓ ${item.title} approved successfully.` });
+      setSelectedNotification(null);
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to approve request.' });
+    }
+  };
+
+  const handleRejectNotification = async (item) => {
+    try {
+      const refId = item.referenceId || item._id || item.id;
+      if (item.type === 'uniform-request' || item.type === 'asset-request') {
+        await inventoryService.actionRequest(companyId, refId, {
+          action: 'reject',
+          adminRemarks: 'Rejected from notifications hub'
+        });
+      } else if (item.type === 'reimbursement') {
+        await reimbursementService.reviewClaim(companyId, refId, {
+          action: 'reject',
+          reason: 'Rejected from notifications hub'
+        });
+      } else if (item.type === 'advance-loan') {
+        await advanceLoanService.rejectRequest(companyId, refId, 'Rejected from notifications hub');
+      } else if (item.type === 'leave-application') {
+        await leaveService.reviewLeaveRequest(companyId, refId, 'reject', 'Rejected from notifications hub');
+      }
+
+      await notificationService.updateAction(companyId, item._id || item.id, 'rejected');
+      setToast({ type: 'success', message: `✓ Request rejected.` });
+      setSelectedNotification(null);
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to reject request.' });
+    }
+  };
+
+  const handleMarkAsRead = async (id) => {
+    try {
+      await notificationService.markAsRead(companyId, id);
+      setToast({ type: 'success', message: '✓ Notification marked as read.' });
+      setSelectedNotification(null);
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to update notification.' });
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead(companyId);
+      setToast({ type: 'success', message: '✓ All notifications marked as read.' });
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to update notifications.' });
+    }
+  };
+
+  const handleClearRead = async () => {
+    try {
+      await notificationService.clearReadNotifications(companyId);
+      setToast({ type: 'success', message: '✓ Read notifications cleared.' });
+      await loadData();
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Failed to clear read notifications.' });
+    }
   };
 
   return (
@@ -476,72 +657,70 @@ function NotificationsPage() {
       <div className={styles.container}>
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-          <span 
-            className={styles.breadcrumbLink}
-            onClick={() => navigate('/admin/dashboard')}
-            style={{ cursor: 'pointer' }}
-          >
-            Dashboard
-          </span>
+        <div className={styles.breadcrumb}>
+          <span>Dashboard</span>
           <span>/</span>
-          <span 
-            className={styles.breadcrumbLink}
-            onClick={() => handleTabChange('announcements')}
-            style={{ cursor: activeTab !== 'announcements' ? 'pointer' : 'default', color: activeTab !== 'announcements' ? 'var(--primary, #2563eb)' : 'inherit', fontWeight: activeTab !== 'announcements' ? 500 : 600 }}
-          >
-            Notifications &amp; Announcements
-          </span>
-          {activeTab !== 'announcements' && (
-            <>
-              <span>/</span>
-              <span style={{ color: 'var(--text-primary, #0f172a)', fontWeight: 600 }}>
-                {TABS.find(t => t.id === activeTab)?.label || activeTab}
-              </span>
-            </>
-          )}
-        </nav>
+          <span>Notifications &amp; Announcements</span>
+          <span>/</span>
+          <strong>{activeTab === 'announcements' ? 'Announcements' : 'Notifications'}</strong>
+        </div>
 
-        <header className={styles.pageHeader}>
+        <header className={styles.header}>
           <div>
             <h1>Notifications &amp; Announcements</h1>
-            <p className={styles.pageDescription}>Manage announcements and view system-generated notifications for clients and employees.</p>
+            <p>Manage announcements and view live system-generated notifications for employee requests, assets, and claims.</p>
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="button" className={styles.secondaryButton} onClick={loadData} title="Refresh Announcements">
-              <RefreshCw size={15} className={loading ? styles.spinning : ''} />
-              Refresh
+          <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={loadData}
+              title="Refresh"
+            >
+              <RefreshCw size={15} /> Refresh
             </button>
-            <button type="button" className={styles.primaryButton} onClick={() => { setEditingAnnouncement(null); setAnnouncementFormOpen(true); }}>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={() => {
+                setEditingAnnouncement(null);
+                setAnnouncementFormOpen(true);
+              }}
+            >
               <Plus size={16} /> Post Announcement
             </button>
           </div>
         </header>
 
-        <div className={styles.tabs} role="tablist">
+        <div className={styles.tabNav}>
           {TABS.map((tab) => (
             <button
               key={tab.id}
               type="button"
-              className={activeTab === tab.id ? styles.activeTab : styles.tab}
+              className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabActive : ''}`}
               onClick={() => handleTabChange(tab.id)}
             >
               {tab.label}
+              {tab.id === 'notifications' && unreadCount > 0 && (
+                <span className={styles.tabBadge}>{unreadCount}</span>
+              )}
             </button>
           ))}
         </div>
 
-        {activeTab === 'announcements' ? (
+        {loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px', gap: '10px' }}>
+            <Loader2 size={28} className={styles.spin} />
+            <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>Loading announcements and notifications...</span>
+          </div>
+        ) : activeTab === 'announcements' ? (
           <section className={styles.sectionCard}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionEyebrow}>Announcements</p>
-                <h2>Announcements</h2>
-                <p className={styles.sectionDescription}>Create and manage targeted announcements visible in Client and Employee panels.</p>
+                <p className={styles.sectionEyebrow}>Broadcasts</p>
+                <h2>Company Announcements</h2>
+                <p className={styles.sectionDescription}>Targeted notices for clients, employees, and operations teams.</p>
               </div>
-              <button type="button" className={styles.primaryButton} onClick={() => { setEditingAnnouncement(null); setAnnouncementFormOpen(true); }}>
-                <Plus size={16} /> Post Announcement
-              </button>
             </div>
 
             <div className={styles.filterBar}>
@@ -649,7 +828,7 @@ function NotificationsPage() {
               </>
             ) : (
               <div className={styles.emptyState}>
-                <h3>No announcements found.</h3>
+                <h3>No announcements yet</h3>
                 <p>Try changing your filters or create a new announcement.</p>
                 <button type="button" className={styles.primaryButton} onClick={() => setAnnouncementFormOpen(true)}>
                   <Plus size={16} /> Post Announcement
@@ -662,12 +841,24 @@ function NotificationsPage() {
             <div className={styles.sectionHeader}>
               <div>
                 <p className={styles.sectionEyebrow}>Notifications</p>
-                <h2>Notifications</h2>
-                <p className={styles.sectionDescription}>View system-generated alerts related to HRMS activities.</p>
+                <h2>Activity Notifications</h2>
+                <p className={styles.sectionDescription}>Live system alerts for employee asset requisitions, uniform requests, claims, and approvals.</p>
               </div>
-              <div className={styles.unreadBadgeRow}>
-                <span className={styles.notificationCountLabel}>Unread Notifications</span>
-                <span className={styles.notificationCount}>{unreadCount}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className={styles.unreadBadgeRow}>
+                  <span className={styles.notificationCountLabel}>Unread Notifications</span>
+                  <span className={styles.notificationCount}>{unreadCount}</span>
+                </div>
+                {unreadCount > 0 && (
+                  <button type="button" className={styles.secondaryButton} onClick={handleMarkAllAsRead} style={{ fontSize: '12px', padding: '6px 12px' }}>
+                    Mark All Read
+                  </button>
+                )}
+                {notifications.some(n => n.status === 'read') && (
+                  <button type="button" className={styles.secondaryButton} onClick={handleClearRead} style={{ fontSize: '12px', padding: '6px 12px' }}>
+                    Clear Read
+                  </button>
+                )}
               </div>
             </div>
 
@@ -676,23 +867,22 @@ function NotificationsPage() {
                 <Search size={15} />
                 <input
                   type="text"
-                  placeholder="Search notifications..."
+                  placeholder="Search notifications, employees, requests..."
                   value={notificationSearch}
                   onChange={(event) => { setNotificationPage(1); setNotificationSearch(event.target.value); }}
                 />
               </div>
 
               <select value={notificationTypeFilter} onChange={(event) => { setNotificationPage(1); setNotificationTypeFilter(event.target.value); }}>
-                <option value="all">All</option>
-                <option value="leave-approval">Leave Approval</option>
-                <option value="salary-processed">Salary Processed</option>
-                <option value="document-expiry">Document Expiry</option>
+                {notificationTypeOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
               </select>
 
               <select value={notificationStatusFilter} onChange={(event) => { setNotificationPage(1); setNotificationStatusFilter(event.target.value); }}>
-                <option value="all">All</option>
-                <option value="read">Read</option>
+                <option value="all">All Status</option>
                 <option value="unread">Unread</option>
+                <option value="read">Read</option>
               </select>
 
               <button type="button" className={styles.secondaryButton} onClick={resetNotificationFilters}>Reset</button>
@@ -705,23 +895,65 @@ function NotificationsPage() {
                   {notificationPageRows.map((item) => {
                     const Icon = iconMap[item.type] || Bell;
                     return (
-                      <div key={item.id} className={`${styles.notificationCard} ${item.status === 'unread' ? styles.notificationUnread : ''}`}>
+                      <div key={item._id || item.id} className={`${styles.notificationCard} ${item.status === 'unread' ? styles.notificationUnread : ''}`}>
                         <div className={styles.notificationIconWrap}>
                           <Icon size={18} />
                         </div>
                         <div className={styles.notificationContent}>
                           <div className={styles.notificationHeader}>
                             <h3>{item.title}</h3>
-                            <span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>{item.status === 'unread' ? 'Unread' : 'Read'}</span>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              {item.actionStatus && item.actionStatus !== 'pending' && item.actionStatus !== 'none' && (
+                                <span className={`${styles.statusBadge} ${badgeClass(item.actionStatus)}`}>
+                                  {item.actionStatus === 'approved' ? <><Check size={12} /> Approved</> : <><XCircle size={12} /> Rejected</>}
+                                </span>
+                              )}
+                              <span className={`${styles.statusBadge} ${badgeClass(item.status)}`}>{item.status === 'unread' ? 'Unread' : 'Read'}</span>
+                            </div>
                           </div>
                           <p>{item.message}</p>
                           <div className={styles.metaRow}>
-                            <span>{item.employeeName || 'System'}</span>
-                            <span>{formatDate(item.date)}</span>
+                            <span>{item.employeeName ? `${item.employeeName} (${item.employeeId || 'Staff'})` : (item.clientName || 'System')}</span>
+                            <span>{formatDate(item.date || item.createdAt)}</span>
                           </div>
-                          <div className={styles.metaRow}>
-                            <span className={`${styles.statusBadge} ${styles.infoBadge}`}>{notificationTypeOptions.find((option) => option.value === item.type)?.label || 'Notification'}</span>
-                            <button type="button" className={styles.linkButton} onClick={() => setSelectedNotification(item)}>View</button>
+                          <div className={styles.metaRow} style={{ marginTop: '8px' }}>
+                            <span className={`${styles.statusBadge} ${styles.infoBadge}`}>
+                              {notificationTypeOptions.find((option) => option.value === item.type)?.label || item.type}
+                            </span>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              {['uniform-request', 'asset-request', 'reimbursement', 'advance-loan', 'leave-application'].includes(item.type) && (!item.actionStatus || item.actionStatus === 'pending') && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className={styles.approveButtonSmall}
+                                    onClick={() => handleApproveNotification(item)}
+                                    title="Approve request"
+                                  >
+                                    <Check size={13} /> Approve
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className={styles.rejectButtonSmall}
+                                    onClick={() => handleRejectNotification(item)}
+                                    title="Reject request"
+                                  >
+                                    <XCircle size={13} /> Reject
+                                  </button>
+                                </>
+                              )}
+                              {item.status === 'unread' && (
+                                <button
+                                  type="button"
+                                  className={styles.linkButton}
+                                  onClick={() => handleMarkAsRead(item._id || item.id)}
+                                >
+                                  Mark Read
+                                </button>
+                              )}
+                              <button type="button" className={styles.linkButton} onClick={() => setSelectedNotification(item)}>
+                                View Details
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -739,8 +971,8 @@ function NotificationsPage() {
               </>
             ) : (
               <div className={styles.emptyState}>
-                <h3>No notifications found.</h3>
-                <p>You&apos;re all caught up.</p>
+                <h3>No notifications yet</h3>
+                <p>When employees submit uniform/asset requisitions, expense claims, or leave requests, real-time alerts will appear here.</p>
               </div>
             )}
           </section>
@@ -771,12 +1003,14 @@ function NotificationsPage() {
           item={selectedNotification}
           onClose={() => setSelectedNotification(null)}
           onMarkAsRead={handleMarkAsRead}
+          onApprove={handleApproveNotification}
+          onReject={handleRejectNotification}
         />
 
         <ConfirmModal
           isOpen={isDeleteModalOpen}
           title="Delete Announcement?"
-          description="Are you sure you want to delete this announcement?"
+          description="Are you sure you want to delete this announcement from the database?"
           confirmLabel="Delete"
           variant="danger"
           onConfirm={handleDeleteAnnouncement}

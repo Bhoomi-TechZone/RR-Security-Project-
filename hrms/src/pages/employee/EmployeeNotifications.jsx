@@ -11,14 +11,20 @@ import {
   FileWarning,
   IndianRupee,
   Megaphone,
+  Package,
   Search,
+  Shirt,
   X,
+  Receipt,
+  Landmark,
 } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 import leaveService from '../../services/leaveService';
 import attendanceService from '../../services/attendanceService';
 import announcementService from '../../services/announcementService';
+import notificationService from '../../services/notificationService';
+import inventoryService from '../../services/inventoryService';
 import styles from './EmployeeNotifications.module.css';
 
 /* ─────────────────────────────────────────
@@ -34,10 +40,13 @@ const TABS = [
 
 const TYPE_FILTER_OPTIONS = [
   { value: 'all', label: 'All Types' },
+  { value: 'inventory', label: 'Uniform & Assets' },
   { value: 'leave', label: 'Leave' },
-  { value: 'salary', label: 'Salary' },
-  { value: 'document', label: 'Document' },
   { value: 'announcement', label: 'Announcement' },
+  { value: 'salary', label: 'Salary' },
+  { value: 'reimbursement', label: 'Reimbursement' },
+  { value: 'loan', label: 'Advance / Loan' },
+  { value: 'document', label: 'Document' },
 ];
 
 const DATE_FILTER_OPTIONS = [
@@ -64,8 +73,11 @@ function friendlyDate(isoDate) {
 function typeIcon(type) {
   const props = { size: 18, 'aria-hidden': true };
   switch (type) {
+    case 'inventory': return <Package {...props} />;
     case 'leave': return <CalendarCheck {...props} />;
     case 'salary': return <IndianRupee {...props} />;
+    case 'reimbursement': return <Receipt {...props} />;
+    case 'loan': return <Landmark {...props} />;
     case 'document': return <FileWarning {...props} />;
     case 'announcement': return <Megaphone {...props} />;
     default: return <Bell {...props} />;
@@ -74,8 +86,11 @@ function typeIcon(type) {
 
 function typeIconClass(type) {
   switch (type) {
+    case 'inventory': return styles.iconInventory;
     case 'leave': return styles.iconLeave;
     case 'salary': return styles.iconSalary;
+    case 'reimbursement': return styles.iconReimburse;
+    case 'loan': return styles.iconLoan;
     case 'document': return styles.iconDocument;
     case 'announcement': return styles.iconAnnounce;
     default: return styles.iconLeave;
@@ -84,8 +99,11 @@ function typeIconClass(type) {
 
 function typeBadgeClass(type) {
   switch (type) {
+    case 'inventory': return styles.badgeInventory;
     case 'leave': return styles.badgeLeave;
     case 'salary': return styles.badgeSalary;
+    case 'reimbursement': return styles.badgeReimburse;
+    case 'loan': return styles.badgeLoan;
     case 'document': return styles.badgeDocument;
     case 'announcement': return styles.badgeAnn;
     default: return styles.badgeLeave;
@@ -94,11 +112,14 @@ function typeBadgeClass(type) {
 
 function typeBadgeLabel(type) {
   switch (type) {
+    case 'inventory': return 'Uniform & Asset';
     case 'leave': return 'Leave';
     case 'salary': return 'Salary';
+    case 'reimbursement': return 'Reimbursement';
+    case 'loan': return 'Advance / Loan';
     case 'document': return 'Document';
     case 'announcement': return 'Announcement';
-    default: return type;
+    default: return 'Notification';
   }
 }
 
@@ -159,6 +180,41 @@ function NotificationDetailsModal({ notif, onClose, onNavigate }) {
         </div>
 
         <div className={styles.modalBody}>
+          {type === 'inventory' && details && (
+            <dl className={styles.detailsGrid}>
+              {details.requestId && (
+                <div className={styles.detailRow}>
+                  <dt className={styles.detailLabel}>Requisition ID</dt>
+                  <dd className={styles.detailValue}>{details.requestId}</dd>
+                </div>
+              )}
+              {details.item && (
+                <div className={styles.detailRow}>
+                  <dt className={styles.detailLabel}>Requisition Item</dt>
+                  <dd className={styles.detailValue}>{details.item}</dd>
+                </div>
+              )}
+              {details.status && (
+                <div className={styles.detailRow}>
+                  <dt className={styles.detailLabel}>Status</dt>
+                  <dd className={`${styles.detailValue} ${
+                    details.status === 'Approved' || details.status === 'Assigned' || details.status === 'APPROVED' || details.status === 'ASSIGNED'
+                      ? styles.detailStatusApproved
+                      : details.status === 'Rejected' || details.status === 'REJECTED'
+                        ? styles.detailStatusRejected
+                        : ''
+                  }`}>
+                    {details.status}
+                  </dd>
+                </div>
+              )}
+              <div className={styles.detailRow}>
+                <dt className={styles.detailLabel}>Date</dt>
+                <dd className={styles.detailValue}>{friendlyDate(date)}{time ? ` • ${time}` : ''}</dd>
+              </div>
+            </dl>
+          )}
+
           {type === 'leave' && details && (
             <dl className={styles.detailsGrid}>
               {details.leaveType && (
@@ -283,6 +339,12 @@ function NotificationDetailsModal({ notif, onClose, onNavigate }) {
               )}
             </>
           )}
+
+          {!['inventory', 'leave', 'salary', 'document', 'announcement'].includes(type) && (
+            <div style={{ padding: '8px 0', fontSize: '13px', color: 'var(--text-secondary)' }}>
+              {description}
+            </div>
+          )}
         </div>
 
         <div className={styles.modalFooter}>
@@ -346,7 +408,7 @@ function NotifItem({ notif, onMarkRead, onOpen }) {
             <button
               type="button"
               className={styles.markReadBtn}
-              onClick={(e) => { e.stopPropagation(); onMarkRead(notif.id); }}
+              onClick={(e) => { e.stopPropagation(); onMarkRead(notif); }}
               aria-label="Mark as read"
             >
               Mark as read
@@ -372,6 +434,8 @@ function EmployeeNotifications() {
   const companyName = activeCompany?.name || currentUser?.companyName || 'RR Security & Facilities';
   const employeeId = currentUser?.employeeId || currentUser?.employeeCode || currentUser?.id || 'EMP-001';
 
+  const [dbNotifications, setDbNotifications] = useState([]);
+  const [inventoryRequests, setInventoryRequests] = useState([]);
   const [leaveRequests, setLeaveRequests] = useState([]);
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
@@ -396,240 +460,292 @@ function EmployeeNotifications() {
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [showToast, setShowToast] = useState(false);
 
-  // Fetch real records for the authenticated employee
+  // Fetch real records from MongoDB for the authenticated employee
   useEffect(() => {
     let isMounted = true;
     async function loadEmployeeData() {
       try {
         const todayMonth = new Date().toISOString().slice(0, 7);
-        const [leaves, attendance, anns] = await Promise.allSettled([
+        const [notifsRes, invRes, leavesRes, attendanceRes, annsRes] = await Promise.allSettled([
+          notificationService.getNotifications(companyId, { employeeId }),
+          inventoryService.getRequests(companyId, { employeeId }),
           leaveService.getLeaveRequests(companyId, { employeeId }),
           attendanceService.getAttendanceRecords(companyId, { month: todayMonth, employeeId }),
           announcementService.getAnnouncements(companyId, { role: 'employee', employeeId })
         ]);
 
         if (isMounted) {
-          if (leaves.status === 'fulfilled' && Array.isArray(leaves.value)) {
-            setLeaveRequests(leaves.value);
+          if (notifsRes.status === 'fulfilled' && notifsRes.value) {
+            const list = notifsRes.value.data || notifsRes.value.notifications || (Array.isArray(notifsRes.value) ? notifsRes.value : []);
+            setDbNotifications(list);
           }
-          if (attendance.status === 'fulfilled' && Array.isArray(attendance.value)) {
-            setAttendanceRecords(attendance.value);
+          if (invRes.status === 'fulfilled' && Array.isArray(invRes.value)) {
+            setInventoryRequests(invRes.value);
           }
-          if (anns.status === 'fulfilled' && Array.isArray(anns.value)) {
-            setAnnouncements(anns.value);
+          if (leavesRes.status === 'fulfilled' && Array.isArray(leavesRes.value)) {
+            setLeaveRequests(leavesRes.value);
+          }
+          if (attendanceRes.status === 'fulfilled' && Array.isArray(attendanceRes.value)) {
+            setAttendanceRecords(attendanceRes.value);
+          }
+          if (annsRes.status === 'fulfilled' && Array.isArray(annsRes.value)) {
+            setAnnouncements(annsRes.value);
           }
         }
       } catch (err) {
-        console.warn('Error loading dynamic employee notification sources:', err);
+        console.warn('Error loading dynamic employee notifications:', err);
       }
     }
 
     loadEmployeeData();
-    return () => { isMounted = false; };
+    const interval = setInterval(loadEmployeeData, 5000);
+    const handleRefresh = () => loadEmployeeData();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
   }, [companyId, employeeId]);
 
-  // Construct dynamic notifications list for this employee
+  // Construct dynamic notifications list for this employee (100% Dynamic - Zero Fake Mock Data)
   const notifs = useMemo(() => {
     const today = new Date();
     const todayDateStr = today.toISOString().split('T')[0];
-    const previousMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    const previousMonthName = previousMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    const previousMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0).toISOString().split('T')[0];
-
     const list = [];
+    const seenMap = new Set();
 
-    // 1. Leave notifications for this employee
-    leaveRequests.forEach((l) => {
-      const lId = l.id || l.leaveId || l._id;
-      const lType = l.leaveType?.name || l.leaveType || l.type || 'Casual Leave';
-      const lStatus = l.status || 'Pending';
-      const lDays = l.days || 1;
-      const fromStr = l.fromDate ? new Date(l.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (l.from || '—');
-      const toStr = l.toDate ? new Date(l.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (l.to || '—');
-      const appDate = l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : todayDateStr;
+    // 1. Live System & Action Notifications from MongoDB Notification collection
+    if (Array.isArray(dbNotifications)) {
+      dbNotifications.forEach((n) => {
+        const nId = n._id || n.id;
+        if (!nId || seenMap.has(nId)) return;
+        seenMap.add(nId);
 
-      if (lStatus === 'Approved') {
+        let nType = n.type || 'general';
+        if (n.targetModule === 'inventory' || nType === 'inventory') nType = 'inventory';
+        else if (n.targetModule === 'leave' || nType === 'leave') nType = 'leave';
+        else if (n.targetModule === 'reimbursements' || nType === 'reimbursement') nType = 'reimbursement';
+        else if (n.targetModule === 'advances_loans' || nType === 'loan' || nType === 'advance') nType = 'loan';
+        else if (n.targetModule === 'payroll' || nType === 'salary') nType = 'salary';
+
+        const isRead = n.status === 'read' || readIds.includes(String(nId)) || readIds.includes(`db-${nId}`);
+
         list.push({
-          id: `notif-leave-${lId}-app`,
-          type: 'leave',
-          title: `Leave Approved: ${lType}`,
-          description: `Your ${lType} request from ${fromStr} to ${toStr} (${lDays} ${lDays === 1 ? 'day' : 'days'}) has been approved by HR/Admin.`,
-          date: appDate,
-          time: '10:32 AM',
-          priority: false,
-          isAnnouncement: false,
-          actionUrl: '/employee/leave',
-          actionLabel: 'View Leave Details',
-          details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: 'Approved' },
-        });
-      } else if (lStatus === 'Rejected') {
-        list.push({
-          id: `notif-leave-${lId}-rej`,
-          type: 'leave',
-          title: `Leave Request Rejected: ${lType}`,
-          description: `Your ${lType} request from ${fromStr} to ${toStr} was not approved.${l.rejectionReason ? ` Reason: ${l.rejectionReason}` : ''}`,
-          date: appDate,
-          time: '04:15 PM',
-          priority: true,
-          isAnnouncement: false,
-          actionUrl: '/employee/leave',
-          actionLabel: 'View Details',
-          details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: 'Rejected' },
-        });
-      } else if (lStatus === 'Sent Back') {
-        list.push({
-          id: `notif-leave-${lId}-sentback`,
-          type: 'leave',
-          title: `Leave Revision Required: ${lType}`,
-          description: `Your ${lType} request from ${fromStr} to ${toStr} was sent back for clarification.`,
-          date: appDate,
-          time: '02:00 PM',
-          priority: true,
-          isAnnouncement: false,
-          actionUrl: '/employee/leave',
-          actionLabel: 'Review Request',
-          details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: 'Sent Back' },
-        });
-      } else {
-        list.push({
-          id: `notif-leave-${lId}-pend`,
-          type: 'leave',
-          title: `Leave Application Submitted`,
-          description: `Your ${lType} request from ${fromStr} to ${toStr} (${lDays} ${lDays === 1 ? 'day' : 'days'}) is pending approval.`,
-          date: appDate,
-          time: '09:00 AM',
-          priority: false,
-          isAnnouncement: false,
-          actionUrl: '/employee/leave',
-          actionLabel: 'View Status',
-          details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: lStatus },
-        });
-      }
-    });
-
-    // 2. Attendance alerts for this employee
-    const todayRecord = attendanceRecords.find(r => r.date === todayDateStr);
-    if (todayRecord) {
-      list.push({
-        id: `notif-att-today`,
-        type: 'leave',
-        title: `Attendance Marked Today: ${todayRecord.status}`,
-        description: `Your attendance for today was recorded as ${todayRecord.status}. Check in: ${todayRecord.checkIn || '09:00 AM'}, Check out: ${todayRecord.checkOut || 'Active'}.`,
-        date: todayDateStr,
-        time: todayRecord.checkIn || '09:00 AM',
-        priority: false,
-        isAnnouncement: false,
-        actionUrl: '/employee/attendance',
-        actionLabel: 'View Attendance Log',
-        details: { document: `Daily Punch (${todayRecord.status})`, status: 'Recorded' },
-      });
-    }
-
-    // Recent absence or late alerts
-    attendanceRecords.slice(0, 5).forEach(r => {
-      const s = String(r.status || '').toLowerCase();
-      if (s === 'absent') {
-        list.push({
-          id: `notif-att-absent-${r.date}`,
-          type: 'document',
-          title: `Absence Logged: ${r.date}`,
-          description: `You were marked Absent on ${r.date}. If this was scheduled, please apply for regularized leave.`,
-          date: r.date,
-          time: '10:00 AM',
-          priority: true,
-          isAnnouncement: false,
-          actionUrl: '/employee/attendance',
-          actionLabel: 'View Attendance',
-          details: { document: `Attendance Status (${r.date})`, status: 'Absent' },
-        });
-      }
-    });
-
-    if (attendanceRecords.length > 0) {
-      list.push({
-        id: `notif-att-monthly`,
-        type: 'leave',
-        title: `Monthly Attendance Synced`,
-        description: `Your attendance log for ${today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} has been synchronized in database.`,
-        date: todayDateStr,
-        time: '09:30 AM',
-        priority: false,
-        isAnnouncement: false,
-        actionUrl: '/employee/attendance',
-        actionLabel: 'View Calendar',
-        details: { document: 'Monthly Log Sync', status: 'Active' },
-      });
-    }
-
-    // 3. Payroll Processed / Salary Slip Alerts
-    const basicPay = Number(currentUser?.basicSalary || currentUser?.salary || 28000);
-    const hra = Math.round(basicPay * 0.4);
-    const allowances = Math.round(basicPay * 0.1);
-    const grossPay = basicPay + hra + allowances;
-    const pfDeduction = Math.round(basicPay * 0.12);
-    const esiDeduction = grossPay <= 21000 ? Math.round(grossPay * 0.0075) : 0;
-    const netSalary = grossPay - (pfDeduction + esiDeduction);
-
-    list.push({
-      id: `notif-sal-latest`,
-      type: 'salary',
-      title: `Salary Processed: ${previousMonthName}`,
-      description: `Your salary for ${previousMonthName} has been processed successfully. Net payout: ₹${netSalary.toLocaleString('en-IN')}.`,
-      date: previousMonthEnd,
-      time: '04:15 PM',
-      priority: false,
-      isAnnouncement: false,
-      actionUrl: '/employee/salary-slips',
-      actionLabel: 'Download Salary Slip',
-      details: {
-        salaryMonth: previousMonthName,
-        status: 'Processed',
-        netSalary: `₹${netSalary.toLocaleString('en-IN')}`,
-      },
-    });
-
-    // 4. Company Announcements (100% Dynamic from MongoDB)
-    if (announcements.length > 0) {
-      announcements.forEach((ann) => {
-        list.push({
-          id: `notif-ann-${ann.announcementId || ann._id || ann.id}`,
-          type: 'announcement',
-          title: ann.title,
-          description: ann.message,
-          date: ann.createdDate || todayDateStr,
-          time: '09:00 AM',
-          priority: ann.priority === 'important' || ann.priority === 'urgent',
-          isAnnouncement: true,
+          id: `db-${nId}`,
+          rawId: nId,
+          type: nType,
+          title: n.title,
+          description: n.message,
+          date: n.createdAt ? new Date(n.createdAt).toISOString().split('T')[0] : (n.date || todayDateStr),
+          time: n.createdAt ? new Date(n.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '10:00 AM',
+          priority: n.priority === 'urgent' || n.priority === 'important' || n.priority === true,
+          read: isRead,
+          actionUrl: n.targetUrl || (nType === 'inventory' ? '/employee/assets' : nType === 'leave' ? '/employee/leave' : '/employee/dashboard'),
+          actionLabel: nType === 'inventory' ? 'View Requisitions' : nType === 'leave' ? 'View Leaves' : 'View Details',
           details: {
-            scope: ann.audience === 'all' ? 'All Clients & Employees' : 'Employees',
-            publishedBy: ann.createdBy || `${companyName} HR & Admin`,
-            message: ann.message,
-          },
+            message: n.message,
+            requestId: n.referenceId,
+            item: n.referenceId ? `Requisition (${n.referenceId})` : undefined,
+            status: n.actionStatus ? n.actionStatus.toUpperCase() : undefined,
+            publishedBy: n.employeeName ? `${n.employeeName} (${n.employeeId})` : `${companyName} HR & Admin`
+          }
         });
       });
     }
 
-    // 5. Account & Document Verification Alert
-    list.push({
-      id: `notif-doc-verified`,
-      type: 'document',
-      title: `Document Expiry & Verification Alert`,
-      description: `Your employee credentials and statutory KYC records for ID ${employeeId} are active and verified.`,
-      date: todayDateStr,
-      time: '08:30 AM',
-      priority: true,
-      isAnnouncement: false,
-      actionUrl: '/employee/dashboard',
-      actionLabel: 'View Profile',
-      details: { document: `Employee Identification & Credentials (${employeeId})`, status: 'Verified' },
-    });
+    // 2. Live Uniform & Asset Requisition Requests
+    if (Array.isArray(inventoryRequests)) {
+      inventoryRequests.forEach((req) => {
+        const reqId = req.requestId || req._id || req.id;
+        const itemDesc = req.itemType || 'Uniform / Equipment';
+        const status = req.status || 'pending';
+        const dateStr = req.requestDate || (req.createdAt ? new Date(req.createdAt).toISOString().split('T')[0] : todayDateStr);
 
-    // Map read state
-    return list.map((item) => ({
-      ...item,
-      read: readIds.includes(item.id),
-    }));
-  }, [leaveRequests, attendanceRecords, announcements, readIds, companyName, employeeId]);
+        // Check if there's already an explicit system notification for this requisition
+        const existsInDb = dbNotifications.some((n) => n.referenceId === req.requestId || n.referenceId === req._id);
+        if (!existsInDb) {
+          const uniqueId = `notif-inv-${reqId}`;
+          if (!seenMap.has(uniqueId)) {
+            seenMap.add(uniqueId);
+            const isRead = readIds.includes(uniqueId);
+
+            const approverName = req.actionBy || 'Administrator';
+            if (status === 'approved' || status === 'assigned') {
+              list.push({
+                id: uniqueId,
+                type: 'inventory',
+                title: `Uniform/Asset Requisition ${status === 'assigned' ? 'Assigned' : 'Approved'}: ${itemDesc}`,
+                description: `Your requisition request (${req.requestId || reqId}) for ${itemDesc} has been ${status} by ${approverName}.`,
+                date: dateStr,
+                time: '11:00 AM',
+                priority: false,
+                read: isRead,
+                actionUrl: '/employee/assets',
+                actionLabel: 'View Asset Inventory',
+                details: { item: itemDesc, requestId: req.requestId || reqId, status: status.toUpperCase(), publishedBy: approverName }
+              });
+            } else if (status === 'rejected') {
+              list.push({
+                id: uniqueId,
+                type: 'inventory',
+                title: `Uniform/Asset Requisition Rejected: ${itemDesc}`,
+                description: `Your requisition request (${req.requestId || reqId}) for ${itemDesc} was rejected by ${approverName}.${req.adminRemarks || req.remarks ? ` Reason: ${req.adminRemarks || req.remarks}` : ''}`,
+                date: dateStr,
+                time: '03:30 PM',
+                priority: true,
+                read: isRead,
+                actionUrl: '/employee/assets',
+                actionLabel: 'View Requisitions',
+                details: { item: itemDesc, requestId: req.requestId || reqId, status: 'REJECTED', publishedBy: approverName }
+              });
+            } else if (status === 'pending' || status === 'Pending Review') {
+              list.push({
+                id: uniqueId,
+                type: 'inventory',
+                title: `Uniform/Asset Requisition Submitted: ${itemDesc}`,
+                description: `Your requisition request (${req.requestId || reqId}) for ${itemDesc} is pending review from Admin.`,
+                date: dateStr,
+                time: '09:15 AM',
+                priority: false,
+                read: isRead,
+                actionUrl: '/employee/assets',
+                actionLabel: 'Check Status',
+                details: { item: itemDesc, requestId: req.requestId || reqId, status: 'PENDING' }
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // 3. Live Leave Requests
+    if (Array.isArray(leaveRequests)) {
+      leaveRequests.forEach((l) => {
+        const lId = l.id || l.leaveId || l._id;
+        const existsInDb = dbNotifications.some((n) => n.referenceId === l.leaveId || n.referenceId === l._id);
+        if (!existsInDb) {
+          const uniqueId = `notif-leave-${lId}`;
+          if (!seenMap.has(uniqueId)) {
+            seenMap.add(uniqueId);
+            const isRead = readIds.includes(uniqueId);
+            const lType = l.leaveType?.name || l.leaveType || l.type || 'Casual Leave';
+            const lStatus = l.status || 'Pending';
+            const lDays = l.days || 1;
+            const fromStr = l.fromDate ? new Date(l.fromDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (l.from || '—');
+            const toStr = l.toDate ? new Date(l.toDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : (l.to || '—');
+            const appDate = l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : todayDateStr;
+
+            if (lStatus === 'Approved') {
+              list.push({
+                id: uniqueId,
+                type: 'leave',
+                title: `Leave Approved: ${lType}`,
+                description: `Your ${lType} request from ${fromStr} to ${toStr} (${lDays} ${lDays === 1 ? 'day' : 'days'}) has been approved by HR/Admin.`,
+                date: appDate,
+                time: '10:32 AM',
+                priority: false,
+                read: isRead,
+                actionUrl: '/employee/leave',
+                actionLabel: 'View Leave Details',
+                details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: 'Approved' },
+              });
+            } else if (lStatus === 'Rejected') {
+              list.push({
+                id: uniqueId,
+                type: 'leave',
+                title: `Leave Request Rejected: ${lType}`,
+                description: `Your ${lType} request from ${fromStr} to ${toStr} was not approved.${l.rejectionReason ? ` Reason: ${l.rejectionReason}` : ''}`,
+                date: appDate,
+                time: '04:15 PM',
+                priority: true,
+                read: isRead,
+                actionUrl: '/employee/leave',
+                actionLabel: 'View Details',
+                details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: 'Rejected' },
+              });
+            } else if (lStatus === 'Sent Back') {
+              list.push({
+                id: uniqueId,
+                type: 'leave',
+                title: `Leave Revision Required: ${lType}`,
+                description: `Your ${lType} request from ${fromStr} to ${toStr} was sent back for clarification.`,
+                date: appDate,
+                time: '02:00 PM',
+                priority: true,
+                read: isRead,
+                actionUrl: '/employee/leave',
+                actionLabel: 'Review Request',
+                details: { leaveType: lType, from: fromStr, to: toStr, days: lDays, status: 'Sent Back' },
+              });
+            }
+          }
+        }
+      });
+    }
+
+    // 4. Live Broadcast Announcements from HR / Admin
+    if (Array.isArray(announcements)) {
+      announcements.forEach((ann) => {
+        const annId = ann.announcementId || ann._id || ann.id;
+        const uniqueId = `notif-ann-${annId}`;
+        if (!seenMap.has(uniqueId)) {
+          seenMap.add(uniqueId);
+          const isRead = readIds.includes(uniqueId);
+          list.push({
+            id: uniqueId,
+            type: 'announcement',
+            title: ann.title,
+            description: ann.message,
+            date: ann.createdDate || (ann.createdAt ? new Date(ann.createdAt).toISOString().split('T')[0] : todayDateStr),
+            time: '09:00 AM',
+            priority: ann.priority === 'important' || ann.priority === 'urgent',
+            read: isRead,
+            details: {
+              scope: ann.audience === 'all' ? 'All Clients & Employees' : 'Employees',
+              publishedBy: ann.createdBy || `${companyName} HR & Admin`,
+              message: ann.message,
+            },
+          });
+        }
+      });
+    }
+
+    // 5. Live Absence Alerts (only if actual records exist in DB)
+    if (Array.isArray(attendanceRecords)) {
+      attendanceRecords.slice(0, 5).forEach((r) => {
+        const s = String(r.status || '').toLowerCase();
+        if (s === 'absent') {
+          const uniqueId = `notif-att-absent-${r.date}`;
+          if (!seenMap.has(uniqueId)) {
+            seenMap.add(uniqueId);
+            const isRead = readIds.includes(uniqueId);
+            list.push({
+              id: uniqueId,
+              type: 'document',
+              title: `Absence Logged: ${r.date}`,
+              description: `You were marked Absent on ${r.date}. If this was scheduled, please apply for regularized leave.`,
+              date: r.date,
+              time: '10:00 AM',
+              priority: true,
+              read: isRead,
+              actionUrl: '/employee/attendance',
+              actionLabel: 'View Attendance',
+              details: { document: `Attendance Status (${r.date})`, status: 'Absent' },
+            });
+          }
+        }
+      });
+    }
+
+    return list;
+  }, [dbNotifications, inventoryRequests, leaveRequests, announcements, attendanceRecords, readIds, companyName]);
 
   // Counts
   const totalCount = notifs.length;
@@ -670,27 +786,53 @@ function EmployeeNotifications() {
   const hasMore = filteredNotifs.length > visibleCount;
 
   // Handlers
-  const handleMarkRead = useCallback((id) => {
+  const handleMarkRead = useCallback(async (notifItem) => {
+    const notifId = typeof notifItem === 'string' ? notifItem : notifItem?.id;
+    const rawId = notifItem?.rawId;
+
+    if (rawId) {
+      try {
+        await notificationService.markAsRead(companyId, rawId);
+      } catch (e) {
+        console.warn('Error marking notification as read on backend:', e);
+      }
+    }
+
+    setDbNotifications((prev) =>
+      prev.map((n) => (n._id === rawId || n.id === rawId ? { ...n, status: 'read' } : n))
+    );
+
     setReadIds((prev) => {
-      const next = Array.from(new Set([...prev, id]));
+      const next = Array.from(new Set([...prev, notifId, rawId].filter(Boolean)));
       try {
         localStorage.setItem(`novaspark_read_notifs_${employeeId}`, JSON.stringify(next));
         window.dispatchEvent(new Event('notif_read_updated'));
       } catch {}
       return next;
     });
-  }, [employeeId]);
+  }, [companyId, employeeId]);
 
-  const handleMarkAllRead = useCallback(() => {
-    const allIds = notifs.map((n) => n.id);
-    setReadIds(allIds);
+  const handleMarkAllRead = useCallback(async () => {
     try {
-      localStorage.setItem(`novaspark_read_notifs_${employeeId}`, JSON.stringify(allIds));
+      await notificationService.markAllAsRead(companyId);
+    } catch (e) {
+      console.warn('Error marking all notifications as read on backend:', e);
+    }
+
+    setDbNotifications((prev) => prev.map((n) => ({ ...n, status: 'read' })));
+
+    const allIds = notifs.map((n) => n.id);
+    const allRawIds = notifs.map((n) => n.rawId).filter(Boolean);
+    const combinedIds = Array.from(new Set([...allIds, ...allRawIds]));
+
+    setReadIds(combinedIds);
+    try {
+      localStorage.setItem(`novaspark_read_notifs_${employeeId}`, JSON.stringify(combinedIds));
       window.dispatchEvent(new Event('notif_read_updated'));
     } catch {}
     setShowToast(true);
     setTimeout(() => setShowToast(false), 3000);
-  }, [notifs, employeeId]);
+  }, [companyId, notifs, employeeId]);
 
   const handleApplyFilters = () => {
     setAppliedType(draftType);
@@ -713,7 +855,7 @@ function EmployeeNotifications() {
   };
 
   const handleOpenDetail = (notif) => {
-    if (!notif.read) handleMarkRead(notif.id);
+    if (!notif.read) handleMarkRead(notif);
     setSelectedNotif(notif);
   };
 
@@ -798,7 +940,7 @@ function EmployeeNotifications() {
             <Search size={14} className={styles.searchIcon} aria-hidden="true" />
             <input
               id="notif-search"
-              type="text"
+              type="search"
               className={styles.searchInput}
               placeholder="Search notifications..."
               value={searchQuery}
@@ -924,7 +1066,7 @@ function EmployeeNotifications() {
             <div className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <h2>
-                  <span className={`${styles.sectionHeaderIcon} ${styles.iconAnnounceSection}`} aria-hidden="true">
+                  <span className={`${styles.sectionHeaderIcon} ${styles.iconAnn}`} aria-hidden="true">
                     <Megaphone size={14} />
                   </span>
                   Announcements
@@ -1000,11 +1142,13 @@ function EmployeeNotifications() {
       </div>
 
       {/* ── Detail Modal ── */}
-      <NotificationDetailsModal
-        notif={selectedNotif}
-        onClose={() => setSelectedNotif(null)}
-        onNavigate={navigate}
-      />
+      {selectedNotif && (
+        <NotificationDetailsModal
+          notif={selectedNotif}
+          onClose={() => setSelectedNotif(null)}
+          onNavigate={navigate}
+        />
+      )}
     </main>
   );
 }

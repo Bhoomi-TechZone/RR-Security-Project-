@@ -32,12 +32,14 @@ export const getAnnouncements = async (req, res) => {
 
     const andConditions = [];
 
-    // Company isolation condition (matches companyId or default)
+    // Relaxed Company isolation condition (matches companyId or unassigned announcements)
     if (companyId) {
       andConditions.push({
         $or: [
           { companyId: companyId },
           { companyId: { $regex: new RegExp(`^${companyId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+          { companyId: null },
+          { companyId: '' },
           { companyId: { $exists: false } }
         ]
       });
@@ -45,34 +47,53 @@ export const getAnnouncements = async (req, res) => {
 
     // Role-based filtering
     if (role === 'employee' || employeeId) {
-      andConditions.push({ status: 'published' });
+      andConditions.push({
+        $or: [
+          { status: 'published' },
+          { status: { $exists: false } },
+          { status: null }
+        ]
+      });
       andConditions.push({
         $or: [
           { audience: 'all' },
+          { audience: { $in: ['all', 'All Clients & Employees', 'ALL', 'all clients & employees', null] } },
+          { audience: { $exists: false } },
           {
-            audience: 'employees',
+            audience: { $in: ['employees', 'Employees'] },
             $or: [
               { employeeId: null },
               { employeeId: '' },
+              { employeeId: { $exists: false } },
               { employeeId: employeeId }
             ]
           }
         ]
       });
     } else if (role === 'client' || clientId) {
-      andConditions.push({ status: 'published' });
+      andConditions.push({
+        $or: [
+          { status: 'published' },
+          { status: { $exists: false } },
+          { status: null }
+        ]
+      });
       andConditions.push({
         $or: [
           { audience: 'all' },
+          { audience: { $in: ['all', 'All Clients & Employees', 'ALL', 'all clients & employees', null] } },
+          { audience: { $exists: false } },
           {
-            audience: 'clients',
+            audience: { $in: ['clients', 'Clients'] },
             $or: [
               { targetClientId: null },
               { targetClientId: '' },
+              { targetClientId: { $exists: false } },
               { targetClientId: clientId },
               { companyIdTarget: clientId },
               { companyName: clientId },
-              { targetClientName: clientId }
+              { targetClientName: clientId },
+              ...(clientId ? [{ targetClientId: { $regex: new RegExp(`^${clientId}$`, 'i') } }] : [])
             ]
           }
         ]

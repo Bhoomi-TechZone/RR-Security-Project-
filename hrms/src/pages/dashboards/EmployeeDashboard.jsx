@@ -672,7 +672,20 @@ function EmployeeDashboard() {
     }
 
     loadDynamicDashboard();
-    return () => { isMounted = false; };
+    const interval = setInterval(loadDynamicDashboard, 5000);
+    const handleRefresh = () => loadDynamicDashboard();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
   }, [companyId, employeeId, currentMonthKey]);
 
   // Dynamic calculations from real records

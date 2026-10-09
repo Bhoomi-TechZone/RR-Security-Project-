@@ -97,6 +97,19 @@ function ClientDashboard() {
 
   useEffect(() => {
     fetchDashboard();
+    const interval = setInterval(fetchDashboard, 5000);
+    const handleRefresh = () => fetchDashboard();
+
+    window.addEventListener('focus', handleRefresh);
+    window.addEventListener('auth_state_changed', handleRefresh);
+    window.addEventListener('user_logged_in', handleRefresh);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleRefresh);
+      window.removeEventListener('user_logged_in', handleRefresh);
+    };
   }, [clientCompany?.clientId, clientCompany?.name]);
 
   // SVG Chart configurations & Multi-color bar palette
