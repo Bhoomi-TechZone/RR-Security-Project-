@@ -18,9 +18,16 @@ const formatMonthYearDisplay = (rec) => {
   if (rec.month && rec.year) {
     return `${rec.month} ${rec.year}`;
   }
-  if (rec.month) return rec.month;
+  if (rec.month) {
+    if (/^\d{4}-\d{2}$/.test(rec.month)) {
+      const [y, m] = rec.month.split('-').map(Number);
+      const d = new Date(y, m - 1, 1);
+      return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+    }
+    return rec.month;
+  }
   if (rec.date) {
-    const d = new Date(rec.date);
+    const d = new Date(rec.date.includes('T') ? rec.date : `${rec.date}T00:00:00`);
     if (!isNaN(d.getTime())) {
       return new Intl.DateTimeFormat('en-GB', {
         month: 'short',
@@ -64,6 +71,7 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
             <tr>
               <th>Employee</th>
               <th>Father Name</th>
+              <th>Client / Company</th>
               <th>Month / Year</th>
               <th style={{ color: '#16a34a' }}>Present</th>
               <th style={{ color: '#2563eb' }}>Week Off</th>
@@ -85,10 +93,16 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
               const sl = rec.sl !== undefined ? rec.sl : 0;
               const el = rec.el !== undefined ? rec.el : 0;
               const lwp = rec.lwp !== undefined ? rec.lwp : 0;
-              const workingDays = rec.workingDays || (rec.month && rec.year ? getDaysInMonth(rec.month, rec.year) : (rec.totalPaidDays !== undefined ? rec.totalPaidDays : (present + weekOff + holidays + cl + sl + el)));
+              const workingDays =
+                rec.workingDays ||
+                (rec.month && rec.year
+                  ? getDaysInMonth(rec.month, rec.year)
+                  : rec.totalPaidDays !== undefined
+                  ? rec.totalPaidDays
+                  : present + weekOff + holidays + cl + sl + el);
 
               return (
-                <tr key={rec.id} className={styles.row} onClick={() => onView(rec)}>
+                <tr key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.row} onClick={() => onView(rec)}>
                   <td>
                     <div className={styles.empCell}>
                       <div
@@ -105,6 +119,11 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
                   </td>
                   <td>
                     <span className={styles.fatherNameText}>{rec.fatherName || '—'}</span>
+                  </td>
+                  <td>
+                    <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                      {rec.companyName || rec.clientName || '—'}
+                    </span>
                   </td>
                   <td>
                     <span className={styles.monthText}>{formatMonthYearDisplay(rec)}</span>
@@ -161,10 +180,16 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
           const sl = rec.sl !== undefined ? rec.sl : 0;
           const el = rec.el !== undefined ? rec.el : 0;
           const lwp = rec.lwp !== undefined ? rec.lwp : 0;
-          const workingDays = rec.workingDays || (rec.month && rec.year ? getDaysInMonth(rec.month, rec.year) : (rec.totalPaidDays !== undefined ? rec.totalPaidDays : (present + weekOff + holidays + cl + sl + el)));
+          const workingDays =
+            rec.workingDays ||
+            (rec.month && rec.year
+              ? getDaysInMonth(rec.month, rec.year)
+              : rec.totalPaidDays !== undefined
+              ? rec.totalPaidDays
+              : present + weekOff + holidays + cl + sl + el);
 
           return (
-            <div key={rec.id} className={styles.card} onClick={() => onView(rec)}>
+            <div key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.card} onClick={() => onView(rec)}>
               <div className={styles.cardHeader}>
                 <div className={styles.empCell}>
                   <div
@@ -181,10 +206,14 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
                   </div>
                 </div>
                 <span className={styles.totalPaidBadge}>
-                  {workingDays} Working Days
+                  {workingDays} Days
                 </span>
               </div>
               <div className={styles.cardBody}>
+                <div className={styles.cardRow}>
+                  <span>Client</span>
+                  <span style={{ fontWeight: 600 }}>{rec.companyName || rec.clientName || '—'}</span>
+                </div>
                 <div className={styles.cardRow}>
                   <span>Month / Year</span>
                   <span className={styles.monthText}>{formatMonthYearDisplay(rec)}</span>
@@ -220,4 +249,3 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
 }
 
 export default AttendanceTable;
-

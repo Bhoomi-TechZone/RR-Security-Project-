@@ -97,15 +97,18 @@ export function CompanyProvider({ children }) {
             companyId: c.companyId || c.id
           }));
           setCompanies(formatted);
-          if (!formatted.some(c => (c.companyId === activeCompanyId || c.id === activeCompanyId))) {
-            setActiveCompanyId(formatted[0].companyId || formatted[0].id);
-          }
+          setActiveCompanyId(prev => {
+            if (formatted.some(c => c.companyId === prev || c.id === prev)) {
+              return prev;
+            }
+            return formatted[0].companyId || formatted[0].id;
+          });
         }
       }
     } catch (err) {
       // Offline fallback
     }
-  }, [activeCompanyId]);
+  }, []);
 
   useEffect(() => {
     refreshFromBackend();

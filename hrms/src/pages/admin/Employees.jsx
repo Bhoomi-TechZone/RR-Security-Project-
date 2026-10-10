@@ -321,11 +321,18 @@ function Employees() {
         body: JSON.stringify({
           password: credentialsData.password,
           enablePortalAccess: credentialsData.enablePortalAccess,
+          sendWelcomeEmail: credentialsData.sendWelcomeEmail,
+          recipientEmail: credentialsData.recipientEmail,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || 'Failed to update credentials');
-      showToast(`✓ Credentials updated successfully for ${credentialsEmployee?.name || 'employee'}.`, 'success');
+      
+      const successMsg = credentialsData.sendWelcomeEmail && credentialsData.recipientEmail
+        ? `✓ Credentials updated and Welcome Email dispatched to ${credentialsData.recipientEmail}!`
+        : `✓ Credentials updated successfully for ${credentialsEmployee?.name || 'employee'}.`;
+
+      showToast(successMsg, 'success');
       await fetchEmployees();
       setIsCredentialsOpen(false);
       setCredentialsEmployee(null);

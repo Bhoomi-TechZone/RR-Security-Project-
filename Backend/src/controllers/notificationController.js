@@ -1,4 +1,6 @@
 import Notification from '../models/notificationModel.js';
+import ComplianceConfig from '../models/documentComplianceModel.js';
+import { syncComplianceExpiryNotifications } from './complianceController.js';
 
 /**
  * Helper function to create a system notification in MongoDB
@@ -25,7 +27,7 @@ export const createSystemNotification = async ({
 
     const notification = new Notification({
       companyId,
-      adminEmail: adminEmail || 'office.rrsf@gmail.com',
+      adminEmail: adminEmail || process.env.EMAIL || '',
       recipientRole,
       recipientId,
       type,
@@ -60,12 +62,21 @@ export const getNotifications = async (req, res) => {
     const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId || 'RRS8392014SEC';
     const { type, status, search, page = 1, limit = 50, employeeId } = req.query;
 
+    // Check In-App Activity Bell settings from ComplianceConfig
+    const complianceConfig = await ComplianceConfig.findOne({ companyId }).lean();
+    const isExpiryAlertsEnabled = complianceConfig?.expiryConfig?.enabled !== false;
+    const isInAppBellTicked = complianceConfig?.expiryConfig?.channels?.inApp === true;
+
+    // If In-App Bell is ticked, run background sync for real-time fresh license alerts
+    if (isExpiryAlertsEnabled && isInAppBellTicked) {
+      syncComplianceExpiryNotifications(companyId).catch(() => {});
+    }
+
     const query = { companyId };
 
     const targetEmpId = employeeId || (user && user.role === 'employee' ? (user.employeeId || user.id) : null);
 
     // Role filtering:
-    // If employee or employeeId queried:
     if (user && user.role === 'employee') {
       const empId = user.employeeId || user.id;
       query.$or = [
@@ -102,6 +113,17 @@ export const getNotifications = async (req, res) => {
 
     if (status && status !== 'all') {
       query.status = status;
+    }
+
+    // Strictly enforce: if In-App Activity Bell is NOT ticked or alerts disabled -> hide expiry notifications
+    if (!isExpiryAlertsEnabled || !isInAppBellTicked) {
+      if (query.type) {
+        if (['document-expiry', 'compliance_alert'].includes(query.type)) {
+          query.type = '__hidden_suppressed__';
+        }
+      } else {
+        query.type = { $nin: ['document-expiry', 'compliance_alert'] };
+      }
     }
 
     if (search && search.trim()) {
@@ -144,6 +166,10 @@ export const getNotifications = async (req, res) => {
         : { recipientRole: { $in: ['admin', 'all'] } })
     };
 
+    if (!isExpiryAlertsEnabled || !isInAppBellTicked) {
+      unreadCountQuery.type = { $nin: ['document-expiry', 'compliance_alert'] };
+    }
+
     const [notifications, total, unreadCount] = await Promise.all([
       Notification.find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum),
       Notification.countDocuments(query),
@@ -178,6 +204,15 @@ export const getUnreadNotificationCount = async (req, res) => {
 
     const targetEmpId = employeeId || (user?.role === 'employee' ? (user.employeeId || user.id) : null);
     const query = { companyId, status: 'unread' };
+
+    // Check In-App Activity Bell settings from ComplianceConfig
+    const complianceConfig = await ComplianceConfig.findOne({ companyId }).lean();
+    const isExpiryAlertsEnabled = complianceConfig?.expiryConfig?.enabled !== false;
+    const isInAppBellTicked = complianceConfig?.expiryConfig?.channels?.inApp === true;
+
+    if (!isExpiryAlertsEnabled || !isInAppBellTicked) {
+      query.type = { $nin: ['document-expiry', 'compliance_alert'] };
+    }
 
     if (targetEmpId && user?.role !== 'admin') {
       query.$or = [

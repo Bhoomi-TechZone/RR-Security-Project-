@@ -35,7 +35,7 @@ function ClientHeader({ onToggleSidebar, onLogout }) {
     };
 
     loadUnread();
-    const interval = setInterval(loadUnread, 5000);
+    const interval = setInterval(loadUnread, 15000);
     const handleRefresh = () => loadUnread();
 
     window.addEventListener('focus', handleRefresh);

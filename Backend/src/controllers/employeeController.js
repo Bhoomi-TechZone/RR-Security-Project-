@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Employee from '../models/employeeModel.js';
 import Company from '../models/companyModel.js';
+import { sendEmployeeWelcomeEmail } from '../services/emailService.js';
 
 /**
  * @desc    Get all employees for the active company profile
@@ -445,6 +446,34 @@ export const updateEmployee = async (req, res) => {
     Object.assign(employee, req.body);
     await employee.save();
 
+    // If welcome email requested or credentials updated with sendWelcomeEmail flag
+    if (req.body.sendWelcomeEmail === true || req.body.sendEmail === true) {
+      const recipientEmail = (req.body.recipientEmail || employee.email || '').trim();
+      const rawPassword = req.body.password || employee.savedPassword || '••••••';
+      if (recipientEmail) {
+        let activeCompName = employee.companyName || employee.clientName || '';
+        if (companyId) {
+          try {
+            const compDoc = await Company.findOne({
+              $or: [
+                ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+                { companyId }
+              ]
+            }).lean();
+            if (compDoc?.name) activeCompName = compDoc.name;
+          } catch {}
+        }
+
+        sendEmployeeWelcomeEmail({
+          to: recipientEmail,
+          employeeData: employee,
+          password: rawPassword,
+          companyName: activeCompName,
+          companyId
+        }).catch(err => console.warn('[EmployeeController] Welcome email dispatch error:', err.message));
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: `Employee "${employee.name}" updated successfully (Client: ${employee.clientName || 'Unassigned'}).`,
@@ -455,6 +484,82 @@ export const updateEmployee = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update employee.'
+    });
+  }
+};
+
+/**
+ * @desc    Send Employee Portal Welcome Email with Credentials on Demand
+ * @route   POST /api/employees/:id/send-credentials
+ * @access  Private (Admin)
+ */
+export const sendEmployeeCredentials = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+
+    let query = { adminEmail };
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query.$or = [{ _id: id }, { employeeId: id }];
+    } else {
+      query.employeeId = id;
+    }
+    if (companyId) query.companyId = companyId;
+
+    const employee = await Employee.findOne(query);
+
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found.' });
+    }
+
+    const recipientEmail = (req.body.to || req.body.recipientEmail || employee.email || '').trim();
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recipient email specified and employee has no email on profile.'
+      });
+    }
+
+    const rawPassword = req.body.password || employee.savedPassword || employee.password || '••••••';
+
+    let activeCompName = employee.companyName || employee.clientName || '';
+    if (companyId) {
+      try {
+        const compDoc = await Company.findOne({
+          $or: [
+            ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+            { companyId }
+          ]
+        }).lean();
+        if (compDoc?.name) activeCompName = compDoc.name;
+      } catch {}
+    }
+
+    const result = await sendEmployeeWelcomeEmail({
+      to: recipientEmail,
+      employeeData: employee,
+      password: rawPassword,
+      companyName: activeCompName,
+      companyId
+    });
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: `Failed to send email: ${result.error}`
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Welcome email with login credentials successfully sent to ${recipientEmail}!`
+    });
+  } catch (error) {
+    console.error('Error in sendEmployeeCredentials:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to send credentials email.'
     });
   }
 };

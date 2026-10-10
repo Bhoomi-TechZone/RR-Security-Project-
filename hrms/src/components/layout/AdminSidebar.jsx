@@ -329,7 +329,6 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/document-compliance', name: 'Overview' },
-          { path: '/admin/document-compliance?tab=document-master', name: 'Document Master' },
           { path: '/admin/document-compliance?tab=verification-rules', name: 'Verification Rules' },
           { path: '/admin/document-compliance?tab=expiry-alert', name: 'Expiry Alert' },
           { path: '/admin/document-compliance?tab=police-verification', name: 'Police Verification' },

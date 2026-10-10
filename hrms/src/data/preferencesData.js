@@ -33,12 +33,12 @@ export const mockEmailConfig = {
   smtpHost: 'smtp.gmail.com',
   smtpPort: '587',
   encryption: 'TLS', // 'None' | 'SSL' | 'TLS'
-  smtpUsername: 'notifications@novasparkhrms.com',
-  smtpPassword: '••••••••••••••••',
-  fromEmail: 'noreply@novasparkhrms.com',
-  fromName: 'NovaSpark HRMS Admin',
-  replyToEmail: 'support@novasparkhrms.com',
-  lastUpdated: '2026-02-28 04:45 PM'
+  smtpUsername: '',
+  smtpPassword: '',
+  fromEmail: '',
+  fromName: 'HRMS Administrator',
+  replyToEmail: '',
+  lastUpdated: new Date().toLocaleDateString()
 };
 
 export const mockNotificationConfig = {

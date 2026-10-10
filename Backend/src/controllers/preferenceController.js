@@ -31,14 +31,14 @@ const DEFAULT_REPORTING_MANAGER = {
 
 const DEFAULT_EMAIL_CONFIG = {
   enabled: true,
-  smtpHost: 'smtp.gmail.com',
-  smtpPort: '587',
+  smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+  smtpPort: process.env.SMTP_PORT || '587',
   encryption: 'TLS',
-  smtpUsername: 'notifications@novasparkhrms.com',
-  smtpPassword: '••••••••••••••••',
-  fromEmail: 'noreply@novasparkhrms.com',
-  fromName: 'NovaSpark HRMS Admin',
-  replyToEmail: 'support@novasparkhrms.com',
+  smtpUsername: process.env.EMAIL || '',
+  smtpPassword: process.env.PASSWORD || '',
+  fromEmail: process.env.EMAIL || '',
+  fromName: 'RR Security & Facilities HRMS',
+  replyToEmail: process.env.EMAIL || '',
   lastUpdated: new Date().toISOString(),
 };
 
@@ -322,6 +322,84 @@ export const updatePreferences = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to save preferences.',
+    });
+  }
+};
+
+/**
+ * @desc    Send a live test email using configured SMTP / Gmail credentials
+ * @route   POST /api/preferences/test-email
+ * @access  Private (Admin)
+ */
+export const sendTestEmail = async (req, res) => {
+  try {
+    const { to } = req.body;
+    const companyId = req.headers['x-company-id'] || req.user?.companyId;
+    const adminEmail = req.user?.email?.toLowerCase();
+
+    const company = await findCompany(companyId, adminEmail);
+    const emailConfig = company?.preferences?.emailConfig;
+
+    const recipient = to || emailConfig?.fromEmail || req.user?.email || process.env.EMAIL;
+    if (!recipient) {
+      return res.status(400).json({ success: false, message: 'Recipient email is required.' });
+    }
+
+    const { createTransporter } = await import('../services/emailService.js');
+    const transporter = await createTransporter(companyId, emailConfig);
+
+    const fromAddress = emailConfig?.fromEmail || emailConfig?.smtpUsername || process.env.EMAIL;
+    const fromName = emailConfig?.fromName || company?.name || 'RR Security & Facilities HRMS';
+
+    const info = await transporter.sendMail({
+      from: `"${fromName}" <${fromAddress}>`,
+      to: recipient,
+      replyTo: fromAddress,
+      subject: `[${fromName}] Email Verification & Test Notification`,
+      text: `
+HRMS Email Configuration Verified
+==================================
+This is a test notification confirming that email dispatch for ${fromName} is active and delivering correctly.
+
+Sender: ${fromAddress}
+Recipient: ${recipient}
+Timestamp: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+
+NovaSpark HRMS Compliance & Notification Engine
+`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 550px; margin: 0 auto; padding: 25px; border: 1px solid #e2e8f0; border-radius: 8px; background: #ffffff;">
+          <h2 style="color: #16a34a; margin-top: 0;">Email Connection Verified</h2>
+          <p style="color: #334155; font-size: 14px; line-height: 1.6;">
+            This is a test notification confirming that the email integration for <strong>${fromName}</strong> is active and delivering emails dynamically.
+          </p>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px; border-radius: 6px; font-size: 13px; color: #475569;">
+            <strong>Sender:</strong> ${fromAddress}<br/>
+            <strong>Recipient:</strong> ${recipient}<br/>
+            <strong>Timestamp:</strong> ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+          </div>
+          <p style="color: #94a3b8; font-size: 11px; margin-top: 20px;">
+            NovaSpark HRMS Compliance &amp; Notification Engine &bull; ${fromName}
+          </p>
+        </div>
+      `,
+      headers: {
+        'X-Mailer': 'NovaSpark HRMS Notification System',
+        'Auto-Submitted': 'auto-generated',
+        'Importance': 'Normal'
+      }
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `Test email successfully sent to ${recipient}!`,
+      messageId: info.messageId
+    });
+  } catch (error) {
+    console.error('Error sending test email:', error);
+    return res.status(500).json({
+      success: false,
+      message: `Failed to send test email: ${error.message}`
     });
   }
 };

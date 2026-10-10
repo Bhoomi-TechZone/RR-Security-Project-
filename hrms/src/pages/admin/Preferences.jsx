@@ -146,7 +146,7 @@ function Preferences() {
       const updated = { ...employeePortal, lastUpdated: new Date().toLocaleString() };
       const savedPortal = await preferenceService.updateEmployeePortalPreferences(companyId, updated);
       setEmployeePortal(savedPortal || updated);
-      showToast('Employee Portal preferences saved to database successfully!');
+      showToast('Employee Portal preferences saved successfully!');
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Failed to save employee portal preferences.', 'error');
@@ -165,7 +165,7 @@ function Preferences() {
           setIsSaving(true);
           const saved = await preferenceService.updateEmployeePortalPreferences(companyId, mockEmployeePortalConfig);
           setEmployeePortal(saved || mockEmployeePortalConfig);
-          showToast('Employee Portal preferences reset to default in database.', 'info');
+          showToast('Employee Portal preferences reset to default.', 'info');
         } catch (err) {
           showToast(err.message || 'Failed to reset employee portal preferences.', 'error');
         } finally {
@@ -186,7 +186,7 @@ function Preferences() {
       const updated = { ...emailConfig, lastUpdated: new Date().toLocaleString() };
       await preferenceService.updatePreferences(companyId, { emailConfig: updated });
       setEmailConfig(updated);
-      showToast('Email & SMTP settings saved to database successfully!');
+      showToast('Email & SMTP settings saved successfully!');
     } catch (err) {
       showToast(err.message || 'Failed to save email settings.', 'error');
     } finally {
@@ -204,7 +204,7 @@ function Preferences() {
           setIsSaving(true);
           await preferenceService.updatePreferences(companyId, { emailConfig: mockEmailConfig });
           setEmailConfig(mockEmailConfig);
-          showToast('Email settings reset to default in database.', 'info');
+          showToast('Email settings reset to default.', 'info');
         } catch (err) {
           showToast(err.message || 'Failed to reset email settings.', 'error');
         } finally {
@@ -214,19 +214,23 @@ function Preferences() {
     });
   };
 
-  const handleSendTestEmail = (e) => {
+  const handleSendTestEmail = async (e) => {
     e.preventDefault();
     if (!testEmailRecipient || !testEmailRecipient.includes('@')) {
       showToast('Please enter a valid email address.', 'error');
       return;
     }
-    setIsSendingTest(true);
-    setTimeout(() => {
-      setIsSendingTest(false);
+    try {
+      setIsSendingTest(true);
+      const res = await preferenceService.sendTestEmail(companyId, testEmailRecipient);
       setIsTestEmailOpen(false);
+      showToast(res.message || `Test email successfully sent to ${testEmailRecipient}!`);
       setTestEmailRecipient('');
-      showToast(`Test email successfully sent to ${testEmailRecipient}!`);
-    }, 1200);
+    } catch (err) {
+      showToast(err.message || 'Failed to send test email.', 'error');
+    } finally {
+      setIsSendingTest(false);
+    }
   };
 
   const saveNotificationConfig = async () => {
@@ -235,7 +239,7 @@ function Preferences() {
       const updated = { ...notificationConfig, lastUpdated: new Date().toLocaleString() };
       await preferenceService.updatePreferences(companyId, { notificationConfig: updated });
       setNotificationConfig(updated);
-      showToast('Notification settings saved to database successfully!');
+      showToast('Notification settings saved successfully!');
     } catch (err) {
       showToast(err.message || 'Failed to save notification settings.', 'error');
     } finally {
@@ -253,7 +257,7 @@ function Preferences() {
           setIsSaving(true);
           await preferenceService.updatePreferences(companyId, { notificationConfig: mockNotificationConfig });
           setNotificationConfig(mockNotificationConfig);
-          showToast('Notification settings reset to default in database.', 'info');
+          showToast('Notification settings reset to default.', 'info');
         } catch (err) {
           showToast(err.message || 'Failed to reset notification settings.', 'error');
         } finally {
@@ -269,7 +273,7 @@ function Preferences() {
       const updated = { ...approvalConfig, lastUpdated: new Date().toLocaleString() };
       await preferenceService.updatePreferences(companyId, { approvalConfig: updated });
       setApprovalConfig(updated);
-      showToast('Approval workflow chains saved to database successfully!');
+      showToast('Approval workflow chains saved successfully!');
     } catch (err) {
       showToast(err.message || 'Failed to save approval workflows.', 'error');
     } finally {
@@ -287,7 +291,7 @@ function Preferences() {
           setIsSaving(true);
           await preferenceService.updatePreferences(companyId, { approvalConfig: mockApprovalConfig });
           setApprovalConfig(mockApprovalConfig);
-          showToast('Approval workflows reset to default in database.', 'info');
+          showToast('Approval workflows reset to default.', 'info');
         } catch (err) {
           showToast(err.message || 'Failed to reset approval workflows.', 'error');
         } finally {

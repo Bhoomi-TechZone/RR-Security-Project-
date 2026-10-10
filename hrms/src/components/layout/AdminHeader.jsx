@@ -38,7 +38,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     };
 
     fetchUnread();
-    const interval = setInterval(fetchUnread, 5000); // Polling every 5s for instant live alerts
+    const interval = setInterval(fetchUnread, 15000); // Polling every 15s for smooth background live updates
     const handleRefresh = () => fetchUnread();
 
     window.addEventListener('focus', handleRefresh);

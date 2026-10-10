@@ -217,7 +217,12 @@ function CompanyDetails() {
     await updateCompanyInMaster(updated);
     await fetchClientDetails();
     window.dispatchEvent(new CustomEvent('clients-updated'));
-    showToast('✓ Client login credentials saved successfully.', 'success');
+
+    const successMsg = credentialsData.sendWelcomeEmail && credentialsData.recipientEmail
+      ? `✓ Credentials updated and Welcome Email dispatched to ${credentialsData.recipientEmail}!`
+      : '✓ Client login credentials saved successfully.';
+
+    showToast(successMsg, 'success');
   };
 
   if (loading) {

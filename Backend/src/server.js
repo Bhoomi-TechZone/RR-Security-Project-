@@ -27,6 +27,9 @@ import reimbursementRoutes from './routes/reimbursementRoutes.js';
 import advanceLoanRoutes from './routes/advanceLoanRoutes.js';
 import payrollSetupRoutes from './routes/payrollSetupRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import reportRoutes from './routes/reportRoutes.js';
+import overtimeRoutes from './routes/overtimeRoutes.js';
+import complianceRoutes from './routes/complianceRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -225,6 +228,15 @@ app.use('/api/payroll-setup', payrollSetupRoutes);
 
 // Dynamic System & Activity Notifications (Assets, Uniforms, Reimbursements, Loans, Leaves)
 app.use('/api/notifications', notificationRoutes);
+
+// Dynamic Reports Generation Engine (Wage/Salary Register, Attendance, Billing, Master, Inventory)
+app.use('/api/reports', reportRoutes);
+
+// Dynamic Overtime Management Engine (Records, Approvals, History, Analytics)
+app.use('/api/overtime', overtimeRoutes);
+
+// Dynamic Document & Compliance (Verification Rules, Expiry Alerts, License Tracker, Police Verification)
+app.use('/api/compliance', complianceRoutes);
 
 
 // ===========================================

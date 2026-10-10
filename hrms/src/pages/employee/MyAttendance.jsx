@@ -149,7 +149,7 @@ function MyAttendance() {
         <header className={styles.pageHeader}>
           <div>
             <h1>My Attendance</h1>
-            <p>View your dynamic attendance records and monthly attendance summary directly from database.</p>
+            <p>View your dynamic attendance records and monthly attendance summary.</p>
           </div>
 
           <label className={styles.monthSelector}>
@@ -208,7 +208,7 @@ function MyAttendance() {
         />
 
         {isLoading ? (
-          <section className={styles.loading}>Loading real-time attendance from database...</section>
+          <section className={styles.loading}>Loading live attendance records...</section>
         ) : (
           <EmployeeAttendanceTable
             records={paginatedRecords}

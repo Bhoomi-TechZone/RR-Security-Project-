@@ -4,6 +4,7 @@ import {
   getEmployeePortalAccess,
   updateEmployeePortalPreferences,
   updatePreferences,
+  sendTestEmail,
 } from '../controllers/preferenceController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
@@ -21,5 +22,7 @@ router.route('/')
 
 router.route('/employee-portal')
   .put(adminOnly, updateEmployeePortalPreferences);
+
+router.post('/test-email', adminOnly, sendTestEmail);
 
 export default router;

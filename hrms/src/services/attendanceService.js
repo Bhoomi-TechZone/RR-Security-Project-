@@ -19,12 +19,17 @@ class AttendanceService {
     const query = new URLSearchParams();
     if (params.date) query.append('date', params.date);
     if (params.month) query.append('month', params.month);
+    if (params.year) query.append('year', params.year);
+    if (params.fromDate) query.append('fromDate', params.fromDate);
+    if (params.toDate) query.append('toDate', params.toDate);
     if (params.clientName) query.append('clientName', params.clientName);
+    if (params.companyName) query.append('companyName', params.companyName);
     if (params.site) query.append('site', params.site);
     if (params.department) query.append('department', params.department);
     if (params.status) query.append('status', params.status);
     if (params.search) query.append('search', params.search);
     if (params.employeeId) query.append('employeeId', params.employeeId);
+    if (companyId) query.append('companyId', companyId);
 
     const res = await fetch(`${API_BASE_URL}/attendance?${query.toString()}`, {
       method: 'GET',
@@ -35,7 +40,7 @@ class AttendanceService {
     if (!res.ok) {
       throw new Error(data.message || 'Failed to fetch attendance records');
     }
-    return data.records || [];
+    return data;
   }
 
   /**

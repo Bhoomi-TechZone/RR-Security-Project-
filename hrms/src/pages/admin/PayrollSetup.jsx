@@ -176,10 +176,10 @@ function PayrollSetup() {
       if (editingGroup) {
         const targetId = editingGroup._id || editingGroup.id;
         await payrollSetupService.updatePayGroup(companyId, targetId, formData);
-        showToast('✓ Pay Group updated successfully in database.');
+        showToast('✓ Pay Group updated successfully.');
       } else {
         await payrollSetupService.createPayGroup(companyId, formData);
-        showToast('✓ Pay Group created successfully in database.');
+        showToast('✓ Pay Group created successfully.');
       }
       setIsGroupModalOpen(false);
       setEditingGroup(null);
@@ -196,10 +196,10 @@ function PayrollSetup() {
       if (editingSchedule) {
         const targetId = editingSchedule._id || editingSchedule.id;
         await payrollSetupService.updatePaySchedule(companyId, targetId, formData);
-        showToast('✓ Pay Schedule updated successfully in database.');
+        showToast('✓ Pay Schedule updated successfully.');
       } else {
         await payrollSetupService.createPaySchedule(companyId, formData);
-        showToast('✓ Pay Schedule created successfully in database.');
+        showToast('✓ Pay Schedule created successfully.');
       }
       setIsScheduleModalOpen(false);
       setEditingSchedule(null);
@@ -216,10 +216,10 @@ function PayrollSetup() {
       if (editingCycle) {
         const targetId = editingCycle._id || editingCycle.id;
         await payrollSetupService.updatePayCycle(companyId, targetId, formData);
-        showToast('✓ Pay Cycle updated successfully in database.');
+        showToast('✓ Pay Cycle updated successfully.');
       } else {
         await payrollSetupService.createPayCycle(companyId, formData);
-        showToast('✓ Pay Cycle created successfully in database.');
+        showToast('✓ Pay Cycle created successfully.');
       }
       setIsCycleModalOpen(false);
       setEditingCycle(null);
@@ -236,10 +236,10 @@ function PayrollSetup() {
       if (editingPayDay) {
         const targetId = editingPayDay._id || editingPayDay.id;
         await payrollSetupService.updatePayDay(companyId, targetId, formData);
-        showToast('✓ Pay Day rule updated successfully in database.');
+        showToast('✓ Pay Day rule updated successfully.');
       } else {
         await payrollSetupService.createPayDay(companyId, formData);
-        showToast('✓ Pay Day rule created successfully in database.');
+        showToast('✓ Pay Day rule created successfully.');
       }
       setIsPayDayModalOpen(false);
       setEditingPayDay(null);
@@ -254,7 +254,7 @@ function PayrollSetup() {
   const handleSetDefaultMethod = async (methodId) => {
     try {
       await payrollSetupService.setDefaultCalculationMethod(companyId, methodId);
-      showToast('✓ Default Salary Calculation Method updated in database.');
+      showToast('✓ Default Salary Calculation Method updated.');
       fetchSetupData();
     } catch (err) {
       console.error('Error setting default calculation method:', err);
@@ -295,7 +295,7 @@ function PayrollSetup() {
         await payrollSetupService.updatePayDay(companyId, targetId, { status: newStatus });
       }
 
-      showToast(`✓ Record marked as ${newStatus} in database.`);
+      showToast(`✓ Record marked as ${newStatus}.`);
       setConfirmModal(prev => ({ ...prev, isOpen: false }));
       fetchSetupData();
     } catch (err) {
@@ -418,7 +418,7 @@ function PayrollSetup() {
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px', gap: '10px' }}>
             <Loader2 size={28} className={styles.spin} />
-            <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>Connecting to MongoDB database...</span>
+            <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>Loading setup configurations...</span>
           </div>
         ) : (
           <>
@@ -545,7 +545,7 @@ function PayrollSetup() {
                   <div className={styles.emptyWrapper}>
                     <EmptyState
                       title="No Pay Groups Found"
-                      description="No pay groups match your current filter criteria or database is empty."
+                      description="No pay groups match your current filter criteria."
                       actionLabel="Clear Filters"
                       onAction={() => {
                         setSearchTerm('');

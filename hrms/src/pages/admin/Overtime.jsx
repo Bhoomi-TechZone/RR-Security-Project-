@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Download,
@@ -15,7 +15,11 @@ import {
   CalendarDays,
   Filter,
   Save,
-  UserPlus
+  Trash2,
+  Check,
+  AlertCircle,
+  RefreshCw,
+  Eye
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Pagination from '../../components/common/Pagination';
@@ -23,14 +27,17 @@ import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
 import { usePermissions } from '../../context/PermissionContext';
-import { mockOvertimeRecords } from '../../data/overtimeData';
-import { mockCompanies } from '../../data/companyData';
-import { mockEmployees } from '../../data/employeeData';
+import { useCompany } from '../../context/CompanyContext';
+import overtimeService from '../../services/overtimeService';
+import { employeeService } from '../../services/employeeService';
+import { clientService } from '../../services/clientService';
+import { generateReportPdf } from '../../utils/pdfExportUtil';
+import { generateReportExcel } from '../../utils/excelExportUtil';
 import styles from './Overtime.module.css';
 
-const STORAGE_KEY = 'novaspark_overtime_records';
 const PAGE_SIZE = 10;
-const SITES = ['Main Gate', 'Warehouse', 'Office Building', 'Hospital Block', 'Parking Area'];
+const SITES = ['Main Gate', 'Warehouse', 'Office Building', 'Hospital Block', 'Parking Area', 'Main Site', 'HQ Tower'];
+const DEPARTMENTS = ['Security', 'Operations', 'Administration', 'HR', 'Accounts', 'Housekeeping', 'Facility Management'];
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat('en-IN', {
@@ -41,7 +48,7 @@ const formatCurrency = (value) =>
 
 const formatDate = (dateString) => {
   if (!dateString) return '—';
-  const date = new Date(dateString);
+  const date = new Date(dateString.includes('T') ? dateString : `${dateString}T00:00:00`);
   if (Number.isNaN(date.getTime())) return dateString;
   return new Intl.DateTimeFormat('en-GB', {
     day: '2-digit',
@@ -55,35 +62,15 @@ const asHoursLabel = (hours) => {
   if (Number.isInteger(rounded)) return `${rounded}h`;
   const whole = Math.floor(rounded);
   const minutes = Math.round((rounded - whole) * 60);
-  return `${whole}h ${minutes}m`;
+  return minutes > 0 ? `${whole}h ${minutes}m` : `${whole}h`;
 };
 
-const getSummary = (records) => {
-  const totalHours = records.reduce((sum, item) => sum + Number(item.overtimeHours || 0), 0);
-  const pendingHours = records
-    .filter((item) => item.status === 'pending')
-    .reduce((sum, item) => sum + Number(item.overtimeHours || 0), 0);
-  const approvedHours = records
-    .filter((item) => item.status === 'approved')
-    .reduce((sum, item) => sum + Number(item.overtimeHours || 0), 0);
-  const totalAmount = records.reduce((sum, item) => sum + Number(item.overtimeAmount || 0), 0);
-
-  return {
-    totalHours,
-    pendingHours,
-    approvedHours,
-    totalAmount,
-  };
-};
-
-function OvertimeSummaryCards({ records }) {
-  const summary = getSummary(records);
-
+function OvertimeSummaryCards({ summary }) {
   const cards = [
-    { label: 'Total Overtime', value: `${asHoursLabel(summary.totalHours)} hrs`, icon: Timer, tone: styles.blue },
-    { label: 'Pending', value: `${asHoursLabel(summary.pendingHours)} hrs`, icon: Clock3, tone: styles.yellow },
-    { label: 'Approved', value: `${asHoursLabel(summary.approvedHours)} hrs`, icon: CircleCheck, tone: styles.green },
-    { label: 'OT Amount', value: formatCurrency(summary.totalAmount), icon: IndianRupee, tone: styles.purple },
+    { label: 'Total Overtime', value: `${asHoursLabel(summary?.totalHours || 0)} hrs`, icon: Timer, tone: styles.blue },
+    { label: 'Pending', value: `${asHoursLabel(summary?.pendingHours || 0)} hrs`, icon: Clock3, tone: styles.yellow },
+    { label: 'Approved', value: `${asHoursLabel(summary?.approvedHours || 0)} hrs`, icon: CircleCheck, tone: styles.green },
+    { label: 'OT Amount', value: formatCurrency(summary?.totalAmount || 0), icon: IndianRupee, tone: styles.purple },
   ];
 
   return (
@@ -103,19 +90,12 @@ function OvertimeSummaryCards({ records }) {
   );
 }
 
-function OvertimeOverview({ records }) {
-  const employeesWithOT = new Set(records.map((item) => item.employeeId)).size;
-  const average = records.length ? records.reduce((sum, item) => sum + Number(item.overtimeHours || 0), 0) / employeesWithOT : 0;
-  const highest = records.length
-    ? Math.max(...records.map((item) => Number(item.overtimeHours || 0)))
-    : 0;
-  const pendingCount = records.filter((item) => item.status === 'pending').length;
-
+function OvertimeOverview({ summary }) {
   const items = [
-    { label: 'Employees with Overtime', value: employeesWithOT },
-    { label: 'Average OT / Employee', value: `${average.toFixed(1)} hrs` },
-    { label: 'Highest OT', value: `${asHoursLabel(highest)}` },
-    { label: 'Pending Requests', value: pendingCount },
+    { label: 'Employees with Overtime', value: summary?.employeesWithOvertime ?? 0 },
+    { label: 'Average OT / Employee', value: `${summary?.averageHoursPerEmployee ?? '0.0'} hrs` },
+    { label: 'Highest OT', value: `${asHoursLabel(summary?.highestHours ?? 0)}` },
+    { label: 'Pending Requests', value: summary?.pendingCount ?? 0 },
   ];
 
   return (
@@ -137,7 +117,7 @@ function OvertimeOverview({ records }) {
 
 function OvertimeDateSelector({ selectedDate, setSelectedDate, onToday }) {
   const moveDate = (direction) => {
-    const date = new Date(selectedDate);
+    const date = new Date(selectedDate || new Date().toISOString().slice(0, 10));
     date.setDate(date.getDate() + direction);
     setSelectedDate(date.toISOString().slice(0, 10));
   };
@@ -187,6 +167,7 @@ function OvertimeFilters({
   toDate,
   setToDate,
   onReset,
+  clientsList = [],
 }) {
   return (
     <div className={styles.filterCard}>
@@ -210,8 +191,10 @@ function OvertimeFilters({
           <label className={styles.fieldLabel}>Client</label>
           <select className={styles.select} value={clientFilter} onChange={(e) => setClientFilter(e.target.value)}>
             <option value="">All Clients</option>
-            {mockCompanies.map((company) => (
-              <option key={company.id} value={company.name}>{company.name}</option>
+            {clientsList.map((client) => (
+              <option key={client.id || client._id || client.clientName || client.name} value={client.clientName || client.name}>
+                {client.clientName || client.name}
+              </option>
             ))}
           </select>
         </div>
@@ -230,7 +213,7 @@ function OvertimeFilters({
           <label className={styles.fieldLabel}>Department</label>
           <select className={styles.select} value={departmentFilter} onChange={(e) => setDepartmentFilter(e.target.value)}>
             <option value="">All Departments</option>
-            {['Security', 'Operations', 'Administration', 'HR', 'Accounts', 'Housekeeping'].map((dept) => (
+            {DEPARTMENTS.map((dept) => (
               <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
@@ -265,8 +248,15 @@ function OvertimeFilters({
   );
 }
 
-function OvertimeTable({ rows, onView, onApprove, onReject, onEdit }) {
+function OvertimeTable({ rows, onView, onApprove, onReject, onDelete }) {
   const [openMenuId, setOpenMenuId] = useState(null);
+
+  const getInitials = (name) => {
+    if (!name) return 'OT';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
 
   return (
     <div className={styles.tableCard}>
@@ -288,47 +278,83 @@ function OvertimeTable({ rows, onView, onApprove, onReject, onEdit }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.id}>
-                <td>
-                  <div className={styles.employeeCell}>
-                    <div className={styles.employeeAvatar}>{row.initials}</div>
-                    <span className={styles.employeeName}>{row.employeeName}</span>
-                  </div>
-                </td>
-                <td className={styles.secondaryText}>{row.employeeId}</td>
-                <td className={styles.secondaryText}>{row.clientName}</td>
-                <td className={styles.secondaryText}>{row.site}</td>
-                <td className={styles.secondaryText}>{formatDate(row.date)}</td>
-                <td className={styles.secondaryText}>{asHoursLabel(row.regularHours)}</td>
-                <td className={styles.otHours}>{asHoursLabel(row.overtimeHours)}</td>
-                <td className={styles.rateValue}>{formatCurrency(row.overtimeRate)} / hr</td>
-                <td className={styles.currencyValue}>{formatCurrency(row.overtimeAmount)}</td>
-                <td><StatusBadge status={row.status} /></td>
-                <td className={styles.actionCell}>
-                  <button className={styles.iconBtn} aria-label="Open overtime actions" onClick={() => setOpenMenuId(openMenuId === row.id ? null : row.id)}>
-                    <MoreVertical size={16} />
-                  </button>
-
-                  {openMenuId === row.id && (
-                    <div className={styles.actionMenu}>
-                      <ul className={styles.menuList}>
-                        <li><button className={styles.menuItem} onClick={() => { onView(row); setOpenMenuId(null); }}>View Details</button></li>
-                        {(row.status === 'pending' || row.status === 'rejected') && (
-                          <li><button className={styles.menuItem} onClick={() => { onEdit(row); setOpenMenuId(null); }}>Edit Overtime</button></li>
-                        )}
-                        {row.status === 'pending' && (
-                          <>
-                            <li><button className={styles.menuItem} onClick={() => { onApprove(row); setOpenMenuId(null); }}>Approve</button></li>
-                            <li><button className={styles.menuItem} onClick={() => { onReject(row); setOpenMenuId(null); }}>Reject</button></li>
-                          </>
-                        )}
-                      </ul>
+            {rows.map((row) => {
+              const rowKey = row._id || row.overtimeId || row.id;
+              return (
+                <tr key={rowKey}>
+                  <td>
+                    <div className={styles.employeeCell}>
+                      <div className={styles.employeeAvatar}>{getInitials(row.employeeName)}</div>
+                      <span className={styles.employeeName}>{row.employeeName}</span>
                     </div>
-                  )}
-                </td>
-              </tr>
-            ))}
+                  </td>
+                  <td className={styles.secondaryText}>{row.employeeId}</td>
+                  <td className={styles.secondaryText}>{row.clientName || 'General Client'}</td>
+                  <td className={styles.secondaryText}>{row.site || 'Main Gate'}</td>
+                  <td className={styles.secondaryText}>{formatDate(row.date)}</td>
+                  <td className={styles.secondaryText}>{asHoursLabel(row.regularHours || 8)}</td>
+                  <td className={styles.otHours}>{asHoursLabel(row.overtimeHours)}</td>
+                  <td className={styles.rateValue}>{formatCurrency(row.overtimeRate)} / hr</td>
+                  <td className={styles.currencyValue}>{formatCurrency(row.overtimeAmount)}</td>
+                  <td><StatusBadge status={row.status} /></td>
+                  <td className={styles.actionCell}>
+                    <button
+                      className={styles.iconBtn}
+                      aria-label="Open overtime actions"
+                      onClick={() => setOpenMenuId(openMenuId === rowKey ? null : rowKey)}
+                    >
+                      <MoreVertical size={16} />
+                    </button>
+
+                    {openMenuId === rowKey && (
+                      <div className={styles.actionMenu}>
+                        <ul className={styles.menuList}>
+                          <li>
+                            <button
+                              className={styles.menuItem}
+                              onClick={() => { onView(row); setOpenMenuId(null); }}
+                            >
+                              <Eye size={14} style={{ marginRight: '6px' }} /> View Details
+                            </button>
+                          </li>
+                          {row.status === 'pending' && (
+                            <>
+                              <li>
+                                <button
+                                  className={styles.menuItem}
+                                  style={{ color: 'var(--success, #16a34a)' }}
+                                  onClick={() => { onApprove(row); setOpenMenuId(null); }}
+                                >
+                                  <Check size={14} style={{ marginRight: '6px' }} /> Approve
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  className={styles.menuItem}
+                                  style={{ color: 'var(--danger, #dc2626)' }}
+                                  onClick={() => { onReject(row); setOpenMenuId(null); }}
+                                >
+                                  <X size={14} style={{ marginRight: '6px' }} /> Reject
+                                </button>
+                              </li>
+                            </>
+                          )}
+                          <li>
+                            <button
+                              className={styles.menuItem}
+                              style={{ color: 'var(--danger, #dc2626)' }}
+                              onClick={() => { onDelete(row); setOpenMenuId(null); }}
+                            >
+                              <Trash2 size={14} style={{ marginRight: '6px' }} /> Delete
+                            </button>
+                          </li>
+                        </ul>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -350,23 +376,27 @@ function OvertimeDetailsDrawer({ selectedOvertime, onClose, onApprove, onReject 
 
         <div className={styles.drawerBody}>
           <h4 className={styles.drawerName}>{selectedOvertime.employeeName}</h4>
-          <p className={styles.drawerId}>{selectedOvertime.employeeId}</p>
+          <p className={styles.drawerId}>{selectedOvertime.employeeId} • {selectedOvertime.designation || 'Staff Guard'}</p>
 
           <div className={styles.detailGroup}>
             <span className={styles.detailLabel}>Client</span>
-            <span className={styles.detailValue}>{selectedOvertime.clientName}</span>
+            <span className={styles.detailValue}>{selectedOvertime.clientName || 'General Client'}</span>
           </div>
           <div className={styles.detailGroup}>
-            <span className={styles.detailLabel}>Site</span>
-            <span className={styles.detailValue}>{selectedOvertime.site}</span>
+            <span className={styles.detailLabel}>Site / Location</span>
+            <span className={styles.detailValue}>{selectedOvertime.site || 'Main Site'}</span>
+          </div>
+          <div className={styles.detailGroup}>
+            <span className={styles.detailLabel}>Department</span>
+            <span className={styles.detailValue}>{selectedOvertime.department || 'Security'}</span>
           </div>
           <div className={styles.detailGroup}>
             <span className={styles.detailLabel}>Date</span>
             <span className={styles.detailValue}>{formatDate(selectedOvertime.date)}</span>
           </div>
           <div className={styles.detailGroup}>
-            <span className={styles.detailLabel}>Regular Hours</span>
-            <span className={styles.detailValue}>{asHoursLabel(selectedOvertime.regularHours)}</span>
+            <span className={styles.detailLabel}>Shift / Timings</span>
+            <span className={styles.detailValue}>{selectedOvertime.shift || 'General'} ({selectedOvertime.startTime || '18:00'} - {selectedOvertime.endTime || '22:00'})</span>
           </div>
           <div className={styles.detailGroup}>
             <span className={styles.detailLabel}>Overtime Hours</span>
@@ -378,7 +408,9 @@ function OvertimeDetailsDrawer({ selectedOvertime, onClose, onApprove, onReject 
           </div>
           <div className={styles.detailGroup}>
             <span className={styles.detailLabel}>Overtime Amount</span>
-            <span className={styles.detailValue}>{formatCurrency(selectedOvertime.overtimeAmount)}</span>
+            <span className={styles.detailValue} style={{ color: 'var(--success, #16a34a)', fontWeight: 'bold' }}>
+              {formatCurrency(selectedOvertime.overtimeAmount)}
+            </span>
           </div>
           <div className={styles.detailGroup}>
             <span className={styles.detailLabel}>Status</span>
@@ -388,6 +420,18 @@ function OvertimeDetailsDrawer({ selectedOvertime, onClose, onApprove, onReject 
             <div className={styles.detailGroup}>
               <span className={styles.detailLabel}>Reason</span>
               <span className={styles.detailValue}>{selectedOvertime.reason}</span>
+            </div>
+          )}
+          {selectedOvertime.approvedBy && (
+            <div className={styles.detailGroup}>
+              <span className={styles.detailLabel}>Processed By</span>
+              <span className={styles.detailValue}>{selectedOvertime.approvedBy}</span>
+            </div>
+          )}
+          {selectedOvertime.rejectionReason && (
+            <div className={styles.detailGroup}>
+              <span className={styles.detailLabel}>Rejection Remarks</span>
+              <span className={styles.detailValue} style={{ color: 'var(--danger, #dc2626)' }}>{selectedOvertime.rejectionReason}</span>
             </div>
           )}
         </div>
@@ -410,7 +454,8 @@ function OvertimeFormModal({
   onChange,
   onClose,
   onSave,
-  mode = 'add',
+  employees = [],
+  clients = [],
 }) {
   if (!isOpen) return null;
 
@@ -420,9 +465,7 @@ function OvertimeFormModal({
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
       <div className={`${styles.modalCard} ${styles.modalCardWide}`}>
         <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>
-            {mode === 'edit' ? 'Edit Overtime' : 'Add Overtime'}
-          </h3>
+          <h3 className={styles.modalTitle}>Add Overtime Entry</h3>
           <button 
             type="button" 
             className={styles.modalCloseBtn} 
@@ -435,23 +478,29 @@ function OvertimeFormModal({
 
         <div className={styles.formGridFour}>
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Employee</label>
-            <select className={styles.select} value={formData.employeeId || ''} onChange={(e) => onChange('employeeId', e.target.value)}>
-              <option value="">Select employee</option>
-              {mockEmployees.map((employee) => (
-                <option key={employee.employeeId} value={employee.employeeId}>{employee.name}</option>
+            <label className={styles.fieldLabel}>Select Employee *</label>
+            <select
+              className={styles.select}
+              value={formData.employeeId || ''}
+              onChange={(e) => onChange('employeeId', e.target.value)}
+            >
+              <option value="">Select employee from DB</option>
+              {employees.map((emp) => (
+                <option key={emp.employeeId || emp.employeeCode || emp._id} value={emp.employeeId || emp.employeeCode}>
+                  {emp.name || emp.employeeName} ({emp.employeeId || emp.employeeCode})
+                </option>
               ))}
             </select>
             {errors.employeeId && <span className={styles.validation}>{errors.employeeId}</span>}
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Client</label>
-            <input className={styles.input} type="text" value={formData.clientName || ''} readOnly />
+            <label className={styles.fieldLabel}>Client / Company</label>
+            <input className={styles.input} type="text" value={formData.clientName || ''} onChange={(e) => onChange('clientName', e.target.value)} placeholder="Client Name" />
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Site</label>
+            <label className={styles.fieldLabel}>Site / Post *</label>
             <select className={styles.select} value={formData.site || ''} onChange={(e) => onChange('site', e.target.value)}>
               <option value="">Select site</option>
               {SITES.map((site) => (
@@ -462,37 +511,66 @@ function OvertimeFormModal({
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Date</label>
+            <label className={styles.fieldLabel}>Overtime Date *</label>
             <input className={styles.input} type="date" value={formData.date || ''} onChange={(e) => onChange('date', e.target.value)} />
             {errors.date && <span className={styles.validation}>{errors.date}</span>}
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Regular Hours</label>
-            <input className={styles.input} type="number" min="0" step="0.5" value={formData.regularHours || ''} onChange={(e) => onChange('regularHours', e.target.value)} />
-            {errors.regularHours && <span className={styles.validation}>{errors.regularHours}</span>}
+            <label className={styles.fieldLabel}>Shift</label>
+            <select className={styles.select} value={formData.shift || 'Night Shift'} onChange={(e) => onChange('shift', e.target.value)}>
+              <option value="Day Shift">Day Shift</option>
+              <option value="Night Shift">Night Shift</option>
+              <option value="General Shift">General Shift</option>
+              <option value="Reliever Shift">Reliever Shift</option>
+            </select>
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Overtime Hours</label>
-            <input className={styles.input} type="number" min="0" step="0.5" value={formData.overtimeHours || ''} onChange={(e) => onChange('overtimeHours', e.target.value)} />
+            <label className={styles.fieldLabel}>Overtime Hours *</label>
+            <input
+              className={styles.input}
+              type="number"
+              min="0.5"
+              step="0.5"
+              value={formData.overtimeHours || ''}
+              onChange={(e) => onChange('overtimeHours', e.target.value)}
+              placeholder="e.g. 4"
+            />
             {errors.overtimeHours && <span className={styles.validation}>{errors.overtimeHours}</span>}
           </div>
 
           <div className={styles.formField}>
-            <label className={styles.fieldLabel}>OT Rate (₹)</label>
-            <input className={styles.input} type="number" min="0" step="1" value={formData.overtimeRate || ''} onChange={(e) => onChange('overtimeRate', e.target.value)} />
+            <label className={styles.fieldLabel}>OT Rate (₹/hr) *</label>
+            <input
+              className={styles.input}
+              type="number"
+              min="0"
+              step="10"
+              value={formData.overtimeRate || ''}
+              onChange={(e) => onChange('overtimeRate', e.target.value)}
+              placeholder="e.g. 150"
+            />
             {errors.overtimeRate && <span className={styles.validation}>{errors.overtimeRate}</span>}
           </div>
 
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>Department</label>
-            <input className={styles.input} type="text" value={formData.department || ''} readOnly />
+            <select className={styles.select} value={formData.department || 'Security'} onChange={(e) => onChange('department', e.target.value)}>
+              {DEPARTMENTS.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
           </div>
 
           <div className={styles.formField} style={{ gridColumn: '1 / -1' }}>
-            <label className={styles.fieldLabel}>Reason</label>
-            <textarea className={styles.textarea} value={formData.reason || ''} onChange={(e) => onChange('reason', e.target.value)} placeholder="Enter reason..." />
+            <label className={styles.fieldLabel}>Reason / Duty Description *</label>
+            <textarea
+              className={styles.textarea}
+              value={formData.reason || ''}
+              onChange={(e) => onChange('reason', e.target.value)}
+              placeholder="Enter overtime reason (e.g. Reliever Guard Coverage / Shift Extension)..."
+            />
             {errors.reason && <span className={styles.validation}>{errors.reason}</span>}
           </div>
 
@@ -507,7 +585,7 @@ function OvertimeFormModal({
 
         <div className={styles.modalActions}>
           <button className={styles.secondaryBtn} onClick={onClose}>Cancel</button>
-          <button className={styles.primaryBtn} onClick={onSave}>{mode === 'edit' ? 'Save Changes' : 'Save Overtime'}</button>
+          <button className={styles.primaryBtn} onClick={onSave}>Save Overtime Entry</button>
         </div>
       </div>
     </div>
@@ -527,7 +605,7 @@ function ApproveOvertimeModal({ request, onClose, onConfirm }) {
           </button>
         </div>
         <p className={styles.modalText}>
-          Are you sure you want to approve <span className={styles.modalHighlight}>{request.employeeName}&apos;s</span> overtime?
+          Are you sure you want to approve <span className={styles.modalHighlight}>{request.employeeName}&apos;s</span> overtime request?
         </p>
 
         <div className={styles.modalMeta}>
@@ -553,17 +631,22 @@ function RejectOvertimeModal({ request, rejectionReason, setRejectionReason, onC
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
       <div className={styles.modalCard}>
         <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>Reject Overtime?</h3>
+          <h3 className={styles.modalTitle}>Reject Overtime Request</h3>
           <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
         </div>
         <p className={styles.modalText}>
-          <span className={styles.modalHighlight}>{request.employeeName}&apos;s</span> overtime request will be rejected.
+          <span className={styles.modalHighlight}>{request.employeeName}&apos;s</span> overtime claim will be marked as rejected.
         </p>
 
-        <label className={styles.fieldLabel}>Reason for rejection</label>
-        <textarea className={styles.textarea} value={rejectionReason} onChange={(e) => setRejectionReason(e.target.value)} placeholder="Enter rejection reason..." />
+        <label className={styles.fieldLabel}>Reason for rejection *</label>
+        <textarea
+          className={styles.textarea}
+          value={rejectionReason}
+          onChange={(e) => setRejectionReason(e.target.value)}
+          placeholder="Enter reason for rejecting this claim..."
+        />
 
         <div className={styles.modalActions}>
           <button className={styles.secondaryBtn} onClick={onClose}>Cancel</button>
@@ -574,14 +657,14 @@ function RejectOvertimeModal({ request, rejectionReason, setRejectionReason, onC
   );
 }
 
-function OvertimeExportModal({ open, onClose, onExport, filters, setFilters }) {
+function OvertimeExportModal({ open, onClose, onExport, filters, setFilters, clients = [] }) {
   if (!open) return null;
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
       <div className={styles.modalCard}>
         <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>Export Overtime Report</h3>
+          <h3 className={styles.modalTitle}>Export Overtime Register</h3>
           <button type="button" className={styles.modalCloseBtn} onClick={onClose} aria-label="Close modal">
             <X size={18} />
           </button>
@@ -590,42 +673,44 @@ function OvertimeExportModal({ open, onClose, onExport, filters, setFilters }) {
         <div className={styles.gridTwo}>
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>From Date</label>
-            <input type="date" className={styles.input} value={filters.fromDate} onChange={(e) => setFilters((prev) => ({ ...prev, fromDate: e.target.value }))} />
+            <input
+              type="date"
+              className={styles.input}
+              value={filters.fromDate}
+              onChange={(e) => setFilters((prev) => ({ ...prev, fromDate: e.target.value }))}
+            />
           </div>
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>To Date</label>
-            <input type="date" className={styles.input} value={filters.toDate} onChange={(e) => setFilters((prev) => ({ ...prev, toDate: e.target.value }))} />
+            <input
+              type="date"
+              className={styles.input}
+              value={filters.toDate}
+              onChange={(e) => setFilters((prev) => ({ ...prev, toDate: e.target.value }))}
+            />
           </div>
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>Client</label>
-            <select className={styles.select} value={filters.clientFilter} onChange={(e) => setFilters((prev) => ({ ...prev, clientFilter: e.target.value }))}>
+            <select
+              className={styles.select}
+              value={filters.clientFilter}
+              onChange={(e) => setFilters((prev) => ({ ...prev, clientFilter: e.target.value }))}
+            >
               <option value="">All Clients</option>
-              {mockCompanies.map((company) => (
-                <option key={company.id} value={company.name}>{company.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Site</label>
-            <select className={styles.select} value={filters.siteFilter} onChange={(e) => setFilters((prev) => ({ ...prev, siteFilter: e.target.value }))}>
-              <option value="">All Sites</option>
-              {SITES.map((site) => (
-                <option key={site} value={site}>{site}</option>
-              ))}
-            </select>
-          </div>
-          <div className={styles.formField}>
-            <label className={styles.fieldLabel}>Department</label>
-            <select className={styles.select} value={filters.departmentFilter} onChange={(e) => setFilters((prev) => ({ ...prev, departmentFilter: e.target.value }))}>
-              <option value="">All Departments</option>
-              {['Security', 'Operations', 'Administration', 'HR', 'Accounts', 'Housekeeping'].map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
+              {clients.map((c) => (
+                <option key={c.id || c._id || c.clientName || c.name} value={c.clientName || c.name}>
+                  {c.clientName || c.name}
+                </option>
               ))}
             </select>
           </div>
           <div className={styles.formField}>
             <label className={styles.fieldLabel}>Status</label>
-            <select className={styles.select} value={filters.statusFilter} onChange={(e) => setFilters((prev) => ({ ...prev, statusFilter: e.target.value }))}>
+            <select
+              className={styles.select}
+              value={filters.statusFilter}
+              onChange={(e) => setFilters((prev) => ({ ...prev, statusFilter: e.target.value }))}
+            >
               <option value="">All Status</option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
@@ -633,11 +718,17 @@ function OvertimeExportModal({ open, onClose, onExport, filters, setFilters }) {
             </select>
           </div>
           <div className={styles.formField} style={{ gridColumn: '1 / -1' }}>
-            <label className={styles.fieldLabel}>Format</label>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {['excel', 'csv', 'pdf'].map((type) => (
-                <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontWeight: 600 }}>
-                  <input type="radio" name="format" value={type} checked={filters.format === type} onChange={(e) => setFilters((prev) => ({ ...prev, format: e.target.value }))} />
+            <label className={styles.fieldLabel}>Export Format</label>
+            <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
+              {['pdf', 'excel', 'csv'].map((type) => (
+                <label key={type} style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontWeight: 600, cursor: 'pointer' }}>
+                  <input
+                    type="radio"
+                    name="format"
+                    value={type}
+                    checked={filters.format === type}
+                    onChange={(e) => setFilters((prev) => ({ ...prev, format: e.target.value }))}
+                  />
                   {type.toUpperCase()}
                 </label>
               ))}
@@ -647,58 +738,45 @@ function OvertimeExportModal({ open, onClose, onExport, filters, setFilters }) {
 
         <div className={styles.modalActions}>
           <button className={styles.secondaryBtn} onClick={onClose}>Cancel</button>
-          <button className={styles.primaryBtn} onClick={() => onExport(filters)}>Export Report</button>
+          <button className={styles.primaryBtn} onClick={() => onExport(filters)}>
+            <Download size={16} /> Download File
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
-function OvertimeClientSummary({ records }) {
-  const totals = {}
-
-  records.forEach((record) => {
-    const key = record.clientName;
-    if (!totals[key]) {
-      totals[key] = { employees: new Set(), otHours: 0, amount: 0 };
-    }
-    totals[key].employees.add(record.employeeId);
-    totals[key].otHours += Number(record.overtimeHours || 0);
-    totals[key].amount += Number(record.overtimeAmount || 0);
-  });
-
-  const rows = Object.entries(totals).map(([client, values]) => ({
-    client,
-    employees: values.employees.size,
-    hours: values.otHours,
-    amount: values.amount,
-  }));
-
+function OvertimeClientSummary({ clientData = [] }) {
   return (
     <div className={styles.summaryBlock}>
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>Overtime by Client</h3>
-        <span className={styles.sectionBadge}>{rows.length} Clients</span>
+        <span className={styles.sectionBadge}>{clientData.length} Clients</span>
       </div>
       <div className={styles.summaryTableWrapper}>
         <table className={styles.summaryTable}>
           <thead>
             <tr>
               <th>Client</th>
-              <th>Employees</th>
+              <th>Total OT Entries</th>
               <th>OT Hours</th>
-              <th>Amount</th>
+              <th>Total Amount</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.client}>
-                <td>{row.client}</td>
-                <td>{row.employees}</td>
-                <td>{asHoursLabel(row.hours)}</td>
-                <td>{formatCurrency(row.amount)}</td>
-              </tr>
-            ))}
+            {clientData.length === 0 ? (
+              <tr><td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>No client overtime records available.</td></tr>
+            ) : (
+              clientData.map((row) => (
+                <tr key={row.clientName}>
+                  <td style={{ fontWeight: 600 }}>{row.clientName}</td>
+                  <td>{row.count}</td>
+                  <td>{asHoursLabel(row.totalHours)}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--success, #16a34a)' }}>{formatCurrency(row.totalAmount)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -706,41 +784,36 @@ function OvertimeClientSummary({ records }) {
   );
 }
 
-function OvertimeDepartmentSummary({ records }) {
-  const totals = {};
-
-  records.forEach((record) => {
-    const key = record.department;
-    if (!totals[key]) totals[key] = { hours: 0, amount: 0 };
-    totals[key].hours += Number(record.overtimeHours || 0);
-    totals[key].amount += Number(record.overtimeAmount || 0);
-  });
-
-  const rows = Object.entries(totals).map(([department, values]) => ({ department, hours: values.hours, amount: values.amount }));
-
+function OvertimeDepartmentSummary({ deptData = [] }) {
   return (
     <div className={styles.summaryBlock}>
       <div className={styles.sectionHeader}>
         <h3 className={styles.sectionTitle}>Overtime by Department</h3>
-        <span className={styles.sectionBadge}>{rows.length} Depts</span>
+        <span className={styles.sectionBadge}>{deptData.length} Depts</span>
       </div>
       <div className={styles.summaryTableWrapper}>
         <table className={styles.summaryTable}>
           <thead>
             <tr>
               <th>Department</th>
+              <th>Entries</th>
               <th>OT Hours</th>
-              <th>Amount</th>
+              <th>Total Amount</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr key={row.department}>
-                <td>{row.department}</td>
-                <td>{asHoursLabel(row.hours)}</td>
-                <td>{formatCurrency(row.amount)}</td>
-              </tr>
-            ))}
+            {deptData.length === 0 ? (
+              <tr><td colSpan="4" style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)' }}>No department overtime records available.</td></tr>
+            ) : (
+              deptData.map((row) => (
+                <tr key={row.department}>
+                  <td style={{ fontWeight: 600 }}>{row.department}</td>
+                  <td>{row.count}</td>
+                  <td>{asHoursLabel(row.hours || row.totalHours)}</td>
+                  <td style={{ fontWeight: 600, color: 'var(--success, #16a34a)' }}>{formatCurrency(row.amount || row.totalAmount)}</td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -752,28 +825,30 @@ function Overtime() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
+  const { activeCompany, company } = useCompany();
 
-  const [overtimeRecords, setOvertimeRecords] = useState(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      return saved ? JSON.parse(saved) : mockOvertimeRecords;
-    } catch {
-      return mockOvertimeRecords;
-    }
-  });
+  const companyId = activeCompany?.companyId || activeCompany?.id || company?.companyId || company?.id || 'RRS8392014SEC';
+  const companyName = activeCompany?.name || company?.name || 'RR Security & Facilities';
 
-  const [selectedDate, setSelectedDate] = useState('2026-08-22');
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const initialTab = searchParams.get('tab') || 'records';
   const [activeTab, setActiveTab] = useState(initialTab);
 
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam && ['records', 'requests', 'history', 'analytics'].includes(tabParam)) {
-      setActiveTab(tabParam);
-    } else {
-      setActiveTab('records');
-    }
-  }, [searchParams]);
+  const [overtimeRecords, setOvertimeRecords] = useState([]);
+  const [summaryData, setSummaryData] = useState({
+    totalHours: 0,
+    pendingHours: 0,
+    approvedHours: 0,
+    totalAmount: 0,
+    employeesWithOvertime: 0,
+    averageHoursPerEmployee: '0.0',
+    highestHours: 0,
+    pendingCount: 0,
+  });
+
+  const [employeesList, setEmployeesList] = useState([]);
+  const [clientsList, setClientsList] = useState([]);
+  const [analyticsData, setAnalyticsData] = useState({ clients: [], departments: [] });
 
   const [searchTerm, setSearchTerm] = useState('');
   const [clientFilter, setClientFilter] = useState('');
@@ -783,24 +858,25 @@ function Overtime() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+
   const [selectedOvertime, setSelectedOvertime] = useState(null);
   const [approveRequest, setApproveRequest] = useState(null);
   const [rejectRequest, setRejectRequest] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [editingOvertime, setEditingOvertime] = useState(null);
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   const [formData, setFormData] = useState({
     employeeId: '',
     clientName: '',
-    department: '',
-    site: '',
+    department: 'Security',
+    site: 'Main Gate',
     date: selectedDate,
-    regularHours: 8,
-    overtimeHours: 1,
+    shift: 'Night Shift',
+    overtimeHours: 4,
     overtimeRate: 150,
     reason: '',
   });
@@ -809,49 +885,100 @@ function Overtime() {
     fromDate: '',
     toDate: '',
     clientFilter: '',
-    siteFilter: '',
-    departmentFilter: '',
     statusFilter: '',
-    format: 'excel',
+    format: 'pdf',
   });
-
-  useEffect(() => { const timer = setTimeout(() => setLoading(false), 400); return () => clearTimeout(timer); }, []);
-  useEffect(() => { localStorage.setItem(STORAGE_KEY, JSON.stringify(overtimeRecords)); }, [overtimeRecords]);
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, clientFilter, siteFilter, departmentFilter, statusFilter, fromDate, toDate, activeTab]);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  const userMap = useMemo(() => {
-    const map = {};
-    mockEmployees.forEach((employee) => {
-      map[employee.employeeId] = employee;
-    });
-    return map;
-  }, []);
+  // Sync tab with URL search params
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && ['records', 'requests', 'history', 'analytics', 'all'].includes(tabParam)) {
+      setActiveTab(tabParam === 'all' ? 'records' : tabParam);
+    } else {
+      setActiveTab('records');
+    }
+  }, [searchParams]);
 
-  const filteredRecords = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-    return overtimeRecords.filter((item) => {
-      if (activeTab === 'requests' && item.status !== 'pending') return false;
-      if (activeTab === 'history' && item.status === 'pending') return false;
-      if (query) {
-        const matchesName = item.employeeName.toLowerCase().includes(query);
-        const matchesId = item.employeeId.toLowerCase().includes(query);
-        if (!matchesName && !matchesId) return false;
+  // Fetch Master Data (Employees & Clients)
+  useEffect(() => {
+    const fetchMasters = async () => {
+      try {
+        const [emps, cls] = await Promise.all([
+          employeeService.getEmployees(companyId).catch(() => []),
+          clientService.getClients(companyId).catch(() => []),
+        ]);
+        setEmployeesList(emps || []);
+        setClientsList(cls || []);
+      } catch (err) {
+        console.error('Error fetching master data:', err);
       }
-      if (clientFilter && item.clientName !== clientFilter) return false;
-      if (siteFilter && item.site !== siteFilter) return false;
-      if (departmentFilter && item.department !== departmentFilter) return false;
-      if (statusFilter && item.status !== statusFilter) return false;
-      if (fromDate && item.date < fromDate) return false;
-      if (toDate && item.date > toDate) return false;
-      if (selectedDate && item.date !== selectedDate) return false;
-      return true;
-    });
-  }, [overtimeRecords, searchTerm, clientFilter, siteFilter, departmentFilter, statusFilter, fromDate, toDate, selectedDate, activeTab]);
+    };
+    fetchMasters();
+  }, [companyId]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
-  const paginatedRecords = filteredRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  // Fetch Dynamic Overtime Records from MongoDB
+  const fetchRecords = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const params = {
+        search: searchTerm,
+        client: clientFilter,
+        site: siteFilter,
+        department: departmentFilter,
+      };
+
+      if (fromDate && toDate) {
+        params.fromDate = fromDate;
+        params.toDate = toDate;
+      } else if (activeTab !== 'analytics' && selectedDate) {
+        // Filter by selected date on date-specific tabs unless custom range is given
+        params.date = selectedDate;
+      }
+
+      if (activeTab === 'requests') {
+        params.status = 'pending';
+      } else if (activeTab === 'history') {
+        // history shows approved or rejected
+        if (!statusFilter) params.status = 'approved';
+        else params.status = statusFilter;
+      } else if (statusFilter) {
+        params.status = statusFilter;
+      }
+
+      const res = await overtimeService.getOvertimeRecords(companyId, params);
+      if (res.success) {
+        setOvertimeRecords(res.records || []);
+        if (res.summary) {
+          setSummaryData(res.summary);
+        }
+      }
+
+      // Also fetch analytics breakdown
+      const analyticsRes = await overtimeService.getOvertimeAnalytics(companyId).catch(() => null);
+      if (analyticsRes && analyticsRes.success) {
+        setAnalyticsData({
+          clients: analyticsRes.clients || [],
+          departments: analyticsRes.departments || [],
+        });
+      }
+    } catch (err) {
+      console.error('Error fetching overtime data:', err);
+      setError(err.message || 'Failed to load overtime data');
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, searchTerm, clientFilter, siteFilter, departmentFilter, statusFilter, fromDate, toDate, selectedDate, activeTab]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, clientFilter, siteFilter, departmentFilter, statusFilter, fromDate, toDate, activeTab, selectedDate]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -865,35 +992,17 @@ function Overtime() {
   };
 
   const openAddOvertime = () => {
-    const currentEmployee = mockEmployees[0] || {};
-    setEditingOvertime(null);
+    const firstEmp = employeesList[0] || {};
     setFormData({
-      employeeId: currentEmployee.employeeId || '',
-      clientName: currentEmployee.companyName || '',
-      department: currentEmployee.department || '',
-      site: currentEmployee.siteLocation || currentEmployee.site || SITES[0] || 'Main Gate',
+      employeeId: firstEmp.employeeId || firstEmp.employeeCode || '',
+      clientName: firstEmp.clientName || firstEmp.companyName || (clientsList[0]?.name || 'RR Security Client'),
+      department: firstEmp.department || 'Security',
+      site: firstEmp.siteLocation || firstEmp.site || 'Main Gate',
       date: selectedDate || new Date().toISOString().slice(0, 10),
-      regularHours: 8,
-      overtimeHours: 1,
-      overtimeRate: currentEmployee.overtimeRate || currentEmployee.salaryStructure?.overtimeRate || 150,
-      reason: '',
-    });
-    setFormErrors({});
-    setIsFormOpen(true);
-  };
-
-  const openEditOvertime = (record) => {
-    setEditingOvertime(record);
-    setFormData({
-      employeeId: record.employeeId,
-      clientName: record.clientName,
-      department: record.department,
-      site: record.site || 'Main Gate',
-      date: record.date,
-      regularHours: record.regularHours || 8,
-      overtimeHours: record.overtimeHours || 1,
-      overtimeRate: record.overtimeRate || 150,
-      reason: record.reason || '',
+      shift: 'Night Shift',
+      overtimeHours: 4,
+      overtimeRate: Number(firstEmp.overtimeRate) || 150,
+      reason: 'Shift Extension / Reliever Coverage',
     });
     setFormErrors({});
     setIsFormOpen(true);
@@ -902,12 +1011,14 @@ function Overtime() {
   const handleFormChange = (field, value) => {
     const next = { ...formData, [field]: value };
     if (field === 'employeeId') {
-      const employee = userMap[value];
-      if (employee) {
-        next.clientName = employee.companyName || '';
-        next.department = employee.department || '';
-        next.site = employee.siteLocation || employee.site || SITES[0] || 'Main Gate';
-        next.overtimeRate = employee.overtimeRate || employee.salaryStructure?.overtimeRate || 150;
+      const selectedEmp = employeesList.find(
+        (e) => (e.employeeId || e.employeeCode) === value
+      );
+      if (selectedEmp) {
+        next.clientName = selectedEmp.clientName || selectedEmp.companyName || '';
+        next.department = selectedEmp.department || 'Security';
+        next.site = selectedEmp.siteLocation || selectedEmp.site || 'Main Gate';
+        next.overtimeRate = Number(selectedEmp.overtimeRate) || 150;
       }
     }
     setFormData(next);
@@ -915,114 +1026,179 @@ function Overtime() {
 
   const validateForm = () => {
     const errors = {};
-    if (!formData.employeeId) errors.employeeId = 'Employee is required';
+    if (!formData.employeeId) errors.employeeId = 'Please select an employee';
     if (!formData.site) errors.site = 'Site is required';
     if (!formData.date) errors.date = 'Date is required';
-    if (formData.regularHours === '' || Number(formData.regularHours) < 0) errors.regularHours = 'Regular hours must be 0 or greater';
-    if (formData.overtimeHours === '' || Number(formData.overtimeHours) <= 0) errors.overtimeHours = 'Overtime hours must be greater than 0';
-    if (formData.overtimeRate === '' || Number(formData.overtimeRate) < 0) errors.overtimeRate = 'OT rate cannot be negative';
-    if (!formData.reason || !formData.reason.trim()) errors.reason = 'Reason is required';
+    if (formData.overtimeHours === '' || Number(formData.overtimeHours) <= 0) {
+      errors.overtimeHours = 'Hours must be greater than 0';
+    }
+    if (formData.overtimeRate === '' || Number(formData.overtimeRate) < 0) {
+      errors.overtimeRate = 'OT rate cannot be negative';
+    }
+    if (!formData.reason || !formData.reason.trim()) {
+      errors.reason = 'Reason is required';
+    }
     return errors;
   };
 
-  const saveOvertime = () => {
+  const saveOvertime = async () => {
     const errors = validateForm();
     setFormErrors(errors);
     if (Object.keys(errors).length) return;
 
-    const employee = userMap[formData.employeeId];
-    const payload = {
-      id: editingOvertime ? editingOvertime.id : Date.now(),
-      employeeId: formData.employeeId,
-      employeeName: employee?.name || 'Unknown Employee',
-      initials: employee?.initials || 'UN',
-      clientId: employee?.companyId || 'c000',
-      clientName: employee?.companyName || formData.clientName,
-      site: formData.site,
-      department: employee?.department || formData.department,
-      date: formData.date,
-      regularHours: Number(formData.regularHours),
-      overtimeHours: Number(formData.overtimeHours),
-      overtimeRate: Number(formData.overtimeRate),
-      overtimeAmount: Number(formData.overtimeHours) * Number(formData.overtimeRate),
-      reason: formData.reason.trim(),
-      status: 'pending',
-      requestedOn: new Date().toISOString().slice(0, 10),
-      processedOn: null,
-      processedBy: null,
-      rejectionReason: null,
-    };
+    try {
+      const selectedEmp = employeesList.find(
+        (e) => (e.employeeId || e.employeeCode) === formData.employeeId
+      );
 
-    if (editingOvertime) {
-      setOvertimeRecords((prev) => prev.map((item) => item.id === editingOvertime.id ? { ...item, ...payload } : item));
-      showToast('✓ Overtime record updated successfully.');
-    } else {
-      setOvertimeRecords((prev) => [payload, ...prev]);
-      showToast('✓ Overtime record added successfully.');
+      const payload = {
+        employeeId: formData.employeeId,
+        employeeName: selectedEmp?.name || selectedEmp?.employeeName || 'Staff Guard',
+        clientName: formData.clientName || selectedEmp?.clientName || 'General Client',
+        site: formData.site,
+        department: formData.department || selectedEmp?.department || 'Security',
+        designation: selectedEmp?.designation || 'Security Guard',
+        date: formData.date,
+        shift: formData.shift || 'Night Shift',
+        overtimeHours: Number(formData.overtimeHours),
+        overtimeRate: Number(formData.overtimeRate),
+        reason: formData.reason.trim(),
+      };
+
+      await overtimeService.createOvertime(companyId, payload);
+      showToast('✓ Overtime request saved successfully.');
+      setIsFormOpen(false);
+      fetchRecords();
+    } catch (err) {
+      showToast(err.message || 'Failed to save overtime entry', 'danger');
     }
-
-    setIsFormOpen(false);
-    setEditingOvertime(null);
-    setFormData({
-      employeeId: '',
-      clientName: '',
-      department: '',
-      site: '',
-      date: selectedDate,
-      regularHours: 8,
-      overtimeHours: 1,
-      overtimeRate: 150,
-      reason: '',
-    });
   };
 
   const handleApprove = (request) => setApproveRequest(request);
-  const confirmApprove = () => {
+  const confirmApprove = async () => {
     if (!approveRequest) return;
-    setOvertimeRecords((prev) => prev.map((item) => item.id === approveRequest.id ? { ...item, status: 'approved', processedOn: new Date().toISOString().slice(0, 10), processedBy: 'Admin', rejectionReason: null } : item));
-    setApproveRequest(null);
-    setSelectedOvertime(null);
-    showToast('✓ Overtime approved successfully.');
+    try {
+      const targetId = approveRequest._id || approveRequest.overtimeId;
+      await overtimeService.updateOvertimeStatus(companyId, targetId, {
+        status: 'approved',
+      });
+      setApproveRequest(null);
+      setSelectedOvertime(null);
+      showToast('✓ Overtime request approved successfully.');
+      fetchRecords();
+    } catch (err) {
+      showToast(err.message || 'Failed to approve overtime request', 'danger');
+    }
   };
 
   const handleReject = (request) => {
     setRejectRequest(request);
     setRejectionReason('');
   };
-  const confirmReject = () => {
+  const confirmReject = async () => {
     if (!rejectRequest) return;
     if (!rejectionReason.trim()) {
       showToast('Rejection reason is required.', 'danger');
       return;
     }
-    setOvertimeRecords((prev) => prev.map((item) => item.id === rejectRequest.id ? { ...item, status: 'rejected', processedOn: new Date().toISOString().slice(0, 10), processedBy: 'Admin', rejectionReason: rejectionReason.trim() } : item));
-    setRejectRequest(null);
-    setRejectionReason('');
-    setSelectedOvertime(null);
-    showToast('✓ Overtime rejected successfully.');
+    try {
+      const targetId = rejectRequest._id || rejectRequest.overtimeId;
+      await overtimeService.updateOvertimeStatus(companyId, targetId, {
+        status: 'rejected',
+        rejectionReason: rejectionReason.trim(),
+      });
+      setRejectRequest(null);
+      setRejectionReason('');
+      setSelectedOvertime(null);
+      showToast('✓ Overtime request rejected successfully.');
+      fetchRecords();
+    } catch (err) {
+      showToast(err.message || 'Failed to reject overtime request', 'danger');
+    }
   };
 
-  const handleExport = (payload) => {
-    if (!payload.fromDate || !payload.toDate) {
-      showToast('Please select both date range values.', 'danger');
-      return;
+  const handleDelete = async (record) => {
+    if (!window.confirm(`Are you sure you want to delete overtime entry for ${record.employeeName}?`)) return;
+    try {
+      const targetId = record._id || record.overtimeId;
+      await overtimeService.deleteOvertime(companyId, targetId);
+      showToast('✓ Overtime entry deleted successfully.');
+      fetchRecords();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete overtime record', 'danger');
     }
-
-    if (payload.fromDate > payload.toDate) {
-      showToast('Start date cannot be later than end date.', 'danger');
-      return;
-    }
-
-    setExportModalOpen(false);
-    showToast('Preparing overtime report...');
-    setTimeout(() => showToast('✓ Overtime report exported successfully.'), 600);
   };
+
+  const handleExport = async (filters) => {
+    try {
+      setExportModalOpen(false);
+      showToast('Generating official overtime register file...');
+
+      const exportParams = {
+        fromDate: filters.fromDate,
+        toDate: filters.toDate,
+        client: filters.clientFilter,
+        status: filters.statusFilter,
+      };
+
+      const res = await overtimeService.getOvertimeRecords(companyId, exportParams);
+      const recordsToExport = res.records && res.records.length > 0 ? res.records : overtimeRecords;
+
+      const title = 'Overtime Register & Wage Summary';
+      const period = {
+        month: filters.fromDate && filters.toDate ? `${filters.fromDate} to ${filters.toDate}` : selectedDate,
+        monthLabel: filters.fromDate && filters.toDate ? `${formatDate(filters.fromDate)} - ${formatDate(filters.toDate)}` : formatDate(selectedDate),
+      };
+
+      const companyInfo = {
+        name: companyName,
+        address: 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044',
+      };
+
+      if (filters.format === 'pdf') {
+        generateReportPdf({
+          reportType: 'overtime',
+          title,
+          period,
+          companyInfo,
+          records: recordsToExport,
+          totals: {
+            totalHours: res.summary?.totalHours || summaryData.totalHours,
+            totalAmount: res.summary?.totalAmount || summaryData.totalAmount,
+          },
+        });
+      } else {
+        generateReportExcel({
+          reportType: 'overtime',
+          title,
+          period,
+          companyInfo,
+          records: recordsToExport,
+          totals: res.summary || summaryData,
+          format: filters.format === 'csv' ? 'csv' : 'xlsx',
+        });
+      }
+
+      showToast('✓ Overtime register file downloaded successfully.');
+    } catch (err) {
+      showToast(err.message || 'Failed to export overtime register', 'danger');
+    }
+  };
+
+  const paginatedRecords = useMemo(() => {
+    return overtimeRecords.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  }, [overtimeRecords, currentPage]);
 
   if (error) {
     return (
       <AdminLayout>
         <div className={styles.container}>
-          <EmptyState title="Unable to load overtime data." description="Something went wrong while loading overtime records." actionLabel="Try Again" onAction={() => setError(null)} />
+          <EmptyState
+            title="Unable to load overtime data."
+            description={error || 'Something went wrong while connecting to the Overtime API.'}
+            actionLabel="Try Again"
+            onAction={fetchRecords}
+          />
         </div>
       </AdminLayout>
     );
@@ -1043,32 +1219,44 @@ function Overtime() {
           </button>
           <span className={styles.separator}>/</span>
           <span className={styles.crumbActive}>
-            {activeTab === 'requests' ? 'Pending Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Analytics' : 'All Overtime'}
+            {activeTab === 'requests' ? 'Pending Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Client & Dept Analytics' : 'All Overtime'}
           </span>
         </div>
 
         <header className={styles.header}>
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>
-              {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Overtime Analytics' : 'Overtime Management'}
+              {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Client & Dept Overtime Analytics' : 'Overtime Management'}
             </h1>
             <p className={styles.subtitle}>
-              {activeTab === 'requests' ? 'Review, approve or reject pending employee overtime claims.' : activeTab === 'history' ? 'Historical record of processed and approved overtime logs.' : activeTab === 'analytics' ? 'Client and department-wise overtime distribution and insights.' : 'Review, manage and track employee overtime records.'}
+              {activeTab === 'requests' ? 'Review, approve or reject pending employee overtime claims.' : activeTab === 'history' ? 'Historical record of processed and approved overtime logs.' : activeTab === 'analytics' ? 'Live distribution of overtime hours and amounts across clients & departments.' : 'Review, manage and track employee overtime records.'}
             </p>
           </div>
           <div className={styles.headerActions}>
+            <button
+              className={styles.secondaryBtn}
+              onClick={fetchRecords}
+              title="Refresh overtime records"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <RefreshCw size={15} /> Refresh
+            </button>
             {canAdd('overtime') && (
-              <button className={styles.addBtn} onClick={openAddOvertime}><Plus size={16} /> Add Overtime</button>
+              <button className={styles.addBtn} onClick={openAddOvertime}>
+                <Plus size={16} /> Add Overtime
+              </button>
             )}
             {canExport('overtime') && (
-              <button className={styles.exportBtn} onClick={() => setExportModalOpen(true)}><Download size={16} /> Export Report</button>
+              <button className={styles.exportBtn} onClick={() => setExportModalOpen(true)}>
+                <Download size={16} /> Export Report
+              </button>
             )}
           </div>
         </header>
 
         {loading ? (
           <div className={styles.summaryGrid}>
-            {[1,2,3,4].map((i) => (
+            {[1, 2, 3, 4].map((i) => (
               <div key={i} className={styles.summaryCard}>
                 <div className={styles.summaryValue}>
                   <div className={styles.loadingBar} style={{ width: '100px', height: '14px' }} />
@@ -1079,13 +1267,17 @@ function Overtime() {
             ))}
           </div>
         ) : (
-          <OvertimeSummaryCards records={overtimeRecords} />
+          <OvertimeSummaryCards summary={summaryData} />
         )}
 
-        <OvertimeOverview records={overtimeRecords} />
+        <OvertimeOverview summary={summaryData} />
         
         {activeTab !== 'analytics' && (
-          <OvertimeDateSelector selectedDate={selectedDate} setSelectedDate={setSelectedDate} onToday={() => setSelectedDate('2026-08-22')} />
+          <OvertimeDateSelector
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            onToday={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+          />
         )}
 
         <OvertimeFilters
@@ -1104,6 +1296,7 @@ function Overtime() {
           toDate={toDate}
           setToDate={setToDate}
           onReset={resetFilters}
+          clientsList={clientsList}
         />
 
         {loading ? (
@@ -1111,13 +1304,27 @@ function Overtime() {
             <div className={styles.tableWrapper}>
               <table className={styles.table}>
                 <thead>
-                  <tr><th>Employee</th><th>Employee ID</th><th>Client</th><th>Site</th><th>Date</th><th>Regular Hours</th><th>Overtime Hours</th><th>OT Rate</th><th>OT Amount</th><th>Status</th><th>Actions</th></tr>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Employee ID</th>
+                    <th>Client</th>
+                    <th>Site</th>
+                    <th>Date</th>
+                    <th>Regular Hours</th>
+                    <th>Overtime Hours</th>
+                    <th>OT Rate</th>
+                    <th>OT Amount</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
                 </thead>
                 <tbody>
-                  {[1,2,3,4,5,6,7,8,9,10].map((key) => (
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((key) => (
                     <tr key={key}>
                       {Array.from({ length: 11 }).map((_, idx) => (
-                        <td key={`${key}-${idx}`}><div className={styles.loadingBar} style={{ width: idx === 0 ? '120px' : '70px', height: '12px' }} /></td>
+                        <td key={`${key}-${idx}`}>
+                          <div className={styles.loadingBar} style={{ width: idx === 0 ? '120px' : '70px', height: '12px' }} />
+                        </td>
                       ))}
                     </tr>
                   ))}
@@ -1125,27 +1332,79 @@ function Overtime() {
               </table>
             </div>
           </div>
-        ) : filteredRecords.length === 0 ? (
+        ) : overtimeRecords.length === 0 ? (
           <div className={styles.emptyWrapper}>
-            <EmptyState title={activeTab === 'requests' ? 'No overtime records found.' : 'No overtime history found.'} description="Try changing your filters or selected date." actionLabel="Reset Filters" onAction={resetFilters} />
+            <EmptyState
+              title={activeTab === 'requests' ? 'No pending overtime requests found.' : 'No overtime records found.'}
+              description="Try changing your filters, selected date, or click '+ Add Overtime' to create new records."
+              actionLabel="Reset Filters"
+              onAction={resetFilters}
+            />
           </div>
         ) : (
           <>
-            <OvertimeTable rows={paginatedRecords} onView={(record) => setSelectedOvertime(record)} onApprove={handleApprove} onReject={handleReject} onEdit={openEditOvertime} />
-            <Pagination currentPage={currentPage} totalItems={filteredRecords.length} itemsPerPage={PAGE_SIZE} onPageChange={setCurrentPage} label={activeTab === 'requests' ? 'overtime records' : 'history items'} />
+            <OvertimeTable
+              rows={paginatedRecords}
+              onView={(record) => setSelectedOvertime(record)}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onDelete={handleDelete}
+            />
+            <Pagination
+              currentPage={currentPage}
+              totalItems={overtimeRecords.length}
+              itemsPerPage={PAGE_SIZE}
+              onPageChange={setCurrentPage}
+              label="overtime records"
+            />
           </>
         )}
 
         <div className={styles.summarySectionRow}>
-          <OvertimeClientSummary records={overtimeRecords} />
-          <OvertimeDepartmentSummary records={overtimeRecords} />
+          <OvertimeClientSummary clientData={analyticsData.clients} />
+          <OvertimeDepartmentSummary deptData={analyticsData.departments} />
         </div>
 
-        <OvertimeDetailsDrawer selectedOvertime={selectedOvertime} onClose={() => setSelectedOvertime(null)} onApprove={handleApprove} onReject={handleReject} />
-        <OvertimeFormModal isOpen={isFormOpen} formData={formData} errors={formErrors} onChange={handleFormChange} onClose={() => setIsFormOpen(false)} onSave={saveOvertime} mode={editingOvertime ? 'edit' : 'add'} />
-        <ApproveOvertimeModal request={approveRequest} onClose={() => setApproveRequest(null)} onConfirm={confirmApprove} />
-        <RejectOvertimeModal request={rejectRequest} rejectionReason={rejectionReason} setRejectionReason={setRejectionReason} onClose={() => setRejectRequest(null)} onConfirm={confirmReject} />
-        <OvertimeExportModal open={exportModalOpen} onClose={() => setExportModalOpen(false)} onExport={handleExport} filters={exportFilters} setFilters={setExportFilters} />
+        <OvertimeDetailsDrawer
+          selectedOvertime={selectedOvertime}
+          onClose={() => setSelectedOvertime(null)}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+
+        <OvertimeFormModal
+          isOpen={isFormOpen}
+          formData={formData}
+          errors={formErrors}
+          onChange={handleFormChange}
+          onClose={() => setIsFormOpen(false)}
+          onSave={saveOvertime}
+          employees={employeesList}
+          clients={clientsList}
+        />
+
+        <ApproveOvertimeModal
+          request={approveRequest}
+          onClose={() => setApproveRequest(null)}
+          onConfirm={confirmApprove}
+        />
+
+        <RejectOvertimeModal
+          request={rejectRequest}
+          rejectionReason={rejectionReason}
+          setRejectionReason={setRejectionReason}
+          onClose={() => setRejectRequest(null)}
+          onConfirm={confirmReject}
+        />
+
+        <OvertimeExportModal
+          open={exportModalOpen}
+          onClose={() => setExportModalOpen(false)}
+          onExport={handleExport}
+          filters={exportFilters}
+          setFilters={setExportFilters}
+          clients={clientsList}
+        />
       </div>
     </AdminLayout>
   );

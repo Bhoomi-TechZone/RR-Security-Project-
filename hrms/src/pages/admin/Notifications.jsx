@@ -423,15 +423,14 @@ function NotificationsPage() {
   const [toast, setToast] = useState(null);
 
   // Fetch dynamic announcements, notifications, clients, and employees from MongoDB
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (showSpinner = false) => {
     try {
-      setLoading(true);
+      if (showSpinner) setLoading(true);
       const [annList, notifRes, clientList, empList] = await Promise.allSettled([
         announcementService.getAnnouncements(companyId),
         notificationService.getNotifications(companyId, {
           type: notificationTypeFilter,
-          status: notificationStatusFilter,
-          search: notificationSearch
+          status: notificationStatusFilter
         }),
         clientService.getClients(companyId),
         employeeService.getEmployees(companyId)
@@ -453,14 +452,14 @@ function NotificationsPage() {
     } catch (err) {
       console.warn('Error loading notifications data:', err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
-  }, [companyId, notificationTypeFilter, notificationStatusFilter, notificationSearch]);
+  }, [companyId, notificationTypeFilter, notificationStatusFilter]);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 5000);
-    const handleRefresh = () => loadData();
+    loadData(true);
+    const interval = setInterval(() => loadData(false), 15000);
+    const handleRefresh = () => loadData(false);
 
     window.addEventListener('focus', handleRefresh);
     window.addEventListener('auth_state_changed', handleRefresh);

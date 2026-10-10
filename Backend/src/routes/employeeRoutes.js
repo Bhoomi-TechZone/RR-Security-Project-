@@ -5,6 +5,7 @@ import {
   createEmployee,
   updateEmployee,
   deleteEmployee,
+  sendEmployeeCredentials,
 } from '../controllers/employeeController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
@@ -21,5 +22,7 @@ router.route('/:id')
   .get(getEmployeeById)
   .put(adminOnly, updateEmployee)
   .delete(adminOnly, deleteEmployee);
+
+router.post('/:id/send-credentials', adminOnly, sendEmployeeCredentials);
 
 export default router;

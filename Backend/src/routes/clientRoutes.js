@@ -5,6 +5,7 @@ import {
   getNextClientId,
   createClient,
   updateClient,
+  sendClientCredentials,
   toggleClientStatus,
   deleteClient,
 } from '../controllers/clientController.js';
@@ -16,6 +17,8 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/next-id', getNextClientId);
+
+router.post('/:id/send-credentials', adminOnly, sendClientCredentials);
 
 router.route('/')
   .get(getClients)
