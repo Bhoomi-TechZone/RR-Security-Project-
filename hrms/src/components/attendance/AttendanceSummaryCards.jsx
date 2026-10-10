@@ -46,12 +46,14 @@ function AttendanceSummaryCards({ records }) {
       present: 0, absent: 0, halfDay: 0, leave: 0, lateEarly: 0, pendingCorrection: 0
     };
     records.forEach((r) => {
-      if (r.status === 'present') counts.present++;
-      else if (r.status === 'absent') counts.absent++;
-      else if (r.status === 'halfDay') counts.halfDay++;
-      else if (r.status === 'leave' || r.status === 'onLeave') counts.leave++;
-      else if (r.status === 'late' || r.status === 'earlyOut') counts.lateEarly++;
-      else if (r.status === 'pendingCorrection') counts.pendingCorrection++;
+      const s = String(r.status || '').toLowerCase().replace(/[-_ ]/g, '');
+      if (s === 'present') counts.present++;
+      else if (s === 'absent') counts.absent++;
+      else if (s === 'halfday') counts.halfDay++;
+      else if (s === 'leave' || s === 'onleave') counts.leave++;
+      else if (s === 'late' || s === 'earlyout' || Number(r.lateMinutes || 0) > 0) counts.lateEarly++;
+      else if (s === 'pendingcorrection') counts.pendingCorrection++;
+      else if (s) counts.present++;
     });
     return counts;
   }, [records]);

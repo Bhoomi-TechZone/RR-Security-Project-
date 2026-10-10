@@ -31,7 +31,9 @@ export const getDaysInMonth = (monthName, year) => {
   return new Date(y, mIdx + 1, 0).getDate();
 };
 
-function AttendanceCorrectionModal({ record, onClose, onSubmit }) {
+function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
+  if (!isOpen || !record) return null;
+
   const currentYear = new Date().getFullYear();
 
   // Derive initial values from record
@@ -186,7 +188,7 @@ function AttendanceCorrectionModal({ record, onClose, onSubmit }) {
   };
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true">
+    <div className={styles.overlay} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={styles.modal}>
         {/* Header */}
         <div className={styles.header}>

@@ -36,7 +36,7 @@ function EmployeeHeader({ onToggleSidebar, onLogout }) {
     };
 
     fetchCount();
-    const interval = setInterval(fetchCount, 5000);
+    const interval = setInterval(fetchCount, 15000);
     const handleRefresh = () => fetchCount();
 
     window.addEventListener('storage', handleRefresh);

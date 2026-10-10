@@ -237,7 +237,7 @@ export default function Reimbursements() {
         showToast(`✓ Reimbursement claim ${claimData.claimId || editingClaim.claimId} updated successfully.`);
       } else {
         const created = await reimbursementService.createClaim(compId, claimData);
-        showToast(`✓ Reimbursement claim ${created?.claimId || 'created'} saved to database.`);
+        showToast(`✓ Reimbursement claim ${created?.claimId || 'created'} saved successfully.`);
       }
       setIsCreateModalOpen(false);
       setEditingClaim(null);
@@ -320,7 +320,7 @@ export default function Reimbursements() {
   const handleSaveExpenseType = async (typeData) => {
     try {
       await reimbursementService.saveExpenseType(compId, typeData);
-      showToast(`✓ Expense category "${typeData.name}" saved in database.`);
+      showToast(`✓ Expense category "${typeData.name}" saved successfully.`);
       fetchReimbursementData();
     } catch (err) {
       showToast(err.message || 'Failed to save expense category', 'danger');
@@ -403,7 +403,7 @@ export default function Reimbursements() {
               className={styles.btnSecondary}
               onClick={fetchReimbursementData}
               disabled={isLoading}
-              title="Refresh from Database"
+              title="Refresh Records"
             >
               <RefreshCw size={15} className={isLoading ? styles.spinning : ''} />
               <span>Refresh</span>
@@ -439,7 +439,7 @@ export default function Reimbursements() {
         {isLoading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '1rem', color: '#64748b' }}>
             <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} />
-            <span>Loading live reimbursement data from database...</span>
+            <span>Loading live reimbursement data...</span>
           </div>
         )}
 

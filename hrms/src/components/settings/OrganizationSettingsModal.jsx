@@ -142,7 +142,6 @@ const SETTINGS_SECTIONS = [
     badgeTheme: styles.themeCyan,
     headerTheme: styles.themeCyanHeader,
     items: [
-      { name: 'Document Master', route: '/admin/document-compliance?tab=document-master' },
       { name: 'Verification Rules', route: '/admin/document-compliance?tab=verification-rules' },
       { name: 'Expiry Alert', route: '/admin/document-compliance?tab=expiry-alert' },
       { name: 'Police Verification', route: '/admin/document-compliance?tab=police-verification' }

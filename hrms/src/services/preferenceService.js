@@ -126,6 +126,34 @@ export const preferenceService = {
       console.error('preferenceService.updatePreferences error:', error);
       throw error;
     }
+  },
+
+  /**
+   * Send a live test email via backend SMTP integration
+   */
+  async sendTestEmail(companyId, recipientEmail) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE_URL}/preferences/test-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': companyId,
+        },
+        body: JSON.stringify({ to: recipientEmail }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send test email');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('preferenceService.sendTestEmail error:', error);
+      throw error;
+    }
   }
 };
 

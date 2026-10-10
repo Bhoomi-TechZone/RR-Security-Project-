@@ -187,7 +187,7 @@ function AttendanceOverviewCard({ attendance }) {
         </div>
       </div>
 
-      <p className={styles.caption}>Your weekly attendance percentage trend directly from database records.</p>
+      <p className={styles.caption}>Your weekly attendance percentage trend.</p>
 
       <div className={styles.lineChartContainer}>
         <svg

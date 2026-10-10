@@ -11,7 +11,9 @@ import styles from './AttendanceImportModal.module.css';
  * EMPID, EMPLOYEE NAME, FATHER NAME, MONTH, YEAR, PRESENT, WEEK OFF, HOLIDAYS, CL, SL, EL
  * (CL = Casual Leave, SL = Sick Leave, EL = Earn Leave)
  */
-function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', activeCompanyId = '', currentDate }) {
+function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = '', activeCompanyId = '', currentDate }) {
+  if (!isOpen) return null;
+
   const defaultMonth = new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().split('T')[0];
   const currentYear = new Date().getFullYear();
@@ -414,7 +416,7 @@ function AttendanceImportModal({ onClose, onImport, activeCompanyName = '', acti
   };
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true">
+    <div className={styles.overlay} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={styles.modal}>
         {/* Header */}
         <div className={styles.header}>

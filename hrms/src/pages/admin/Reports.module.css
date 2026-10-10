@@ -688,3 +688,349 @@
     min-width: 0;
   }
 }
+
+/* =========================================================
+   OFFICIAL STATUTORY WAGE/SALARY & COMPLIANCE REGISTER STYLES
+   ========================================================= */
+.registerPaper {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 16px 20px;
+  color: #0f172a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  margin-top: 10px;
+  width: 100%;
+  overflow-x: auto;
+}
+
+.officialHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  border-bottom: 2px solid #000;
+  padding-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.officialCompanyInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.officialCompanyName {
+  font-size: 20px;
+  font-weight: 800;
+  color: #000000;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 0;
+  font-family: 'Times New Roman', Times, serif, 'Inter', sans-serif;
+}
+
+.officialCompanyAddress {
+  font-size: 11px;
+  color: #1e293b;
+  font-weight: 500;
+  margin: 0;
+  max-width: 480px;
+  line-height: 1.35;
+}
+
+.officialStatutoryRules {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: right;
+  font-size: 9.5px;
+  color: #334155;
+  font-style: italic;
+  line-height: 1.25;
+  max-width: 450px;
+}
+
+.officialStatutoryRules span {
+  white-space: normal;
+}
+
+.officialSubBar {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  align-items: center;
+  border-bottom: 2px solid #000;
+  padding: 6px 0;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #000;
+}
+
+.officialMetaLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+}
+
+.officialMetaCenter {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-family: 'Times New Roman', Times, serif, sans-serif;
+}
+
+.officialMetaRight {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.registerTableWrap {
+  overflow-x: auto;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.registerTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  color: #000000;
+  border: 1.5px solid #000000;
+}
+
+.registerTable th,
+.registerTable td {
+  border: 1px solid #000000;
+  padding: 5px 6px;
+  vertical-align: top;
+  line-height: 1.3;
+}
+
+.registerTable th {
+  background: #f8fafc;
+  color: #000000;
+  font-weight: 700;
+  text-align: center;
+  font-size: 10.5px;
+  padding: 6px 4px;
+}
+
+.registerTable .textLeft {
+  text-align: left;
+}
+
+.registerTable .textRight {
+  text-align: right;
+}
+
+.registerTable .textCenter {
+  text-align: center;
+}
+
+.empDetailsCell {
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.empNameMain {
+  font-weight: 800;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  color: #000;
+  margin-bottom: 2px;
+}
+
+.empSubText {
+  font-size: 9.5px;
+  color: #334155;
+  line-height: 1.25;
+}
+
+.stackedMetrics {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  font-size: 10px;
+}
+
+.stackedMetricRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.stackedMetricRow strong {
+  font-weight: 700;
+}
+
+.rateWageCell {
+  min-width: 120px;
+}
+
+.earningsCell {
+  min-width: 55px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.grossCell {
+  min-width: 75px;
+  text-align: right;
+}
+
+.grossMain {
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.grossBreakdown {
+  font-size: 9.5px;
+  color: #475569;
+  margin-top: 2px;
+}
+
+.deductionCell {
+  min-width: 50px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.netPayableCell {
+  min-width: 80px;
+  text-align: right;
+  font-weight: 800;
+  font-size: 12.5px;
+  color: #000;
+}
+
+.signatureCell {
+  min-width: 130px;
+  font-size: 9.5px;
+}
+
+.signatureBank {
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.signatureLine {
+  margin-top: 14px;
+  border-top: 1px dotted #94a3b8;
+  padding-top: 2px;
+  color: #64748b;
+  font-size: 9px;
+  text-align: center;
+}
+
+.registerTotalRow td {
+  background: #f1f5f9;
+  font-weight: 800;
+  border-top: 2px solid #000;
+  border-bottom: 2px solid #000;
+  font-size: 11px;
+  padding: 8px 6px;
+}
+
+.loadingOverlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+.loadingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(37, 99, 235, 0.2);
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   PRINT PREVIEW FORMATTING (@media print)
+   ========================================================= */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 9pt !important;
+  }
+
+  /* Hide navigation, sidebar, breadcrumb, buttons, filters */
+  nav,
+  aside,
+  header,
+  .breadcrumb,
+  .pageHeader,
+  .summaryGrid,
+  .dynamicSummaryGrid,
+  .reportIntroRow,
+  .filterCard,
+  .toolbarRow,
+  .modalOverlay,
+  button,
+  a {
+    display: none !important;
+  }
+
+  .container {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    width: 100% !important;
+  }
+
+  .reportPanel {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .registerPaper {
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .registerTable {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+  }
+
+  .registerTable tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  .registerTable th,
+  .registerTable td {
+    border: 1px solid #000000 !important;
+    padding: 3px 4px !important;
+    font-size: 8pt !important;
+  }
+
+  @page {
+    size: landscape;
+    margin: 8mm 8mm 8mm 8mm;
+  }
+}
+

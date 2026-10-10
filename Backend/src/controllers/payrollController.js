@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import { PayrollRun, SalarySlip, RateRevision, Arrear } from '../models/payrollModel.js';
 import Employee from '../models/employeeModel.js';
+import Company from '../models/companyModel.js';
 import Attendance from '../models/attendanceModel.js';
 import StatutoryConfig from '../models/statutoryModel.js';
 
@@ -506,6 +507,21 @@ export const generateSalarySlips = async (req, res) => {
       });
     }
 
+    // Resolve official company details
+    const companyDoc =
+      (await Company.findOne({ companyId })) ||
+      (await Company.findOne({ isDefault: true })) ||
+      (await Company.findOne({}));
+
+    const formattedCompAddress = [
+      companyDoc?.address,
+      companyDoc?.city,
+      companyDoc?.state,
+      companyDoc?.pinCode,
+    ]
+      .filter(Boolean)
+      .join(', ') || companyDoc?.address || 'Corporate Office';
+
     const createdSlips = [];
     const generatedDate = new Date().toISOString().split('T')[0];
 
@@ -542,6 +558,13 @@ export const generateSalarySlips = async (req, res) => {
             netSalary: rec.netSalary || 0,
             earningsBreakdown: rec.earnings || {},
             deductionsBreakdown: rec.deductions || {},
+            companyName: companyDoc?.name || rec.companyName || 'RR Security & Facilities',
+            companyAddress: formattedCompAddress,
+            companyEmail: companyDoc?.email || '',
+            companyPhone: companyDoc?.phone || '',
+            companyGstin: companyDoc?.gstin || '',
+            companyPan: companyDoc?.pan || '',
+            companyLogo: companyDoc?.logo || null,
             status: 'Generated',
             generatedDate,
           },
@@ -591,12 +614,41 @@ export const getSalarySlips = async (req, res) => {
       query.$or = [{ employeeName: searchRegex }, { employeeId: searchRegex }, { slipNumber: searchRegex }];
     }
 
+    // Resolve official company details
+    const companyDoc =
+      (await Company.findOne({ companyId })) ||
+      (await Company.findOne({ isDefault: true })) ||
+      (await Company.findOne({}));
+
+    const formattedCompAddress = [
+      companyDoc?.address,
+      companyDoc?.city,
+      companyDoc?.state,
+      companyDoc?.pinCode,
+    ]
+      .filter(Boolean)
+      .join(', ') || companyDoc?.address || '';
+
     const slips = await SalarySlip.find(query).sort({ month: -1, employeeId: 1 });
+
+    const enrichedSlips = slips.map((s) => {
+      const json = s.toJSON();
+      return {
+        ...json,
+        companyName: json.companyName || companyDoc?.name || 'RR Security & Facilities',
+        companyAddress: json.companyAddress || formattedCompAddress,
+        companyEmail: json.companyEmail || companyDoc?.email || '',
+        companyPhone: json.companyPhone || companyDoc?.phone || '',
+        companyGstin: json.companyGstin || companyDoc?.gstin || '',
+        companyPan: json.companyPan || companyDoc?.pan || '',
+        companyLogo: json.companyLogo || companyDoc?.logo || null,
+      };
+    });
 
     return res.status(200).json({
       success: true,
-      count: slips.length,
-      slips: slips.map((s) => s.toJSON()),
+      count: enrichedSlips.length,
+      slips: enrichedSlips,
     });
   } catch (error) {
     console.error('Error fetching salary slips:', error);

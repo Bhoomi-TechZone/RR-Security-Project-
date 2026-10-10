@@ -9,7 +9,9 @@ const FORMAT_OPTIONS = [
   { value: 'pdf', label: 'PDF (.pdf)', icon: '📋' }
 ];
 
-function AttendanceExportModal({ onClose, onExport, records = [], clients = [], activeCompanyName = 'RR Security' }) {
+function AttendanceExportModal({ isOpen, onClose, onExport, records = [], clients = [], activeCompanyName = 'RR Security' }) {
+  if (!isOpen) return null;
+
   const today = new Date().toISOString().split('T')[0];
   const [form, setForm] = useState({
     fromDate: today,
@@ -46,7 +48,7 @@ function AttendanceExportModal({ onClose, onExport, records = [], clients = [], 
   };
 
   return (
-    <div className={styles.overlay}>
+    <div className={styles.overlay} onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={styles.modal}>
         <div className={styles.header}>
           <div className={styles.headerLeft}>

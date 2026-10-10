@@ -19,14 +19,20 @@ import styles from './MySalarySlips.module.css';
 /* ─────────────────────────────────────────
    Dynamic Salary Slips Generator
    ───────────────────────────────────────── */
-function generateDynamicSlips(currentUser, companyName) {
+function generateDynamicSlips(currentUser, companyObj) {
   if (!currentUser) return [];
 
   const empName = currentUser.name || currentUser.employeeName || 'Employee';
   const empId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP-001';
   const designation = currentUser.designation || currentUser.role || 'Security Staff';
   const department = currentUser.department || 'Operations';
-  const compName = companyName || currentUser.companyName || 'RR Security & Facilities';
+  const compName = companyObj?.name || currentUser.companyName || 'RR Security & Facilities';
+  const compAddress = [companyObj?.address, companyObj?.city, companyObj?.state, companyObj?.pinCode].filter(Boolean).join(', ') || companyObj?.address || 'Civil Lines, Bareilly, Uttar Pradesh 243001';
+  const compEmail = companyObj?.email || '';
+  const compPhone = companyObj?.phone || '';
+  const compGstin = companyObj?.gstin || '';
+  const compPan = companyObj?.pan || '';
+  const compLogo = companyObj?.logo || null;
 
   const basic = Number(currentUser.basic || currentUser.basicSalary || (currentUser.grossSalary ? Math.round(currentUser.grossSalary * 0.5) : 28000));
   const hra = Number(currentUser.hra || Math.round(basic * 0.4));
@@ -77,6 +83,13 @@ function generateDynamicSlips(currentUser, companyName) {
       designation,
       department,
       company: compName,
+      companyName: compName,
+      companyAddress: compAddress,
+      companyEmail: compEmail,
+      companyPhone: compPhone,
+      companyGstin: compGstin,
+      companyPan: compPan,
+      companyLogo: compLogo,
       pan: currentUser.pan || '—',
       bankName: currentUser.bankName || 'State Bank of India',
       bankAccount: currentUser.accountNumber || currentUser.bankAccount || '•••• •••• 4892',
@@ -122,8 +135,8 @@ function MySalarySlips() {
 
   // Dynamic salary slips generated for the logged-in employee
   const slipsList = useMemo(() => {
-    return generateDynamicSlips(currentUser, companyName);
-  }, [currentUser, companyName]);
+    return generateDynamicSlips(currentUser, activeCompany);
+  }, [currentUser, activeCompany]);
 
   // Filter state
   const [draftMonth, setDraftMonth] = useState('all');
@@ -608,6 +621,7 @@ function MySalarySlips() {
       <SalarySlipPreview
         isOpen={previewOpen}
         slip={selectedSlip}
+        company={activeCompany}
         onClose={handleClosePreview}
         onDownload={() => window.print()}
       />

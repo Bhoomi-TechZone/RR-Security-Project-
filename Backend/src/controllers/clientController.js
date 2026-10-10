@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Client from '../models/clientModel.js';
 import Company from '../models/companyModel.js';
+import { sendClientWelcomeEmail } from '../services/emailService.js';
 
 /**
  * Helper to generate sequential unique clientId per company (CLI-001, CLI-002, etc.)
@@ -367,6 +368,34 @@ export const updateClient = async (req, res) => {
 
     await client.save();
 
+    // If welcome email requested or credentials saved with sendWelcomeEmail flag
+    if (req.body.sendWelcomeEmail === true || req.body.sendEmail === true) {
+      const recipientEmail = (req.body.recipientEmail || client.email || '').trim();
+      const rawPassword = req.body.password || client.savedPassword || '••••••';
+      if (recipientEmail) {
+        let activeCompName = '';
+        if (companyId) {
+          try {
+            const compDoc = await Company.findOne({
+              $or: [
+                ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+                { companyId }
+              ]
+            }).lean();
+            if (compDoc?.name) activeCompName = compDoc.name;
+          } catch {}
+        }
+
+        sendClientWelcomeEmail({
+          to: recipientEmail,
+          clientData: client,
+          password: rawPassword,
+          companyName: activeCompName,
+          companyId
+        }).catch(err => console.warn('[ClientController] Client welcome email dispatch error:', err.message));
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Client credentials and details updated successfully.',
@@ -377,6 +406,108 @@ export const updateClient = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to update client.'
+    });
+  }
+};
+
+/**
+ * @desc    Send Client Portal Welcome Email with Credentials on Demand
+ * @route   POST /api/clients/:id/send-credentials
+ * @access  Private (Admin)
+ */
+export const sendClientCredentials = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+
+    const cleanId = (id || '').trim();
+    const cleanNoHyphen = cleanId.replace(/[-_ ]/g, '');
+    const flexibleRegex = new RegExp(`^(${cleanId}|${cleanNoHyphen}|CLI-${cleanNoHyphen.replace(/^cli/i, '')})$`, 'i');
+
+    const orConditions = [{ clientId: { $regex: flexibleRegex } }];
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      orConditions.push({ _id: cleanId });
+    }
+
+    const query = {
+      $or: orConditions,
+      adminEmail
+    };
+
+    if (companyId) {
+      let companyIds = [companyId];
+      try {
+        const comp = await Company.findOne({
+          adminEmail,
+          $or: [
+            { companyId },
+            { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+          ]
+        });
+        if (comp) {
+          companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+        }
+      } catch {}
+      query.companyId = { $in: companyIds };
+    }
+
+    let client = await Client.findOne(query);
+    if (!client) {
+      client = await Client.findOne({ $or: orConditions, adminEmail });
+    }
+
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Client not found.' });
+    }
+
+    const recipientEmail = (req.body.to || req.body.recipientEmail || client.email || '').trim();
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recipient email specified and client has no email registered on profile.'
+      });
+    }
+
+    const rawPassword = req.body.password || client.savedPassword || client.password || '••••••';
+
+    let activeCompName = '';
+    if (companyId) {
+      try {
+        const compDoc = await Company.findOne({
+          $or: [
+            ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+            { companyId }
+          ]
+        }).lean();
+        if (compDoc?.name) activeCompName = compDoc.name;
+      } catch {}
+    }
+
+    const result = await sendClientWelcomeEmail({
+      to: recipientEmail,
+      clientData: client,
+      password: rawPassword,
+      companyName: activeCompName,
+      companyId
+    });
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: `Failed to send email: ${result.error}`
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Welcome email with login credentials successfully sent to ${recipientEmail}!`
+    });
+  } catch (error) {
+    console.error('Error in sendClientCredentials:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to send credentials email.'
     });
   }
 };

@@ -16,7 +16,11 @@ function AttendanceDistribution({ records }) {
   const segments = useMemo(() => {
     if (total === 0) return [];
     return SEGMENTS.map((seg) => {
-      const count = records.filter((r) => seg.statuses.includes(r.status)).length;
+      const allowedNorm = seg.statuses.map((s) => s.toLowerCase().replace(/[-_ ]/g, ''));
+      const count = records.filter((r) => {
+        const norm = String(r.status || '').toLowerCase().replace(/[-_ ]/g, '');
+        return allowedNorm.includes(norm);
+      }).length;
       const pct = (count / total) * 100;
       return { ...seg, count, pct };
     }).filter((s) => s.pct > 0);

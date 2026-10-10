@@ -346,7 +346,12 @@ function Companies() {
 
     await fetchBackendClients();
     window.dispatchEvent(new CustomEvent('clients-updated'));
-    showToast('✓ Client login credentials saved successfully in database.', 'success');
+
+    const successMsg = credentialsData.sendWelcomeEmail && credentialsData.recipientEmail
+      ? `✓ Credentials updated and Welcome Email dispatched to ${credentialsData.recipientEmail}!`
+      : '✓ Client login credentials saved successfully in database.';
+
+    showToast(successMsg, 'success');
   };
 
   // Confirm dialog primary execution

@@ -229,7 +229,7 @@ export default function PayrollManagement() {
       }
     } catch (err) {
       console.error('Failed to load payroll data:', err);
-      notify(err.message || 'Error loading live payroll records from database', 'error');
+      notify(err.message || 'Error loading live payroll records', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -575,14 +575,14 @@ export default function PayrollManagement() {
   // Actions: Run Payroll Batch (Completing whole cycle in MongoDB)
   const handleCompleteRunPayroll = async () => {
     try {
-      notify(`Processing and locking ${monthLabel} payroll in database...`, 'info');
+      notify(`Processing and locking ${monthLabel} payroll...`, 'info');
       await payrollService.runPayroll(activeCompanyId, selectedMonth, records);
       await payrollService.generateSalarySlips(activeCompanyId, selectedMonth);
       setActiveTab('slips');
       notify(`✓ ${monthLabel} payroll processed successfully. Slips generated.`, 'success');
       fetchAllPayrollData();
     } catch (err) {
-      notify(err.message || 'Failed to run payroll in database', 'error');
+      notify(err.message || 'Failed to run payroll', 'error');
     }
   };
 
@@ -695,7 +695,7 @@ export default function PayrollManagement() {
               className={styles.secondaryBtn}
               onClick={fetchAllPayrollData}
               disabled={isLoading}
-              title="Refresh from Database"
+              title="Refresh Payroll Records"
             >
               <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
               <span>Refresh</span>
@@ -736,7 +736,7 @@ export default function PayrollManagement() {
         {isLoading && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '1.5rem', color: '#64748b' }}>
             <Loader2 size={20} className={styles.spinning} />
-            <span>Loading live payroll data from database...</span>
+            <span>Loading live payroll data...</span>
           </div>
         )}
 
@@ -1241,6 +1241,16 @@ export default function PayrollManagement() {
           <SalarySlipPreview
             isOpen={Boolean(selectedSlip)}
             slip={selectedSlip}
+            company={
+              companies.find(
+                (c) =>
+                  c.companyId === selectedSlip.companyId ||
+                  c.name?.toLowerCase() === selectedSlip.companyName?.toLowerCase()
+              ) ||
+              companies.find((c) => c.companyId === activeCompanyId) ||
+              companies[0] ||
+              {}
+            }
             onClose={() => setSelectedSlip(null)}
             onDownload={handleDownloadSlip}
           />

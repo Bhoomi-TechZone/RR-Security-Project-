@@ -12,6 +12,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import { useCompany } from '../../context/CompanyContext';
 
 // Reusing existing SalarySlipPreview component
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
@@ -90,6 +91,21 @@ function Templates() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
+
+  const { activeCompany } = useCompany();
+  const activeCompName = activeCompany?.name || 'RR Security & Facilities';
+  const activeCompAddress = [
+    activeCompany?.address,
+    activeCompany?.city,
+    activeCompany?.state,
+    activeCompany?.pinCode
+  ].filter(Boolean).join(', ') || activeCompany?.address || 'Sector 18, Gurugram, Haryana - 122008';
+  const activeCompEmail = activeCompany?.email || 'admin@rrsecurity.com';
+  const activeCompPhone = activeCompany?.phone || '+91 9876543210';
+  const activeCompGstin = activeCompany?.gstin || '07AABCR1234F1Z1';
+  const activeCompPan = activeCompany?.pan || 'AABCR1234F';
+  const activeCompLogo = activeCompany?.logo || null;
+  const activeCompInitials = (activeCompName.split(' ').map(w => w[0]).join('').substring(0, 3) || 'RRS').toUpperCase();
 
   // Active Tab from query param or default 'overview'
   const initialTab = searchParams.get('tab') || 'overview';
@@ -443,9 +459,20 @@ function Templates() {
         {/* Reused SalarySlipPreview Modal */}
         <SalarySlipPreview 
           isOpen={isSalarySlipModalOpen}
-          slip={SAMPLE_PREVIEW_SLIP}
+          slip={{
+            ...SAMPLE_PREVIEW_SLIP,
+            companyName: activeCompName,
+            companyAddress: activeCompAddress,
+            companyEmail: activeCompEmail,
+            companyPhone: activeCompPhone,
+            companyGstin: activeCompGstin,
+            companyPan: activeCompPan,
+            companyLogo: activeCompLogo,
+          }}
+          company={activeCompany}
+          config={salarySlipConfig}
           onClose={() => setIsSalarySlipModalOpen(false)}
-          onDownload={() => showToast('Downloading generated Payslip PDF...')}
+          onDownload={() => window.print()}
         />
 
         {/* Page Header */}
@@ -1129,36 +1156,65 @@ function Templates() {
                 <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
                   <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                     
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '14px' }}>
-                      <div>
-                        {salarySlipConfig.companyInfo.showCompanyName && (
-                          <h4 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                            RR Security HRMS
-                          </h4>
+                    {/* Dynamic Company Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #0f172a', paddingBottom: '12px', marginBottom: '14px', gap: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                        {salarySlipConfig.companyInfo.showLogo && (
+                          activeCompLogo ? (
+                            <img 
+                              src={activeCompLogo} 
+                              alt={activeCompName} 
+                              style={{ width: '36px', height: '36px', objectFit: 'contain', borderRadius: '6px', border: '1px solid #e2e8f0' }} 
+                            />
+                          ) : (
+                            <div style={{ width: '36px', height: '36px', borderRadius: '6px', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#38bdf8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '11px', flexShrink: 0 }}>
+                              {activeCompInitials}
+                            </div>
+                          )
                         )}
-                        {salarySlipConfig.companyInfo.showAddress && (
-                          <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
-                            Sector 18, Gurugram, Haryana - 122008
-                          </p>
-                        )}
+                        <div>
+                          {salarySlipConfig.companyInfo.showCompanyName && (
+                            <h4 style={{ margin: '0 0 2px', fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
+                              {activeCompName}
+                            </h4>
+                          )}
+                          {salarySlipConfig.companyInfo.showAddress && (
+                            <p style={{ margin: 0, fontSize: '10.5px', color: '#64748b', lineHeight: 1.3, maxWidth: '280px' }}>
+                              {activeCompAddress}
+                            </p>
+                          )}
+                          {salarySlipConfig.companyInfo.showContact && (activeCompEmail || activeCompPhone) && (
+                            <p style={{ margin: '2px 0 0', fontSize: '10px', color: '#64748b' }}>
+                              {[activeCompEmail, activeCompPhone].filter(Boolean).join(' • ')}
+                            </p>
+                          )}
+                          {salarySlipConfig.companyInfo.showGstPan && (activeCompGstin || activeCompPan) && (
+                            <p style={{ margin: '2px 0 0', fontSize: '10px', color: '#475569' }}>
+                              {[activeCompGstin ? `GST: ${activeCompGstin}` : null, activeCompPan ? `PAN: ${activeCompPan}` : null].filter(Boolean).join(' | ')}
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span style={{ fontSize: '12px', fontWeight: 800, background: '#0f172a', color: 'white', padding: '3px 8px', borderRadius: '4px' }}>
-                          PAYSPLY
+                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, background: '#0f172a', color: 'white', padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em' }}>
+                          PAYSLIP
                         </span>
-                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '3px' }}>August 2026</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#0f172a', marginTop: '3px' }}>August 2026</div>
+                        <div style={{ fontSize: '9.5px', color: '#94a3b8', fontFamily: 'monospace' }}>SLIP-AUG2026-001</div>
                       </div>
                     </div>
 
                     {/* Employee Info Grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11.5px', background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '14px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px', background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '14px' }}>
                       {salarySlipConfig.employeeInfo.showName && <div><strong>Name:</strong> Rahul Kumar</div>}
                       {salarySlipConfig.employeeInfo.showEmpCode && <div><strong>ID:</strong> EMP001</div>}
                       {salarySlipConfig.employeeInfo.showDepartment && <div><strong>Dept:</strong> Security Operations</div>}
                       {salarySlipConfig.employeeInfo.showDesignation && <div><strong>Role:</strong> Security Officer</div>}
                       {salarySlipConfig.employeeInfo.showLocation && <div><strong>Site:</strong> DLF Cyber City</div>}
+                      {salarySlipConfig.employeeInfo.showJoiningDate && <div><strong>Joined:</strong> 15 Jan 2024</div>}
                       {salarySlipConfig.employeeInfo.showBankDetails && <div><strong>Bank:</strong> SBI (****4521)</div>}
+                      {salarySlipConfig.employeeInfo.showUanPf && <div><strong>UAN:</strong> 100904582194</div>}
+                      {salarySlipConfig.employeeInfo.showEsiNo && <div><strong>ESIC:</strong> 1122334455001</div>}
                     </div>
 
                     {/* Attendance summary strip */}
@@ -1166,12 +1222,13 @@ function Templates() {
                       {salarySlipConfig.attendanceInfo.showWorkingDays && <span>Work: 31d</span>}
                       {salarySlipConfig.attendanceInfo.showPresentDays && <span>Pres: 26d</span>}
                       {salarySlipConfig.attendanceInfo.showPaidLeave && <span>Leave: 3d</span>}
+                      {salarySlipConfig.attendanceInfo.showAbsentDays && <span>Absent: 2d</span>}
                       {salarySlipConfig.attendanceInfo.showOvertimeHours && <span>OT: 18 hrs</span>}
                       <span>Paid: 29d</span>
                     </div>
 
                     {/* Ledger */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '11.5px', marginBottom: '14px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '11px', marginBottom: '14px' }}>
                       <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', padding: '8px' }}>
                         <div style={{ fontWeight: 700, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '6px', color: '#047857' }}>
                           Earnings
@@ -1199,14 +1256,17 @@ function Templates() {
 
                     {/* Net Pay Banner */}
                     <div style={{ background: '#0f172a', color: 'white', padding: '10px 14px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em' }}>NET SALARY PAYABLE</span>
+                      <div>
+                        <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', color: '#94a3b8', display: 'block' }}>NET SALARY PAYABLE</span>
+                        <span style={{ fontSize: '10px', color: '#cbd5e1' }}>Rupees Thirty Two Thousand Three Hundred Only</span>
+                      </div>
                       <span style={{ fontSize: '16px', fontWeight: 800, color: '#38bdf8' }}>₹32,300</span>
                     </div>
 
                     {/* Footer note */}
                     {salarySlipConfig.footerInfo.showNotes && (
-                      <p style={{ margin: '12px 0 0', fontSize: '10px', color: '#94a3b8', textAlign: 'center', lineHeight: 1.4 }}>
-                        {salarySlipConfig.footerInfo.customNotes}
+                      <p style={{ margin: '12px 0 0', fontSize: '9.5px', color: '#94a3b8', textAlign: 'center', lineHeight: 1.4 }}>
+                        {salarySlipConfig.footerInfo.customNotes || `This is a computer-generated salary slip issued by ${activeCompName}.`}
                       </p>
                     )}
                   </div>

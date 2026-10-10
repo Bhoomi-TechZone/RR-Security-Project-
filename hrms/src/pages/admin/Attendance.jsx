@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle } from 'lucide-react';
+import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
-import AttendanceDateSelector from '../../components/attendance/AttendanceDateSelector';
 import AttendanceSummaryCards from '../../components/attendance/AttendanceSummaryCards';
 import AttendanceDistribution from '../../components/attendance/AttendanceDistribution';
 import AttendanceFilters from '../../components/attendance/AttendanceFilters';
@@ -20,6 +19,7 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
 import attendanceService from '../../services/attendanceService';
+import { clientService } from '../../services/clientService';
 import styles from './Attendance.module.css';
 
 function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onConfirm }) {
@@ -151,8 +151,8 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
               borderRadius: 6,
               fontSize: 13,
               fontWeight: 600,
-              color: '#475569',
               cursor: 'pointer',
+              color: '#475569',
             }}
           >
             Cancel
@@ -168,25 +168,16 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
               padding: '8px 18px',
               border: 'none',
               background: '#dc2626',
+              color: '#ffffff',
               borderRadius: 6,
               fontSize: 13,
               fontWeight: 600,
-              color: '#ffffff',
               cursor: isDeleting ? 'not-allowed' : 'pointer',
-              opacity: isDeleting ? 0.75 : 1,
+              opacity: isDeleting ? 0.7 : 1,
             }}
           >
-            {isDeleting ? (
-              <>
-                <Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} />
-                <span>Deleting...</span>
-              </>
-            ) : (
-              <>
-                <Trash2 size={15} />
-                <span>Delete Permanently</span>
-              </>
-            )}
+            {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+            <span>{isDeleting ? 'Deleting...' : 'Delete Permanently'}</span>
           </button>
         </div>
       </div>
@@ -225,57 +216,31 @@ const sanitizeRecords = (list) => {
 function Attendance() {
   const { activeCompany } = useCompany();
   const { canAdd, canExport, canApprove } = usePermissions();
-  const compId = activeCompany?.companyId || activeCompany?.id;
+  const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
-  // --- Dynamic State Loaded directly from MongoDB Atlas (NO LocalStorage) ---
+  // --- Dynamic State Loaded directly from MongoDB Atlas ---
   const [records, setRecords] = useState([]);
   const [corrections, setCorrections] = useState([]);
+  const [clientsList, setClientsList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // --- Active Date & Tab ---
+  // --- Granular Filter View Mode & Date States ---
   const [searchParams, setSearchParams] = useSearchParams();
   const todayStr = new Date().toISOString().split('T')[0];
+  const currentMonthStr = todayStr.slice(0, 7);
+  const currentYearStr = String(new Date().getFullYear());
+
   const urlDate = searchParams.get('date');
+  const urlMode = searchParams.get('mode') || 'month';
+
+  const [viewMode, setViewMode] = useState(urlMode);
   const [selectedDate, setSelectedDate] = useState(() => urlDate || todayStr);
+  const [selectedMonth, setSelectedMonth] = useState(currentMonthStr);
+  const [selectedYear, setSelectedYear] = useState(currentYearStr);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+
   const [activeTab, setActiveTab] = useState(() => (searchParams.get('tab') === 'corrections' ? 'corrections' : 'daily'));
-
-  const handleDateChange = (newDate) => {
-    setSelectedDate(newDate);
-    setCurrentPage(1);
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (newDate) {
-        next.set('date', newDate);
-      } else {
-        next.delete('date');
-      }
-      return next;
-    });
-  };
-
-  const fetchRecords = React.useCallback(async (targetDate) => {
-    try {
-      setIsLoading(true);
-      const queryDate = targetDate !== undefined ? targetDate : selectedDate;
-      const data = await attendanceService.getAttendanceRecords(compId, { date: queryDate });
-      if (Array.isArray(data)) {
-        setRecords(sanitizeRecords(data));
-      }
-      const corrs = await attendanceService.getCorrectionRequests(compId);
-      if (Array.isArray(corrs)) {
-        setCorrections(corrs);
-      }
-    } catch (err) {
-      console.warn('MongoDB attendance load error:', err.message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [compId, selectedDate]);
-
-  // Load from MongoDB on component mount, company switch, or date change
-  useEffect(() => {
-    fetchRecords(selectedDate);
-  }, [compId, selectedDate]);
 
   // --- Filters & Pagination ---
   const [filters, setFilters] = useState(() => ({
@@ -284,28 +249,6 @@ function Attendance() {
   }));
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
-
-  // Sync URL search params
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'corrections') {
-      setActiveTab('corrections');
-    } else {
-      setActiveTab('daily');
-    }
-
-    const dateParam = searchParams.get('date');
-    if (dateParam && dateParam !== selectedDate) {
-      setSelectedDate(dateParam);
-    }
-
-    const statusParam = searchParams.get('status');
-    if (statusParam) {
-      setFilters((prev) => ({ ...prev, status: statusParam }));
-    } else if (!tab) {
-      setFilters((prev) => ({ ...prev, status: '' }));
-    }
-  }, [searchParams]);
 
   // --- Modals & Drawers ---
   const [viewDrawerRecord, setViewDrawerRecord] = useState(null);
@@ -321,6 +264,183 @@ function Attendance() {
     setToast({ message, type });
   };
 
+  // Fetch Master Clients
+  useEffect(() => {
+    const fetchMasters = async () => {
+      try {
+        const cls = await clientService.getClients(compId).catch(() => []);
+        setClientsList(cls || []);
+      } catch (err) {
+        console.warn('Error fetching clients master:', err);
+      }
+    };
+    fetchMasters();
+  }, [compId]);
+
+  // Fetch Records from Database
+  const fetchRecords = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const params = {};
+
+      if (viewMode === 'date' && selectedDate) {
+        params.date = selectedDate;
+      } else if (viewMode === 'month' && selectedMonth) {
+        params.month = selectedMonth;
+      } else if (viewMode === 'year' && selectedYear) {
+        params.year = selectedYear;
+      } else if (viewMode === 'range' && fromDate && toDate) {
+        params.fromDate = fromDate;
+        params.toDate = toDate;
+      }
+
+      if (filters.search) params.search = filters.search;
+      if (filters.companyId) params.clientName = filters.companyId;
+      if (filters.site) params.site = filters.site;
+      if (filters.department) params.department = filters.department;
+      if (filters.status) params.status = filters.status;
+
+      const data = await attendanceService.getAttendanceRecords(compId, params);
+      const list = Array.isArray(data) ? data : (data.records || []);
+      setRecords(sanitizeRecords(list));
+
+      const corrs = await attendanceService.getCorrectionRequests(compId).catch(() => []);
+      if (Array.isArray(corrs)) {
+        setCorrections(corrs);
+      }
+    } catch (err) {
+      console.warn('MongoDB attendance load error:', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [compId, viewMode, selectedDate, selectedMonth, selectedYear, fromDate, toDate, filters]);
+
+  useEffect(() => {
+    fetchRecords();
+  }, [fetchRecords]);
+
+  // Date / Mode Change Handlers
+  const handleViewModeChange = (mode) => {
+    setViewMode(mode);
+    setCurrentPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('mode', mode);
+      return next;
+    });
+  };
+
+  const handleDateChange = (newDate) => {
+    setSelectedDate(newDate);
+    setCurrentPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (newDate) next.set('date', newDate);
+      else next.delete('date');
+      return next;
+    });
+  };
+
+  const handleMonthChange = (newMonth) => {
+    setSelectedMonth(newMonth);
+    setCurrentPage(1);
+  };
+
+  const handleYearChange = (newYear) => {
+    setSelectedYear(newYear);
+    setCurrentPage(1);
+  };
+
+  const handleRangeChange = ({ fromDate: fDate, toDate: tDate }) => {
+    setFromDate(fDate);
+    setToDate(tDate);
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setFilters(INITIAL_FILTERS);
+    setCurrentPage(1);
+  };
+
+  // Sync URL search params for tabs and dates
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'corrections') {
+      setActiveTab('corrections');
+    } else {
+      setActiveTab('daily');
+    }
+
+    const dateParam = searchParams.get('date');
+    if (dateParam && dateParam !== selectedDate) {
+      setSelectedDate(dateParam);
+    }
+
+    const modeParam = searchParams.get('mode');
+    if (modeParam && modeParam !== viewMode) {
+      setViewMode(modeParam);
+    }
+  }, [searchParams]);
+
+  // Filtered records for active view mode and search/dropdown filters
+  const filteredRecords = useMemo(() => {
+    return records.filter((r) => {
+      // Granularity Date Filtering
+      if (viewMode === 'date' && selectedDate && r.date && r.date !== selectedDate) return false;
+      if (viewMode === 'month' && selectedMonth) {
+        const matchDate = r.date && r.date.startsWith(selectedMonth);
+        const matchMonth = r.month && (r.month === selectedMonth || selectedMonth.toLowerCase().includes(String(r.month).toLowerCase()));
+        if (!matchDate && !matchMonth) return false;
+      }
+      if (viewMode === 'year' && selectedYear) {
+        const matchDate = r.date && r.date.startsWith(selectedYear);
+        const matchYear = r.year && String(r.year) === String(selectedYear);
+        if (!matchDate && !matchYear) return false;
+      }
+      if (viewMode === 'range') {
+        if (fromDate && r.date && r.date < fromDate) return false;
+        if (toDate && r.date && r.date > toDate) return false;
+      }
+
+      // Search matches name, ID, client
+      if (filters.search) {
+        const query = filters.search.toLowerCase();
+        const matchesName = (r.employeeName || '').toLowerCase().includes(query);
+        const matchesId = (r.employeeId || '').toLowerCase().includes(query);
+        const matchesClient = (r.clientName || r.companyName || '').toLowerCase().includes(query);
+        if (!matchesName && !matchesId && !matchesClient) return false;
+      }
+
+      // Client / Company
+      if (filters.companyId && r.companyName !== filters.companyId && r.clientName !== filters.companyId) return false;
+      // Site
+      if (filters.site && r.site !== filters.site) return false;
+      // Department
+      if (filters.department && r.department !== filters.department) return false;
+      // Status
+      if (filters.status) {
+        const normStatus = String(r.status || '').toLowerCase().replace(/[-_ ]/g, '');
+        const targetStatus = String(filters.status || '').toLowerCase().replace(/[-_ ]/g, '');
+        if (normStatus !== targetStatus) return false;
+      }
+
+      return true;
+    });
+  }, [records, filters, viewMode, selectedDate, selectedMonth, selectedYear, fromDate, toDate]);
+
+  // Paginated records
+  const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
+  const paginatedRecords = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRecords.slice(start, start + pageSize);
+  }, [filteredRecords, currentPage, pageSize]);
+
+  // Handle Delete Record
   const handleDeleteRecord = (record) => {
     setDeleteModalRecord(record);
   };
@@ -332,8 +452,8 @@ function Attendance() {
       const recordId = deleteModalRecord._id || deleteModalRecord.id || deleteModalRecord.employeeId;
       await attendanceService.deleteAttendanceRecord(compId, recordId);
       setDeleteModalRecord(null);
-      showToast(`✓ Attendance record for ${deleteModalRecord.employeeName || deleteModalRecord.employeeId} (${deleteModalRecord.date}) deleted from database.`);
-      await fetchRecords(selectedDate);
+      showToast(`✓ Attendance record for ${deleteModalRecord.employeeName || deleteModalRecord.employeeId} (${deleteModalRecord.date}) deleted.`);
+      fetchRecords();
     } catch (err) {
       showToast(`Failed to delete attendance: ${err.message}`, 'danger');
     } finally {
@@ -341,52 +461,7 @@ function Attendance() {
     }
   };
 
-
-  // Reset page when filters change
-  const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
-    setCurrentPage(1);
-  };
-
-  const handleResetFilters = () => {
-    setFilters(INITIAL_FILTERS);
-    setCurrentPage(1);
-  };
-
-  // Filtered records for selected date and active filters
-  const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
-      // Date filter (matches selected date if record specifies date)
-      if (selectedDate && r.date && r.date !== selectedDate) return false;
-
-      // Search matches name or ID
-      if (filters.search) {
-        const query = filters.search.toLowerCase();
-        const matchesName = (r.employeeName || '').toLowerCase().includes(query);
-        const matchesId = (r.employeeId || '').toLowerCase().includes(query);
-        if (!matchesName && !matchesId) return false;
-      }
-      // Company
-      if (filters.companyId && r.companyName !== filters.companyId && r.companyId !== filters.companyId) return false;
-      // Site
-      if (filters.site && r.site !== filters.site) return false;
-      // Department
-      if (filters.department && r.department !== filters.department) return false;
-      // Status
-      if (filters.status && r.status !== filters.status) return false;
-
-      return true;
-    });
-  }, [records, filters, selectedDate]);
-
-  // Paginated records
-  const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
-  const paginatedRecords = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredRecords.slice(start, start + pageSize);
-  }, [filteredRecords, currentPage, pageSize]);
-
-  // --- Instant Edit Handler (Direct Save without Approval) ---
+  // Instant Edit Handler
   const handleEditRecordSubmit = async (formData) => {
     try {
       const present = Number(formData.present) || 0;
@@ -433,7 +508,7 @@ function Attendance() {
       };
 
       await attendanceService.saveAttendanceRecord(compId, payload);
-      await fetchRecords(selectedDate);
+      await fetchRecords();
       setEditModalRecord(null);
       showToast(`✓ Attendance updated instantly for ${formData.employeeName || 'employee'}.`);
     } catch (err) {
@@ -441,10 +516,11 @@ function Attendance() {
     }
   };
 
+  // Corrections Handler
   const handleApproveCorrection = async (corrId) => {
     try {
       await attendanceService.reviewCorrectionRequest(compId, corrId, 'approve');
-      await fetchRecords(selectedDate);
+      await fetchRecords();
       setReviewRequest(null);
       showToast('✓ Correction approved and attendance record updated successfully.');
     } catch (err) {
@@ -455,36 +531,22 @@ function Attendance() {
   const handleRejectCorrection = async (corrId, reason) => {
     try {
       await attendanceService.reviewCorrectionRequest(compId, corrId, 'reject', reason);
-      await fetchRecords(selectedDate);
+      await fetchRecords();
       setReviewRequest(null);
-      showToast('Correction request rejected.', 'danger');
+      showToast('Correction request has been rejected.');
     } catch (err) {
       showToast(`Failed to reject correction: ${err.message}`, 'danger');
     }
   };
 
-  // --- Direct Attendance Save Handler ---
-  const handleSaveAttendance = async (recordData) => {
-    try {
-      await attendanceService.saveAttendanceRecord(compId, recordData);
-      await fetchRecords(selectedDate);
-      showToast('✓ Attendance record saved successfully.');
-    } catch (err) {
-      showToast(`Failed to save attendance: ${err.message}`, 'danger');
-    }
-  };
-
-  // --- Export Handler ---
+  // Export Report Handler
   const handleExport = (exportConfig) => {
-    setShowExportModal(false);
-    const { fromDate, toDate, companyId, site, department, status, format } = exportConfig;
+    const { fromDate: fDate, toDate: tDate, clientName, status, format } = exportConfig;
 
     const dataToExport = records.filter((r) => {
-      if (fromDate && r.date && r.date < fromDate) return false;
-      if (toDate && r.date && r.date > toDate) return false;
-      if (companyId && r.companyName !== companyId && r.companyId !== companyId && r.clientName !== companyId) return false;
-      if (site && r.site !== site) return false;
-      if (department && r.department !== department) return false;
+      if (fDate && r.date && r.date < fDate) return false;
+      if (tDate && r.date && r.date > tDate) return false;
+      if (clientName && r.companyName !== clientName && r.clientName !== clientName) return false;
       if (status && r.status !== status) return false;
       return true;
     }).map((r) => ({
@@ -492,10 +554,10 @@ function Attendance() {
       'Employee Name': r.employeeName,
       'Father Name': r.fatherName || '—',
       'Month': r.month || '—',
-      'Year': r.year || (r.date ? r.date.split('-')[0] : '—'),
-      'Present': r.present !== undefined ? r.present : (r.status === 'present' ? 1 : 0),
-      'Week Off': r.weekOff !== undefined ? r.weekOff : 0,
-      'Holidays': r.holidays !== undefined ? r.holidays : 0,
+      'Year': r.year || '—',
+      'Present Days': r.present !== undefined ? r.present : (r.status === 'present' ? 1 : 0),
+      'Week Off (WO)': r.weekOff !== undefined ? r.weekOff : 0,
+      'Holidays (HL)': r.holidays !== undefined ? r.holidays : 0,
       'CL (Casual Leave)': r.cl !== undefined ? r.cl : 0,
       'SL (Sick Leave)': r.sl !== undefined ? r.sl : 0,
       'EL (Earn Leave)': r.el !== undefined ? r.el : 0,
@@ -519,7 +581,7 @@ function Attendance() {
     if (format === 'pdf') {
       const printWindow = window.open('', '_blank', 'width=1000,height=900');
       if (printWindow) {
-        const companyName = activeCompany?.name || 'RR Security';
+        const companyName = activeCompany?.name || 'RR Security & Facilities';
         const html = `
 <!DOCTYPE html>
 <html>
@@ -537,14 +599,14 @@ function Attendance() {
     .tag-present { background: #dcfce7; color: #15803d; }
     .tag-absent { background: #fee2e2; color: #b91c1c; }
     .tag-late { background: #fef3c7; color: #b45309; }
-    .tag-halfDay { background: #e0f2fe; color: #0369a1; }
+    .tag-half_day { background: #e0f2fe; color: #0369a1; }
   </style>
 </head>
 <body>
   <div class="header">
     <div>
       <div class="title">${companyName}</div>
-      <div class="meta">Attendance Report | Date Range: ${fromDate || 'All'} to ${toDate || 'All'} | Total Records: ${dataToExport.length}</div>
+      <div class="meta">Attendance Register | Date Range: ${fDate || 'All'} to ${tDate || 'All'} | Total Records: ${dataToExport.length}</div>
     </div>
   </div>
   <table>
@@ -599,21 +661,19 @@ function Attendance() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance');
 
-    const fileName = `Attendance_Report_${fromDate || 'start'}_to_${toDate || 'end'}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+    const fileName = `Attendance_Report_${fDate || 'start'}_to_${tDate || 'end'}.${format === 'csv' ? 'csv' : 'xlsx'}`;
     XLSX.writeFile(workbook, fileName);
 
     showToast(`✓ Exported ${dataToExport.length} records to ${fileName}`);
   };
 
-  const pendingCount = corrections.length;
-
+  // Import Handler
   const handleImportRecords = async (importPayload) => {
     const { month, date, records: newRecords } = importPayload;
     if (!newRecords || newRecords.length === 0) return;
 
     try {
       setIsLoading(true);
-      // Save directly to MongoDB Atlas database
       const res = await attendanceService.bulkImportAttendance(compId, importPayload);
       const targetDate = date || (res.records && res.records[0]?.date) || selectedDate;
 
@@ -622,7 +682,7 @@ function Attendance() {
 
       if (targetDate) {
         handleDateChange(targetDate);
-        await fetchRecords(targetDate);
+        await fetchRecords();
       } else {
         await fetchRecords();
       }
@@ -658,6 +718,16 @@ function Attendance() {
           </div>
 
           <div className={styles.headerActions}>
+            <button
+              type="button"
+              className={styles.importBtn}
+              onClick={fetchRecords}
+              title="Refresh database records"
+              style={{ background: '#f8fafc', color: '#334155', border: '1px solid #cbd5e1' }}
+            >
+              <RefreshCw size={15} />
+              <span>Refresh</span>
+            </button>
             {canAdd('attendance') && (
               <button
                 className={styles.importBtn}
@@ -682,26 +752,30 @@ function Attendance() {
         {/* TAB 1: DAILY ATTENDANCE */}
         {activeTab === 'daily' && (
           <div className={styles.tabContent}>
-            {/* Top Controls: Date Selector */}
-            <div className={styles.dateSelectorRow}>
-              <AttendanceDateSelector
-                date={selectedDate}
-                onChange={handleDateChange}
-              />
-            </div>
-
             {/* Summary Cards */}
-            <AttendanceSummaryCards records={records.filter(r => !selectedDate || !r.date || r.date === selectedDate)} />
+            <AttendanceSummaryCards records={filteredRecords} />
 
             {/* Visual Distribution Chart */}
-            <AttendanceDistribution records={records.filter(r => !selectedDate || !r.date || r.date === selectedDate)} />
+            <AttendanceDistribution records={filteredRecords} />
 
-            {/* Filter Bar */}
+            {/* Unified Filter Bar with Integrated Timeframe Selector */}
             <AttendanceFilters
               filters={filters}
               onChange={handleFilterChange}
               onReset={handleResetFilters}
+              timeframe={viewMode}
+              onTimeframeChange={handleViewModeChange}
+              selectedMonth={selectedMonth}
+              onMonthChange={handleMonthChange}
+              selectedDate={selectedDate}
+              onDateChange={handleDateChange}
+              selectedYear={selectedYear}
+              onYearChange={handleYearChange}
+              fromDate={fromDate}
+              toDate={toDate}
+              onRangeChange={handleRangeChange}
               records={records}
+              clients={clientsList}
             />
 
             {/* Attendance Table */}
@@ -752,61 +826,55 @@ function Attendance() {
           </div>
         )}
 
-        {/* --- Drawers & Modals --- */}
-        {viewDrawerRecord && (
-          <AttendanceDetailsDrawer
-            record={viewDrawerRecord}
-            onClose={() => setViewDrawerRecord(null)}
-            onEdit={(rec) => setEditModalRecord(rec)}
-            onDelete={(rec) => handleDeleteRecord(rec)}
-          />
-        )}
+        {/* Drawers & Modals */}
+        <AttendanceDetailsDrawer
+          record={viewDrawerRecord}
+          onClose={() => setViewDrawerRecord(null)}
+          onEdit={(rec) => {
+            setViewDrawerRecord(null);
+            setEditModalRecord(rec);
+          }}
+          onDelete={(rec) => {
+            setViewDrawerRecord(null);
+            handleDeleteRecord(rec);
+          }}
+        />
 
-        {editModalRecord && (
-          <AttendanceCorrectionModal
-            record={editModalRecord}
-            onClose={() => setEditModalRecord(null)}
-            onSubmit={handleEditRecordSubmit}
-          />
-        )}
+        <AttendanceCorrectionModal
+          record={editModalRecord}
+          isOpen={!!editModalRecord}
+          onClose={() => setEditModalRecord(null)}
+          onSubmit={handleEditRecordSubmit}
+        />
 
-        {deleteModalRecord && (
-          <DeleteAttendanceConfirmModal
-            isOpen={!!deleteModalRecord}
-            record={deleteModalRecord}
-            isDeleting={isDeletingRecord}
-            onClose={() => setDeleteModalRecord(null)}
-            onConfirm={handleConfirmDeleteRecord}
-          />
-        )}
+        <CorrectionReviewDrawer
+          request={reviewRequest}
+          onClose={() => setReviewRequest(null)}
+          onApprove={handleApproveCorrection}
+          onReject={handleRejectCorrection}
+        />
 
-        {reviewRequest && (
-          <CorrectionReviewDrawer
-            request={reviewRequest}
-            onClose={() => setReviewRequest(null)}
-            onApprove={handleApproveCorrection}
-            onReject={handleRejectCorrection}
-          />
-        )}
+        <AttendanceExportModal
+          isOpen={showExportModal}
+          onClose={() => setShowExportModal(false)}
+          onExport={handleExport}
+          currentDate={selectedDate}
+        />
 
-        {showExportModal && (
-          <AttendanceExportModal
-            onClose={() => setShowExportModal(false)}
-            onExport={handleExport}
-            records={records}
-            activeCompanyName={activeCompany?.name || 'RR Security'}
-          />
-        )}
+        <AttendanceImportModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          onImport={handleImportRecords}
+          currentDate={selectedDate}
+        />
 
-        {showImportModal && (
-          <AttendanceImportModal
-            onClose={() => setShowImportModal(false)}
-            onImport={handleImportRecords}
-            activeCompanyName={activeCompany?.name || 'RR Security'}
-            activeCompanyId={compId}
-            currentDate={selectedDate}
-          />
-        )}
+        <DeleteAttendanceConfirmModal
+          isOpen={!!deleteModalRecord}
+          record={deleteModalRecord}
+          isDeleting={isDeletingRecord}
+          onClose={() => setDeleteModalRecord(null)}
+          onConfirm={handleConfirmDeleteRecord}
+        />
       </div>
     </AdminLayout>
   );

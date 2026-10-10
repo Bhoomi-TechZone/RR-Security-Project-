@@ -14,7 +14,7 @@ const notificationSchema = new mongoose.Schema({
   },
   recipientRole: {
     type: String,
-    enum: ['admin', 'client', 'employee', 'all'],
+    enum: ['admin', 'client', 'employee', 'all', 'hr', 'manager', 'supervisor'],
     default: 'admin',
     index: true
   },
@@ -35,6 +35,7 @@ const notificationSchema = new mongoose.Schema({
       'attendance-correction',
       'salary-processed',
       'document-expiry',
+      'compliance_alert',
       'general'
     ],
     required: true,
