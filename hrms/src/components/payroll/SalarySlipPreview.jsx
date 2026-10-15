@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { X, Printer, Download, Building2, User, Calendar, ShieldCheck, Mail, Phone, Hash, FileCheck } from 'lucide-react';
 import { formatRupee, numberToIndianWords } from '../../utils/payrollUtils';
+import { generateSalarySlipPdf } from '../../utils/salarySlipPdfUtil';
 import styles from './SalarySlipPreview.module.css';
 
 export default function SalarySlipPreview({
@@ -27,6 +28,14 @@ export default function SalarySlipPreview({
     window.print();
   };
 
+  const handleDownload = () => {
+    if (onDownload) {
+      onDownload(slip);
+    } else {
+      generateSalarySlipPdf({ slip, company, config, mode: 'download' });
+    }
+  };
+
   // Resolve dynamic company fields with fallbacks
   const companyName =
     slip.companyName ||
@@ -45,7 +54,12 @@ export default function SalarySlipPreview({
   const companyPhone = slip.companyPhone || company?.phone || '';
   const companyGstin = slip.companyGstin || company?.gstin || '';
   const companyPan = slip.companyPan || company?.pan || '';
-  const companyLogo = slip.companyLogo || company?.logo || null;
+  const companyLogo =
+    slip.companyLogo ||
+    company?.logo ||
+    company?.logoUrl ||
+    (typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_logo_preview') : null) ||
+    null;
 
   // Visibility toggles from config (or default all true)
   const showLogo = config?.companyInfo?.showLogo !== false;
@@ -117,8 +131,8 @@ export default function SalarySlipPreview({
             <button
               type="button"
               className={styles.toolbarPrimaryBtn}
-              onClick={() => onDownload ? onDownload(slip) : handlePrint()}
-              title="Download Payslip"
+              onClick={handleDownload}
+              title="Download Payslip PDF"
             >
               <Download size={16} />
               <span>Download</span>

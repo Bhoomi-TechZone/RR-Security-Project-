@@ -32,6 +32,7 @@ import SalaryStructureModal from '../../components/payroll/SalaryStructureModal'
 import SalarySlipsTable from '../../components/payroll/SalarySlipsTable';
 import GenerateSlipsModal from '../../components/payroll/GenerateSlipsModal';
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
+import { generateSalarySlipPdf } from '../../utils/salarySlipPdfUtil';
 import StatutoryReports from '../../components/payroll/StatutoryReports';
 import StatutoryDownloadModal from '../../components/payroll/StatutoryDownloadModal';
 import PayrollHistoryModal from '../../components/payroll/PayrollHistoryModal';
@@ -621,10 +622,28 @@ export default function PayrollManagement() {
 
   // Actions: Download Slip PDF
   const handleDownloadSlip = (slip) => {
-    notify(`Preparing salary slip for ${slip.employeeName}...`, 'info');
-    setTimeout(() => {
+    try {
+      notify(`Preparing salary slip for ${slip.employeeName}...`, 'info');
+      const companyObj =
+        companies.find(
+          (c) =>
+            c.companyId === slip.companyId ||
+            c.name?.toLowerCase() === slip.companyName?.toLowerCase()
+        ) ||
+        companies.find((c) => c.companyId === activeCompanyId) ||
+        companies[0] ||
+        {};
+
+      generateSalarySlipPdf({
+        slip,
+        company: companyObj,
+        mode: 'download',
+      });
       notify(`✓ Salary slip downloaded (${slip.employeeId || slip.slipNumber}).`, 'success');
-    }, 600);
+    } catch (err) {
+      console.error(err);
+      notify('Failed to generate salary slip PDF', 'error');
+    }
   };
 
   // Actions: Resolve On Hold Issue

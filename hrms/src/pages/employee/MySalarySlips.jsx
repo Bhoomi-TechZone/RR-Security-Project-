@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
 import { formatRupee, formatDate } from '../../utils/payrollUtils';
+import { generateSalarySlipPdf } from '../../utils/salarySlipPdfUtil';
 import authService from '../../services/authService';
 import { useCompany } from '../../context/CompanyContext';
 import styles from './MySalarySlips.module.css';
@@ -31,8 +32,7 @@ function generateDynamicSlips(currentUser, companyObj) {
   const compEmail = companyObj?.email || '';
   const compPhone = companyObj?.phone || '';
   const compGstin = companyObj?.gstin || '';
-  const compPan = companyObj?.pan || '';
-  const compLogo = companyObj?.logo || null;
+  const compLogo = companyObj?.logo || (typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_logo_preview') : null) || null;
 
   const basic = Number(currentUser.basic || currentUser.basicSalary || (currentUser.grossSalary ? Math.round(currentUser.grossSalary * 0.5) : 28000));
   const hra = Number(currentUser.hra || Math.round(basic * 0.4));
@@ -199,8 +199,11 @@ function MySalarySlips() {
 
   /* Download handler */
   const handleDownloadSlip = (slip) => {
-    setSelectedSlip(slip);
-    setPreviewOpen(true);
+    generateSalarySlipPdf({
+      slip,
+      company: activeCompany,
+      mode: 'download'
+    });
   };
 
   /* Print */
@@ -623,7 +626,11 @@ function MySalarySlips() {
         slip={selectedSlip}
         company={activeCompany}
         onClose={handleClosePreview}
-        onDownload={() => window.print()}
+        onDownload={(slip) => generateSalarySlipPdf({
+          slip,
+          company: activeCompany,
+          mode: 'download'
+        })}
       />
     </main>
   );

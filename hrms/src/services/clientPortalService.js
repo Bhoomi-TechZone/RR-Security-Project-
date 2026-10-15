@@ -122,6 +122,7 @@ export const clientPortalService = {
     try {
       const queryParams = new URLSearchParams();
       if (params.date) queryParams.append('date', params.date);
+      if (params.month) queryParams.append('month', params.month);
       if (params.search) queryParams.append('search', params.search);
       if (params.department && params.department !== 'all') queryParams.append('department', params.department);
       if (params.site && params.site !== 'all') queryParams.append('site', params.site);

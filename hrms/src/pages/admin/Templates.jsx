@@ -4,7 +4,7 @@ import {
   FileText, DollarSign, Award, HeartHandshake, FileCheck, 
   Mail, Save, RotateCcw, Eye, Plus, Search, Edit2, Copy, 
   Trash2, ArrowRight, Check, X, Shield, Sparkles, SlidersHorizontal,
-  Printer, Download, Building2, UserCheck, Layers, Info
+  Printer, Download, Building2, UserCheck, Layers, Info, User, UserPlus
 } from 'lucide-react';
 import styles from './Templates.module.css';
 
@@ -16,6 +16,8 @@ import { useCompany } from '../../context/CompanyContext';
 
 // Reusing existing SalarySlipPreview component
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
+import { generateSalarySlipPdf } from '../../utils/salarySlipPdfUtil';
+import { generateLetterPdf } from '../../utils/letterPdfUtil';
 
 // Centralized Placeholders & Initial Mock Data
 import { 
@@ -39,13 +41,79 @@ const TABS = [
   { id: 'email', label: 'Email Templates', icon: Mail }
 ];
 
-// Helper to replace template placeholders with mock sample values
-function renderPlaceholders(content) {
+// Helper to replace template placeholders dynamically as per active company & dynamic template variables
+function renderPlaceholders(content, activeCompany = null, variables = {}) {
   if (!content) return '';
   let rendered = content;
+
+  const compName = activeCompany?.name || 'RR Security & Facilities';
+  const compAddress = [
+    activeCompany?.address,
+    activeCompany?.city,
+    activeCompany?.state,
+    activeCompany?.pinCode
+  ].filter(Boolean).join(', ') || activeCompany?.address || 'Sector 18, Gurugram, Haryana - 122008';
+  const compEmail = activeCompany?.email || 'admin@rrsecurity.com';
+  const compPhone = activeCompany?.phone || '+91 9876543210';
+  const compGstin = activeCompany?.gstin || '';
+  const compPan = activeCompany?.pan || '';
+  const currentDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Baseline standard values map
+  const dynamicValues = {
+    '{{companyName}}': compName,
+    '{{companyAddress}}': compAddress,
+    '{{companyEmail}}': compEmail,
+    '{{companyPhone}}': compPhone,
+    '{{companyGstin}}': compGstin,
+    '{{companyPan}}': compPan,
+    '{{currentDate}}': currentDate,
+    '{{employeeName}}': 'Rahul Kumar',
+    '{{employeeCode}}': 'RR-1042',
+    '{{designation}}': 'Security Officer',
+    '{{department}}': 'Security Operations',
+    '{{location}}': 'DLF Cyber City, Tower B, Gurugram',
+    '{{reportingManager}}': 'Vikram Singh (Head of Operations)',
+    '{{joiningDate}}': '15 Jan 2024',
+    '{{lastWorkingDate}}': '31 Aug 2026',
+    '{{salary}}': '₹28,500',
+    '{{ctc}}': '₹3,42,000',
+    '{{probationPeriod}}': '6 Months',
+    '{{noticePeriod}}': '30 Days',
+    '{{workingHours}}': '9:00 AM - 6:00 PM (Rotational Shift)',
+    '{{signatoryName}}': activeCompany?.signatoryName || 'Amitabh Sharma',
+    '{{signatoryDesignation}}': activeCompany?.signatoryDesignation || 'Director - Human Resources',
+    '{{amount}}': '₹4,250',
+    '{{settlementAmount}}': '₹34,800',
+    '{{leaveType}}': 'Earned Leave (EL)',
+    '{{leaveFrom}}': '10 Sep 2026',
+    '{{leaveTo}}': '12 Sep 2026'
+  };
+
+  // If variables object provided, overlay every key-value into dynamicValues
+  if (variables && typeof variables === 'object') {
+    Object.entries(variables).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && String(v).trim() !== '') {
+        const token = k.startsWith('{{') && k.endsWith('}}') ? k : `{{${k}}}`;
+        dynamicValues[token] = String(v);
+      }
+    });
+  }
+
+  // Pre-seed from TEMPLATE_PLACEHOLDERS samples if anything undefined
   TEMPLATE_PLACEHOLDERS.forEach(item => {
-    rendered = rendered.replaceAll(item.key, item.sample);
+    if (dynamicValues[item.key] === undefined) {
+      dynamicValues[item.key] = item.sample;
+    }
   });
+
+  // Replace all occurrences in content
+  Object.entries(dynamicValues).forEach(([token, val]) => {
+    if (token) {
+      rendered = rendered.replaceAll(token, val);
+    }
+  });
+
   return rendered;
 }
 
@@ -92,7 +160,8 @@ function Templates() {
   const [searchParams, setSearchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
 
-  const { activeCompany } = useCompany();
+  const { companies, activeCompany, switchCompany, updateCompanyProfile } = useCompany();
+  const activeCompId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
   const activeCompName = activeCompany?.name || 'RR Security & Facilities';
   const activeCompAddress = [
     activeCompany?.address,
@@ -102,10 +171,328 @@ function Templates() {
   ].filter(Boolean).join(', ') || activeCompany?.address || 'Sector 18, Gurugram, Haryana - 122008';
   const activeCompEmail = activeCompany?.email || 'admin@rrsecurity.com';
   const activeCompPhone = activeCompany?.phone || '+91 9876543210';
-  const activeCompGstin = activeCompany?.gstin || '07AABCR1234F1Z1';
-  const activeCompPan = activeCompany?.pan || 'AABCR1234F';
-  const activeCompLogo = activeCompany?.logo || null;
+  const activeCompGstin = activeCompany?.gstin || '';
+  const activeCompPan = activeCompany?.pan || '';
+  const activeCompLogo =
+    activeCompany?.logo ||
+    (typeof window !== 'undefined'
+      ? (activeCompany?.companyId ? localStorage.getItem(`novaspark_company_logo_${activeCompany.companyId}`) : null) ||
+        (activeCompany?.id ? localStorage.getItem(`novaspark_company_logo_${activeCompany.id}`) : null) ||
+        localStorage.getItem(`novaspark_company_logo_${activeCompId}`) ||
+        (activeCompany?.isDefault ? localStorage.getItem('novaspark_company_logo_preview') : null)
+      : null) ||
+    null;
   const activeCompInitials = (activeCompName.split(' ').map(w => w[0]).join('').substring(0, 3) || 'RRS').toUpperCase();
+
+  // Default Initial Template Variables
+  const defaultInitialVariables = useMemo(() => {
+    const vars = {};
+    TEMPLATE_PLACEHOLDERS.forEach(p => {
+      vars[p.key] = p.sample;
+    });
+    if (activeCompName) vars['{{companyName}}'] = activeCompName;
+    if (activeCompAddress) vars['{{companyAddress}}'] = activeCompAddress;
+    if (activeCompEmail) vars['{{companyEmail}}'] = activeCompEmail;
+    if (activeCompPhone) vars['{{companyPhone}}'] = activeCompPhone;
+    if (activeCompGstin) vars['{{companyGstin}}'] = activeCompGstin;
+    if (activeCompPan) vars['{{companyPan}}'] = activeCompPan;
+    vars['{{currentDate}}'] = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return vars;
+  }, [activeCompName, activeCompAddress, activeCompEmail, activeCompPhone, activeCompGstin, activeCompPan]);
+
+  // Dynamic Template Variables State
+  const [templateVariables, setTemplateVariables] = useState(() => {
+    const saved = localStorage.getItem('novaspark_template_variables');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.warn('Error parsing template variables:', e);
+      }
+    }
+    const initial = {};
+    TEMPLATE_PLACEHOLDERS.forEach(p => {
+      initial[p.key] = p.sample;
+    });
+    initial['{{currentDate}}'] = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return initial;
+  });
+
+  // Backward compatible candidateData object
+  const candidateData = useMemo(() => ({
+    employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+    employeeCode: templateVariables['{{employeeCode}}'] || 'RR-1042',
+    designation: templateVariables['{{designation}}'] || 'Security Officer',
+    department: templateVariables['{{department}}'] || 'Security Operations',
+    location: templateVariables['{{location}}'] || 'DLF Cyber City, Tower B, Gurugram',
+    reportingManager: templateVariables['{{reportingManager}}'] || 'Vikram Singh (Head of Operations)',
+    joiningDate: templateVariables['{{joiningDate}}'] || '15 Jan 2024',
+    lastWorkingDate: templateVariables['{{lastWorkingDate}}'] || '31 Aug 2026',
+    salary: templateVariables['{{salary}}'] || '₹28,500',
+    ctc: templateVariables['{{ctc}}'] || '₹3,42,000',
+    probationPeriod: templateVariables['{{probationPeriod}}'] || '6 Months',
+    noticePeriod: templateVariables['{{noticePeriod}}'] || '30 Days',
+    workingHours: templateVariables['{{workingHours}}'] || '9:00 AM - 6:00 PM (Rotational Shift)',
+    signatoryName: templateVariables['{{signatoryName}}'] || 'Amitabh Sharma',
+    signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || 'Director - Human Resources'
+  }), [templateVariables]);
+
+  // Update variable value and persist
+  const updateVariable = (key, val) => {
+    setTemplateVariables(prev => {
+      const next = { ...prev, [key]: val };
+      localStorage.setItem('novaspark_template_variables', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  // Reset variables to defaults
+  const resetVariablesToDefault = () => {
+    setTemplateVariables(defaultInitialVariables);
+    localStorage.setItem('novaspark_template_variables', JSON.stringify(defaultInitialVariables));
+    showToast('All template variables reset to default values.', 'info');
+  };
+
+  // Custom User-Defined Variables Management
+  const [customVariables, setCustomVariables] = useState(() => {
+    const saved = localStorage.getItem('novaspark_custom_placeholders');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return [];
+  });
+
+  const [newVarName, setNewVarName] = useState('');
+  const [newVarValue, setNewVarValue] = useState('');
+
+  const handleAddCustomVariable = (e) => {
+    e.preventDefault();
+    if (!newVarName.trim()) {
+      showToast('Please enter a variable placeholder name.', 'error');
+      return;
+    }
+
+    let cleanKey = newVarName.trim();
+    if (!cleanKey.startsWith('{{')) cleanKey = `{{${cleanKey}`;
+    if (!cleanKey.endsWith('}}')) cleanKey = `${cleanKey}}}`;
+
+    const rawName = cleanKey.slice(2, -2);
+    const label = rawName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim();
+
+    const newPlaceholder = {
+      key: cleanKey,
+      label,
+      sample: newVarValue.trim() || 'Custom Value',
+      category: 'Custom',
+      isCustom: true
+    };
+
+    const nextCustom = [...customVariables.filter(v => v.key !== cleanKey), newPlaceholder];
+    setCustomVariables(nextCustom);
+    localStorage.setItem('novaspark_custom_placeholders', JSON.stringify(nextCustom));
+
+    updateVariable(cleanKey, newVarValue.trim() || 'Custom Value');
+    setNewVarName('');
+    setNewVarValue('');
+    showToast(`Added custom variable ${cleanKey}!`);
+  };
+
+  const handleDeleteCustomVariable = (keyToDelete) => {
+    const nextCustom = customVariables.filter(v => v.key !== keyToDelete);
+    setCustomVariables(nextCustom);
+    localStorage.setItem('novaspark_custom_placeholders', JSON.stringify(nextCustom));
+
+    setTemplateVariables(prev => {
+      const next = { ...prev };
+      delete next[keyToDelete];
+      localStorage.setItem('novaspark_template_variables', JSON.stringify(next));
+      return next;
+    });
+    showToast(`Removed variable ${keyToDelete}`, 'info');
+  };
+
+  // Combined placeholders: standard + custom
+  const allPlaceholders = useMemo(() => {
+    return [...TEMPLATE_PLACEHOLDERS, ...customVariables];
+  }, [customVariables]);
+
+  // Variables Filter & Search State
+  const [selectedVarCategory, setSelectedVarCategory] = useState('All');
+  const [varSearchQuery, setVarSearchQuery] = useState('');
+  const [showVariablesPanel, setShowVariablesPanel] = useState(false);
+
+  // Backward compatibility alias for showCandidateCustomizer
+  const showCandidateCustomizer = showVariablesPanel;
+  const setShowCandidateCustomizer = setShowVariablesPanel;
+
+  const filteredVariables = useMemo(() => {
+    return allPlaceholders.filter(p => {
+      const matchesCat = selectedVarCategory === 'All' || p.category === selectedVarCategory;
+      const query = varSearchQuery.toLowerCase().trim();
+      const currentVal = (templateVariables[p.key] !== undefined ? templateVariables[p.key] : p.sample) || '';
+      const matchesSearch = !query ||
+        p.label.toLowerCase().includes(query) ||
+        p.key.toLowerCase().includes(query) ||
+        currentVal.toLowerCase().includes(query);
+      return matchesCat && matchesSearch;
+    });
+  }, [allPlaceholders, selectedVarCategory, varSearchQuery, templateVariables]);
+
+  const varCategories = useMemo(() => {
+    const cats = ['All', 'Employee', 'Job', 'Dates', 'Compensation', 'Terms', 'Company', 'Signatory', 'Leave'];
+    if (customVariables.length > 0) cats.push('Custom');
+    return cats;
+  }, [customVariables]);
+
+  // Dynamic Template Variables Customizer Panel
+  const renderVariablesCustomizer = () => {
+    if (!showVariablesPanel) return null;
+    return (
+      <div className={styles.variablesCustomizerPanel}>
+        {/* Header */}
+        <div className={styles.variablesHeader}>
+          <div className={styles.variablesTitleWrap}>
+            <div className={styles.variablesTitle}>
+              <SlidersHorizontal size={15} color="#4f46e5" />
+              <span>Dynamic Template Variables</span>
+              <span style={{ fontSize: '11px', color: '#4f46e5', background: '#eef2ff', padding: '1px 8px', borderRadius: '12px', fontWeight: 700 }}>
+                {allPlaceholders.length} Variables
+              </span>
+            </div>
+            <div className={styles.variablesSubtitle}>
+              Set dynamic variable values below. Any variable used in the letter will render with these values in real-time.
+            </div>
+          </div>
+          <div className={styles.variablesHeaderActions}>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              style={{ padding: '4px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '5px' }}
+              onClick={resetVariablesToDefault}
+              title="Reset all variable values to defaults"
+            >
+              <RotateCcw size={12} />
+              <span>Reset Values</span>
+            </button>
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              style={{ padding: '4px 10px', fontSize: '11.5px' }}
+              onClick={() => setShowVariablesPanel(false)}
+            >
+              Hide
+            </button>
+          </div>
+        </div>
+
+        {/* Filter and Search Bar */}
+        <div className={styles.variablesFilterBar}>
+          <div className={styles.categoryPills}>
+            {varCategories.map(cat => (
+              <button
+                key={cat}
+                type="button"
+                className={`${styles.categoryPill} ${selectedVarCategory === cat ? styles.categoryPillActive : ''}`}
+                onClick={() => setSelectedVarCategory(cat)}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <Search size={12} color="#94a3b8" style={{ position: 'absolute', left: '8px' }} />
+            <input
+              type="text"
+              className={styles.varSearchInput}
+              style={{ paddingLeft: '26px' }}
+              placeholder="Search variable or value..."
+              value={varSearchQuery}
+              onChange={(e) => setVarSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Dynamic Variables Grid */}
+        <div className={styles.variablesGrid}>
+          {filteredVariables.map((item) => {
+            const currentVal = templateVariables[item.key] !== undefined ? templateVariables[item.key] : item.sample;
+            return (
+              <div key={item.key} className={styles.variableCard}>
+                <div className={styles.variableLabelRow}>
+                  <label className={styles.variableLabel} title={item.label}>
+                    {item.label}
+                  </label>
+                  <span
+                    className={styles.variableTokenBadge}
+                    title="Click to copy placeholder token"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(item.key);
+                      showToast(`Copied ${item.key} to clipboard!`);
+                    }}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {item.key}
+                  </span>
+                </div>
+                <div className={styles.variableInputWrap}>
+                  <input
+                    type="text"
+                    className={styles.variableInput}
+                    value={currentVal}
+                    placeholder={`Enter ${item.label.toLowerCase()}...`}
+                    onChange={(e) => updateVariable(item.key, e.target.value)}
+                  />
+                  {item.isCustom && (
+                    <button
+                      type="button"
+                      className={styles.varDeleteBtn}
+                      title="Delete custom variable"
+                      onClick={() => handleDeleteCustomVariable(item.key)}
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Add Custom Variable Form */}
+        <form onSubmit={handleAddCustomVariable} className={styles.addVariableRow}>
+          <span style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <Plus size={13} color="#4f46e5" /> Add Custom Variable:
+          </span>
+          <input
+            type="text"
+            className={styles.addVarInput}
+            placeholder="Placeholder e.g. {{siteIncharge}}"
+            value={newVarName}
+            onChange={(e) => setNewVarName(e.target.value)}
+          />
+          <input
+            type="text"
+            className={styles.addVarInput}
+            placeholder="Value e.g. Inspector Rajesh Verma"
+            value={newVarValue}
+            onChange={(e) => setNewVarValue(e.target.value)}
+          />
+          <button
+            type="submit"
+            className={styles.btnPrimary}
+            style={{ padding: '5px 12px', fontSize: '11.5px' }}
+          >
+            Add Variable
+          </button>
+        </form>
+      </div>
+    );
+  };
+
+  // Backward compatible alias
+  const renderCandidateCustomizer = renderVariablesCustomizer;
 
   // Active Tab from query param or default 'overview'
   const initialTab = searchParams.get('tab') || 'overview';
@@ -472,7 +859,21 @@ function Templates() {
           company={activeCompany}
           config={salarySlipConfig}
           onClose={() => setIsSalarySlipModalOpen(false)}
-          onDownload={() => window.print()}
+          onDownload={(slip) => generateSalarySlipPdf({
+            slip: slip || {
+              ...SAMPLE_PREVIEW_SLIP,
+              companyName: activeCompName,
+              companyAddress: activeCompAddress,
+              companyEmail: activeCompEmail,
+              companyPhone: activeCompPhone,
+              companyGstin: activeCompGstin,
+              companyPan: activeCompPan,
+              companyLogo: activeCompLogo,
+            },
+            company: activeCompany,
+            config: salarySlipConfig,
+            mode: 'download'
+          })}
         />
 
         {/* Page Header */}
@@ -1278,550 +1679,1097 @@ function Templates() {
           {/* 3. APPOINTMENT LETTER TAB */}
           {activeTab === 'appointment-letter' && (
             <div className={styles.editorLayout}>
-              {/* Left: Template Content Editor */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h2 className={styles.cardTitle}>Appointment Letter Template</h2>
-                    <p className={styles.cardSubtitle}>Configure joining offer terms, probation period, and CTC breakdown structure.</p>
+                {/* Left: Template Content Editor */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h2 className={styles.cardTitle}>Appointment Letter Template</h2>
+                      <p className={styles.cardSubtitle}>Configure joining offer terms, probation period, and CTC breakdown structure.</p>
+                    </div>
+                    <StatusBadge status={appointmentConfig.status} />
                   </div>
-                  <StatusBadge status={appointmentConfig.status} />
-                </div>
 
-                <div className={styles.cardBody}>
-                  <div className={styles.formGrid}>
+                  <div className={styles.cardBody}>
+                    <div className={styles.formGrid}>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Title</label>
+                        <input 
+                          type="text" 
+                          className={styles.input}
+                          value={appointmentConfig.templateName}
+                          onChange={(e) => setAppointmentConfig({ ...appointmentConfig, templateName: e.target.value })}
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Status</label>
+                        <select 
+                          className={styles.select}
+                          value={appointmentConfig.status}
+                          onChange={(e) => setAppointmentConfig({ ...appointmentConfig, status: e.target.value })}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                          <option value="Draft">Draft</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Title</label>
+                      <label className={styles.label}>Document Heading</label>
                       <input 
                         type="text" 
                         className={styles.input}
-                        value={appointmentConfig.templateName}
-                        onChange={(e) => setAppointmentConfig({ ...appointmentConfig, templateName: e.target.value })}
+                        value={appointmentConfig.headerTitle}
+                        onChange={(e) => setAppointmentConfig({ ...appointmentConfig, headerTitle: e.target.value })}
                       />
                     </div>
+
+                    {/* Placeholders Helper Panel */}
+                    <div className={styles.placeholdersPanel}>
+                      <div className={styles.placeholdersHeader}>
+                        <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
+                        <Sparkles size={14} color="#6366f1" />
+                      </div>
+                      <div className={styles.placeholdersPills}>
+                        {allPlaceholders.map((p) => (
+                          <button
+                            key={p.key}
+                            type="button"
+                            className={styles.placeholderPill}
+                            onClick={() => insertPlaceholderIntoLetter(p.key, setAppointmentConfig, appointmentConfig)}
+                            title={`Insert ${p.label} (Sample: ${p.sample})`}
+                          >
+                            <span>{p.key}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Status</label>
-                      <select 
-                        className={styles.select}
-                        value={appointmentConfig.status}
-                        onChange={(e) => setAppointmentConfig({ ...appointmentConfig, status: e.target.value })}
+                      <label className={styles.label}>Letter Body Content &amp; Clauses</label>
+                      <textarea 
+                        ref={letterTextareaRef}
+                        className={styles.textarea}
+                        rows={14}
+                        value={appointmentConfig.content}
+                        onChange={(e) => setAppointmentConfig({ ...appointmentConfig, content: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.cardFooter}>
+                    <div className={styles.footerLeft}>
+                      Last updated: <strong>{appointmentConfig.lastUpdated || 'Not configured'}</strong>
+                    </div>
+                    <div className={styles.footerActions}>
+                      <button type="button" className={styles.btnSecondary} onClick={resetAppointment}>
+                        <RotateCcw size={14} />
+                        <span>Reset</span>
+                      </button>
+                      <button type="button" className={styles.btnPrimary} onClick={saveAppointment}>
+                        <Save size={14} />
+                        <span>Save Template</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Real-time Printable Letter Preview */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h3 className={styles.cardTitle}>Document Preview</h3>
+                      <p className={styles.cardSubtitle}>Live resolution with dynamic variables &amp; {templateVariables['{{companyName}}'] || activeCompName} branding</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button 
+                        type="button" 
+                        className={styles.btnSecondary}
+                        onClick={() => setShowVariablesPanel(!showVariablesPanel)}
+                        title="Set dynamic variable values in real-time"
+                        style={{ fontSize: '12px' }}
                       >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Draft">Draft</option>
-                      </select>
+                        <SlidersHorizontal size={13} />
+                        <span>{showVariablesPanel ? 'Close Variables' : 'Set Variable Values'}</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnOutlinePrimary}
+                        onClick={() => generateLetterPdf({
+                          title: appointmentConfig.headerTitle || 'APPOINTMENT LETTER',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(appointmentConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: APPT/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/042`,
+                          mode: 'print'
+                        })}
+                        title="Print Official Letter"
+                      >
+                        <Printer size={13} />
+                        <span>Print Letter</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnPrimary}
+                        onClick={() => generateLetterPdf({
+                          title: appointmentConfig.headerTitle || 'APPOINTMENT LETTER',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(appointmentConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: APPT/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/042`,
+                          mode: 'download'
+                        })}
+                        title="Download Official PDF"
+                      >
+                        <Download size={13} />
+                        <span>Download PDF</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Document Heading</label>
-                    <input 
-                      type="text" 
-                      className={styles.input}
-                      value={appointmentConfig.headerTitle}
-                      onChange={(e) => setAppointmentConfig({ ...appointmentConfig, headerTitle: e.target.value })}
-                    />
-                  </div>
+                  <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
+                    {/* Dynamic Template Variables Customizer */}
+                    {renderVariablesCustomizer()}
 
-                  {/* Placeholders Helper Panel */}
-                  <div className={styles.placeholdersPanel}>
-                    <div className={styles.placeholdersHeader}>
-                      <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
-                      <Sparkles size={14} color="#6366f1" />
-                    </div>
-                    <div className={styles.placeholdersPills}>
-                      {TEMPLATE_PLACEHOLDERS.map((p) => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          className={styles.placeholderPill}
-                          onClick={() => insertPlaceholderIntoLetter(p.key, setAppointmentConfig, appointmentConfig)}
-                          title={`Insert ${p.label} (Sample: ${p.sample})`}
-                        >
-                          <span>{p.key}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                    <div className={styles.previewPaper}>
+                      <div className={styles.previewWatermark}>{appointmentConfig.headerTitle || 'APPOINTMENT'}</div>
+                      <div>
+                        {/* Dynamic Corporate Letterhead Header */}
+                        <div className={styles.previewPaperHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            {activeCompLogo ? (
+                              <img
+                                src={activeCompLogo}
+                                alt={templateVariables['{{companyName}}'] || activeCompName}
+                                style={{
+                                  maxHeight: '52px',
+                                  maxWidth: '160px',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  objectFit: 'contain',
+                                  flexShrink: 0
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '8px',
+                                  background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                  color: '#38bdf8',
+                                  fontWeight: 800,
+                                  fontSize: '15px',
+                                  letterSpacing: '0.05em',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                <span>{activeCompInitials}</span>
+                              </div>
+                            )}
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Letter Body Content &amp; Clauses</label>
-                    <textarea 
-                      ref={letterTextareaRef}
-                      className={styles.textarea}
-                      rows={14}
-                      value={appointmentConfig.content}
-                      onChange={(e) => setAppointmentConfig({ ...appointmentConfig, content: e.target.value })}
-                    />
-                  </div>
-                </div>
+                            <div>
+                              <h3 style={{ margin: '0 0 3px', fontSize: '16px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em', textTransform: 'uppercase' }}>
+                                {templateVariables['{{companyName}}'] || activeCompName}
+                              </h3>
+                              <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.35, maxWidth: '340px' }}>
+                                {templateVariables['{{companyAddress}}'] || activeCompAddress}
+                              </p>
+                              {((templateVariables['{{companyEmail}}'] || activeCompEmail) || (templateVariables['{{companyPhone}}'] || activeCompPhone)) && (
+                                <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                                  {[templateVariables['{{companyEmail}}'] || activeCompEmail, templateVariables['{{companyPhone}}'] || activeCompPhone].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
+                              {((templateVariables['{{companyGstin}}'] || activeCompGstin) || (templateVariables['{{companyPan}}'] || activeCompPan)) && (
+                                <p style={{ margin: '2px 0 0', fontSize: '9.5px', color: '#94a3b8' }}>
+                                  {[
+                                    (templateVariables['{{companyGstin}}'] || activeCompGstin) ? `GSTIN: ${templateVariables['{{companyGstin}}'] || activeCompGstin}` : '',
+                                    (templateVariables['{{companyPan}}'] || activeCompPan) ? `PAN: ${templateVariables['{{companyPan}}'] || activeCompPan}` : ''
+                                  ].filter(Boolean).join(' | ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
 
-                <div className={styles.cardFooter}>
-                  <div className={styles.footerLeft}>
-                    Last updated: <strong>{appointmentConfig.lastUpdated || 'Not configured'}</strong>
-                  </div>
-                  <div className={styles.footerActions}>
-                    <button type="button" className={styles.btnSecondary} onClick={resetAppointment}>
-                      <RotateCcw size={14} />
-                      <span>Reset</span>
-                    </button>
-                    <button type="button" className={styles.btnPrimary} onClick={saveAppointment}>
-                      <Save size={14} />
-                      <span>Save Template</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Real-time Printable Letter Preview */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h3 className={styles.cardTitle}>Document Preview</h3>
-                    <p className={styles.cardSubtitle}>Live resolution with sample candidate values</p>
-                  </div>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => window.print()}
-                  >
-                    <Printer size={13} />
-                    <span>Print Letter</span>
-                  </button>
-                </div>
-
-                <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
-                  <div className={styles.previewPaper}>
-                    <div className={styles.previewWatermark}>APPOINTMENT</div>
-                    <div>
-                      <div className={styles.previewPaperHeader}>
-                        <div>
-                          <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                            RR SECURITY SERVICES
-                          </h3>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>Plot 45, Sector 18, Gurugram, Haryana</span>
+                          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
+                            <div className={styles.previewDocTitle}>{appointmentConfig.headerTitle || 'APPOINTMENT LETTER'}</div>
+                            <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 500 }}>
+                              Date: {templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                            <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                              REF: APPT/{activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/042
+                            </span>
+                          </div>
                         </div>
-                        <div className={styles.previewDocTitle}>{appointmentConfig.headerTitle}</div>
-                      </div>
-                      <div className={styles.previewDocBody}>
-                        {renderPlaceholders(appointmentConfig.content)}
+
+                        {/* Dynamic Letter Body with all fields & variables resolved */}
+                        <div className={styles.previewDocBody}>
+                          {renderPlaceholders(appointmentConfig.content, activeCompany, templateVariables)}
+                        </div>
+
+                        {/* Candidate Acceptance & Signatory Box */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+                          <div>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>{templateVariables['{{signatoryName}}'] || 'Authorized Signatory'}</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{templateVariables['{{signatoryDesignation}}'] || 'Director - Human Resources'} - For {templateVariables['{{companyName}}'] || activeCompName}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px', marginLeft: 'auto' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>Candidate Acceptance Signature</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{templateVariables['{{employeeName}}'] || 'Rahul Kumar'} ({templateVariables['{{employeeCode}}'] || 'RR-1042'})</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* 4. JOINING LETTER TAB */}
           {activeTab === 'joining-letter' && (
             <div className={styles.editorLayout}>
-              {/* Left: Template Content Editor */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h2 className={styles.cardTitle}>Joining Letter Template</h2>
-                    <p className={styles.cardSubtitle}>Configure onboarding confirmation, station/site instructions and supervisor assignment.</p>
+                {/* Left: Template Content Editor */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h2 className={styles.cardTitle}>Joining Letter Template</h2>
+                      <p className={styles.cardSubtitle}>Configure onboarding confirmation, station/site instructions and supervisor assignment.</p>
+                    </div>
+                    <StatusBadge status={joiningConfig.status} />
                   </div>
-                  <StatusBadge status={joiningConfig.status} />
-                </div>
 
-                <div className={styles.cardBody}>
-                  <div className={styles.formGrid}>
+                  <div className={styles.cardBody}>
+                    <div className={styles.formGrid}>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Title</label>
+                        <input 
+                          type="text" 
+                          className={styles.input}
+                          value={joiningConfig.templateName}
+                          onChange={(e) => setJoiningConfig({ ...joiningConfig, templateName: e.target.value })}
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Status</label>
+                        <select 
+                          className={styles.select}
+                          value={joiningConfig.status}
+                          onChange={(e) => setJoiningConfig({ ...joiningConfig, status: e.target.value })}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                          <option value="Draft">Draft</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Title</label>
+                      <label className={styles.label}>Document Heading</label>
                       <input 
                         type="text" 
                         className={styles.input}
-                        value={joiningConfig.templateName}
-                        onChange={(e) => setJoiningConfig({ ...joiningConfig, templateName: e.target.value })}
+                        value={joiningConfig.headerTitle}
+                        onChange={(e) => setJoiningConfig({ ...joiningConfig, headerTitle: e.target.value })}
                       />
                     </div>
+
+                    {/* Placeholders Helper Panel */}
+                    <div className={styles.placeholdersPanel}>
+                      <div className={styles.placeholdersHeader}>
+                        <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
+                        <Sparkles size={14} color="#6366f1" />
+                      </div>
+                      <div className={styles.placeholdersPills}>
+                        {allPlaceholders.map((p) => (
+                          <button
+                            key={p.key}
+                            type="button"
+                            className={styles.placeholderPill}
+                            onClick={() => insertPlaceholderIntoLetter(p.key, setJoiningConfig, joiningConfig)}
+                          >
+                            <span>{p.key}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Status</label>
-                      <select 
-                        className={styles.select}
-                        value={joiningConfig.status}
-                        onChange={(e) => setJoiningConfig({ ...joiningConfig, status: e.target.value })}
+                      <label className={styles.label}>Letter Body Content</label>
+                      <textarea 
+                        ref={letterTextareaRef}
+                        className={styles.textarea}
+                        rows={14}
+                        value={joiningConfig.content}
+                        onChange={(e) => setJoiningConfig({ ...joiningConfig, content: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.cardFooter}>
+                    <div className={styles.footerLeft}>
+                      Last updated: <strong>{joiningConfig.lastUpdated || 'Not configured'}</strong>
+                    </div>
+                    <div className={styles.footerActions}>
+                      <button type="button" className={styles.btnSecondary} onClick={resetJoining}>
+                        <RotateCcw size={14} />
+                        <span>Reset</span>
+                      </button>
+                      <button type="button" className={styles.btnPrimary} onClick={saveJoining}>
+                        <Save size={14} />
+                        <span>Save Template</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Real-time Printable Letter Preview */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h3 className={styles.cardTitle}>Document Preview</h3>
+                      <p className={styles.cardSubtitle}>Live resolution with dynamic variables &amp; {templateVariables['{{companyName}}'] || activeCompName} branding</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button 
+                        type="button" 
+                        className={styles.btnSecondary}
+                        onClick={() => setShowVariablesPanel(!showVariablesPanel)}
+                        title="Set dynamic variable values in real-time"
+                        style={{ fontSize: '12px' }}
                       >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Draft">Draft</option>
-                      </select>
+                        <SlidersHorizontal size={13} />
+                        <span>{showVariablesPanel ? 'Close Variables' : 'Set Variable Values'}</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnOutlinePrimary}
+                        onClick={() => generateLetterPdf({
+                          title: joiningConfig.headerTitle || 'JOINING CONFIRMATION',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(joiningConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: JOIN/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/018`,
+                          mode: 'print'
+                        })}
+                        title="Print Official Letter"
+                      >
+                        <Printer size={13} />
+                        <span>Print Letter</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnPrimary}
+                        onClick={() => generateLetterPdf({
+                          title: joiningConfig.headerTitle || 'JOINING CONFIRMATION',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(joiningConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: JOIN/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/018`,
+                          mode: 'download'
+                        })}
+                        title="Download Official PDF"
+                      >
+                        <Download size={13} />
+                        <span>Download PDF</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Document Heading</label>
-                    <input 
-                      type="text" 
-                      className={styles.input}
-                      value={joiningConfig.headerTitle}
-                      onChange={(e) => setJoiningConfig({ ...joiningConfig, headerTitle: e.target.value })}
-                    />
-                  </div>
+                  <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
+                    {/* Dynamic Template Variables Customizer */}
+                    {renderVariablesCustomizer()}
 
-                  {/* Placeholders Helper Panel */}
-                  <div className={styles.placeholdersPanel}>
-                    <div className={styles.placeholdersHeader}>
-                      <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
-                      <Sparkles size={14} color="#6366f1" />
-                    </div>
-                    <div className={styles.placeholdersPills}>
-                      {TEMPLATE_PLACEHOLDERS.map((p) => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          className={styles.placeholderPill}
-                          onClick={() => insertPlaceholderIntoLetter(p.key, setJoiningConfig, joiningConfig)}
-                        >
-                          <span>{p.key}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                    <div className={styles.previewPaper}>
+                      <div className={styles.previewWatermark}>{joiningConfig.headerTitle || 'JOINING'}</div>
+                      <div>
+                        {/* Dynamic Corporate Letterhead Header */}
+                        <div className={styles.previewPaperHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            {activeCompLogo ? (
+                              <img
+                                src={activeCompLogo}
+                                alt={templateVariables['{{companyName}}'] || activeCompName}
+                                style={{
+                                  maxHeight: '52px',
+                                  maxWidth: '160px',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  objectFit: 'contain',
+                                  flexShrink: 0
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '8px',
+                                  background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                  color: '#38bdf8',
+                                  fontWeight: 800,
+                                  fontSize: '15px',
+                                  letterSpacing: '0.05em',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                <span>{activeCompInitials}</span>
+                              </div>
+                            )}
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Letter Body Content</label>
-                    <textarea 
-                      ref={letterTextareaRef}
-                      className={styles.textarea}
-                      rows={14}
-                      value={joiningConfig.content}
-                      onChange={(e) => setJoiningConfig({ ...joiningConfig, content: e.target.value })}
-                    />
-                  </div>
-                </div>
+                            <div>
+                              <h3 style={{ margin: '0 0 3px', fontSize: '16px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.01em', textTransform: 'uppercase' }}>
+                                {templateVariables['{{companyName}}'] || activeCompName}
+                              </h3>
+                              <p style={{ margin: 0, fontSize: '11px', color: '#64748b', lineHeight: 1.35, maxWidth: '340px' }}>
+                                {templateVariables['{{companyAddress}}'] || activeCompAddress}
+                              </p>
+                              {((templateVariables['{{companyEmail}}'] || activeCompEmail) || (templateVariables['{{companyPhone}}'] || activeCompPhone)) && (
+                                <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                                  {[templateVariables['{{companyEmail}}'] || activeCompEmail, templateVariables['{{companyPhone}}'] || activeCompPhone].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
+                              {((templateVariables['{{companyGstin}}'] || activeCompGstin) || (templateVariables['{{companyPan}}'] || activeCompPan)) && (
+                                <p style={{ margin: '2px 0 0', fontSize: '9.5px', color: '#94a3b8' }}>
+                                  {[
+                                    (templateVariables['{{companyGstin}}'] || activeCompGstin) ? `GSTIN: ${templateVariables['{{companyGstin}}'] || activeCompGstin}` : '',
+                                    (templateVariables['{{companyPan}}'] || activeCompPan) ? `PAN: ${templateVariables['{{companyPan}}'] || activeCompPan}` : ''
+                                  ].filter(Boolean).join(' | ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
 
-                <div className={styles.cardFooter}>
-                  <div className={styles.footerLeft}>
-                    Last updated: <strong>{joiningConfig.lastUpdated || 'Not configured'}</strong>
-                  </div>
-                  <div className={styles.footerActions}>
-                    <button type="button" className={styles.btnSecondary} onClick={resetJoining}>
-                      <RotateCcw size={14} />
-                      <span>Reset</span>
-                    </button>
-                    <button type="button" className={styles.btnPrimary} onClick={saveJoining}>
-                      <Save size={14} />
-                      <span>Save Template</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Real-time Printable Letter Preview */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h3 className={styles.cardTitle}>Document Preview</h3>
-                    <p className={styles.cardSubtitle}>Live resolution with sample onboarding values</p>
-                  </div>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => window.print()}
-                  >
-                    <Printer size={13} />
-                    <span>Print Letter</span>
-                  </button>
-                </div>
-
-                <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
-                  <div className={styles.previewPaper}>
-                    <div className={styles.previewWatermark}>JOINING</div>
-                    <div>
-                      <div className={styles.previewPaperHeader}>
-                        <div>
-                          <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                            RR SECURITY SERVICES
-                          </h3>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>Operations &amp; Guard Deployment Cell</span>
+                          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '3px', flexShrink: 0 }}>
+                            <div className={styles.previewDocTitle}>{joiningConfig.headerTitle || 'JOINING LETTER'}</div>
+                            <span style={{ fontSize: '10.5px', color: '#64748b', fontWeight: 500 }}>
+                              Date: {templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                            <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
+                              REF: JOIN/{activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/018
+                            </span>
+                          </div>
                         </div>
-                        <div className={styles.previewDocTitle}>{joiningConfig.headerTitle}</div>
-                      </div>
-                      <div className={styles.previewDocBody}>
-                        {renderPlaceholders(joiningConfig.content)}
+
+                        {/* Dynamic Letter Body */}
+                        <div className={styles.previewDocBody}>
+                          {renderPlaceholders(joiningConfig.content, activeCompany, templateVariables)}
+                        </div>
+
+                        {/* Authorized Signatory Box */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+                          <div>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>{templateVariables['{{signatoryName}}'] || 'Authorized Signatory'}</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{templateVariables['{{signatoryDesignation}}'] || 'Director - Human Resources'} - For {templateVariables['{{companyName}}'] || activeCompName}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px', marginLeft: 'auto' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>Employee Acknowledgement</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>Signature &amp; Date ({templateVariables['{{employeeName}}'] || 'Rahul Kumar'})</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* 5. EXPERIENCE LETTER TAB */}
           {activeTab === 'experience-letter' && (
             <div className={styles.editorLayout}>
-              {/* Left: Template Content Editor */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h2 className={styles.cardTitle}>Experience Certificate Template</h2>
-                    <p className={styles.cardSubtitle}>Configure employment duration certification, conduct statements, and relieving sign-offs.</p>
+                {/* Left: Template Content Editor */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h2 className={styles.cardTitle}>Experience Certificate Template</h2>
+                      <p className={styles.cardSubtitle}>Configure employment duration certification, conduct statements, and relieving sign-offs.</p>
+                    </div>
+                    <StatusBadge status={experienceConfig.status} />
                   </div>
-                  <StatusBadge status={experienceConfig.status} />
-                </div>
 
-                <div className={styles.cardBody}>
-                  <div className={styles.formGrid}>
+                  <div className={styles.cardBody}>
+                    <div className={styles.formGrid}>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Title</label>
+                        <input 
+                          type="text" 
+                          className={styles.input}
+                          value={experienceConfig.templateName}
+                          onChange={(e) => setExperienceConfig({ ...experienceConfig, templateName: e.target.value })}
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Status</label>
+                        <select 
+                          className={styles.select}
+                          value={experienceConfig.status}
+                          onChange={(e) => setExperienceConfig({ ...experienceConfig, status: e.target.value })}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                          <option value="Draft">Draft</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Title</label>
+                      <label className={styles.label}>Document Heading</label>
                       <input 
                         type="text" 
                         className={styles.input}
-                        value={experienceConfig.templateName}
-                        onChange={(e) => setExperienceConfig({ ...experienceConfig, templateName: e.target.value })}
+                        value={experienceConfig.headerTitle}
+                        onChange={(e) => setExperienceConfig({ ...experienceConfig, headerTitle: e.target.value })}
                       />
                     </div>
+
+                    {/* Placeholders Helper Panel */}
+                    <div className={styles.placeholdersPanel}>
+                      <div className={styles.placeholdersHeader}>
+                        <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
+                        <Sparkles size={14} color="#6366f1" />
+                      </div>
+                      <div className={styles.placeholdersPills}>
+                        {allPlaceholders.map((p) => (
+                          <button
+                            key={p.key}
+                            type="button"
+                            className={styles.placeholderPill}
+                            onClick={() => insertPlaceholderIntoLetter(p.key, setExperienceConfig, experienceConfig)}
+                          >
+                            <span>{p.key}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Status</label>
-                      <select 
-                        className={styles.select}
-                        value={experienceConfig.status}
-                        onChange={(e) => setExperienceConfig({ ...experienceConfig, status: e.target.value })}
+                      <label className={styles.label}>Certificate Body Content</label>
+                      <textarea 
+                        ref={letterTextareaRef}
+                        className={styles.textarea}
+                        rows={14}
+                        value={experienceConfig.content}
+                        onChange={(e) => setExperienceConfig({ ...experienceConfig, content: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.cardFooter}>
+                    <div className={styles.footerLeft}>
+                      Last updated: <strong>{experienceConfig.lastUpdated || 'Not configured'}</strong>
+                    </div>
+                    <div className={styles.footerActions}>
+                      <button type="button" className={styles.btnSecondary} onClick={resetExperience}>
+                        <RotateCcw size={14} />
+                        <span>Reset</span>
+                      </button>
+                      <button type="button" className={styles.btnPrimary} onClick={saveExperience}>
+                        <Save size={14} />
+                        <span>Save Template</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Real-time Printable Letter Preview */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h3 className={styles.cardTitle}>Document Preview</h3>
+                      <p className={styles.cardSubtitle}>Official Service Certificate format with {templateVariables['{{companyName}}'] || activeCompName} branding</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button 
+                        type="button" 
+                        className={styles.btnSecondary}
+                        onClick={() => setShowVariablesPanel(!showVariablesPanel)}
+                        title="Set dynamic variable values in real-time"
+                        style={{ fontSize: '12px' }}
                       >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Draft">Draft</option>
-                      </select>
+                        <SlidersHorizontal size={13} />
+                        <span>{showVariablesPanel ? 'Close Variables' : 'Set Variable Values'}</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnOutlinePrimary}
+                        onClick={() => generateLetterPdf({
+                          title: experienceConfig.headerTitle || 'EXPERIENCE CERTIFICATE',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(experienceConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: EXP/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/056`,
+                          mode: 'print'
+                        })}
+                        title="Print Official Certificate"
+                      >
+                        <Printer size={13} />
+                        <span>Print Certificate</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnPrimary}
+                        onClick={() => generateLetterPdf({
+                          title: experienceConfig.headerTitle || 'EXPERIENCE CERTIFICATE',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(experienceConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: EXP/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/056`,
+                          mode: 'download'
+                        })}
+                        title="Download Official PDF"
+                      >
+                        <Download size={13} />
+                        <span>Download PDF</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Document Heading</label>
-                    <input 
-                      type="text" 
-                      className={styles.input}
-                      value={experienceConfig.headerTitle}
-                      onChange={(e) => setExperienceConfig({ ...experienceConfig, headerTitle: e.target.value })}
-                    />
-                  </div>
+                  <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
+                    {/* Dynamic Template Variables Customizer */}
+                    {renderVariablesCustomizer()}
 
-                  {/* Placeholders Helper Panel */}
-                  <div className={styles.placeholdersPanel}>
-                    <div className={styles.placeholdersHeader}>
-                      <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
-                      <Sparkles size={14} color="#6366f1" />
-                    </div>
-                    <div className={styles.placeholdersPills}>
-                      {TEMPLATE_PLACEHOLDERS.map((p) => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          className={styles.placeholderPill}
-                          onClick={() => insertPlaceholderIntoLetter(p.key, setExperienceConfig, experienceConfig)}
-                        >
-                          <span>{p.key}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Certificate Body Content</label>
-                    <textarea 
-                      ref={letterTextareaRef}
-                      className={styles.textarea}
-                      rows={14}
-                      value={experienceConfig.content}
-                      onChange={(e) => setExperienceConfig({ ...experienceConfig, content: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className={styles.cardFooter}>
-                  <div className={styles.footerLeft}>
-                    Last updated: <strong>{experienceConfig.lastUpdated || 'Not configured'}</strong>
-                  </div>
-                  <div className={styles.footerActions}>
-                    <button type="button" className={styles.btnSecondary} onClick={resetExperience}>
-                      <RotateCcw size={14} />
-                      <span>Reset</span>
-                    </button>
-                    <button type="button" className={styles.btnPrimary} onClick={saveExperience}>
-                      <Save size={14} />
-                      <span>Save Template</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Real-time Printable Letter Preview */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h3 className={styles.cardTitle}>Document Preview</h3>
-                    <p className={styles.cardSubtitle}>Official Service Certificate format</p>
-                  </div>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => window.print()}
-                  >
-                    <Printer size={13} />
-                    <span>Print Certificate</span>
-                  </button>
-                </div>
-
-                <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
-                  <div className={styles.previewPaper}>
-                    <div className={styles.previewWatermark}>EXPERIENCE</div>
-                    <div>
-                      <div className={styles.previewPaperHeader}>
-                        <div>
-                          <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                            RR SECURITY SERVICES
-                          </h3>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>Department of Human Resources &amp; Personnel</span>
+                    <div className={styles.previewPaper}>
+                      <div className={styles.previewWatermark}>EXPERIENCE</div>
+                      <div>
+                        <div className={styles.previewPaperHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            {activeCompLogo ? (
+                              <img
+                                src={activeCompLogo}
+                                alt={templateVariables['{{companyName}}'] || activeCompName}
+                                style={{
+                                  maxHeight: '52px',
+                                  maxWidth: '160px',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  objectFit: 'contain',
+                                  flexShrink: 0
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '8px',
+                                  background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                  color: '#38bdf8',
+                                  fontWeight: 800,
+                                  fontSize: '15px',
+                                  letterSpacing: '0.05em',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                <span>{activeCompInitials}</span>
+                              </div>
+                            )}
+                            <div>
+                              <h3 style={{ margin: '0 0 3px', fontSize: '16px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
+                                {templateVariables['{{companyName}}'] || activeCompName}
+                              </h3>
+                              <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
+                                {templateVariables['{{companyAddress}}'] || activeCompAddress}
+                              </p>
+                              {((templateVariables['{{companyEmail}}'] || activeCompEmail) || (templateVariables['{{companyPhone}}'] || activeCompPhone)) && (
+                                <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                                  {[templateVariables['{{companyEmail}}'] || activeCompEmail, templateVariables['{{companyPhone}}'] || activeCompPhone].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
+                              {((templateVariables['{{companyGstin}}'] || activeCompGstin) || (templateVariables['{{companyPan}}'] || activeCompPan)) && (
+                                <p style={{ margin: '2px 0 0', fontSize: '9.5px', color: '#94a3b8' }}>
+                                  {[
+                                    (templateVariables['{{companyGstin}}'] || activeCompGstin) ? `GSTIN: ${templateVariables['{{companyGstin}}'] || activeCompGstin}` : '',
+                                    (templateVariables['{{companyPan}}'] || activeCompPan) ? `PAN: ${templateVariables['{{companyPan}}'] || activeCompPan}` : ''
+                                  ].filter(Boolean).join(' | ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div className={styles.previewDocTitle}>{experienceConfig.headerTitle}</div>
+                            <span style={{ fontSize: '10.5px', color: '#64748b' }}>
+                              Date: {templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                            <div style={{ fontSize: '9px', fontFamily: 'monospace', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginTop: '3px' }}>
+                              REF: EXP/{activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/056
+                            </div>
+                          </div>
                         </div>
-                        <div className={styles.previewDocTitle}>{experienceConfig.headerTitle}</div>
-                      </div>
-                      <div className={styles.previewDocBody}>
-                        {renderPlaceholders(experienceConfig.content)}
+
+                        <div className={styles.previewDocBody}>
+                          {renderPlaceholders(experienceConfig.content, activeCompany, templateVariables)}
+                        </div>
+
+                        {/* Signatory Box */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+                          <div>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>{templateVariables['{{signatoryName}}'] || 'Authorized Signatory'}</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{templateVariables['{{signatoryDesignation}}'] || 'Director - Human Resources'} - For {templateVariables['{{companyName}}'] || activeCompName}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>Employee Name: {templateVariables['{{employeeName}}'] || 'Rahul Kumar'}</div>
+                            <div style={{ fontSize: '10px', color: '#94a3b8' }}>ID: {templateVariables['{{employeeCode}}'] || 'RR-1042'}</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* 6. FULL & FINAL LETTER TAB */}
           {activeTab === 'full-final-letter' && (
             <div className={styles.editorLayout}>
-              {/* Left: Template Content Editor */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h2 className={styles.cardTitle}>Full &amp; Final Statement Template</h2>
-                    <p className={styles.cardSubtitle}>Configure exit settlement statement layout, dues clearance acknowledgment and signatory block.</p>
+                {/* Left: Template Content Editor */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h2 className={styles.cardTitle}>Full &amp; Final Statement Template</h2>
+                      <p className={styles.cardSubtitle}>Configure exit settlement statement layout, dues clearance acknowledgment and signatory block.</p>
+                    </div>
+                    <StatusBadge status={fullFinalConfig.status} />
                   </div>
-                  <StatusBadge status={fullFinalConfig.status} />
-                </div>
 
-                <div className={styles.cardBody}>
-                  <div className={styles.formGrid}>
+                  <div className={styles.cardBody}>
+                    <div className={styles.formGrid}>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Title</label>
+                        <input 
+                          type="text" 
+                          className={styles.input}
+                          value={fullFinalConfig.templateName}
+                          onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, templateName: e.target.value })}
+                        />
+                      </div>
+                      <div className={styles.formGroup}>
+                        <label className={styles.label}>Template Status</label>
+                        <select 
+                          className={styles.select}
+                          value={fullFinalConfig.status}
+                          onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, status: e.target.value })}
+                        >
+                          <option value="Active">Active</option>
+                          <option value="Inactive">Inactive</option>
+                          <option value="Draft">Draft</option>
+                        </select>
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Title</label>
+                      <label className={styles.label}>Document Heading</label>
                       <input 
                         type="text" 
                         className={styles.input}
-                        value={fullFinalConfig.templateName}
-                        onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, templateName: e.target.value })}
+                        value={fullFinalConfig.headerTitle}
+                        onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, headerTitle: e.target.value })}
                       />
                     </div>
+
+                    {/* Placeholders Helper Panel */}
+                    <div className={styles.placeholdersPanel}>
+                      <div className={styles.placeholdersHeader}>
+                        <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
+                        <Sparkles size={14} color="#6366f1" />
+                      </div>
+                      <div className={styles.placeholdersPills}>
+                        {allPlaceholders.map((p) => (
+                          <button
+                            key={p.key}
+                            type="button"
+                            className={styles.placeholderPill}
+                            onClick={() => insertPlaceholderIntoLetter(p.key, setFullFinalConfig, fullFinalConfig)}
+                          >
+                            <span>{p.key}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className={styles.formGroup}>
-                      <label className={styles.label}>Template Status</label>
-                      <select 
-                        className={styles.select}
-                        value={fullFinalConfig.status}
-                        onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, status: e.target.value })}
+                      <label className={styles.label}>Settlement Statement Body</label>
+                      <textarea 
+                        ref={letterTextareaRef}
+                        className={styles.textarea}
+                        rows={14}
+                        value={fullFinalConfig.content}
+                        onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, content: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div className={styles.cardFooter}>
+                    <div className={styles.footerLeft}>
+                      Last updated: <strong>{fullFinalConfig.lastUpdated || 'Not configured'}</strong>
+                    </div>
+                    <div className={styles.footerActions}>
+                      <button type="button" className={styles.btnSecondary} onClick={resetFullFinal}>
+                        <RotateCcw size={14} />
+                        <span>Reset</span>
+                      </button>
+                      <button type="button" className={styles.btnPrimary} onClick={saveFullFinal}>
+                        <Save size={14} />
+                        <span>Save Template</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Real-time Printable Letter Preview */}
+                <div className={styles.configCard}>
+                  <div className={styles.cardHeader}>
+                    <div className={styles.cardTitleWrap}>
+                      <h3 className={styles.cardTitle}>Document Preview</h3>
+                      <p className={styles.cardSubtitle}>Full &amp; Final Settlement Clearance Slip with {templateVariables['{{companyName}}'] || activeCompName} branding</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <button 
+                        type="button" 
+                        className={styles.btnSecondary}
+                        onClick={() => setShowVariablesPanel(!showVariablesPanel)}
+                        title="Set dynamic variable values in real-time"
+                        style={{ fontSize: '12px' }}
                       >
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                        <option value="Draft">Draft</option>
-                      </select>
+                        <SlidersHorizontal size={13} />
+                        <span>{showVariablesPanel ? 'Close Variables' : 'Set Variable Values'}</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnOutlinePrimary}
+                        onClick={() => generateLetterPdf({
+                          title: fullFinalConfig.headerTitle || 'FULL & FINAL SETTLEMENT',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(fullFinalConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: FNF/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/009`,
+                          mode: 'print'
+                        })}
+                        title="Print Official Statement"
+                      >
+                        <Printer size={13} />
+                        <span>Print Statement</span>
+                      </button>
+                      <button 
+                        type="button" 
+                        className={styles.btnPrimary}
+                        onClick={() => generateLetterPdf({
+                          title: fullFinalConfig.headerTitle || 'FULL & FINAL SETTLEMENT',
+                          company: {
+                            ...activeCompany,
+                            name: templateVariables['{{companyName}}'] || activeCompName,
+                            address: templateVariables['{{companyAddress}}'] || activeCompAddress,
+                            email: templateVariables['{{companyEmail}}'] || activeCompEmail,
+                            phone: templateVariables['{{companyPhone}}'] || activeCompPhone,
+                            gstin: templateVariables['{{companyGstin}}'] || activeCompGstin,
+                            pan: templateVariables['{{companyPan}}'] || activeCompPan,
+                            signatoryName: templateVariables['{{signatoryName}}'] || activeCompany?.signatoryName || 'Amitabh Sharma',
+                            signatoryDesignation: templateVariables['{{signatoryDesignation}}'] || activeCompany?.signatoryDesignation || 'Director - Human Resources',
+                            logo: activeCompLogo || activeCompany?.logo
+                          },
+                          content: renderPlaceholders(fullFinalConfig.content, activeCompany, templateVariables),
+                          employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          referenceNo: `REF: FNF/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/009`,
+                          mode: 'download'
+                        })}
+                        title="Download Official PDF"
+                      >
+                        <Download size={13} />
+                        <span>Download PDF</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Document Heading</label>
-                    <input 
-                      type="text" 
-                      className={styles.input}
-                      value={fullFinalConfig.headerTitle}
-                      onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, headerTitle: e.target.value })}
-                    />
-                  </div>
+                  <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
+                    {/* Dynamic Template Variables Customizer */}
+                    {renderVariablesCustomizer()}
 
-                  {/* Placeholders Helper Panel */}
-                  <div className={styles.placeholdersPanel}>
-                    <div className={styles.placeholdersHeader}>
-                      <span>Insert Dynamic Placeholders (Click to insert at cursor)</span>
-                      <Sparkles size={14} color="#6366f1" />
-                    </div>
-                    <div className={styles.placeholdersPills}>
-                      {TEMPLATE_PLACEHOLDERS.map((p) => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          className={styles.placeholderPill}
-                          onClick={() => insertPlaceholderIntoLetter(p.key, setFullFinalConfig, fullFinalConfig)}
-                        >
-                          <span>{p.key}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Settlement Statement Body</label>
-                    <textarea 
-                      ref={letterTextareaRef}
-                      className={styles.textarea}
-                      rows={14}
-                      value={fullFinalConfig.content}
-                      onChange={(e) => setFullFinalConfig({ ...fullFinalConfig, content: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className={styles.cardFooter}>
-                  <div className={styles.footerLeft}>
-                    Last updated: <strong>{fullFinalConfig.lastUpdated || 'Not configured'}</strong>
-                  </div>
-                  <div className={styles.footerActions}>
-                    <button type="button" className={styles.btnSecondary} onClick={resetFullFinal}>
-                      <RotateCcw size={14} />
-                      <span>Reset</span>
-                    </button>
-                    <button type="button" className={styles.btnPrimary} onClick={saveFullFinal}>
-                      <Save size={14} />
-                      <span>Save Template</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: Real-time Printable Letter Preview */}
-              <div className={styles.configCard}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.cardTitleWrap}>
-                    <h3 className={styles.cardTitle}>Document Preview</h3>
-                    <p className={styles.cardSubtitle}>Full &amp; Final Settlement Clearance Slip</p>
-                  </div>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => window.print()}
-                  >
-                    <Printer size={13} />
-                    <span>Print Statement</span>
-                  </button>
-                </div>
-
-                <div className={styles.cardBody} style={{ background: '#f8fafc' }}>
-                  <div className={styles.previewPaper}>
-                    <div className={styles.previewWatermark}>F&amp;F CLEARANCE</div>
-                    <div>
-                      <div className={styles.previewPaperHeader}>
-                        <div>
-                          <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                            RR SECURITY SERVICES
-                          </h3>
-                          <span style={{ fontSize: '11px', color: '#64748b' }}>Finance &amp; Accounts Settlement Wing</span>
+                    <div className={styles.previewPaper}>
+                      <div className={styles.previewWatermark}>F&amp;F CLEARANCE</div>
+                      <div>
+                        <div className={styles.previewPaperHeader}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            {activeCompLogo ? (
+                              <img
+                                src={activeCompLogo}
+                                alt={templateVariables['{{companyName}}'] || activeCompName}
+                                style={{
+                                  maxHeight: '52px',
+                                  maxWidth: '160px',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  objectFit: 'contain',
+                                  flexShrink: 0
+                                }}
+                              />
+                            ) : (
+                              <div
+                                style={{
+                                  width: '46px',
+                                  height: '46px',
+                                  borderRadius: '8px',
+                                  background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+                                  color: '#38bdf8',
+                                  fontWeight: 800,
+                                  fontSize: '15px',
+                                  letterSpacing: '0.05em',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                                }}
+                              >
+                                <span>{activeCompInitials}</span>
+                              </div>
+                            )}
+                            <div>
+                              <h3 style={{ margin: '0 0 3px', fontSize: '16px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase' }}>
+                                {templateVariables['{{companyName}}'] || activeCompName}
+                              </h3>
+                              <p style={{ margin: 0, fontSize: '11px', color: '#64748b' }}>
+                                {templateVariables['{{companyAddress}}'] || activeCompAddress}
+                              </p>
+                              {((templateVariables['{{companyEmail}}'] || activeCompEmail) || (templateVariables['{{companyPhone}}'] || activeCompPhone)) && (
+                                <p style={{ margin: '3px 0 0', fontSize: '10px', color: '#94a3b8' }}>
+                                  {[templateVariables['{{companyEmail}}'] || activeCompEmail, templateVariables['{{companyPhone}}'] || activeCompPhone].filter(Boolean).join(' • ')}
+                                </p>
+                              )}
+                              {((templateVariables['{{companyGstin}}'] || activeCompGstin) || (templateVariables['{{companyPan}}'] || activeCompPan)) && (
+                                <p style={{ margin: '2px 0 0', fontSize: '9.5px', color: '#94a3b8' }}>
+                                  {[
+                                    (templateVariables['{{companyGstin}}'] || activeCompGstin) ? `GSTIN: ${templateVariables['{{companyGstin}}'] || activeCompGstin}` : '',
+                                    (templateVariables['{{companyPan}}'] || activeCompPan) ? `PAN: ${templateVariables['{{companyPan}}'] || activeCompPan}` : ''
+                                  ].filter(Boolean).join(' | ')}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div className={styles.previewDocTitle}>{fullFinalConfig.headerTitle}</div>
+                            <span style={{ fontSize: '10.5px', color: '#64748b' }}>
+                              Date: {templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                            </span>
+                            <div style={{ fontSize: '9px', fontFamily: 'monospace', color: '#94a3b8', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', marginTop: '3px' }}>
+                              REF: FNF/{activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/009
+                            </div>
+                          </div>
                         </div>
-                        <div className={styles.previewDocTitle}>{fullFinalConfig.headerTitle}</div>
-                      </div>
-                      <div className={styles.previewDocBody}>
-                        {renderPlaceholders(fullFinalConfig.content)}
+
+                        <div className={styles.previewDocBody}>
+                          {renderPlaceholders(fullFinalConfig.content, activeCompany, templateVariables)}
+                        </div>
+
+                        {/* Signatory Box */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '36px', paddingTop: '16px', borderTop: '1px dashed #cbd5e1' }}>
+                          <div>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>{templateVariables['{{signatoryName}}'] || 'Authorized Signatory'}</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{templateVariables['{{signatoryDesignation}}'] || 'Authorized Officer'} - For {templateVariables['{{companyName}}'] || activeCompName}</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ width: '130px', borderTop: '1px solid #475569', marginBottom: '6px', marginLeft: 'auto' }} />
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a' }}>Employee Dues Cleared</div>
+                            <div style={{ fontSize: '10px', color: '#64748b' }}>{templateVariables['{{employeeName}}'] || 'Rahul Kumar'} ({templateVariables['{{employeeCode}}'] || 'RR-1042'})</div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
           )}
 
           {/* 7. EMAIL TEMPLATES TAB */}
@@ -2038,7 +2986,7 @@ function Templates() {
                             <Sparkles size={14} color="#6366f1" />
                           </div>
                           <div className={styles.placeholdersPills}>
-                            {TEMPLATE_PLACEHOLDERS.map((p) => (
+                            {allPlaceholders.map((p) => (
                               <button
                                 key={p.key}
                                 type="button"

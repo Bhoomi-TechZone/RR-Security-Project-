@@ -19,6 +19,8 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
+import { generateLetterPdf } from '../../utils/letterPdfUtil';
+import { mockAppointmentLetterConfig, mockJoiningLetterConfig } from '../../data/templatesData';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const INR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
@@ -32,6 +34,7 @@ const DOCUMENT_TYPES = [
   { key: 'educationCertificate', label: 'Education Certificate' },
   { key: 'experienceCertificate', label: 'Experience Certificate' },
   { key: 'appointmentLetter', label: 'Appointment Letter' },
+  { key: 'joiningLetter', label: 'Joining Letter' },
   { key: 'photo', label: 'Photo' },
   { key: 'otherDocuments', label: 'Other Documents' },
   { key: 'employeeSignature', label: 'Employee Signature' },
@@ -279,6 +282,149 @@ function EmployeeDetails() {
     } catch (err) {
       showToast(err.message || 'Failed to update credentials.', 'error');
       throw err;
+    }
+  };
+
+  const handleGenerateAppointmentLetter = async (mode = 'download') => {
+    try {
+      const savedConfig = localStorage.getItem('novaspark_template_appointment');
+      const config = savedConfig ? JSON.parse(savedConfig) : mockAppointmentLetterConfig;
+      
+      const compName = activeCompany?.name || 'RR Security & Facilities';
+      const compAddress = [
+        activeCompany?.address,
+        activeCompany?.city,
+        activeCompany?.state,
+        activeCompany?.pinCode
+      ].filter(Boolean).join(', ') || activeCompany?.address || '';
+      
+      const monthlyGross = employee?.salaryStructure?.grossSalary || employee?.basicSalary || 25000;
+      const annualCtc = monthlyGross * 12;
+
+      let rendered = config.content || mockAppointmentLetterConfig.content;
+      const values = {
+        '{{companyName}}': compName,
+        '{{companyAddress}}': compAddress,
+        '{{companyEmail}}': activeCompany?.email || '',
+        '{{companyPhone}}': activeCompany?.phone || '',
+        '{{companyGstin}}': activeCompany?.gstin || '',
+        '{{companyPan}}': activeCompany?.pan || '',
+        '{{currentDate}}': new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        '{{employeeName}}': employee?.name || 'Employee',
+        '{{employeeCode}}': employee?.employeeId || employee?.employeeCode || 'EMP',
+        '{{designation}}': employee?.designation || 'Staff',
+        '{{department}}': employee?.department || 'Operations',
+        '{{location}}': employee?.workLocation || employee?.siteLocation || compAddress,
+        '{{reportingManager}}': employee?.reportingManager || 'Operations Head',
+        '{{joiningDate}}': employee?.joiningDate ? new Date(employee.joiningDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Joining Date',
+        '{{salary}}': `₹${Number(monthlyGross).toLocaleString('en-IN')}`,
+        '{{ctc}}': `₹${Number(annualCtc).toLocaleString('en-IN')}`,
+        '{{probationPeriod}}': '6 Months',
+        '{{noticePeriod}}': '30 Days',
+        '{{workingHours}}': '9:00 AM - 6:00 PM',
+        '{{signatoryName}}': activeCompany?.signatoryName || 'Amitabh Sharma',
+        '{{signatoryDesignation}}': activeCompany?.signatoryDesignation || 'Director - HR'
+      };
+
+      Object.entries(values).forEach(([k, v]) => {
+        rendered = rendered.replaceAll(k, v);
+      });
+
+      const compId = activeCompany?.companyId || activeCompany?.id || '';
+      const compLogo = activeCompany?.logo ||
+        (typeof window !== 'undefined'
+          ? (activeCompany?.companyId ? localStorage.getItem(`novaspark_company_logo_${activeCompany.companyId}`) : null) ||
+            (activeCompany?.id ? localStorage.getItem(`novaspark_company_logo_${activeCompany.id}`) : null) ||
+            (compId ? localStorage.getItem(`novaspark_company_logo_${compId}`) : null) ||
+            (activeCompany?.isDefault ? localStorage.getItem('novaspark_company_logo_preview') : null)
+          : null);
+
+      await generateLetterPdf({
+        title: config.headerTitle || 'APPOINTMENT LETTER',
+        company: {
+          ...activeCompany,
+          logo: compLogo || activeCompany?.logo
+        },
+        content: rendered,
+        employeeName: employee?.name || 'Employee',
+        mode
+      });
+      showToast(`Appointment letter ${mode === 'print' ? 'opened' : 'downloaded'} successfully!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to generate appointment letter.', 'error');
+    }
+  };
+
+  const handleGenerateJoiningLetter = async (mode = 'download') => {
+    try {
+      const savedConfig = localStorage.getItem('novaspark_template_joining');
+      const config = savedConfig ? JSON.parse(savedConfig) : mockJoiningLetterConfig;
+      
+      const compName = activeCompany?.name || 'RR Security & Facilities';
+      const compAddress = [
+        activeCompany?.address,
+        activeCompany?.city,
+        activeCompany?.state,
+        activeCompany?.pinCode
+      ].filter(Boolean).join(', ') || activeCompany?.address || '';
+      
+      const monthlyGross = employee?.salaryStructure?.grossSalary || employee?.basicSalary || 25000;
+      const annualCtc = monthlyGross * 12;
+
+      let rendered = config.content || mockJoiningLetterConfig.content;
+      const values = {
+        '{{companyName}}': compName,
+        '{{companyAddress}}': compAddress,
+        '{{companyEmail}}': activeCompany?.email || '',
+        '{{companyPhone}}': activeCompany?.phone || '',
+        '{{companyGstin}}': activeCompany?.gstin || '',
+        '{{companyPan}}': activeCompany?.pan || '',
+        '{{currentDate}}': new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        '{{employeeName}}': employee?.name || 'Employee',
+        '{{employeeCode}}': employee?.employeeId || employee?.employeeCode || 'EMP',
+        '{{designation}}': employee?.designation || 'Staff',
+        '{{department}}': employee?.department || 'Operations',
+        '{{location}}': employee?.workLocation || employee?.siteLocation || compAddress,
+        '{{reportingManager}}': employee?.reportingManager || 'Operations Head',
+        '{{joiningDate}}': employee?.joiningDate ? new Date(employee.joiningDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : 'Joining Date',
+        '{{salary}}': `₹${Number(monthlyGross).toLocaleString('en-IN')}`,
+        '{{ctc}}': `₹${Number(annualCtc).toLocaleString('en-IN')}`,
+        '{{probationPeriod}}': '6 Months',
+        '{{noticePeriod}}': '30 Days',
+        '{{workingHours}}': employee?.shift || '9:00 AM - 6:00 PM (Rotational Shift)',
+        '{{signatoryName}}': activeCompany?.signatoryName || 'Amitabh Sharma',
+        '{{signatoryDesignation}}': activeCompany?.signatoryDesignation || 'Director - HR'
+      };
+
+      Object.entries(values).forEach(([k, v]) => {
+        rendered = rendered.replaceAll(k, v);
+      });
+
+      const compId = activeCompany?.companyId || activeCompany?.id || '';
+      const compLogo = activeCompany?.logo ||
+        (typeof window !== 'undefined'
+          ? (activeCompany?.companyId ? localStorage.getItem(`novaspark_company_logo_${activeCompany.companyId}`) : null) ||
+            (activeCompany?.id ? localStorage.getItem(`novaspark_company_logo_${activeCompany.id}`) : null) ||
+            (compId ? localStorage.getItem(`novaspark_company_logo_${compId}`) : null) ||
+            (activeCompany?.isDefault ? localStorage.getItem('novaspark_company_logo_preview') : null)
+          : null);
+
+      await generateLetterPdf({
+        title: config.headerTitle || 'JOINING & ONBOARDING',
+        company: {
+          ...activeCompany,
+          logo: compLogo || activeCompany?.logo
+        },
+        content: rendered,
+        employeeName: employee?.name || 'Employee',
+        referenceNo: `REF: JOIN/${(compName.split(' ').map(w => w[0]).join('') || 'COR').toUpperCase()}/${new Date().getFullYear()}/${employee?.employeeId || '018'}`,
+        mode
+      });
+      showToast(`Joining letter ${mode === 'print' ? 'opened' : 'downloaded'} successfully!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to generate joining letter.', 'error');
     }
   };
 
@@ -844,7 +990,11 @@ function EmployeeDetails() {
                                   type="button"
                                   className={styles.docBtn}
                                   onClick={() => {
-                                    if (docFileUrl) {
+                                    if (docType.key === 'appointmentLetter') {
+                                      handleGenerateAppointmentLetter('print');
+                                    } else if (docType.key === 'joiningLetter') {
+                                      handleGenerateJoiningLetter('print');
+                                    } else if (docFileUrl) {
                                       handleViewDocument(docType.label, docFileUrl);
                                     } else {
                                       showToast(`Viewing standard template for ${docType.label}.`, 'info');
@@ -857,7 +1007,11 @@ function EmployeeDetails() {
                                   type="button"
                                   className={styles.docBtn}
                                   onClick={() => {
-                                    if (docFileUrl) {
+                                    if (docType.key === 'appointmentLetter') {
+                                      handleGenerateAppointmentLetter('download');
+                                    } else if (docType.key === 'joiningLetter') {
+                                      handleGenerateJoiningLetter('download');
+                                    } else if (docFileUrl) {
                                       handleDownloadDocument(docType.label, docFileUrl);
                                     } else {
                                       showToast(`Generating document download for ${docType.label}...`, 'success');

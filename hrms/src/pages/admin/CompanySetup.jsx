@@ -226,6 +226,10 @@ function CompanySetup() {
         setLogoPreview(reader.result);
         setFormData(prev => ({ ...prev, logo: reader.result }));
         localStorage.setItem('novaspark_company_logo_preview', reader.result);
+        if (activeCompany) {
+          const compId = activeCompany.companyId || activeCompany.id;
+          localStorage.setItem(`novaspark_company_logo_${compId}`, reader.result);
+        }
       };
       reader.readAsDataURL(file);
     }
@@ -235,6 +239,10 @@ function CompanySetup() {
     setFormData(prev => ({ ...prev, logo: null }));
     setLogoPreview(null);
     localStorage.removeItem('novaspark_company_logo_preview');
+    if (activeCompany) {
+      const compId = activeCompany.companyId || activeCompany.id;
+      localStorage.removeItem(`novaspark_company_logo_${compId}`);
+    }
   };
 
   const handleSubmit = async (e) => {
