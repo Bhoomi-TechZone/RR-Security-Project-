@@ -53,16 +53,24 @@ export function CompanyProvider({ children }) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(c => ({
-            ...c,
-            companyId: c.companyId || c.id || generateCompanyId(c.name)
-          }));
+          return parsed.map(c => {
+            const cId = c.companyId || c.id || generateCompanyId(c.name);
+            const storedLogo = localStorage.getItem(`novaspark_company_logo_${cId}`) ||
+              (c.isDefault ? localStorage.getItem('novaspark_company_logo_preview') : null);
+            return {
+              ...c,
+              companyId: cId,
+              logo: c.logo || storedLogo || null
+            };
+          });
         }
       } catch (e) {
         // fallback
       }
     }
-    return [DEFAULT_PRIMARY_COMPANY];
+    const defLogo = localStorage.getItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`) ||
+      localStorage.getItem('novaspark_company_logo_preview') || null;
+    return [{ ...DEFAULT_PRIMARY_COMPANY, logo: defLogo }];
   });
 
   // 2. Active selected company
@@ -181,6 +189,7 @@ export function CompanyProvider({ children }) {
         gstin: companyData.gstin || '',
         pan: companyData.pan || '',
         tan: companyData.tan || '',
+        logo: companyData.logo || null,
         status: 'Active',
         isDefault: false,
         employeesCount: 0,
@@ -190,6 +199,10 @@ export function CompanyProvider({ children }) {
         activeShifts: 0,
         createdAt: new Date().toISOString()
       };
+    }
+
+    if (companyData.logo) {
+      localStorage.setItem(`novaspark_company_logo_${created.companyId || created.id}`, companyData.logo);
     }
 
     setCompanies(prev => [created, ...prev.filter(c => (c.companyId || c.id) !== (created.companyId || created.id))]);
@@ -204,6 +217,12 @@ export function CompanyProvider({ children }) {
   const updateCompanyProfile = async (companyId, updateData) => {
     const token = authService.getToken();
     let updated = null;
+
+    if (updateData.logo) {
+      localStorage.setItem(`novaspark_company_logo_${companyId}`, updateData.logo);
+    } else if (updateData.logo === null) {
+      localStorage.removeItem(`novaspark_company_logo_${companyId}`);
+    }
 
     if (token) {
       const res = await fetch(`${API_BASE_URL}/companies/${companyId}`, {

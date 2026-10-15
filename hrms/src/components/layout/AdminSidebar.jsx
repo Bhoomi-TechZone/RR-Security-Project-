@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
+import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
-  WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3, 
+  WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
   Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
@@ -21,9 +21,9 @@ const NAV_GROUPS = [
   {
     title: 'ORGANIZATION',
     items: [
-      { 
-        path: '/admin/company-setup', 
-        name: 'Company Setup', 
+      {
+        path: '/admin/company-setup',
+        name: 'Company Setup',
         icon: Building2,
         moduleKey: 'company_setup',
         hasDropdown: true,
@@ -42,9 +42,9 @@ const NAV_GROUPS = [
   {
     title: 'WORKFORCE',
     items: [
-      { 
-        path: '/admin/clients', 
-        name: 'Clients', 
+      {
+        path: '/admin/clients',
+        name: 'Clients',
         icon: Building2,
         moduleKey: 'clients',
         hasDropdown: true,
@@ -54,9 +54,9 @@ const NAV_GROUPS = [
           { path: '/admin/clients?status=inactive', name: 'Inactive Clients' },
         ]
       },
-      { 
-        path: '/admin/employees', 
-        name: 'Employees', 
+      {
+        path: '/admin/employees',
+        name: 'Employees',
         icon: Users,
         moduleKey: 'employees',
         hasDropdown: true,
@@ -66,9 +66,9 @@ const NAV_GROUPS = [
           { path: '/admin/employees?status=inactive', name: 'Inactive Employees' },
         ]
       },
-      { 
-        path: '/admin/attendance', 
-        name: 'Attendance', 
+      {
+        path: '/admin/attendance',
+        name: 'Attendance',
         icon: ClipboardCheck,
         moduleKey: 'attendance',
         hasDropdown: true,
@@ -77,9 +77,9 @@ const NAV_GROUPS = [
           { path: '/admin/attendance?tab=corrections', name: 'Correction Requests' },
         ]
       },
-      { 
-        path: '/admin/shifts', 
-        name: 'Shift Management', 
+      {
+        path: '/admin/shifts',
+        name: 'Shift Management',
         icon: CalendarDays,
         moduleKey: 'shifts',
         hasDropdown: true,
@@ -94,9 +94,9 @@ const NAV_GROUPS = [
   {
     title: 'PAYROLL MANAGEMENT',
     items: [
-      { 
-        path: '/admin/payroll', 
-        name: 'Payroll', 
+      {
+        path: '/admin/payroll',
+        name: 'Payroll',
         icon: WalletCards,
         moduleKey: 'payroll',
         hasDropdown: true,
@@ -109,9 +109,9 @@ const NAV_GROUPS = [
           { path: '/admin/payroll?tab=statutory', name: 'Statutory Reports' },
         ]
       },
-      { 
-        path: '/admin/payroll-setup', 
-        name: 'Payroll Setup', 
+      {
+        path: '/admin/payroll-setup',
+        name: 'Payroll Setup',
         icon: SlidersHorizontal,
         moduleKey: 'payroll_setup',
         hasDropdown: true,
@@ -123,9 +123,9 @@ const NAV_GROUPS = [
           { path: '/admin/payroll-setup?tab=calculation-methods', name: 'Calculation Methods' },
         ]
       },
-      { 
-        path: '/admin/statutory-setup', 
-        name: 'Statutory Setup', 
+      {
+        path: '/admin/statutory-setup',
+        name: 'Statutory Setup',
         icon: Landmark,
         moduleKey: 'statutory_setup',
         hasDropdown: true,
@@ -140,9 +140,9 @@ const NAV_GROUPS = [
           { path: '/admin/statutory-setup?tab=lwf', name: 'Labour Welfare Fund (LWF)' },
         ]
       },
-      { 
-        path: '/admin/advances-loans', 
-        name: 'Advances & Loans', 
+      {
+        path: '/admin/advances-loans',
+        name: 'Advances & Loans',
         icon: HandCoins,
         moduleKey: 'advances_loans',
         hasDropdown: true,
@@ -154,9 +154,9 @@ const NAV_GROUPS = [
           { path: '/admin/advances-loans?tab=history', name: 'Deduction History' },
         ]
       },
-      { 
-        path: '/admin/reimbursements', 
-        name: 'Reimbursements', 
+      {
+        path: '/admin/reimbursements',
+        name: 'Reimbursements',
         icon: Receipt,
         moduleKey: 'reimbursements',
         hasDropdown: true,
@@ -167,9 +167,9 @@ const NAV_GROUPS = [
           { path: '/admin/reimbursements?tab=reports', name: 'Reports & Analytics' },
         ]
       },
-      { 
-        path: '/admin/overtime', 
-        name: 'Overtime', 
+      {
+        path: '/admin/overtime',
+        name: 'Overtime',
         icon: Timer,
         moduleKey: 'overtime',
         hasDropdown: true,
@@ -185,9 +185,9 @@ const NAV_GROUPS = [
   {
     title: 'MANAGEMENT',
     items: [
-      { 
-        path: '/admin/leave', 
-        name: 'Leave', 
+      {
+        path: '/admin/leave',
+        name: 'Leave',
         icon: CalendarOff,
         moduleKey: 'leave',
         hasDropdown: true,
@@ -198,9 +198,9 @@ const NAV_GROUPS = [
           { path: '/admin/leave?tab=calendar', name: 'Roster & Calendar' },
         ]
       },
-      { 
-        path: '/admin/inventory', 
-        name: 'Inventory', 
+      {
+        path: '/admin/inventory',
+        name: 'Inventory',
         icon: Package,
         moduleKey: 'inventory',
         hasDropdown: true,
@@ -213,9 +213,9 @@ const NAV_GROUPS = [
           { path: '/admin/inventory?tab=clearance', name: 'Asset Clearance' },
         ]
       },
-      { 
-        path: '/admin/reports', 
-        name: 'Reports', 
+      {
+        path: '/admin/reports',
+        name: 'Reports',
         icon: BarChart3,
         moduleKey: 'reports',
         hasDropdown: true,
@@ -233,9 +233,9 @@ const NAV_GROUPS = [
   {
     title: 'SETTINGS',
     items: [
-      { 
-        path: '/admin/work-locations', 
-        name: 'Work Locations', 
+      {
+        path: '/admin/work-locations',
+        name: 'Work Locations',
         icon: MapPin,
         moduleKey: 'work_locations',
         hasDropdown: true,
@@ -245,9 +245,9 @@ const NAV_GROUPS = [
           { path: '/admin/work-locations?type=branch', name: 'Branches' },
         ]
       },
-      { 
-        path: '/admin/masters', 
-        name: 'Masters', 
+      {
+        path: '/admin/masters',
+        name: 'Masters',
         icon: Settings2,
         moduleKey: 'masters',
         hasDropdown: true,
@@ -266,9 +266,9 @@ const NAV_GROUPS = [
           { path: '/admin/masters?tab=document-types', name: 'Document Types' },
         ]
       },
-      { 
-        path: '/admin/roles-permissions', 
-        name: 'Role & Permissions', 
+      {
+        path: '/admin/roles-permissions',
+        name: 'Role & Permissions',
         icon: ShieldCheck,
         moduleKey: 'roles_permissions',
         hasDropdown: true,
@@ -278,9 +278,9 @@ const NAV_GROUPS = [
           { path: '/admin/roles-permissions?tab=permissions', name: 'Permission Matrix' },
         ]
       },
-      { 
-        path: '/admin/users', 
-        name: 'User Management', 
+      {
+        path: '/admin/users',
+        name: 'User Management',
         icon: UserCog,
         moduleKey: 'user_management',
         hasDropdown: true,
@@ -291,9 +291,9 @@ const NAV_GROUPS = [
           { path: '/admin/roles-permissions', name: 'Roles & Access' },
         ]
       },
-      { 
-        path: '/admin/preferences', 
-        name: 'Preferences', 
+      {
+        path: '/admin/preferences',
+        name: 'Preferences',
         icon: SlidersHorizontal,
         moduleKey: 'preferences',
         hasDropdown: true,
@@ -305,9 +305,9 @@ const NAV_GROUPS = [
           { path: '/admin/preferences?tab=approvals', name: 'Approval Settings' },
         ]
       },
-      { 
-        path: '/admin/templates', 
-        name: 'Templates', 
+      {
+        path: '/admin/templates',
+        name: 'Templates',
         icon: FileText,
         moduleKey: 'templates',
         hasDropdown: true,
@@ -318,12 +318,12 @@ const NAV_GROUPS = [
           { path: '/admin/templates?tab=joining-letter', name: 'Joining Letter' },
           { path: '/admin/templates?tab=experience-letter', name: 'Experience Letter' },
           { path: '/admin/templates?tab=full-final-letter', name: 'Full & Final Letter' },
-          { path: '/admin/templates?tab=email', name: 'Email Templates' },
+          /*{ path: '/admin/templates?tab=email', name: 'Email Templates' },*/
         ]
       },
-      { 
-        path: '/admin/document-compliance', 
-        name: 'Docs & Compliance', 
+      {
+        path: '/admin/document-compliance',
+        name: 'Docs & Compliance',
         icon: FileCheck,
         moduleKey: 'docs_compliance',
         hasDropdown: true,
@@ -334,9 +334,9 @@ const NAV_GROUPS = [
           { path: '/admin/document-compliance?tab=police-verification', name: 'Police Verification' },
         ]
       },
-      { 
-        path: '/admin/notifications', 
-        name: 'Notifications', 
+      {
+        path: '/admin/notifications',
+        name: 'Notifications',
         icon: Bell,
         moduleKey: 'notifications',
         hasDropdown: true,
@@ -474,15 +474,15 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     <>
       {/* Mobile Drawer Backdrop */}
       {isDrawerOpen && (
-        <div 
-          className={styles.backdrop} 
+        <div
+          className={styles.backdrop}
           onClick={() => setIsDrawerOpen(false)}
           aria-hidden="true"
         />
       )}
 
       {/* Sidebar Container */}
-      <aside 
+      <aside
         className={[
           styles.sidebar,
           isCollapsed ? styles.collapsed : '',
@@ -522,7 +522,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                 {group.items.map((item, itemIdx) => {
                   const Icon = item.icon;
 
-                  const isDropdownActive = item.path === '/admin/clients' 
+                  const isDropdownActive = item.path === '/admin/clients'
                     ? (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies'))
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
@@ -651,10 +651,10 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
         {/* Sidebar Footer (Profile / Logout) */}
         <div className={styles.sidebarFooter}>
           <div className={styles.profileRow}>
-            <Avatar 
-              initials={isAdmin ? 'AD' : (currentUser?.initials || 'AD')} 
-              size={isCollapsed ? 'sm' : 'md'} 
-              name={isAdmin ? 'Administrator' : (currentUser?.name || 'Administrator')} 
+            <Avatar
+              initials={isAdmin ? 'AD' : (currentUser?.initials || 'AD')}
+              size={isCollapsed ? 'sm' : 'md'}
+              name={isAdmin ? 'Administrator' : (currentUser?.name || 'Administrator')}
             />
             {!isCollapsed && (
               <div className={styles.profileInfo}>
@@ -663,10 +663,10 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
               </div>
             )}
           </div>
-          
-          <button 
-            type="button" 
-            className={styles.logoutBtn} 
+
+          <button
+            type="button"
+            className={styles.logoutBtn}
             onClick={onLogout}
             aria-label="Logout"
             title={isCollapsed ? "Logout" : undefined}

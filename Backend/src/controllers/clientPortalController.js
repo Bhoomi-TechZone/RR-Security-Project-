@@ -586,41 +586,254 @@ export const getClientAttendance = async (req, res) => {
       });
     }
 
-    const { date, site, department, status, search } = req.query;
+    const { date, month, site, department, status, search } = req.query;
+    const isDateMode = Boolean(date);
     const selectedDate = date || new Date().toISOString().split('T')[0];
+    const selectedMonth = month || selectedDate.slice(0, 7);
+    const selectedYear = Number(selectedMonth.slice(0, 4)) || new Date().getFullYear();
+
+    const [selY, selM] = selectedMonth.split('-').map(Number);
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const monthName = (selM && selM >= 1 && selM <= 12) ? monthNames[selM - 1] : null;
 
     const employeeFilter = buildAssignedEmployeeFilter(client);
-    let assignedEmployees = await Employee.find(employeeFilter);
-    const empIds = assignedEmployees.map(e => e.employeeId);
+    let assignedEmployees = await Employee.find(employeeFilter).lean();
+    const empIds = assignedEmployees.map(e => e.employeeId).filter(Boolean);
 
-    const attendanceRecords = await Attendance.find({
-      employeeId: { $in: empIds },
-      date: selectedDate
+    // Escape regex helper
+    const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
+    // Build client queries for Attendance
+    const attendanceQueries = [];
+    if (empIds.length > 0) {
+      attendanceQueries.push({ employeeId: { $in: empIds } });
+    }
+
+    const clientIdentifiers = [
+      client.name,
+      client.legalName,
+      client.companyName,
+      client.contactPerson
+    ].filter(Boolean);
+
+    clientIdentifiers.forEach(cName => {
+      const cRegex = new RegExp(escapeRegex(cName), 'i');
+      attendanceQueries.push({ clientName: { $regex: cRegex } });
+      attendanceQueries.push({ companyName: { $regex: cRegex } });
     });
 
-    const attendanceMap = new Map();
+    const clientCodes = [client.clientId, client.clientCode, client._id?.toString()].filter(Boolean);
+    clientCodes.forEach(code => {
+      attendanceQueries.push({ companyId: code });
+    });
+
+    // Date / Month query
+    let attDateQuery;
+    if (isDateMode) {
+      attDateQuery = { date: selectedDate };
+    } else {
+      const dateOrs = [
+        { month: selectedMonth },
+        { date: { $regex: new RegExp(`^${escapeRegex(selectedMonth)}`) } }
+      ];
+      if (monthName) {
+        dateOrs.push({
+          month: { $regex: new RegExp(`^${monthName}$`, 'i') },
+          ...(selY ? { year: selY } : {})
+        });
+      }
+      attDateQuery = { $or: dateOrs };
+    }
+
+    let attendanceRecords = [];
+    if (attendanceQueries.length > 0) {
+      attendanceRecords = await Attendance.find({
+        $and: [
+          { $or: attendanceQueries },
+          attDateQuery
+        ]
+      }).lean();
+    }
+
+    // Group attendance records by employeeId
+    const attendanceByEmp = new Map();
     attendanceRecords.forEach(att => {
-      attendanceMap.set(att.employeeId, att);
+      if (!attendanceByEmp.has(att.employeeId)) {
+        attendanceByEmp.set(att.employeeId, []);
+      }
+      attendanceByEmp.get(att.employeeId).push(att);
     });
+
+    // Also include any attendance record that belongs to this client even if employee was not in assignedEmployees
+    const seenEmpIds = new Set(assignedEmployees.map(e => e.employeeId));
+    attendanceRecords.forEach(att => {
+      if (att.employeeId && !seenEmpIds.has(att.employeeId)) {
+        assignedEmployees.push({
+          employeeId: att.employeeId,
+          employeeCode: att.employeeId,
+          name: att.employeeName,
+          fatherHusbandName: att.fatherName || '',
+          fatherName: att.fatherName || '',
+          clientName: att.clientName || client.name,
+          companyName: att.companyName || client.name,
+          designation: 'Security Staff',
+          department: att.department || 'Security',
+          siteLocation: att.site || 'Site',
+          site: att.site || 'Site',
+          shift: 'General Shift'
+        });
+        seenEmpIds.add(att.employeeId);
+      }
+    });
+
+    // Calculate days in the selected month
+    const daysInCurrentMonth = new Date(selectedYear, selM || new Date().getMonth() + 1, 0).getDate();
 
     let records = assignedEmployees.map((emp) => {
-      const existing = attendanceMap.get(emp.employeeId);
-      const recordStatus = existing ? existing.status : 'present';
-      const checkInTime = existing?.checkIn || (recordStatus === 'present' ? '08:00 AM' : '--');
-      const checkOutTime = existing?.checkOut || (recordStatus === 'present' ? '05:00 PM' : '--');
-      const workingHours = existing?.workingHours || (recordStatus === 'present' ? '8h 00m' : '0h 00m');
+      const empAttList = attendanceByEmp.get(emp.employeeId) || [];
+
+      let existing = null;
+      let present = 0;
+      let weekOff = 0;
+      let holidays = 0;
+      let cl = 0;
+      let sl = 0;
+      let el = 0;
+      let lwp = 0;
+      let workingDays = null;
+      let recordStatus = 'present';
+      let checkInTime = '08:00 AM';
+      let checkOutTime = '05:00 PM';
+      let workingHours = '8h 00m';
+
+      if (isDateMode) {
+        // Daily Mode: match specific date
+        existing = empAttList.find(a => a.date === selectedDate) || empAttList[0];
+        if (existing) {
+          recordStatus = existing.status || 'present';
+          present = existing.present !== undefined ? existing.present : (recordStatus === 'present' || recordStatus === 'late' ? 1 : recordStatus === 'half_day' ? 0.5 : 0);
+          weekOff = existing.weekOff !== undefined ? existing.weekOff : (recordStatus === 'weekOff' ? 1 : 0);
+          holidays = existing.holidays !== undefined ? existing.holidays : (recordStatus === 'holiday' ? 1 : 0);
+          cl = existing.cl || 0;
+          sl = existing.sl || 0;
+          el = existing.el || 0;
+          lwp = existing.lwp !== undefined ? existing.lwp : (recordStatus === 'absent' ? 1 : 0);
+          workingDays = existing.workingDays || existing.totalPaidDays || (present + weekOff + holidays + cl + sl + el);
+          checkInTime = existing.checkIn || (recordStatus === 'present' ? '08:00 AM' : '--');
+          checkOutTime = existing.checkOut || (recordStatus === 'present' ? '05:00 PM' : '--');
+          workingHours = existing.workingHours || (recordStatus === 'present' ? '8h 00m' : '0h 00m');
+        } else {
+          // Default daily active record
+          recordStatus = 'present';
+          present = 1;
+          workingDays = 1;
+        }
+      } else {
+        // Monthly Mode:
+        // 1. Check if there is an explicit monthly muster record (present > 1 or totalPaidDays > 1 or monthly import)
+        const explicitMonthRecord = empAttList.find(a => (
+          (a.present !== undefined && a.present > 1) ||
+          (a.totalPaidDays !== undefined && a.totalPaidDays > 1) ||
+          (a.month && !a.date?.includes('-'))
+        ));
+
+        if (explicitMonthRecord) {
+          existing = explicitMonthRecord;
+          recordStatus = existing.status || 'present';
+          present = existing.present !== undefined ? existing.present : 26;
+          weekOff = existing.weekOff !== undefined ? existing.weekOff : 4;
+          holidays = existing.holidays !== undefined ? existing.holidays : 1;
+          cl = existing.cl || 0;
+          sl = existing.sl || 0;
+          el = existing.el || 0;
+          lwp = existing.lwp || 0;
+          workingDays = existing.workingDays || existing.totalPaidDays || (present + weekOff + holidays + cl + sl + el);
+          checkInTime = existing.checkIn || '08:00 AM';
+          checkOutTime = existing.checkOut || '05:00 PM';
+          workingHours = existing.workingHours || '8h 00m';
+        } else if (empAttList.length > 0) {
+          // Aggregate all daily records in the month
+          existing = empAttList[0];
+          empAttList.forEach(att => {
+            const stat = (att.status || '').toLowerCase();
+            if (att.present !== undefined && att.present > 0) {
+              present += Number(att.present);
+            } else if (stat === 'present' || stat === 'late') {
+              present += 1;
+            } else if (stat === 'half_day' || stat === 'halfday') {
+              present += 0.5;
+            }
+
+            if (att.weekOff !== undefined && att.weekOff > 0) {
+              weekOff += Number(att.weekOff);
+            } else if (stat === 'weekoff') {
+              weekOff += 1;
+            }
+
+            if (att.holidays !== undefined && att.holidays > 0) {
+              holidays += Number(att.holidays);
+            } else if (stat === 'holiday') {
+              holidays += 1;
+            }
+
+            cl += Number(att.cl || 0);
+            sl += Number(att.sl || 0);
+            el += Number(att.el || 0);
+
+            if (att.lwp !== undefined && att.lwp > 0) {
+              lwp += Number(att.lwp);
+            } else if (stat === 'absent') {
+              lwp += 1;
+            }
+          });
+
+          recordStatus = present > 0 ? 'present' : (lwp > 0 ? 'absent' : 'present');
+          workingDays = present + weekOff + holidays + cl + sl + el;
+        } else {
+          // Default monthly muster when employee is assigned to client but no daily punches logged
+          recordStatus = 'present';
+          present = Math.max(1, daysInCurrentMonth - 5);
+          weekOff = 4;
+          holidays = 1;
+          cl = 0;
+          sl = 0;
+          el = 0;
+          lwp = 0;
+          workingDays = daysInCurrentMonth;
+        }
+      }
 
       return {
-        id: existing?._id || `att-${emp.employeeId}-${selectedDate}`,
+        id: existing?._id ? existing._id.toString() : `att-${emp.employeeId}-${isDateMode ? selectedDate : selectedMonth}`,
+        _id: existing?._id ? existing._id.toString() : `att-${emp.employeeId}-${isDateMode ? selectedDate : selectedMonth}`,
         employeeId: emp.employeeId,
         employeeCode: emp.employeeCode || emp.employeeId,
-        employeeName: emp.name,
-        initials: emp.name ? emp.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : 'EM',
+        employeeName: emp.name || emp.employeeName || 'Staff',
+        initials: (emp.name || emp.employeeName)
+          ? (emp.name || emp.employeeName).split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+          : 'EM',
+        fatherName: emp.fatherHusbandName || emp.fatherName || existing?.fatherName || '—',
+        clientName: emp.clientName || client.name || '—',
+        companyName: emp.companyName || client.name || '—',
+        month: existing?.month || selectedMonth,
+        year: existing?.year || selectedYear,
+        date: existing?.date || selectedDate,
+        present,
+        weekOff,
+        holidays,
+        cl,
+        sl,
+        el,
+        lwp,
+        workingDays: workingDays !== null && workingDays !== undefined ? workingDays : (present + weekOff + holidays + cl + sl + el),
+        totalPaidDays: existing?.totalPaidDays !== undefined ? existing.totalPaidDays : workingDays,
         designation: emp.designation || 'Security Guard',
         department: emp.department || 'Security Operations',
         site: emp.siteLocation || emp.site || 'Assigned Site',
         shift: emp.shift || 'General Shift',
-        date: selectedDate,
         checkIn: checkInTime,
         checkOut: checkOutTime,
         workingHours,
@@ -643,13 +856,14 @@ export const getClientAttendance = async (req, res) => {
       const s = search.trim().toLowerCase();
       records = records.filter(r =>
         r.employeeName.toLowerCase().includes(s) ||
-        r.employeeCode.toLowerCase().includes(s)
+        r.employeeCode.toLowerCase().includes(s) ||
+        r.fatherName.toLowerCase().includes(s)
       );
     }
 
-    const presentCount = records.filter(r => r.status === 'present' || r.status === 'late').length;
-    const absentCount = records.filter(r => r.status === 'absent').length;
-    const onLeaveCount = records.filter(r => r.status === 'onLeave').length;
+    const presentCount = records.filter(r => r.status === 'present' || r.status === 'late' || (Number(r.present) > 0)).length;
+    const absentCount = records.filter(r => r.status === 'absent' || (Number(r.lwp) > 0 && Number(r.present) === 0)).length;
+    const onLeaveCount = records.filter(r => r.status === 'onLeave' || r.status === 'leave' || (Number(r.cl) > 0 || Number(r.sl) > 0 || Number(r.el) > 0)).length;
 
     const sites = Array.from(new Set(assignedEmployees.map(e => e.siteLocation || e.site).filter(Boolean)));
     const departments = Array.from(new Set(assignedEmployees.map(e => e.department).filter(Boolean)));
@@ -657,6 +871,7 @@ export const getClientAttendance = async (req, res) => {
     return res.status(200).json({
       success: true,
       date: selectedDate,
+      month: selectedMonth,
       count: records.length,
       records,
       summary: {

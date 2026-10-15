@@ -401,3 +401,5 @@ export const generateReportPdf = ({
     doc.save(cleanFileName);
   }
 };
+
+export { generateSalarySlipPdf } from './salarySlipPdfUtil';
