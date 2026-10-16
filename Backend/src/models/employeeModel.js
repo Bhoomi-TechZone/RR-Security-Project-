@@ -130,6 +130,7 @@ const employeeSchema = new mongoose.Schema(
     dispensaryNo: { type: String, default: '' },
     pfApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
     esiApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
+    ptApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
     lwf: { type: String, default: '' },
     lwfApplicable: { type: mongoose.Schema.Types.Mixed, default: false },
     tdsApplicable: { type: mongoose.Schema.Types.Mixed, default: false },

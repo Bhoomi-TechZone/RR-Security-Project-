@@ -63,12 +63,19 @@ const payrollRecordSchema = new mongoose.Schema(
     netSalary: { type: Number, default: 0 },
     status: {
       type: String,
-      enum: ['Calculated', 'Processed', 'Pending', 'On Hold', 'Paid'],
+      enum: [
+        'Calculated', 'calculated',
+        'Processed', 'processed',
+        'Pending', 'pending',
+        'Pending Attendance', 'pending attendance',
+        'On Hold', 'on hold', 'on_hold',
+        'Paid', 'paid'
+      ],
       default: 'Calculated',
     },
     remarks: { type: String, default: '' },
   },
-  { _id: false }
+  { _id: false, strict: false }
 );
 
 // Monthly Payroll Run Schema
@@ -91,7 +98,7 @@ const payrollRunSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Draft', 'Calculated', 'Pending Approval', 'Approved', 'Processed', 'Paid'],
+      enum: ['Draft', 'draft', 'Calculated', 'calculated', 'Pending Approval', 'pending approval', 'Approved', 'approved', 'Processed', 'processed', 'Paid', 'paid', 'Pending Attendance', 'pending attendance'],
       default: 'Calculated',
     },
     approvalStatus: {
@@ -141,6 +148,7 @@ const salarySlipSchema = new mongoose.Schema(
     site: { type: String, default: '' },
     bankName: { type: String, default: '' },
     bankAccountNo: { type: String, default: '' },
+    ifscCode: { type: String, default: '' },
     pan: { type: String, default: '' },
     uan: { type: String, default: '' },
     pfNo: { type: String, default: '' },

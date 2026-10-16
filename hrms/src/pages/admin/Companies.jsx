@@ -16,6 +16,7 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
 import authService from '../../services/authService';
+import employeeService from '../../services/employeeService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -82,25 +83,55 @@ function Companies() {
 
   const itemsPerPage = 8;
 
-  // Fetch clients dynamically from Backend API for current company profile
+  // Fetch clients dynamically from Backend API and sync employee counts
   const fetchBackendClients = useCallback(async () => {
     const token = authService.getToken();
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/clients`, {
-        headers: {
-          'Authorization': `Bearer ${token || ''}`,
-          'x-company-id': currentCompanyId
-        }
-      });
+      const [res, liveEmployees] = await Promise.all([
+        fetch(`${API_BASE_URL}/clients`, {
+          headers: {
+            'Authorization': `Bearer ${token || ''}`,
+            'x-company-id': currentCompanyId
+          }
+        }),
+        employeeService.getEmployees(currentCompanyId).catch(() => [])
+      ]);
 
       if (res.ok) {
         const data = await res.json();
         const clientList = Array.isArray(data.clients) ? data.clients : [];
-        setCompanies(clientList);
-        localStorage.setItem(`novaspark_clients_${currentCompanyId}`, JSON.stringify(clientList));
+
+        // Cross-match with live employees to ensure 100% accurate workforce counts
+        const enrichedList = clientList.map((c) => {
+          const cName = (c.name || '').toLowerCase().trim();
+          const cId = (c.clientId || '').toLowerCase().trim();
+          const cMongoId = (c._id || c.id || '').toLowerCase().trim();
+          const cCore = cName.replace(/\b(pvt\.?|private|ltd\.?|limited)\b/gi, '').trim().replace(/\s+/g, ' ');
+
+          const countFromEmps = (liveEmployees || []).filter((emp) => {
+            const empClientId = (emp.clientId || '').toLowerCase().trim();
+            const empClientName = (emp.clientName || '').toLowerCase().trim();
+            const empCompName = (emp.companyName || '').toLowerCase().trim();
+            const empCore = (empClientName || empCompName).replace(/\b(pvt\.?|private|ltd\.?|limited)\b/gi, '').trim().replace(/\s+/g, ' ');
+
+            return (
+              (empClientId && (empClientId === cId || empClientId === cMongoId)) ||
+              (cName && (empClientName === cName || empCompName === cName)) ||
+              (cCore.length >= 3 && empCore.length >= 3 && cCore === empCore)
+            );
+          }).length;
+
+          return {
+            ...c,
+            employees: countFromEmps > 0 ? countFromEmps : (Number(c.employees) || 0)
+          };
+        });
+
+        setCompanies(enrichedList);
+        localStorage.setItem(`novaspark_clients_${currentCompanyId}`, JSON.stringify(enrichedList));
       } else {
         const errData = await res.json().catch(() => ({}));
         // If no clients found in backend, fall back to local store for this company
@@ -142,13 +173,17 @@ function Companies() {
     fetchBackendClients();
   }, [fetchBackendClients]);
 
-  // Sync when clients are modified across modules (e.g. Masters)
+  // Sync when clients or employees are modified across modules (e.g. Masters, Employee add/edit)
   useEffect(() => {
-    const handleClientsUpdated = () => {
+    const handleUpdates = () => {
       fetchBackendClients();
     };
-    window.addEventListener('clients-updated', handleClientsUpdated);
-    return () => window.removeEventListener('clients-updated', handleClientsUpdated);
+    window.addEventListener('clients-updated', handleUpdates);
+    window.addEventListener('employees-updated', handleUpdates);
+    return () => {
+      window.removeEventListener('clients-updated', handleUpdates);
+      window.removeEventListener('employees-updated', handleUpdates);
+    };
   }, [fetchBackendClients]);
 
   // Handle Toast Trigger helper

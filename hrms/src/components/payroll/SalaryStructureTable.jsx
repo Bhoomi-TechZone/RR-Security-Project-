@@ -30,10 +30,19 @@ export default function SalaryStructureTable({
           </thead>
           <tbody>
             {records.map((row) => {
-              const totalAllowances = (row.transportAllowance || 0) + (row.otherAllowance || 0);
-              const fixedGross = (row.basicSalary || 0) + (row.hra || 0) + totalAllowances;
-              const fixedDeductions = (row.pf || 0) + (row.esi || 0) + (row.otherDeduction || 0);
-              const fixedNet = fixedGross - fixedDeductions;
+              const basic = row.basicSalary ?? row.basic ?? row.earnings?.basic ?? 0;
+              const hra = row.hra ?? row.earnings?.hra ?? 0;
+              const vda = row.vda ?? row.earnings?.vda ?? 0;
+              const transportAllowance = row.transportAllowance ?? row.conveyance ?? row.earnings?.conveyance ?? 0;
+              const otherAllowance = row.otherAllowance ?? row.earnings?.otherAllowance ?? 0;
+              const specialAllowance = row.specialAllowance ?? row.earnings?.specialAllowance ?? 0;
+              const totalAllowances = transportAllowance + otherAllowance + vda + specialAllowance;
+              const fixedGross = row.grossSalary ?? row.earnings?.totalGross ?? (basic + hra + totalAllowances);
+              const pf = row.pf ?? row.deductions?.pfEmployee ?? 0;
+              const esi = row.esi ?? row.deductions?.esiEmployee ?? 0;
+              const otherDeduction = row.otherDeduction ?? row.deductions?.otherDeductions ?? ((row.deductions?.pt || 0) + (row.deductions?.tds || 0));
+              const fixedDeductions = row.totalDeductions ?? row.deductions?.totalDeductions ?? (pf + esi + otherDeduction);
+              const fixedNet = row.netSalary ?? Math.max(0, fixedGross - fixedDeductions);
 
               return (
                 <tr key={row.id} className={styles.row}>
@@ -54,15 +63,15 @@ export default function SalaryStructureTable({
                   <td>
                     <span className={styles.idCode}>{row.employeeId}</span>
                   </td>
-                  <td>{formatRupee(row.basicSalary)}</td>
-                  <td>{formatRupee(row.hra)}</td>
+                  <td>{formatRupee(basic)}</td>
+                  <td>{formatRupee(hra)}</td>
                   <td>{formatRupee(totalAllowances)}</td>
                   <td>
                     <strong className={styles.grossText}>{formatRupee(fixedGross)}</strong>
                   </td>
-                  <td className={styles.deductText}>-{formatRupee(row.pf)}</td>
-                  <td className={styles.deductText}>-{formatRupee(row.esi)}</td>
-                  <td className={styles.deductText}>-{formatRupee(row.otherDeduction)}</td>
+                  <td className={styles.deductText}>-{formatRupee(pf)}</td>
+                  <td className={styles.deductText}>-{formatRupee(esi)}</td>
+                  <td className={styles.deductText}>-{formatRupee(otherDeduction)}</td>
                   <td>
                     <strong className={styles.netText}>{formatRupee(fixedNet)}</strong>
                   </td>
@@ -97,10 +106,19 @@ export default function SalaryStructureTable({
       {/* Mobile view */}
       <div className={styles.mobileList}>
         {records.map((row) => {
-          const totalAllowances = (row.transportAllowance || 0) + (row.otherAllowance || 0);
-          const fixedGross = (row.basicSalary || 0) + (row.hra || 0) + totalAllowances;
-          const fixedDeductions = (row.pf || 0) + (row.esi || 0) + (row.otherDeduction || 0);
-          const fixedNet = fixedGross - fixedDeductions;
+          const basic = row.basicSalary ?? row.basic ?? row.earnings?.basic ?? 0;
+          const hra = row.hra ?? row.earnings?.hra ?? 0;
+          const vda = row.vda ?? row.earnings?.vda ?? 0;
+          const transportAllowance = row.transportAllowance ?? row.conveyance ?? row.earnings?.conveyance ?? 0;
+          const otherAllowance = row.otherAllowance ?? row.earnings?.otherAllowance ?? 0;
+          const specialAllowance = row.specialAllowance ?? row.earnings?.specialAllowance ?? 0;
+          const totalAllowances = transportAllowance + otherAllowance + vda + specialAllowance;
+          const fixedGross = row.grossSalary ?? row.earnings?.totalGross ?? (basic + hra + totalAllowances);
+          const pf = row.pf ?? row.deductions?.pfEmployee ?? 0;
+          const esi = row.esi ?? row.deductions?.esiEmployee ?? 0;
+          const otherDeduction = row.otherDeduction ?? row.deductions?.otherDeductions ?? ((row.deductions?.pt || 0) + (row.deductions?.tds || 0));
+          const fixedDeductions = row.totalDeductions ?? row.deductions?.totalDeductions ?? (pf + esi + otherDeduction);
+          const fixedNet = row.netSalary ?? Math.max(0, fixedGross - fixedDeductions);
 
           return (
             <div key={row.id} className={styles.mobileCard}>
@@ -125,7 +143,7 @@ export default function SalaryStructureTable({
               <div className={styles.mobileGrid}>
                 <div className={styles.mobileRow}>
                   <span>Basic + HRA</span>
-                  <span>{formatRupee(row.basicSalary)} + {formatRupee(row.hra)}</span>
+                  <span>{formatRupee(basic)} + {formatRupee(hra)}</span>
                 </div>
                 <div className={styles.mobileRow}>
                   <span>Allowances</span>

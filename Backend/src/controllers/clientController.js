@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import Client from '../models/clientModel.js';
 import Company from '../models/companyModel.js';
+import Employee from '../models/employeeModel.js';
 import { sendClientWelcomeEmail } from '../services/emailService.js';
 
 /**
@@ -119,10 +120,50 @@ export const getClients = async (req, res) => {
     // Sort newest first for display
     clients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
+    // Fetch all employees for this company profile to calculate dynamic workforce counts
+    const employees = await Employee.find({
+      $or: [
+        { companyId: { $in: companyIds } },
+        { adminEmail }
+      ]
+    }).select('clientId clientName companyName status employeeId');
+
+    // Build client response with dynamically calculated employee counts
+    const enrichedClients = clients.map((c) => {
+      const cJson = c.toJSON();
+      const clientNameLower = (c.name || '').toLowerCase().trim();
+      const clientIdLower = (c.clientId || '').toLowerCase().trim();
+      const cIdStr = c._id ? c._id.toString().toLowerCase() : '';
+      const coreName = clientNameLower.replace(/\b(pvt\.?|private|ltd\.?|limited)\b/gi, '').trim().replace(/\s+/g, ' ');
+
+      const empCount = employees.filter((emp) => {
+        const empClientId = (emp.clientId || '').toLowerCase().trim();
+        const empClientName = (emp.clientName || '').toLowerCase().trim();
+        const empCompName = (emp.companyName || '').toLowerCase().trim();
+        const empCore = (empClientName || empCompName).replace(/\b(pvt\.?|private|ltd\.?|limited)\b/gi, '').trim().replace(/\s+/g, ' ');
+
+        return (
+          (empClientId && (empClientId === clientIdLower || empClientId === cIdStr)) ||
+          (clientNameLower && (empClientName === clientNameLower || empCompName === clientNameLower)) ||
+          (coreName.length >= 3 && empCore.length >= 3 && coreName === empCore)
+        );
+      }).length;
+
+      // Keep Client document employees field updated in MongoDB as well
+      if (c.employees !== empCount) {
+        Client.updateOne({ _id: c._id }, { $set: { employees: empCount } }).catch(() => {});
+      }
+
+      return {
+        ...cJson,
+        employees: empCount
+      };
+    });
+
     return res.status(200).json({
       success: true,
-      count: clients.length,
-      clients: clients.map(c => c.toJSON())
+      count: enrichedClients.length,
+      clients: enrichedClients
     });
   } catch (error) {
     console.error('Error getting clients:', error);
@@ -267,9 +308,32 @@ export const getClientById = async (req, res) => {
       });
     }
 
+    // Calculate live employee count for this client
+    const clientNameLower = (client.name || '').toLowerCase().trim();
+    const clientIdLower = (client.clientId || '').toLowerCase().trim();
+    const cIdStr = client._id ? client._id.toString().toLowerCase() : '';
+
+    const employees = await Employee.find({
+      adminEmail
+    }).select('clientId clientName companyName status employeeId');
+
+    const empCount = employees.filter((emp) => {
+      const empClientId = (emp.clientId || '').toLowerCase().trim();
+      const empClientName = (emp.clientName || '').toLowerCase().trim();
+      const empCompName = (emp.companyName || '').toLowerCase().trim();
+
+      return (
+        (empClientId && (empClientId === clientIdLower || empClientId === cIdStr)) ||
+        (clientNameLower && (empClientName === clientNameLower || empCompName === clientNameLower))
+      );
+    }).length;
+
+    const clientJson = client.toJSON();
+    clientJson.employees = empCount;
+
     return res.status(200).json({
       success: true,
-      client: client.toJSON()
+      client: clientJson
     });
   } catch (error) {
     console.error('Error getting client by id:', error);

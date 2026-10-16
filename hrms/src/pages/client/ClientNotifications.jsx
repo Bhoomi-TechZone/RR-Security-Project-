@@ -197,18 +197,14 @@ function ClientNotifications() {
 
   useEffect(() => {
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 5000);
-    const handleRefresh = () => fetchNotifications();
+    const handleAuthChange = () => fetchNotifications();
 
-    window.addEventListener('focus', handleRefresh);
-    window.addEventListener('auth_state_changed', handleRefresh);
-    window.addEventListener('user_logged_in', handleRefresh);
+    window.addEventListener('auth_state_changed', handleAuthChange);
+    window.addEventListener('user_logged_in', handleAuthChange);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleRefresh);
-      window.removeEventListener('auth_state_changed', handleRefresh);
-      window.removeEventListener('user_logged_in', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleAuthChange);
+      window.removeEventListener('user_logged_in', handleAuthChange);
     };
   }, [fetchNotifications]);
 

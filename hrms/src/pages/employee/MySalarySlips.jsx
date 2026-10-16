@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Banknote,
   ChevronRight,
@@ -9,115 +9,16 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
 import { formatRupee, formatDate } from '../../utils/payrollUtils';
 import { generateSalarySlipPdf } from '../../utils/salarySlipPdfUtil';
 import authService from '../../services/authService';
+import payrollService from '../../services/payrollService';
 import { useCompany } from '../../context/CompanyContext';
 import styles from './MySalarySlips.module.css';
-
-/* ─────────────────────────────────────────
-   Dynamic Salary Slips Generator
-   ───────────────────────────────────────── */
-function generateDynamicSlips(currentUser, companyObj) {
-  if (!currentUser) return [];
-
-  const empName = currentUser.name || currentUser.employeeName || 'Employee';
-  const empId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP-001';
-  const designation = currentUser.designation || currentUser.role || 'Security Staff';
-  const department = currentUser.department || 'Operations';
-  const compName = companyObj?.name || currentUser.companyName || 'RR Security & Facilities';
-  const compAddress = [companyObj?.address, companyObj?.city, companyObj?.state, companyObj?.pinCode].filter(Boolean).join(', ') || companyObj?.address || 'Civil Lines, Bareilly, Uttar Pradesh 243001';
-  const compEmail = companyObj?.email || '';
-  const compPhone = companyObj?.phone || '';
-  const compGstin = companyObj?.gstin || '';
-  const compLogo = companyObj?.logo || (typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_logo_preview') : null) || null;
-
-  const basic = Number(currentUser.basic || currentUser.basicSalary || (currentUser.grossSalary ? Math.round(currentUser.grossSalary * 0.5) : 28000));
-  const hra = Number(currentUser.hra || Math.round(basic * 0.4));
-  const conveyance = Number(currentUser.conveyance || 1600);
-  const specialAllowance = Number(currentUser.specialAllowance || currentUser.otherAllowance || Math.max(0, (currentUser.grossSalary || (basic + hra + 1600 + 3500)) - basic - hra - conveyance));
-  const vda = Number(currentUser.vda || 0);
-  const grossSalary = basic + hra + conveyance + specialAllowance + vda;
-
-  const isPf = currentUser.pfApplicable !== false && currentUser.pfApplicable !== 'false';
-  const isEsi = currentUser.esiApplicable !== false && currentUser.esiApplicable !== 'false' && grossSalary <= 21000;
-  const pf = isPf ? Math.round(basic * 0.12) : 0;
-  const esi = isEsi ? Math.round(grossSalary * 0.0075) : 0;
-  const pt = 200;
-  const totalDeductions = pf + esi + pt;
-  const netSalary = grossSalary - totalDeductions;
-
-  const today = new Date();
-  const slips = [];
-
-  for (let i = 0; i < 6; i++) {
-    const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-    const monthName = d.toLocaleDateString('en-US', { month: 'long' });
-    const shortMonth = d.toLocaleDateString('en-US', { month: 'short' });
-    const year = d.getFullYear();
-    const monthKey = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    const salaryMonth = `${monthName} ${year}`;
-    const lastDayOfMonth = new Date(year, d.getMonth() + 1, 0).getDate();
-
-    // Past months are Generated; current month is Generated after the 25th or otherwise Pending
-    const isCurrentMonth = i === 0;
-    const isGenerated = !isCurrentMonth || today.getDate() >= 25;
-    const status = isGenerated ? 'Generated' : 'Pending';
-
-    slips.push({
-      id: `SLIP-${year}-${d.getMonth() + 1}-${empId}`,
-      slipNumber: `PAY-${year}${String(d.getMonth() + 1).padStart(2, '0')}-${empId.replace(/[^A-Za-z0-9]/g, '') || '001'}`,
-      salaryMonth,
-      monthKey,
-      status,
-      generatedDate: isGenerated ? `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}` : null,
-      payPeriod: `01/${String(d.getMonth() + 1).padStart(2, '0')}/${year} - ${lastDayOfMonth}/${String(d.getMonth() + 1).padStart(2, '0')}/${year}`,
-      payDate: `${lastDayOfMonth} ${monthName} ${year}`,
-      workingDays: lastDayOfMonth - 4,
-      presentDays: isGenerated ? lastDayOfMonth - 4 : Math.min(today.getDate(), lastDayOfMonth - 4),
-      lopDays: 0,
-      employeeName: empName,
-      employeeId: empId,
-      designation,
-      department,
-      company: compName,
-      companyName: compName,
-      companyAddress: compAddress,
-      companyEmail: compEmail,
-      companyPhone: compPhone,
-      companyGstin: compGstin,
-      companyPan: compPan,
-      companyLogo: compLogo,
-      pan: currentUser.pan || '—',
-      bankName: currentUser.bankName || 'State Bank of India',
-      bankAccount: currentUser.accountNumber || currentUser.bankAccount || '•••• •••• 4892',
-      ifscCode: currentUser.ifscCode || 'SBIN0001234',
-      uan: currentUser.uan || '101234567890',
-      pfNumber: currentUser.pfNo || 'DL/CPM/0012345/000',
-      esiNumber: currentUser.esicNo || '1122334455001',
-      earnings: {
-        basicSalary: basic,
-        hra,
-        conveyanceAllowance: conveyance,
-        specialAllowance,
-        vda,
-        totalEarnings: grossSalary,
-        grossSalary,
-      },
-      deductions: {
-        providentFund: pf,
-        esic: esi,
-        professionalTax: pt,
-        totalDeductions,
-      },
-      netSalary,
-    });
-  }
-
-  return slips;
-}
 
 /* ─────────────────────────────────────────
    Main Component
@@ -133,10 +34,111 @@ function MySalarySlips() {
   const designation = currentUser.designation || currentUser.role || 'Staff Member';
   const department = currentUser.department || 'Operations';
 
-  // Dynamic salary slips generated for the logged-in employee
-  const slipsList = useMemo(() => {
-    return generateDynamicSlips(currentUser, activeCompany);
-  }, [currentUser, activeCompany]);
+  // Live dynamic salary slips from MongoDB database
+  const [slipsList, setSlipsList] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const loadSalarySlips = useCallback(async () => {
+    try {
+      setLoading(true);
+      const compId = activeCompany?._id || activeCompany?.companyId || currentUser.companyId || 'RRS8392014SEC';
+      const empId = currentUser.employeeId || currentUser.employeeCode || currentUser.id;
+
+      const data = await payrollService.getSalarySlips(compId, { employeeId: empId });
+
+      const rawSlips = Array.isArray(data) ? data : [];
+      const normalized = rawSlips.map((s, idx) => {
+        const earnings = s.earnings || s.earningsBreakdown || {};
+        const deductions = s.deductions || s.deductionsBreakdown || {};
+        const grossSalary = s.grossSalary !== undefined ? Number(s.grossSalary) : (Number(earnings.totalGross || earnings.grossSalary) || 0);
+        const totalDeductions = s.totalDeductions !== undefined ? Number(s.totalDeductions) : (Number(deductions.totalDeductions) || 0);
+        const netSalary = s.netSalary !== undefined ? Number(s.netSalary) : Math.max(0, grossSalary - totalDeductions);
+
+        const monthKey = s.month || '';
+        let salaryMonth = s.salaryMonth || s.monthLabel || '';
+        if (!salaryMonth && monthKey) {
+          const [y, m] = monthKey.split('-');
+          if (y && m) {
+            const d = new Date(Number(y), Number(m) - 1, 1);
+            salaryMonth = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+          }
+        }
+
+        return {
+          ...s,
+          id: s._id || s.id || `slip-${idx}`,
+          slipNumber: s.slipNumber || `PAY-${(monthKey || '0000-00').replace('-', '')}-${String(s.employeeId || empId || '001').replace(/[^A-Za-z0-9]/g, '')}`,
+          salaryMonth: salaryMonth || 'Current Month',
+          monthKey,
+          status: s.status || 'Generated',
+          generatedDate: s.generatedDate || (s.createdAt ? s.createdAt.split('T')[0] : null),
+          workingDays: s.workingDays !== undefined ? s.workingDays : 30,
+          presentDays: s.presentDays !== undefined ? s.presentDays : (s.paidDays !== undefined ? s.paidDays : 30),
+          paidDays: s.paidDays !== undefined ? s.paidDays : (s.presentDays !== undefined ? s.presentDays : 30),
+          lopDays: s.lopDays || 0,
+          employeeName: s.employeeName || currentUser.name || 'Employee',
+          employeeId: s.employeeId || empId || '—',
+          designation: s.designation || currentUser.designation || 'Staff',
+          department: s.department || currentUser.department || 'Operations',
+          company: s.companyName || activeCompany?.name || currentUser.companyName || 'RR Security & Facilities',
+          companyName: s.companyName || activeCompany?.name || currentUser.companyName || 'RR Security & Facilities',
+          companyAddress: s.companyAddress || [activeCompany?.address, activeCompany?.city, activeCompany?.state, activeCompany?.pinCode].filter(Boolean).join(', ') || activeCompany?.address || '',
+          companyEmail: s.companyEmail || activeCompany?.email || '',
+          companyPhone: s.companyPhone || activeCompany?.phone || '',
+          companyGstin: s.companyGstin || activeCompany?.gstin || '',
+          companyPan: s.companyPan || activeCompany?.pan || '',
+          companyLogo: s.companyLogo || activeCompany?.logo || null,
+          pan: s.pan || currentUser.pan || '—',
+          bankName: s.bankName || currentUser.bankName || '—',
+          bankAccount: s.bankAccountNo || s.bankAccount || currentUser.bankAccount || currentUser.accountNumber || '—',
+          bankAccountNo: s.bankAccountNo || s.bankAccount || currentUser.bankAccount || currentUser.accountNumber || '—',
+          ifscCode: s.ifscCode || currentUser.ifscCode || '—',
+          uan: s.uan || currentUser.uan || '—',
+          pfNumber: s.pfNo || s.pfNumber || currentUser.pfNo || '—',
+          esiNumber: s.esicNo || s.esiNumber || currentUser.esicNo || '—',
+          grossSalary,
+          totalDeductions,
+          netSalary,
+          earnings: {
+            basicSalary: earnings.basicSalary || earnings.basic || 0,
+            basic: earnings.basic || earnings.basicSalary || 0,
+            hra: earnings.hra || 0,
+            conveyanceAllowance: earnings.conveyanceAllowance || earnings.conveyance || 0,
+            conveyance: earnings.conveyance || earnings.conveyanceAllowance || 0,
+            specialAllowance: earnings.specialAllowance || 0,
+            otherAllowance: earnings.otherAllowance || 0,
+            vda: earnings.vda || 0,
+            bonus: earnings.bonus || 0,
+            overtime: earnings.overtime || 0,
+            totalEarnings: grossSalary,
+            grossSalary,
+          },
+          deductions: {
+            providentFund: deductions.providentFund || deductions.pfEmployee || deductions.pf || 0,
+            pfEmployee: deductions.pfEmployee || deductions.pf || 0,
+            esic: deductions.esic || deductions.esiEmployee || deductions.esi || 0,
+            esiEmployee: deductions.esiEmployee || deductions.esi || 0,
+            professionalTax: deductions.professionalTax || deductions.pt || 0,
+            pt: deductions.pt || deductions.professionalTax || 0,
+            tds: deductions.tds || 0,
+            advances: deductions.advances || 0,
+            totalDeductions,
+          },
+        };
+      });
+
+      setSlipsList(normalized);
+    } catch (err) {
+      console.error('Failed to load employee salary slips:', err);
+      setSlipsList([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeCompany?._id, activeCompany?.companyId, currentUser.companyId, currentUser.employeeId, currentUser.employeeCode, currentUser.id, currentUser.name]);
+
+  useEffect(() => {
+    loadSalarySlips();
+  }, [loadSalarySlips]);
 
   // Filter state
   const [draftMonth, setDraftMonth] = useState('all');
@@ -222,6 +224,17 @@ function MySalarySlips() {
             <h1>My Salary Slips</h1>
             <p>View and download your dynamic salary slips.</p>
           </div>
+          <button
+            type="button"
+            className={styles.resetBtn}
+            onClick={loadSalarySlips}
+            disabled={loading}
+            title="Refresh verified salary slips"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
+            <span>Refresh</span>
+          </button>
         </header>
 
         {/* ── Employee Identity Card ── */}
@@ -249,7 +262,14 @@ function MySalarySlips() {
         </section>
 
         {/* ── Salary Summary Cards ── */}
-        {latestSlip ? (
+        {loading ? (
+          <section className={styles.summaryGrid} aria-label="Loading salary data">
+            <div className={styles.summaryCard} style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px', gap: '10px' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading verified salary slips from database...</span>
+            </div>
+          </section>
+        ) : latestSlip ? (
           <section
             className={styles.summaryGrid}
             aria-label="Latest salary summary"
@@ -279,7 +299,7 @@ function MySalarySlips() {
                 Gross Salary
               </div>
               <div className={styles.summaryCardValue}>
-                {formatRupee(latestSlip.earnings?.grossSalary)}
+                {formatRupee(latestSlip.grossSalary || latestSlip.earnings?.grossSalary || latestSlip.earnings?.totalGross)}
               </div>
               <div className={styles.summaryCardSub}>
                 {latestSlip.salaryMonth}
@@ -295,7 +315,7 @@ function MySalarySlips() {
                 Deductions
               </div>
               <div className={`${styles.summaryCardValue} ${styles.deduct}`}>
-                {formatRupee(latestSlip.deductions?.totalDeductions)}
+                {formatRupee(latestSlip.totalDeductions || latestSlip.deductions?.totalDeductions)}
               </div>
               <div className={styles.summaryCardSub}>
                 {latestSlip.salaryMonth}
@@ -311,12 +331,12 @@ function MySalarySlips() {
                 Status
               </div>
               <div className={styles.summaryCardValue}>
-                {latestSlip.status?.toLowerCase() === 'generated' ? (
+                {latestSlip.status?.toLowerCase() === 'generated' || latestSlip.status?.toLowerCase() === 'processed' ? (
                   <span className={styles.statusBadgeProcessed}>
                     Processed
                   </span>
                 ) : (
-                  <span className={styles.statusBadgePending}>Pending</span>
+                  <span className={styles.statusBadgePending}>{latestSlip.status || 'Pending'}</span>
                 )}
               </div>
               <div className={styles.summaryCardSub}>
@@ -326,9 +346,9 @@ function MySalarySlips() {
           </section>
         ) : (
           <section className={styles.summaryGrid} aria-label="No salary data">
-            <div className={styles.summaryCard} style={{ gridColumn: '1/-1' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                No salary data available yet. Summary will appear here once payroll is processed.
+            <div className={styles.summaryCard} style={{ gridColumn: '1/-1', padding: '20px' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
+                No salary slips generated yet. Once your salary slip is processed and generated by HR / Administration, your verified earnings and deductions will appear here dynamically.
               </p>
             </div>
           </section>
@@ -396,14 +416,19 @@ function MySalarySlips() {
         {/* ── Desktop Table ── */}
         <div className={styles.tableSection}>
           <div className={styles.tableResponsive}>
-            {filteredSlips.length === 0 ? (
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', gap: '10px' }}>
+                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Fetching verified salary slips...</span>
+              </div>
+            ) : filteredSlips.length === 0 ? (
               <div className={styles.emptyState}>
                 <div className={styles.emptyIconWrap}>
                   <FileText size={28} />
                 </div>
                 <h3>No salary slips available</h3>
                 <p>
-                  Your salary slips will appear here once payroll is processed.
+                  Your verified salary slips will appear here once payroll is processed by HR / Admin.
                 </p>
               </div>
             ) : (
@@ -421,18 +446,18 @@ function MySalarySlips() {
                 </thead>
                 <tbody>
                   {filteredSlips.map((slip) => {
-                    const isGenerated = slip.status?.toLowerCase() === 'generated';
+                    const isGenerated = slip.status?.toLowerCase() === 'generated' || slip.status?.toLowerCase() === 'processed';
                     return (
                       <tr key={slip.id} className={styles.tableRow}>
                         <td>{slip.salaryMonth}</td>
                         <td>
                           {isGenerated
-                            ? formatRupee(slip.earnings?.grossSalary)
+                            ? formatRupee(slip.grossSalary || slip.earnings?.grossSalary || slip.earnings?.totalGross)
                             : '—'}
                         </td>
                         <td className={styles.deductCell}>
                           {isGenerated
-                            ? `-${formatRupee(slip.deductions?.totalDeductions)}`
+                            ? `-${formatRupee(slip.totalDeductions || slip.deductions?.totalDeductions)}`
                             : '—'}
                         </td>
                         <td>
@@ -446,7 +471,7 @@ function MySalarySlips() {
                               Processed
                             </span>
                           ) : (
-                            <span className={styles.badgePending}>Pending</span>
+                            <span className={styles.badgePending}>{slip.status || 'Pending'}</span>
                           )}
                         </td>
                         <td className={styles.dateCell}>
@@ -507,19 +532,24 @@ function MySalarySlips() {
 
           {/* ── Mobile Cards ── */}
           <div className={styles.mobileList} aria-label="Salary slip history (mobile)">
-            {filteredSlips.length === 0 ? (
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '10px' }}>
+                <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading slips...</span>
+              </div>
+            ) : filteredSlips.length === 0 ? (
               <div className={styles.emptyState}>
                 <div className={styles.emptyIconWrap}>
                   <FileText size={28} />
                 </div>
                 <h3>No salary slips available</h3>
                 <p>
-                  Your salary slips will appear here once payroll is processed.
+                  Your verified salary slips will appear here once payroll is processed by HR / Admin.
                 </p>
               </div>
             ) : (
               filteredSlips.map((slip) => {
-                const isGenerated = slip.status?.toLowerCase() === 'generated';
+                const isGenerated = slip.status?.toLowerCase() === 'generated' || slip.status?.toLowerCase() === 'processed';
                 return (
                   <div key={slip.id} className={styles.mobileCard}>
                     <div className={styles.mobileCardHeader}>
@@ -529,7 +559,7 @@ function MySalarySlips() {
                       {isGenerated ? (
                         <span className={styles.badgeGenerated}>Processed</span>
                       ) : (
-                        <span className={styles.badgePending}>Pending</span>
+                        <span className={styles.badgePending}>{slip.status || 'Pending'}</span>
                       )}
                     </div>
 
@@ -538,13 +568,13 @@ function MySalarySlips() {
                         <div className={styles.mobileRow}>
                           <span>Gross Salary</span>
                           <span>
-                            {formatRupee(slip.earnings?.grossSalary)}
+                            {formatRupee(slip.grossSalary || slip.earnings?.grossSalary || slip.earnings?.totalGross)}
                           </span>
                         </div>
                         <div className={styles.mobileRow}>
                           <span>Deductions</span>
                           <span className={styles.deductCell}>
-                            -{formatRupee(slip.deductions?.totalDeductions)}
+                            -{formatRupee(slip.totalDeductions || slip.deductions?.totalDeductions)}
                           </span>
                         </div>
                         <div

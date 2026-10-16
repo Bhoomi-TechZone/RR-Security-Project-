@@ -10,7 +10,7 @@ function CorrectionRequests({ requests, onReview }) {
   if (requests.length === 0) {
     return (
       <EmptyState
-        icon="check"
+        icon={CheckCircle}
         title="No pending corrections"
         description="All attendance correction requests have been reviewed."
       />

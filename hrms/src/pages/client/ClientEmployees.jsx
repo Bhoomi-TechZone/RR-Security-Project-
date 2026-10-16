@@ -42,9 +42,11 @@ function ClientEmployees() {
     setToast({ show: true, message, type });
   };
 
-  const fetchEmployees = async () => {
+  const fetchEmployees = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true);
+      }
       const res = await clientPortalService.getAssignedEmployees({
         search: searchTerm,
         department: deptFilter,
@@ -61,26 +63,24 @@ function ClientEmployees() {
       }
     } catch (err) {
       console.warn('Error fetching client assigned employees:', err.message);
-      setEmployees([]);
+      if (!isSilent) setEmployees([]);
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchEmployees();
-    const interval = setInterval(fetchEmployees, 5000);
-    const handleRefresh = () => fetchEmployees();
+    fetchEmployees(false);
+    const handleAuthChange = () => fetchEmployees(true);
 
-    window.addEventListener('focus', handleRefresh);
-    window.addEventListener('auth_state_changed', handleRefresh);
-    window.addEventListener('user_logged_in', handleRefresh);
+    window.addEventListener('auth_state_changed', handleAuthChange);
+    window.addEventListener('user_logged_in', handleAuthChange);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleRefresh);
-      window.removeEventListener('auth_state_changed', handleRefresh);
-      window.removeEventListener('user_logged_in', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleAuthChange);
+      window.removeEventListener('user_logged_in', handleAuthChange);
     };
   }, [clientCompany?.clientId, clientCompany?.name, deptFilter, siteFilter, statusFilter]);
 

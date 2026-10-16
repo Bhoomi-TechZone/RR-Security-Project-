@@ -23,6 +23,12 @@ const attendanceSchema = new mongoose.Schema(
       default: 'EM',
       trim: true,
     },
+    clientId: {
+      type: String,
+      default: '',
+      trim: true,
+      index: true,
+    },
     clientName: {
       type: String,
       default: '',

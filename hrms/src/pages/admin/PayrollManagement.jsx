@@ -589,21 +589,28 @@ export default function PayrollManagement() {
 
   // Actions: Save Edited Salary Structure
   const handleSaveSalaryStructure = async (updatedRecord) => {
-    const updated = records.map((item) =>
-      item.id === updatedRecord.id ? updatedRecord : item
-    );
-    setRecords(updated);
-    setEditStructureRecord(null);
-    notify('✓ Salary structure updated successfully.', 'success');
+    try {
+      notify('Saving salary structure to database...', 'info');
+      await payrollService.saveSalaryStructure(activeCompanyId, {
+        ...updatedRecord,
+        month: selectedMonth,
+      });
+      setEditStructureRecord(null);
+      notify('✓ Salary structure updated successfully in database.', 'success');
+      await fetchAllPayrollData();
+    } catch (err) {
+      console.error('Error updating salary structure:', err);
+      notify(err.message || 'Failed to save salary structure to database.', 'error');
+    }
   };
 
   // Actions: Batch Generate Slips
-  const handleBatchGenerateSlips = async () => {
+  const handleBatchGenerateSlips = async (options = {}) => {
     try {
-      await payrollService.generateSalarySlips(activeCompanyId, selectedMonth);
+      const res = await payrollService.generateSalarySlips(activeCompanyId, selectedMonth, options);
       setIsGenerateSlipsOpen(false);
-      notify('✓ Salary slips generated successfully.', 'success');
-      fetchAllPayrollData();
+      notify(res?.message || '✓ Salary slips generated successfully.', 'success');
+      await fetchAllPayrollData();
     } catch (err) {
       notify(err.message || 'Failed to generate salary slips', 'error');
     }
@@ -612,9 +619,12 @@ export default function PayrollManagement() {
   // Actions: Generate Single Slip
   const handleGenerateSingleSlip = async (slip) => {
     try {
-      await payrollService.generateSalarySlips(activeCompanyId, selectedMonth);
-      notify(`✓ Salary slip generated for ${slip.employeeName}.`, 'success');
-      fetchAllPayrollData();
+      const res = await payrollService.generateSalarySlips(activeCompanyId, selectedMonth, {
+        generationType: 'selective',
+        employeeIds: [slip.employeeId],
+      });
+      notify(res?.message || `✓ Salary slip generated for ${slip.employeeName}.`, 'success');
+      await fetchAllPayrollData();
     } catch (err) {
       notify(err.message || 'Failed to generate salary slip', 'error');
     }
@@ -1250,7 +1260,10 @@ export default function PayrollManagement() {
             selectedMonth={selectedMonth}
             monthLabel={monthLabel}
             companies={clientsList.length > 0 ? clientsList : companies}
+            clientsList={clientsList}
             departments={deptList}
+            employees={employees}
+            records={records}
             onConfirm={handleBatchGenerateSlips}
           />
         )}

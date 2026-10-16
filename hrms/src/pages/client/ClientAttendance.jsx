@@ -34,17 +34,37 @@ function getInitialsBg(initials) {
 }
 
 const formatMonthYearDisplay = (rec) => {
-  if (rec.month && rec.year) {
-    return `${rec.month} ${rec.year}`;
+  if (!rec) return '—';
+  const m = rec.month;
+  const y = rec.year;
+
+  if (m && /^\d{4}-\d{2}$/.test(m)) {
+    const [year, month] = m.split('-').map(Number);
+    const d = new Date(year, month - 1, 1);
+    return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
   }
-  if (rec.month) {
-    if (/^\d{4}-\d{2}$/.test(rec.month)) {
-      const [y, m] = rec.month.split('-').map(Number);
-      const d = new Date(y, m - 1, 1);
+
+  if (m && y) {
+    if (String(m).includes(String(y))) {
+      return String(m);
+    }
+    const mNum = Number(m);
+    if (!isNaN(mNum) && mNum >= 1 && mNum <= 12) {
+      const d = new Date(Number(y), mNum - 1, 1);
       return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
     }
-    return rec.month;
+    return `${m} ${y}`;
   }
+
+  if (m) {
+    const mNum = Number(m);
+    if (!isNaN(mNum) && mNum >= 1 && mNum <= 12) {
+      const d = new Date(new Date().getFullYear(), mNum - 1, 1);
+      return d.toLocaleDateString('en-IN', { month: 'short' });
+    }
+    return m;
+  }
+
   if (rec.date) {
     const d = new Date(rec.date.includes('T') ? rec.date : `${rec.date}T00:00:00`);
     if (!isNaN(d.getTime())) {
@@ -114,9 +134,11 @@ function ClientAttendance() {
     setToast({ show: true, message, type });
   };
 
-  const fetchAttendance = async () => {
+  const fetchAttendance = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true);
+      }
       const params = {
         search: searchTerm,
         site: siteFilter,
@@ -142,14 +164,25 @@ function ClientAttendance() {
       }
     } catch (err) {
       console.warn('Error fetching client attendance:', err.message);
-      setRecords([]);
+      if (!isSilent) setRecords([]);
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchAttendance();
+    fetchAttendance(false);
+    const handleAuthChange = () => fetchAttendance(true);
+
+    window.addEventListener('auth_state_changed', handleAuthChange);
+    window.addEventListener('user_logged_in', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('auth_state_changed', handleAuthChange);
+      window.removeEventListener('user_logged_in', handleAuthChange);
+    };
   }, [clientCompany?.clientId, clientCompany?.name, viewMode, selectedMonth, selectedDate, siteFilter, deptFilter, statusFilter]);
 
   const filteredRecords = records.filter((rec) => {
@@ -225,7 +258,7 @@ function ClientAttendance() {
           <button
             type="button"
             className={styles.exportBtn}
-            onClick={fetchAttendance}
+            onClick={() => fetchAttendance(false)}
             title="Refresh Attendance"
             style={{ background: 'var(--surface)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}
           >
@@ -516,7 +549,9 @@ function ClientAttendance() {
 
                       {/* 13. Status */}
                       <td>
-                        <StatusBadge status={rec.status || 'present'} />
+                        <StatusBadge status={rec.status === 'no_record' ? 'Pending Upload' : (rec.status || 'present')}>
+                          {rec.status === 'no_record' ? 'Pending Upload' : (rec.status === 'present' ? 'Present' : (rec.status || 'Present'))}
+                        </StatusBadge>
                       </td>
                     </tr>
                   );

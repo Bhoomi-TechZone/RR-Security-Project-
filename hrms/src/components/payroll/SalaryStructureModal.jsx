@@ -12,7 +12,9 @@ export default function SalaryStructureModal({
   const [formData, setFormData] = useState({
     basicSalary: 0,
     hra: 0,
+    vda: 0,
     transportAllowance: 0,
+    specialAllowance: 0,
     otherAllowance: 0,
     pf: 0,
     esi: 0,
@@ -22,13 +24,15 @@ export default function SalaryStructureModal({
   useEffect(() => {
     if (record) {
       setFormData({
-        basicSalary: record.basicSalary || 0,
-        hra: record.hra || 0,
-        transportAllowance: record.transportAllowance || 0,
-        otherAllowance: record.otherAllowance || 0,
-        pf: record.pf || 0,
-        esi: record.esi || 0,
-        otherDeduction: record.otherDeduction || 0,
+        basicSalary: record.basicSalary ?? record.basic ?? record.earnings?.basic ?? 0,
+        hra: record.hra ?? record.earnings?.hra ?? 0,
+        vda: record.vda ?? record.earnings?.vda ?? 0,
+        transportAllowance: record.transportAllowance ?? record.conveyance ?? record.earnings?.conveyance ?? 0,
+        specialAllowance: record.specialAllowance ?? record.earnings?.specialAllowance ?? 0,
+        otherAllowance: record.otherAllowance ?? record.earnings?.otherAllowance ?? 0,
+        pf: record.pf ?? record.deductions?.pfEmployee ?? 0,
+        esi: record.esi ?? record.deductions?.esiEmployee ?? 0,
+        otherDeduction: record.otherDeduction ?? record.deductions?.otherDeductions ?? ((record.deductions?.pt || 0) + (record.deductions?.tds || 0)),
       });
     }
   }, [record, isOpen]);
@@ -39,34 +43,45 @@ export default function SalaryStructureModal({
     const num = Math.max(0, parseInt(value, 10) || 0);
     setFormData((prev) => {
       const next = { ...prev, [field]: num };
-      // Auto-compute PF if basic changes (optional helper)
-      if (field === 'basicSalary') {
-        next.pf = Math.round(num * 0.12);
-        // HRA standard default 40% if wanted
+      // Auto-compute PF if basic changes (12% of basic + vda)
+      if (field === 'basicSalary' || field === 'vda') {
+        const b = field === 'basicSalary' ? num : prev.basicSalary;
+        const v = field === 'vda' ? num : prev.vda;
+        const pfWage = Math.min(b + v, 15000);
+        next.pf = Math.round(pfWage * 0.12);
       }
       return next;
     });
   };
 
-  const totalAllowances = Number(formData.transportAllowance) + Number(formData.otherAllowance);
+  const totalAllowances =
+    Number(formData.transportAllowance) +
+    Number(formData.otherAllowance) +
+    Number(formData.vda) +
+    Number(formData.specialAllowance);
   const grossSalary = Number(formData.basicSalary) + Number(formData.hra) + totalAllowances;
   const totalDeductions = Number(formData.pf) + Number(formData.esi) + Number(formData.otherDeduction);
-  const netSalary = grossSalary - totalDeductions;
+  const netSalary = Math.max(0, grossSalary - totalDeductions);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave({
       ...record,
+      employeeId: record.employeeId,
       basicSalary: Number(formData.basicSalary),
+      basic: Number(formData.basicSalary),
       hra: Number(formData.hra),
+      vda: Number(formData.vda),
       transportAllowance: Number(formData.transportAllowance),
+      conveyance: Number(formData.transportAllowance),
+      specialAllowance: Number(formData.specialAllowance),
       otherAllowance: Number(formData.otherAllowance),
       pf: Number(formData.pf),
       esi: Number(formData.esi),
       otherDeduction: Number(formData.otherDeduction),
       grossSalary,
       totalDeductions,
-      netSalary: Math.max(0, netSalary)
+      netSalary
     });
   };
 
@@ -122,7 +137,19 @@ export default function SalaryStructureModal({
                 </div>
 
                 <div className={styles.field}>
-                  <label className={styles.fieldLabel}>Transport Allowance (₹)</label>
+                  <label className={styles.fieldLabel}>Variable DA (VDA) (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    className={styles.input}
+                    value={formData.vda}
+                    onChange={(e) => handleChange('vda', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>Transport / Conveyance (₹)</label>
                   <input
                     type="number"
                     min="0"
@@ -130,6 +157,18 @@ export default function SalaryStructureModal({
                     className={styles.input}
                     value={formData.transportAllowance}
                     onChange={(e) => handleChange('transportAllowance', e.target.value)}
+                  />
+                </div>
+
+                <div className={styles.field}>
+                  <label className={styles.fieldLabel}>Special Allowance (₹)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="100"
+                    className={styles.input}
+                    value={formData.specialAllowance}
+                    onChange={(e) => handleChange('specialAllowance', e.target.value)}
                   />
                 </div>
 

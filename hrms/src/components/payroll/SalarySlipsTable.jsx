@@ -42,7 +42,7 @@ export default function SalarySlipsTable({
                       role="button"
                       tabIndex={0}
                     >
-                      <Avatar initials={slip.initials} name={slip.employeeName} size="sm" />
+                      <Avatar initials={slip.initials || slip.employeeName?.slice(0, 2)?.toUpperCase()} name={slip.employeeName} size="sm" />
                       <div className={styles.empInfo}>
                         <span className={styles.empName}>{slip.employeeName}</span>
                         <span className={styles.empSub}>{slip.designation}</span>
@@ -53,15 +53,15 @@ export default function SalarySlipsTable({
                     <span className={styles.idCode}>{slip.employeeId}</span>
                   </td>
                   <td>
-                    <span className={styles.clientText} title={slip.clientName}>
-                      {slip.clientName}
+                    <span className={styles.clientText} title={slip.clientName || 'General'}>
+                      {slip.clientName || 'General'}
                     </span>
                   </td>
-                  <td>{slip.salaryMonth}</td>
-                  <td>{formatRupee(slip.earnings?.grossSalary)}</td>
-                  <td className={styles.deductText}>-{formatRupee(slip.deductions?.totalDeductions)}</td>
+                  <td>{slip.monthLabel || slip.salaryMonth || slip.month}</td>
+                  <td>{formatRupee(slip.grossSalary ?? slip.earnings?.grossSalary ?? slip.earnings?.totalGross ?? 0)}</td>
+                  <td className={styles.deductText}>-{formatRupee(slip.totalDeductions ?? slip.deductions?.totalDeductions ?? 0)}</td>
                   <td>
-                    <strong className={styles.netText}>{formatRupee(slip.netSalary)}</strong>
+                    <strong className={styles.netText}>{formatRupee(slip.netSalary ?? 0)}</strong>
                   </td>
                   <td>
                     {isGenerated ? (
