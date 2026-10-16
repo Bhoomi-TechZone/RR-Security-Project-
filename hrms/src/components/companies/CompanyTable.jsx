@@ -154,7 +154,7 @@ function CompanyTable({
                   </td>
                   <td>
                     <span className={styles.employeeCount}>
-                      {company.employees || 0} Employees
+                      {company.employees || 0} {company.employees === 1 ? 'Employee' : 'Employees'}
                     </span>
                   </td>
                   <td>
@@ -220,7 +220,7 @@ function CompanyTable({
                 <div className={styles.cardRow}>
                   <span className={styles.cardLabel}>Employees:</span>
                   <span className={`${styles.cardValue} ${styles.fontWeightBold}`}>
-                    {company.employees || 0} Employees
+                    {company.employees || 0} {company.employees === 1 ? 'Employee' : 'Employees'}
                   </span>
                 </div>
               </div>

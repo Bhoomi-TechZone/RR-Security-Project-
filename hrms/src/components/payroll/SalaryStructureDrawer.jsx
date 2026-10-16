@@ -19,10 +19,19 @@ export default function SalaryStructureDrawer({
 
   if (!record) return null;
 
-  const totalAllowances = (record.transportAllowance || 0) + (record.otherAllowance || 0);
-  const fixedGross = (record.basicSalary || 0) + (record.hra || 0) + totalAllowances;
-  const fixedDeductions = (record.pf || 0) + (record.esi || 0) + (record.otherDeduction || 0);
-  const fixedNet = fixedGross - fixedDeductions;
+  const basic = record.basicSalary ?? record.basic ?? record.earnings?.basic ?? 0;
+  const hra = record.hra ?? record.earnings?.hra ?? 0;
+  const vda = record.vda ?? record.earnings?.vda ?? 0;
+  const transportAllowance = record.transportAllowance ?? record.conveyance ?? record.earnings?.conveyance ?? 0;
+  const specialAllowance = record.specialAllowance ?? record.earnings?.specialAllowance ?? 0;
+  const otherAllowance = record.otherAllowance ?? record.earnings?.otherAllowance ?? 0;
+  const totalAllowances = hra + vda + transportAllowance + specialAllowance + otherAllowance;
+  const fixedGross = record.grossSalary ?? record.earnings?.totalGross ?? (basic + totalAllowances);
+  const pf = record.pf ?? record.deductions?.pfEmployee ?? 0;
+  const esi = record.esi ?? record.deductions?.esiEmployee ?? 0;
+  const otherDeduction = record.otherDeduction ?? record.deductions?.otherDeductions ?? ((record.deductions?.pt || 0) + (record.deductions?.tds || 0));
+  const fixedDeductions = record.totalDeductions ?? record.deductions?.totalDeductions ?? (pf + esi + otherDeduction);
+  const fixedNet = record.netSalary ?? Math.max(0, fixedGross - fixedDeductions);
 
   return (
     <>
@@ -56,19 +65,31 @@ export default function SalaryStructureDrawer({
             <div className={styles.ledger}>
               <div className={styles.ledgerRow}>
                 <span>Basic Salary</span>
-                <strong>{formatRupee(record.basicSalary)}</strong>
+                <strong>{formatRupee(basic)}</strong>
               </div>
               <div className={styles.ledgerRow}>
                 <span>HRA</span>
-                <strong>{formatRupee(record.hra)}</strong>
+                <strong>{formatRupee(hra)}</strong>
               </div>
+              {vda > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Variable DA (VDA)</span>
+                  <strong>{formatRupee(vda)}</strong>
+                </div>
+              )}
               <div className={styles.ledgerRow}>
-                <span>Transport Allowance</span>
-                <strong>{formatRupee(record.transportAllowance)}</strong>
+                <span>Transport / Conveyance</span>
+                <strong>{formatRupee(transportAllowance)}</strong>
               </div>
+              {specialAllowance > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Special Allowance</span>
+                  <strong>{formatRupee(specialAllowance)}</strong>
+                </div>
+              )}
               <div className={styles.ledgerRow}>
                 <span>Other Allowance</span>
-                <strong>{formatRupee(record.otherAllowance)}</strong>
+                <strong>{formatRupee(otherAllowance)}</strong>
               </div>
               <div className={`${styles.ledgerRow} ${styles.grossRow}`}>
                 <strong>Gross Salary (Base)</strong>
@@ -83,15 +104,15 @@ export default function SalaryStructureDrawer({
             <div className={styles.ledger}>
               <div className={styles.ledgerRow}>
                 <span>PF (Provident Fund)</span>
-                <span className={styles.deductText}>-{formatRupee(record.pf)}</span>
+                <span className={styles.deductText}>-{formatRupee(pf)}</span>
               </div>
               <div className={styles.ledgerRow}>
                 <span>ESI (State Insurance)</span>
-                <span className={styles.deductText}>-{formatRupee(record.esi)}</span>
+                <span className={styles.deductText}>-{formatRupee(esi)}</span>
               </div>
               <div className={styles.ledgerRow}>
                 <span>Other Regular Deductions</span>
-                <span className={styles.deductText}>-{formatRupee(record.otherDeduction)}</span>
+                <span className={styles.deductText}>-{formatRupee(otherDeduction)}</span>
               </div>
               <div className={`${styles.ledgerRow} ${styles.grossRow}`}>
                 <strong>Total Standard Deductions</strong>

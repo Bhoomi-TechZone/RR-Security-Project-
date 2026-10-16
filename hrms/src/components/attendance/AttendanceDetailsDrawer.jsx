@@ -13,7 +13,7 @@ function Row({ label, value, highlight }) {
   );
 }
 
-function AttendanceDetailsDrawer({ record, onClose, onEdit }) {
+function AttendanceDetailsDrawer({ record, onClose, onEdit, onDelete }) {
   if (!record) return null;
 
   const isSpecial = record.lateMinutes > 0 || record.earlyOutMinutes > 0;
@@ -108,9 +108,11 @@ function AttendanceDetailsDrawer({ record, onClose, onEdit }) {
         </div>
 
         <div className={styles.actions}>
-          <button className={styles.editBtn} onClick={() => { onEdit(record); onClose(); }}>
-            Edit Attendance
-          </button>
+          {onEdit && (
+            <button className={styles.editBtn} onClick={() => { onEdit(record); onClose(); }}>
+              Edit Attendance
+            </button>
+          )}
           {onDelete && (
             <button className={styles.deleteBtn} onClick={() => { onDelete(record); onClose(); }}>
               Delete Attendance

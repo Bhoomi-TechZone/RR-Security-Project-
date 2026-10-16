@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Employee from '../models/employeeModel.js';
 import Company from '../models/companyModel.js';
 import { sendEmployeeWelcomeEmail } from '../services/emailService.js';
+import { resolveClient, buildAssignedEmployeeFilter } from './clientPortalController.js';
 
 /**
  * @desc    Get all employees for the active company profile
@@ -10,6 +11,20 @@ import { sendEmployeeWelcomeEmail } from '../services/emailService.js';
  */
 export const getEmployees = async (req, res) => {
   try {
+    if (req.user && req.user.role === 'client') {
+      const client = await resolveClient(req);
+      if (!client) {
+        return res.status(200).json({ success: true, count: 0, employees: [] });
+      }
+      const filter = buildAssignedEmployeeFilter(client);
+      const employees = await Employee.find(filter).sort({ createdAt: -1 });
+      return res.status(200).json({
+        success: true,
+        count: employees.length,
+        employees: employees.map(e => e.toJSON())
+      });
+    }
+
     const adminEmail = req.user.email.toLowerCase();
     const companyId = req.headers['x-company-id'] || req.query.companyId;
 
@@ -67,6 +82,26 @@ export const getEmployees = async (req, res) => {
 export const getEmployeeById = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (req.user && req.user.role === 'client') {
+      const client = await resolveClient(req);
+      if (!client) {
+        return res.status(404).json({ success: false, message: 'Employee not found.' });
+      }
+      const clientFilter = buildAssignedEmployeeFilter(client);
+      const query = {
+        $and: [
+          clientFilter,
+          mongoose.Types.ObjectId.isValid(id) ? { $or: [{ _id: id }, { employeeId: id }] } : { employeeId: id }
+        ]
+      };
+      const employee = await Employee.findOne(query);
+      if (!employee) {
+        return res.status(404).json({ success: false, message: 'Employee not found or not assigned to your account.' });
+      }
+      return res.status(200).json({ success: true, employee: employee.toJSON() });
+    }
+
     const adminEmail = req.user.email.toLowerCase();
 
     let query = { adminEmail };

@@ -23,6 +23,7 @@ function SalaryStructureStep({ data, onChange }) {
       'salaryEffectiveFrom',
       'pfApplicable',
       'esiApplicable',
+      'ptApplicable',
       'tdsApplicable',
       'lwfApplicable',
       'lwf',
@@ -365,6 +366,23 @@ function SalaryStructureStep({ data, onChange }) {
             />
           </div>
         )}
+      </div>
+
+      {/* 5. Professional Tax (PT) Row */}
+      <div className={styles.threeColumnGrid}>
+        <div className={styles.fieldGroup}>
+          <label htmlFor="emp-pt" className={styles.label}>PT Applicable</label>
+          <select
+            id="emp-pt"
+            className={styles.select}
+            value={data.ptApplicable === true || data.ptApplicable === 'Yes' ? 'Yes' : data.ptApplicable === false || data.ptApplicable === 'No' ? 'No' : ''}
+            onChange={(e) => handleChange('ptApplicable', e.target.value === 'Yes' ? true : e.target.value === 'No' ? false : '')}
+          >
+            <option value="">Select</option>
+            <option value="Yes">Yes</option>
+            <option value="No">No</option>
+          </select>
+        </div>
       </div>
     </div>
   );

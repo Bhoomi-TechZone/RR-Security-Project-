@@ -8,11 +8,11 @@ import Announcement from '../models/announcementModel.js';
 /**
  * Helper to resolve the authenticated client context
  */
-const resolveClient = async (req) => {
+export const resolveClient = async (req) => {
   let client = null;
 
   if (req.user && req.user.role === 'client') {
-    if (req.user._id) {
+    if (req.user._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
       client = await Client.findById(req.user._id);
     }
     if (!client && req.user.id && mongoose.Types.ObjectId.isValid(req.user.id)) {
@@ -20,45 +20,60 @@ const resolveClient = async (req) => {
     }
     if (!client && req.user.clientId) {
       const cleanId = String(req.user.clientId).trim();
+      const escaped = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       client = await Client.findOne({
         $or: [
           { clientId: cleanId },
-          { clientId: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+          { clientId: { $regex: new RegExp(`^${escaped}$`, 'i') } }
         ]
       });
     }
     if (!client && req.user.email) {
-      client = await Client.findOne({ email: req.user.email.toLowerCase() });
+      client = await Client.findOne({ email: req.user.email.toLowerCase().trim() });
     }
     if (!client && req.user.name) {
       const cleanName = String(req.user.name).trim();
+      const escaped = cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       client = await Client.findOne({
         $or: [
-          { name: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-          { legalName: { $regex: new RegExp(`^${cleanName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
+          { name: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+          { legalName: { $regex: new RegExp(`^${escaped}$`, 'i') } }
         ]
       });
     }
-  }
-
-  // Admin or user viewing as client or testing
-  if (!client) {
-    const targetClientId = req.headers['x-client-id'] || req.query.clientId || req.user?.clientId;
-    if (targetClientId) {
-      const cleanId = String(targetClientId).trim();
+    if (!client && req.headers['x-client-id']) {
+      const cleanId = String(req.headers['x-client-id']).trim();
+      const escaped = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       client = await Client.findOne({
         $or: [
           { clientId: cleanId },
-          { clientId: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
-          { _id: mongoose.Types.ObjectId.isValid(cleanId) ? cleanId : null },
-          { name: { $regex: new RegExp(`^${cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } }
-        ].filter(Boolean)
+          { clientId: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+          ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : [])
+        ]
       });
     }
+
+    // Never fall back to another client in DB when authenticated as a client!
+    return client;
   }
 
-  // If still not found, fallback to company client
-  if (!client) {
+  // Admin or user viewing as client or testing
+  const targetClientId = req.headers['x-client-id'] || req.query.clientId || req.user?.clientId;
+  if (targetClientId) {
+    const cleanId = String(targetClientId).trim();
+    const escaped = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    client = await Client.findOne({
+      $or: [
+        { clientId: cleanId },
+        { clientId: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+        ...(mongoose.Types.ObjectId.isValid(cleanId) ? [{ _id: cleanId }] : []),
+        { name: { $regex: new RegExp(`^${escaped}$`, 'i') } }
+      ]
+    });
+  }
+
+  // If still not found and user is admin, fallback to company client
+  if (!client && req.user?.role === 'admin') {
     const companyId = req.headers['x-company-id'] || req.user?.companyId || 'RRS8392014SEC';
     client = await Client.findOne({ companyId }) || await Client.findOne({});
   }
@@ -67,9 +82,9 @@ const resolveClient = async (req) => {
 };
 
 /**
- * Helper to build query filter for employees assigned to this client
+ * Helper to build query filter for employees assigned strictly to this client
  */
-const buildAssignedEmployeeFilter = (client) => {
+export const buildAssignedEmployeeFilter = (client) => {
   if (!client) return { _id: null };
 
   const ids = [
@@ -79,59 +94,44 @@ const buildAssignedEmployeeFilter = (client) => {
     client.clientCode
   ].filter(Boolean);
 
-  const names = [
+  const rawNames = [
     client.name,
-    client.legalName,
-    client.contactPerson
+    client.legalName
   ].filter(Boolean);
 
-  const orClauses = [
-    { clientId: { $in: ids } },
-    { clientName: { $in: names } },
-    { companyName: { $in: names } }
-  ];
+  const orClauses = [];
 
+  // 1. Strict ID matching on clientId field
   ids.forEach(idVal => {
     const cleanId = String(idVal).trim();
     if (cleanId) {
       const escaped = cleanId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      orClauses.push({ clientId: { $regex: new RegExp(`^${escaped}$`, 'i') } });
-      orClauses.push({ clientId: { $regex: new RegExp(escaped, 'i') } });
-      orClauses.push({ companyId: { $regex: new RegExp(`^${escaped}$`, 'i') } });
-      orClauses.push({ companyId: { $regex: new RegExp(escaped, 'i') } });
+      orClauses.push({ clientId: cleanId });
+      orClauses.push({ clientId: { $regex: new RegExp(`^\\s*${escaped}\\s*$`, 'i') } });
     }
   });
 
-  names.forEach(nameVal => {
+  // 2. Strict clientName & companyName matching (exact string and core name, NEVER generic words like Pvt/Ltd)
+  rawNames.forEach(nameVal => {
     const clean = String(nameVal).trim();
     if (clean) {
       const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      orClauses.push({ clientName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
-      orClauses.push({ clientName: { $regex: new RegExp(escaped, 'i') } });
-      orClauses.push({ companyName: { $regex: new RegExp(`^${escaped}$`, 'i') } });
-      orClauses.push({ companyName: { $regex: new RegExp(escaped, 'i') } });
-      
-      const words = clean.split(/\s+/).filter(w => w.length >= 2);
-      words.forEach(w => {
-        const wEscaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        orClauses.push({ clientName: { $regex: new RegExp(wEscaped, 'i') } });
-        orClauses.push({ companyName: { $regex: new RegExp(wEscaped, 'i') } });
-        orClauses.push({ siteLocation: { $regex: new RegExp(wEscaped, 'i') } });
-        orClauses.push({ site: { $regex: new RegExp(wEscaped, 'i') } });
-      });
+      orClauses.push({ clientName: clean });
+      orClauses.push({ clientName: { $regex: new RegExp(`^\\s*${escaped}\\s*$`, 'i') } });
+      orClauses.push({ companyName: clean });
+      orClauses.push({ companyName: { $regex: new RegExp(`^\\s*${escaped}\\s*$`, 'i') } });
+
+      // Core name without corporate suffixes (e.g. "Petal Commercial" or "RSAG Sealing Solutions")
+      const core = clean.replace(/\b(pvt\.?|private|ltd\.?|limited)\b/gi, '').trim().replace(/\s+/g, '\\s+');
+      if (core.length >= 3) {
+        const coreRegex = new RegExp(`^\\s*${core}(\\s+(pvt\\.?|private|ltd\\.?|limited))*\\s*$`, 'i');
+        orClauses.push({ clientName: { $regex: coreRegex } });
+        orClauses.push({ companyName: { $regex: coreRegex } });
+      }
     }
   });
 
-  if (client.address) {
-    const cleanAddr = String(client.address).trim();
-    if (cleanAddr) {
-      const addrEscaped = cleanAddr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      orClauses.push({ siteLocation: { $regex: new RegExp(addrEscaped, 'i') } });
-      orClauses.push({ site: { $regex: new RegExp(addrEscaped, 'i') } });
-    }
-  }
-
-  return { $or: orClauses };
+  return orClauses.length > 0 ? { $or: orClauses } : { _id: null };
 };
 
 /**
@@ -601,33 +601,39 @@ export const getClientAttendance = async (req, res) => {
 
     const employeeFilter = buildAssignedEmployeeFilter(client);
     let assignedEmployees = await Employee.find(employeeFilter).lean();
+
     const empIds = assignedEmployees.map(e => e.employeeId).filter(Boolean);
+    const empCodes = assignedEmployees.map(e => e.employeeCode).filter(Boolean);
+    const allAssignedEmpIds = Array.from(new Set([...empIds, ...empCodes]));
 
     // Escape regex helper
     const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
-    // Build client queries for Attendance
-    const attendanceQueries = [];
-    if (empIds.length > 0) {
-      attendanceQueries.push({ employeeId: { $in: empIds } });
-    }
-
-    const clientIdentifiers = [
-      client.name,
-      client.legalName,
-      client.companyName,
-      client.contactPerson
-    ].filter(Boolean);
-
-    clientIdentifiers.forEach(cName => {
-      const cRegex = new RegExp(escapeRegex(cName), 'i');
-      attendanceQueries.push({ clientName: { $regex: cRegex } });
-      attendanceQueries.push({ companyName: { $regex: cRegex } });
+    // Strict client name regexes (exact and core names, NEVER generic "Pvt" / "Ltd")
+    const clientNameRegexes = [];
+    [client.name, client.legalName].filter(Boolean).forEach(n => {
+      const clean = String(n).trim();
+      if (!clean) return;
+      const escaped = clean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      clientNameRegexes.push(new RegExp(`^\\s*${escaped}\\s*$`, 'i'));
+      const core = clean.replace(/\b(pvt\.?|private|ltd\.?|limited)\b/gi, '').trim().replace(/\s+/g, '\\s+');
+      if (core.length >= 3) {
+        clientNameRegexes.push(new RegExp(`^\\s*${core}(\\s+(pvt\\.?|private|ltd\\.?|limited))*\\s*$`, 'i'));
+      }
     });
 
-    const clientCodes = [client.clientId, client.clientCode, client._id?.toString()].filter(Boolean);
-    clientCodes.forEach(code => {
-      attendanceQueries.push({ companyId: code });
+    // Build client queries for Attendance
+    const attendanceQueries = [];
+    if (allAssignedEmpIds.length > 0) {
+      attendanceQueries.push({ employeeId: { $in: allAssignedEmpIds } });
+    }
+    if (client.clientId) {
+      attendanceQueries.push({ clientId: client.clientId });
+      attendanceQueries.push({ clientId: { $regex: new RegExp(`^\\s*${escapeRegex(client.clientId)}\\s*$`, 'i') } });
+    }
+    clientNameRegexes.forEach(reg => {
+      attendanceQueries.push({ clientName: { $regex: reg } });
+      attendanceQueries.push({ companyName: { $regex: reg } });
     });
 
     // Date / Month query
@@ -635,13 +641,21 @@ export const getClientAttendance = async (req, res) => {
     if (isDateMode) {
       attDateQuery = { date: selectedDate };
     } else {
+      const mStr = String(selM).padStart(2, '0');
       const dateOrs = [
         { month: selectedMonth },
-        { date: { $regex: new RegExp(`^${escapeRegex(selectedMonth)}`) } }
+        { month: mStr, ...(selY ? { year: selY } : {}) },
+        { month: String(selM), ...(selY ? { year: selY } : {}) },
+        { date: { $regex: new RegExp(`^${escapeRegex(selectedMonth)}`) } },
+        { date: { $regex: new RegExp(`^${selY}-${mStr}`) } }
       ];
       if (monthName) {
         dateOrs.push({
-          month: { $regex: new RegExp(`^${monthName}$`, 'i') },
+          month: { $regex: new RegExp(`^${escapeRegex(monthName)}$`, 'i') },
+          ...(selY ? { year: selY } : {})
+        });
+        dateOrs.push({
+          month: { $regex: new RegExp(`^${escapeRegex(monthName.slice(0, 3))}$`, 'i') },
           ...(selY ? { year: selY } : {})
         });
       }
@@ -655,37 +669,44 @@ export const getClientAttendance = async (req, res) => {
           { $or: attendanceQueries },
           attDateQuery
         ]
-      }).lean();
+      }).sort({ date: -1, createdAt: -1 }).lean();
     }
 
     // Group attendance records by employeeId
     const attendanceByEmp = new Map();
     attendanceRecords.forEach(att => {
-      if (!attendanceByEmp.has(att.employeeId)) {
-        attendanceByEmp.set(att.employeeId, []);
+      const eId = att.employeeId;
+      if (eId) {
+        if (!attendanceByEmp.has(eId)) {
+          attendanceByEmp.set(eId, []);
+        }
+        attendanceByEmp.get(eId).push(att);
       }
-      attendanceByEmp.get(att.employeeId).push(att);
     });
 
-    // Also include any attendance record that belongs to this client even if employee was not in assignedEmployees
+    // Also include any attendance record that strictly belongs to this client even if employee was not in assignedEmployees
     const seenEmpIds = new Set(assignedEmployees.map(e => e.employeeId));
     attendanceRecords.forEach(att => {
       if (att.employeeId && !seenEmpIds.has(att.employeeId)) {
-        assignedEmployees.push({
-          employeeId: att.employeeId,
-          employeeCode: att.employeeId,
-          name: att.employeeName,
-          fatherHusbandName: att.fatherName || '',
-          fatherName: att.fatherName || '',
-          clientName: att.clientName || client.name,
-          companyName: att.companyName || client.name,
-          designation: 'Security Staff',
-          department: att.department || 'Security',
-          siteLocation: att.site || 'Site',
-          site: att.site || 'Site',
-          shift: 'General Shift'
-        });
-        seenEmpIds.add(att.employeeId);
+        const matchesClient = (client.clientId && att.clientId === client.clientId) ||
+          clientNameRegexes.some(r => r.test(att.clientName || att.companyName || ''));
+        if (matchesClient) {
+          assignedEmployees.push({
+            employeeId: att.employeeId,
+            employeeCode: att.employeeId,
+            name: att.employeeName,
+            fatherHusbandName: att.fatherName || '',
+            fatherName: att.fatherName || '',
+            clientName: att.clientName || client.name,
+            companyName: att.companyName || client.name,
+            designation: 'Security Staff',
+            department: att.department || 'Security',
+            siteLocation: att.site || 'Site',
+            site: att.site || 'Site',
+            shift: 'General Shift'
+          });
+          seenEmpIds.add(att.employeeId);
+        }
       }
     });
 
@@ -704,6 +725,7 @@ export const getClientAttendance = async (req, res) => {
       let el = 0;
       let lwp = 0;
       let workingDays = null;
+      let totalPaidDays = null;
       let recordStatus = 'present';
       let checkInTime = '08:00 AM';
       let checkOutTime = '05:00 PM';
@@ -714,95 +736,120 @@ export const getClientAttendance = async (req, res) => {
         existing = empAttList.find(a => a.date === selectedDate) || empAttList[0];
         if (existing) {
           recordStatus = existing.status || 'present';
-          present = existing.present !== undefined ? existing.present : (recordStatus === 'present' || recordStatus === 'late' ? 1 : recordStatus === 'half_day' ? 0.5 : 0);
-          weekOff = existing.weekOff !== undefined ? existing.weekOff : (recordStatus === 'weekOff' ? 1 : 0);
-          holidays = existing.holidays !== undefined ? existing.holidays : (recordStatus === 'holiday' ? 1 : 0);
-          cl = existing.cl || 0;
-          sl = existing.sl || 0;
-          el = existing.el || 0;
-          lwp = existing.lwp !== undefined ? existing.lwp : (recordStatus === 'absent' ? 1 : 0);
-          workingDays = existing.workingDays || existing.totalPaidDays || (present + weekOff + holidays + cl + sl + el);
+          present = existing.present !== undefined ? Number(existing.present) : (recordStatus === 'present' || recordStatus === 'late' ? 1 : recordStatus === 'half_day' || recordStatus === 'halfDay' ? 0.5 : 0);
+          weekOff = existing.weekOff !== undefined ? Number(existing.weekOff) : (recordStatus === 'weekOff' ? 1 : 0);
+          holidays = existing.holidays !== undefined ? Number(existing.holidays) : (recordStatus === 'holiday' ? 1 : 0);
+          cl = Number(existing.cl || 0);
+          sl = Number(existing.sl || 0);
+          el = Number(existing.el || 0);
+          lwp = existing.lwp !== undefined ? Number(existing.lwp) : (recordStatus === 'absent' ? 1 : 0);
+          workingDays = existing.workingDays !== undefined && existing.workingDays !== null ? Number(existing.workingDays) : (existing.totalPaidDays || (present + weekOff + holidays + cl + sl + el));
+          totalPaidDays = existing.totalPaidDays !== undefined && existing.totalPaidDays !== null ? Number(existing.totalPaidDays) : workingDays;
           checkInTime = existing.checkIn || (recordStatus === 'present' ? '08:00 AM' : '--');
           checkOutTime = existing.checkOut || (recordStatus === 'present' ? '05:00 PM' : '--');
           workingHours = existing.workingHours || (recordStatus === 'present' ? '8h 00m' : '0h 00m');
         } else {
-          // Default daily active record
-          recordStatus = 'present';
-          present = 1;
-          workingDays = 1;
-        }
-      } else {
-        // Monthly Mode:
-        // 1. Check if there is an explicit monthly muster record (present > 1 or totalPaidDays > 1 or monthly import)
-        const explicitMonthRecord = empAttList.find(a => (
-          (a.present !== undefined && a.present > 1) ||
-          (a.totalPaidDays !== undefined && a.totalPaidDays > 1) ||
-          (a.month && !a.date?.includes('-'))
-        ));
-
-        if (explicitMonthRecord) {
-          existing = explicitMonthRecord;
-          recordStatus = existing.status || 'present';
-          present = existing.present !== undefined ? existing.present : 26;
-          weekOff = existing.weekOff !== undefined ? existing.weekOff : 4;
-          holidays = existing.holidays !== undefined ? existing.holidays : 1;
-          cl = existing.cl || 0;
-          sl = existing.sl || 0;
-          el = existing.el || 0;
-          lwp = existing.lwp || 0;
-          workingDays = existing.workingDays || existing.totalPaidDays || (present + weekOff + holidays + cl + sl + el);
-          checkInTime = existing.checkIn || '08:00 AM';
-          checkOutTime = existing.checkOut || '05:00 PM';
-          workingHours = existing.workingHours || '8h 00m';
-        } else if (empAttList.length > 0) {
-          // Aggregate all daily records in the month
-          existing = empAttList[0];
-          empAttList.forEach(att => {
-            const stat = (att.status || '').toLowerCase();
-            if (att.present !== undefined && att.present > 0) {
-              present += Number(att.present);
-            } else if (stat === 'present' || stat === 'late') {
-              present += 1;
-            } else if (stat === 'half_day' || stat === 'halfday') {
-              present += 0.5;
-            }
-
-            if (att.weekOff !== undefined && att.weekOff > 0) {
-              weekOff += Number(att.weekOff);
-            } else if (stat === 'weekoff') {
-              weekOff += 1;
-            }
-
-            if (att.holidays !== undefined && att.holidays > 0) {
-              holidays += Number(att.holidays);
-            } else if (stat === 'holiday') {
-              holidays += 1;
-            }
-
-            cl += Number(att.cl || 0);
-            sl += Number(att.sl || 0);
-            el += Number(att.el || 0);
-
-            if (att.lwp !== undefined && att.lwp > 0) {
-              lwp += Number(att.lwp);
-            } else if (stat === 'absent') {
-              lwp += 1;
-            }
-          });
-
-          recordStatus = present > 0 ? 'present' : (lwp > 0 ? 'absent' : 'present');
-          workingDays = present + weekOff + holidays + cl + sl + el;
-        } else {
-          // Default monthly muster when employee is assigned to client but no daily punches logged
-          recordStatus = 'present';
-          present = Math.max(1, daysInCurrentMonth - 5);
-          weekOff = 4;
-          holidays = 1;
+          // If no daily record uploaded for this date
+          recordStatus = 'no_record';
+          present = 0;
+          weekOff = 0;
+          holidays = 0;
           cl = 0;
           sl = 0;
           el = 0;
           lwp = 0;
+          workingDays = 0;
+          totalPaidDays = 0;
+          checkInTime = '--';
+          checkOutTime = '--';
+          workingHours = '--';
+        }
+      } else {
+        // Monthly Mode
+        if (empAttList.length > 0) {
+          // 1. Check if there is an explicit monthly muster record from import
+          const explicitMonthRecord = empAttList.find(a => (
+            (a.present !== undefined && a.present > 1) ||
+            (a.totalPaidDays !== undefined && a.totalPaidDays > 1) ||
+            (a.workingDays !== undefined && a.workingDays > 1) ||
+            (a.weekOff !== undefined && a.weekOff > 0) ||
+            (a.month && !a.date?.includes('-'))
+          )) || empAttList[0];
+
+          if (explicitMonthRecord && (explicitMonthRecord.present !== undefined || explicitMonthRecord.totalPaidDays !== undefined || explicitMonthRecord.workingDays !== undefined || empAttList.length === 1)) {
+            existing = explicitMonthRecord;
+            recordStatus = existing.status || (existing.present > 0 ? 'present' : 'present');
+            present = existing.present !== undefined ? Number(existing.present) : 0;
+            weekOff = existing.weekOff !== undefined ? Number(existing.weekOff) : 0;
+            holidays = existing.holidays !== undefined ? Number(existing.holidays) : 0;
+            cl = Number(existing.cl || 0);
+            sl = Number(existing.sl || 0);
+            el = Number(existing.el || 0);
+            lwp = existing.lwp !== undefined ? Number(existing.lwp) : 0;
+            totalPaidDays = existing.totalPaidDays !== undefined && existing.totalPaidDays !== null 
+              ? Number(existing.totalPaidDays) 
+              : (present + weekOff + holidays + cl + sl + el);
+            workingDays = existing.workingDays !== undefined && existing.workingDays !== null 
+              ? Number(existing.workingDays) 
+              : (daysInCurrentMonth || totalPaidDays);
+            checkInTime = existing.checkIn || '08:00 AM';
+            checkOutTime = existing.checkOut || '05:00 PM';
+            workingHours = existing.workingHours || (present > 0 ? `${present} days` : '8h 00m');
+          } else {
+            // Aggregate multiple daily records in the month
+            existing = empAttList[0];
+            empAttList.forEach(att => {
+              const stat = (att.status || '').toLowerCase();
+              if (att.present !== undefined && att.present > 0) {
+                present += Number(att.present);
+              } else if (stat === 'present' || stat === 'late') {
+                present += 1;
+              } else if (stat === 'half_day' || stat === 'halfday') {
+                present += 0.5;
+              }
+
+              if (att.weekOff !== undefined && att.weekOff > 0) {
+                weekOff += Number(att.weekOff);
+              } else if (stat === 'weekoff') {
+                weekOff += 1;
+              }
+
+              if (att.holidays !== undefined && att.holidays > 0) {
+                holidays += Number(att.holidays);
+              } else if (stat === 'holiday') {
+                holidays += 1;
+              }
+
+              cl += Number(att.cl || 0);
+              sl += Number(att.sl || 0);
+              el += Number(att.el || 0);
+
+              if (att.lwp !== undefined && att.lwp > 0) {
+                lwp += Number(att.lwp);
+              } else if (stat === 'absent') {
+                lwp += 1;
+              }
+            });
+
+            totalPaidDays = present + weekOff + holidays + cl + sl + el;
+            workingDays = daysInCurrentMonth || totalPaidDays;
+            recordStatus = present > 0 ? 'present' : (lwp > 0 ? 'absent' : 'present');
+          }
+        } else {
+          // No attendance records uploaded for this employee for this month
+          recordStatus = 'no_record';
+          present = 0;
+          weekOff = 0;
+          holidays = 0;
+          cl = 0;
+          sl = 0;
+          el = 0;
+          lwp = 0;
+          totalPaidDays = 0;
           workingDays = daysInCurrentMonth;
+          checkInTime = '--';
+          checkOutTime = '--';
+          workingHours = '--';
         }
       }
 
@@ -811,13 +858,13 @@ export const getClientAttendance = async (req, res) => {
         _id: existing?._id ? existing._id.toString() : `att-${emp.employeeId}-${isDateMode ? selectedDate : selectedMonth}`,
         employeeId: emp.employeeId,
         employeeCode: emp.employeeCode || emp.employeeId,
-        employeeName: emp.name || emp.employeeName || 'Staff',
-        initials: (emp.name || emp.employeeName)
-          ? (emp.name || emp.employeeName).split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+        employeeName: emp.name || existing?.employeeName || 'Staff',
+        initials: (emp.name || existing?.employeeName)
+          ? (emp.name || existing?.employeeName).split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
           : 'EM',
         fatherName: emp.fatherHusbandName || emp.fatherName || existing?.fatherName || '—',
-        clientName: emp.clientName || client.name || '—',
-        companyName: emp.companyName || client.name || '—',
+        clientName: emp.clientName || existing?.clientName || client.name || '—',
+        companyName: emp.companyName || existing?.companyName || client.name || '—',
         month: existing?.month || selectedMonth,
         year: existing?.year || selectedYear,
         date: existing?.date || selectedDate,
@@ -829,10 +876,10 @@ export const getClientAttendance = async (req, res) => {
         el,
         lwp,
         workingDays: workingDays !== null && workingDays !== undefined ? workingDays : (present + weekOff + holidays + cl + sl + el),
-        totalPaidDays: existing?.totalPaidDays !== undefined ? existing.totalPaidDays : workingDays,
+        totalPaidDays: totalPaidDays !== null && totalPaidDays !== undefined ? totalPaidDays : (present + weekOff + holidays + cl + sl + el),
         designation: emp.designation || 'Security Guard',
-        department: emp.department || 'Security Operations',
-        site: emp.siteLocation || emp.site || 'Assigned Site',
+        department: emp.department || existing?.department || 'Security Operations',
+        site: emp.siteLocation || emp.site || existing?.site || 'Assigned Site',
         shift: emp.shift || 'General Shift',
         checkIn: checkInTime,
         checkOut: checkOutTime,

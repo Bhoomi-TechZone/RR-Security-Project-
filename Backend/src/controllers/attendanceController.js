@@ -1,8 +1,7 @@
 import Attendance from '../models/attendanceModel.js';
 import AttendanceCorrection from '../models/attendanceCorrectionModel.js';
 import Employee from '../models/employeeModel.js';
-
-
+import { resolveClient, buildAssignedEmployeeFilter } from './clientPortalController.js';
 
 const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
@@ -53,6 +52,30 @@ export const getAttendanceRecords = async (req, res) => {
 
       if (userConditions.length > 0) {
         query.$or = userConditions;
+      }
+    } else if (user && user.role === 'client') {
+      const client = await resolveClient(req);
+      if (client) {
+        const empFilter = buildAssignedEmployeeFilter(client);
+        const assignedEmps = await Employee.find(empFilter).select('employeeId employeeCode').lean();
+        const empIds = Array.from(new Set(assignedEmps.map(e => e.employeeId).concat(assignedEmps.map(e => e.employeeCode)).filter(Boolean)));
+
+        const clientConditions = [];
+        if (empIds.length > 0) {
+          clientConditions.push({ employeeId: { $in: empIds } });
+        }
+        if (client.clientId) {
+          clientConditions.push({ clientId: client.clientId });
+        }
+        if (client.name) {
+          const esc = escapeRegex(client.name);
+          clientConditions.push({ clientName: { $regex: new RegExp(`^\\s*${esc}\\s*$`, 'i') } });
+          clientConditions.push({ companyName: { $regex: new RegExp(`^\\s*${esc}\\s*$`, 'i') } });
+        }
+
+        if (clientConditions.length > 0) {
+          query.$or = clientConditions;
+        }
       }
     } else {
       // Admin / Manager query filtering
@@ -277,6 +300,7 @@ export const bulkImportAttendance = async (req, res) => {
       const fatherName = rawFatherName || matchedEmp?.fatherName || '';
       const targetCompanyId = matchedEmp?.companyId || companyId;
       const client = (rec.clientName || rec.companyName || matchedEmp?.clientName || 'RR Security').trim();
+      const clientId = (rec.clientId || matchedEmp?.clientId || '').trim();
       const site = (rec.site || matchedEmp?.site || 'Main Site').trim();
       const department = (rec.department || matchedEmp?.department || 'Security').trim();
 
@@ -316,6 +340,7 @@ export const bulkImportAttendance = async (req, res) => {
             employeeName: empName,
             fatherName,
             initials,
+            clientId,
             clientName: client,
             companyName: client,
             site,
@@ -468,6 +493,7 @@ export const saveAttendanceRecord = async (req, res) => {
           employeeName: finalEmpName,
           fatherName: finalFatherName,
           initials,
+          clientId: req.body.clientId || matchedEmp?.clientId || '',
           clientName: clientName || companyName || matchedEmp?.clientName || 'RR Security',
           companyName: clientName || companyName || matchedEmp?.clientName || 'RR Security',
           site: site || matchedEmp?.site || 'Main Site',

@@ -1092,6 +1092,7 @@ function EmployeeDetails() {
                   )}
                   <InfoRow label="LWF" value={employee.lwf || (employee.lwfApplicable ? 'Yes' : 'N/A')} />
                   <InfoRow label="TDS Applicable" value={employee.tdsApplicable ? 'Yes' : 'No'} />
+                  <InfoRow label="PT Applicable" value={employee.ptApplicable ? 'Yes' : 'No'} />
                 </div>
               </div>
               <div className={styles.infoCard}>

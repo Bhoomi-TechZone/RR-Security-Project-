@@ -1,6 +1,14 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { Search, CheckCircle, FileText, AlertCircle } from 'lucide-react';
 import styles from './EmptyState.module.css';
+
+const ICON_MAP = {
+  check: CheckCircle,
+  checkcircle: CheckCircle,
+  search: Search,
+  file: FileText,
+  alert: AlertCircle,
+};
 
 /**
  * EmptyState Component
@@ -13,10 +21,12 @@ function EmptyState({
   actionLabel, 
   onAction 
 }) {
+  const ResolvedIcon = typeof Icon === 'string' ? (ICON_MAP[Icon.toLowerCase()] || Search) : (Icon || Search);
+
   return (
     <div className={styles.emptyContainer}>
       <div className={styles.iconBox}>
-        <Icon size={32} />
+        <ResolvedIcon size={32} />
       </div>
       <h3 className={styles.title}>{title}</h3>
       <p className={styles.description}>{description}</p>

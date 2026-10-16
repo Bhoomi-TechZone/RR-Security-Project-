@@ -73,9 +73,11 @@ function ClientDashboard() {
   const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
 
-  const fetchDashboard = async () => {
+  const fetchDashboard = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) {
+        setLoading(true);
+      }
       const data = await clientPortalService.getDashboard();
       if (data) {
         setDashboardData({
@@ -91,24 +93,22 @@ function ClientDashboard() {
     } catch (err) {
       console.warn('Could not fetch client dashboard from API:', err.message);
     } finally {
-      setLoading(false);
+      if (!isSilent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchDashboard();
-    const interval = setInterval(fetchDashboard, 5000);
-    const handleRefresh = () => fetchDashboard();
+    fetchDashboard(false);
+    const handleAuthChange = () => fetchDashboard(true);
 
-    window.addEventListener('focus', handleRefresh);
-    window.addEventListener('auth_state_changed', handleRefresh);
-    window.addEventListener('user_logged_in', handleRefresh);
+    window.addEventListener('auth_state_changed', handleAuthChange);
+    window.addEventListener('user_logged_in', handleAuthChange);
 
     return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', handleRefresh);
-      window.removeEventListener('auth_state_changed', handleRefresh);
-      window.removeEventListener('user_logged_in', handleRefresh);
+      window.removeEventListener('auth_state_changed', handleAuthChange);
+      window.removeEventListener('user_logged_in', handleAuthChange);
     };
   }, [clientCompany?.clientId, clientCompany?.name]);
 

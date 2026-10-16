@@ -29,6 +29,26 @@ class PayrollService {
   }
 
   /**
+   * Save / update employee salary structure in MongoDB
+   */
+  async saveSalaryStructure(companyId, structureData) {
+    const res = await fetch(`${API_BASE_URL}/payroll/structure`, {
+      method: 'POST',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        companyId,
+        ...structureData,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to save salary structure to database');
+    }
+    return data;
+  }
+
+  /**
    * Run / calculate and persist payroll in MongoDB
    */
   async runPayroll(companyId, month, records = []) {
@@ -74,13 +94,14 @@ class PayrollService {
   /**
    * Generate Salary Slips in MongoDB
    */
-  async generateSalarySlips(companyId, month) {
+  async generateSalarySlips(companyId, month, options = {}) {
     const res = await fetch(`${API_BASE_URL}/payroll/generate-slips`, {
       method: 'POST',
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         companyId,
         month,
+        ...options,
       }),
     });
 

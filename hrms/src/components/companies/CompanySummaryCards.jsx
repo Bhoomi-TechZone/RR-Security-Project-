@@ -10,7 +10,7 @@ function CompanySummaryCards({ companies = [] }) {
   const totalCompanies = companies.length;
   const activeCompanies = companies.filter(c => c.status === 'active').length;
   const inactiveCompanies = companies.filter(c => c.status === 'inactive').length;
-  const totalEmployees = companies.reduce((acc, c) => acc + (c.employees || 0), 0);
+  const totalEmployees = companies.reduce((acc, c) => acc + (Number(c.employees) || 0), 0);
 
   const stats = [
     {

@@ -55,7 +55,6 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
   if (records.length === 0) {
     return (
       <EmptyState
-        icon="search"
         title="No records found"
         description="No attendance records match the current filters."
       />

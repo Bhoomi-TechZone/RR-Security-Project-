@@ -34,6 +34,9 @@ export default function PayrollTable({
         return <span className={`${styles.badge} ${styles.badgeProcessed}`}>Processed</span>;
       case 'calculated':
         return <span className={`${styles.badge} ${styles.badgeCalculated}`}>Calculated</span>;
+      case 'pending attendance':
+      case 'pending_attendance':
+        return <span className={`${styles.badge} ${styles.badgeOnHold}`}>No Attendance</span>;
       case 'on_hold':
       case 'on hold':
         return <span className={`${styles.badge} ${styles.badgeOnHold}`}>On Hold</span>;

@@ -48,7 +48,7 @@ export default function SalarySlipPreview({
     slip.companyAddress ||
     [company?.address, company?.city, company?.state, company?.pinCode].filter(Boolean).join(', ') ||
     company?.address ||
-    'Civil Lines, Bareilly, Uttar Pradesh 243001';
+    '';
 
   const companyEmail = slip.companyEmail || company?.email || '';
   const companyPhone = slip.companyPhone || company?.phone || '';
@@ -233,11 +233,11 @@ export default function SalarySlipPreview({
                     <>
                       <div className={styles.infoRow}>
                         <span className={styles.infoLabel}>Bank Name:</span>
-                        <span className={styles.infoVal}>{slip.bankName || slip.bankDetails?.bank || 'State Bank of India'}</span>
+                        <span className={styles.infoVal}>{slip.bankName || slip.bankDetails?.bank || '—'}</span>
                       </div>
                       <div className={styles.infoRow}>
                         <span className={styles.infoLabel}>Bank A/C No:</span>
-                        <span className={styles.infoVal}>{slip.bankAccountNo || slip.bankAccount || slip.bankDetails?.accountNumber || 'XXXX XXXX 4521'}</span>
+                        <span className={styles.infoVal}>{slip.bankAccountNo || slip.bankAccount || slip.accountNumber || slip.bankDetails?.accountNumber || '—'}</span>
                       </div>
                     </>
                   )}
@@ -265,7 +265,7 @@ export default function SalarySlipPreview({
               </div>
               <div className={styles.attItem}>
                 <span>Present</span>
-                <strong>{slip.presentDays !== undefined ? slip.presentDays : (slip.paidDays || 26)}</strong>
+                <strong>{slip.presentDays !== undefined ? slip.presentDays : (slip.paidDays ?? 0)}</strong>
               </div>
               <div className={styles.attItem}>
                 <span>Leave</span>
@@ -273,7 +273,7 @@ export default function SalarySlipPreview({
               </div>
               <div className={styles.attItem}>
                 <span>LOP / Absent</span>
-                <strong>{slip.lopDays || slip.absentDays || 0}</strong>
+                <strong>{slip.lopDays !== undefined ? slip.lopDays : (slip.absentDays || 0)}</strong>
               </div>
               {slip.overtimeHours ? (
                 <div className={styles.attItem}>
@@ -283,7 +283,7 @@ export default function SalarySlipPreview({
               ) : null}
               <div className={`${styles.attItem} ${styles.attPaid}`}>
                 <span>Paid Days</span>
-                <strong>{slip.paidDays || 30}</strong>
+                <strong>{slip.paidDays !== undefined ? slip.paidDays : 0}</strong>
               </div>
             </div>
 

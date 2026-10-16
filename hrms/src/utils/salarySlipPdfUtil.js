@@ -104,10 +104,10 @@ export async function generateSalarySlipPdf({
     slip.companyAddress ||
     [company?.address, company?.city, company?.state, company?.pinCode].filter(Boolean).join(', ') ||
     company?.address ||
-    'Sector 18, Gurugram, Haryana - 122008';
+    '';
 
-  const companyEmail = slip.companyEmail || company?.email || 'admin@rrsecurity.com';
-  const companyPhone = slip.companyPhone || company?.phone || '+91 9876543210';
+  const companyEmail = slip.companyEmail || company?.email || '';
+  const companyPhone = slip.companyPhone || company?.phone || '';
   const companyGstin = slip.companyGstin || company?.gstin || '';
   const companyPan = slip.companyPan || company?.pan || '';
 
@@ -181,15 +181,15 @@ export async function generateSalarySlipPdf({
   const department = slip.department || 'Operations';
   const clientSite = slip.clientName || slip.site || 'Corporate';
   const bankName = slip.bankName || slip.bankDetails?.bank || '—';
-  const bankAccountNo = slip.bankAccountNo || slip.bankAccount || slip.bankDetails?.accountNumber || '—';
+  const bankAccountNo = slip.bankAccountNo || slip.bankAccount || slip.accountNumber || slip.bankDetails?.accountNumber || '—';
   const uan = slip.uan || slip.pfNo || slip.pfNumber || '—';
   const esicNo = slip.esicNo || slip.esiNumber || '—';
 
   const workingDays = slip.workingDays || slip.totalDaysInMonth || 30;
-  const presentDays = slip.presentDays !== undefined ? slip.presentDays : (slip.paidDays || 26);
+  const presentDays = slip.presentDays !== undefined ? slip.presentDays : (slip.paidDays ?? 0);
   const leaveDays = slip.leaveDays !== undefined ? slip.leaveDays : 0;
-  const absentDays = slip.lopDays || slip.absentDays || 0;
-  const paidDays = slip.paidDays || 30;
+  const absentDays = slip.lopDays !== undefined ? slip.lopDays : (slip.absentDays || 0);
+  const paidDays = slip.paidDays !== undefined ? slip.paidDays : 0;
   const overtimeHours = slip.overtimeHours || 0;
 
   const initials = (companyName.split(' ').map((w) => w[0]).join('').substring(0, 3) || 'RRS').toUpperCase();
