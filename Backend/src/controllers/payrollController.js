@@ -24,9 +24,11 @@ const getMonthLabel = (monthStr) => {
 const calculatePT = (gross, state, ptSlabs = []) => {
   if (!state || !Array.isArray(ptSlabs) || ptSlabs.length === 0) return 0;
   const stateLower = String(state).trim().toLowerCase();
-  const stateSlabs = ptSlabs.filter(
-    (s) => s.status === 'active' && String(s.state || '').trim().toLowerCase() === stateLower
-  );
+  const stateSlabs = ptSlabs.filter((s) => {
+    if (s.status !== 'active') return false;
+    const slabState = String(s.state || '').trim().toLowerCase();
+    return slabState && (stateLower === slabState || stateLower.includes(slabState) || slabState.includes(stateLower));
+  });
   if (stateSlabs.length === 0) return 0;
 
   for (const slab of stateSlabs) {
@@ -165,7 +167,7 @@ export const getPayrollRecords = async (req, res) => {
         let pt = 0;
         const isPt = ptEnabled && (emp.ptApplicable === true || String(emp.ptApplicable).toLowerCase() === 'yes') && hasAttendance;
         if (isPt) {
-          const empState = emp.state || emp.workState || emp.siteState || '';
+          const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
           pt = calculatePT(earnedGross, empState, ptSlabs);
         }
 
@@ -1136,7 +1138,7 @@ export const generateSalarySlips = async (req, res) => {
         let pt = 0;
         const isPt = hasAttendance && ptEnabled && (emp.ptApplicable === true || String(emp.ptApplicable).toLowerCase() === 'yes');
         if (isPt) {
-          const empState = emp.state || emp.workState || emp.siteState || '';
+          const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
           pt = calculatePT(earnedGross, empState, ptSlabs);
         }
 
@@ -1728,7 +1730,7 @@ export const getSalarySlips = async (req, res) => {
           deductions.esiEmployer = 0;
           modified = true;
         }
-        const empState = empDoc.state || empDoc.workState || empDoc.siteState || '';
+        const empState = empDoc.state || empDoc.workState || empDoc.siteState || empDoc.siteLocation || empDoc.site || empDoc.presentAddress || empDoc.address || '';
         const correctPt = isPt ? calculatePT(grossSalary, empState, ptSlabs) : 0;
         if ((Number(deductions.pt) || 0) !== correctPt) {
           deductions.pt = correctPt;

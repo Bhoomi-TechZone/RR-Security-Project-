@@ -1,5 +1,5 @@
 import React from 'react';
-import { Edit2, Power, Key } from 'lucide-react';
+import { Edit2, Power, Key, Trash2 } from 'lucide-react';
 import StatusBadge from '../common/StatusBadge';
 import styles from './CompanyDetailsHeader.module.css';
 
@@ -7,7 +7,7 @@ import styles from './CompanyDetailsHeader.module.css';
  * CompanyDetailsHeader Component
  * Renders the top profile card in the Company Details view.
  */
-function CompanyDetailsHeader({ company, onEdit, onToggleStatus, onOpenCredentials }) {
+function CompanyDetailsHeader({ company, onEdit, onToggleStatus, onOpenCredentials, onDelete }) {
   if (!company) return null;
 
   const isCompanyActive = company.status === 'active';
@@ -78,9 +78,16 @@ function CompanyDetailsHeader({ company, onEdit, onToggleStatus, onOpenCredentia
           <Power size={16} />
           <span>{isCompanyActive ? 'Deactivate' : 'Activate'}</span>
         </button>
+        {onDelete && (
+          <button className={styles.deleteBtn} onClick={onDelete} title="Delete this client permanently from database">
+            <Trash2 size={16} />
+            <span>Delete</span>
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
 export default CompanyDetailsHeader;
+

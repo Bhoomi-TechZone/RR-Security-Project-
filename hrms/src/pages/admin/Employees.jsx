@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Users } from 'lucide-react';
+import { Plus, Users, UploadCloud } from 'lucide-react';
 import styles from './Employees.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -10,6 +10,8 @@ import EmployeeTable from '../../components/employees/EmployeeTable';
 import EmployeeForm from '../../components/employees/EmployeeForm';
 import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
 import EmployeeCredentialsModal from '../../components/employees/EmployeeCredentialsModal';
+import EmployeePayslipModal from '../../components/employees/EmployeePayslipModal';
+import EmployeeImportModal from '../../components/employees/EmployeeImportModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
@@ -63,6 +65,9 @@ function Employees() {
   const [transferEmployee, setTransferEmployee] = useState(null);
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
   const [credentialsEmployee, setCredentialsEmployee] = useState(null);
+  const [isPayslipOpen, setIsPayslipOpen] = useState(false);
+  const [payslipEmployee, setPayslipEmployee] = useState(null);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -274,6 +279,9 @@ function Employees() {
     } else if (actionType === 'credentials') {
       setCredentialsEmployee(employee);
       setIsCredentialsOpen(true);
+    } else if (actionType === 'payslip') {
+      setPayslipEmployee(employee);
+      setIsPayslipOpen(true);
     } else if (actionType === 'delete') {
       setConfirmModal({
         isOpen: true,
@@ -469,6 +477,33 @@ function Employees() {
           clients={clients}
         />
 
+        {/* Payslip Modal */}
+        <EmployeePayslipModal
+          isOpen={isPayslipOpen}
+          employee={payslipEmployee}
+          onClose={() => { setIsPayslipOpen(false); setPayslipEmployee(null); }}
+        />
+
+        {/* Bulk Import Modal */}
+        <EmployeeImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImportSuccess={(result) => {
+            fetchEmployees();
+            setToast({
+              message: result?.message || 'Employees successfully imported!',
+              type: 'success',
+              timestamp: Date.now()
+            });
+          }}
+          activeCompanyId={activeCompany?._id || activeCompany?.companyId}
+          activeCompanyName={activeCompany?.name}
+          employeeCodeSeries={activeCompany?.employeeCodeSeries}
+          clients={clients}
+          departments={departments}
+          designations={designations}
+        />
+
         {/* Confirm Modal */}
         <ConfirmModal
           isOpen={confirmModal.isOpen}
@@ -496,16 +531,28 @@ function Employees() {
             <h1 className={styles.title}>Employees</h1>
             <p className={styles.description}>Manage employees across your client companies for {activeCompany?.name || 'Company Profile'}.</p>
           </div>
-          {canAdd('employees') && (
-            <button
-              className={styles.addBtn}
-              onClick={() => { setEditingEmployee(null); setIsFormOpen(true); }}
-              aria-label="Add a new employee"
-            >
-              <Plus size={16} />
-              <span>Add Employee</span>
-            </button>
-          )}
+          <div className={styles.headerActions}>
+            {canAdd('employees') && (
+              <button
+                className={styles.importBtn}
+                onClick={() => setIsImportModalOpen(true)}
+                aria-label="Bulk import employees"
+              >
+                <UploadCloud size={16} />
+                <span>Import</span>
+              </button>
+            )}
+            {canAdd('employees') && (
+              <button
+                className={styles.addBtn}
+                onClick={() => { setEditingEmployee(null); setIsFormOpen(true); }}
+                aria-label="Add a new employee"
+              >
+                <Plus size={16} />
+                <span>Add Employee</span>
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Summary Cards */}

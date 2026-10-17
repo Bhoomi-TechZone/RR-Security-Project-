@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit2, Users, Power, MoreVertical, Key } from 'lucide-react';
+import { Eye, Edit2, Power, MoreVertical, Key, Trash2 } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './CompanyActionMenu.module.css';
 import { usePermissions } from '../../context/PermissionContext';
@@ -47,13 +47,7 @@ function CompanyActionMenu({ company, onAction }) {
             </button>
           </li>
         )}
-        <li>
-          <button className={styles.menuItem} onClick={() => onAction('employees', company)}>
-            <Users size={14} />
-            <span>View Employees</span>
-          </button>
-        </li>
-        {allowDelete && (
+        {(allowEdit || allowDelete) && (
           <li>
             <button 
               className={`${styles.menuItem} ${isCompanyActive ? styles.deactivate : styles.activate}`}
@@ -64,9 +58,24 @@ function CompanyActionMenu({ company, onAction }) {
             </button>
           </li>
         )}
+        {allowDelete && (
+          <>
+            <li className={styles.menuDivider} role="separator" />
+            <li>
+              <button 
+                className={`${styles.menuItem} ${styles.deleteItem}`}
+                onClick={() => onAction('delete', company)}
+              >
+                <Trash2 size={14} />
+                <span>Delete Client</span>
+              </button>
+            </li>
+          </>
+        )}
       </ul>
     </Dropdown>
   );
 }
 
 export default CompanyActionMenu;
+

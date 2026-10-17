@@ -6,6 +6,7 @@ import {
   updateEmployee,
   deleteEmployee,
   sendEmployeeCredentials,
+  bulkImportEmployees,
 } from '../controllers/employeeController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
@@ -17,6 +18,8 @@ router.use(protect);
 router.route('/')
   .get(getEmployees)
   .post(adminOnly, createEmployee);
+
+router.post('/bulk-import', adminOnly, bulkImportEmployees);
 
 router.route('/:id')
   .get(getEmployeeById)

@@ -5,6 +5,53 @@ import { sendEmployeeWelcomeEmail } from '../services/emailService.js';
 import { resolveClient, buildAssignedEmployeeFilter } from './clientPortalController.js';
 
 /**
+ * Normalizes and formats an employee ID according to the company's employeeCodeSeries rules
+ * e.g. "RR005", "5", "RR 5", "RR_005", "rr005" -> "RR-005"
+ */
+export const formatEmployeeIdBySeries = (rawId, companySeries = {}, fallbackPrefix = 'RR') => {
+  if (!rawId || String(rawId).trim().toLowerCase() === 'auto-generate') {
+    return '';
+  }
+
+  const prefix = (companySeries?.prefix || fallbackPrefix || 'RR').trim().toUpperCase();
+  const separator = companySeries?.separator !== undefined ? companySeries.separator : '-';
+  const padding = Number(companySeries?.padding) || 3;
+  const yearFormat = companySeries?.yearFormat;
+  const monthFormat = companySeries?.monthFormat;
+
+  const str = String(rawId).trim();
+
+  // Pattern 1: Pure digits e.g. "5", "05", "005"
+  if (/^\d+$/.test(str)) {
+    const numPadded = str.padStart(padding, '0');
+    const parts = [prefix];
+    if (yearFormat === 'YYYY') parts.push(String(new Date().getFullYear()));
+    else if (yearFormat === 'YY') parts.push(String(new Date().getFullYear()).slice(-2));
+    if (monthFormat === 'MM') parts.push(String(new Date().getMonth() + 1).padStart(2, '0'));
+    parts.push(numPadded);
+    return parts.join(separator);
+  }
+
+  // Pattern 2: Prefix + optional separator(s)/spaces + digits e.g. "RR005", "RR-005", "RR 5", "rr006"
+  const match = str.match(/^([A-Za-z]+)?[-_/\s]*(\d+)$/);
+  if (match) {
+    const matchedPrefix = match[1] ? match[1].toUpperCase() : prefix;
+    const matchedDigits = match[2];
+    const numPadded = matchedDigits.padStart(padding, '0');
+    const finalPrefix = (matchedPrefix === prefix || matchedPrefix === 'EMP' || matchedPrefix === 'RR') ? prefix : matchedPrefix;
+
+    const parts = [finalPrefix];
+    if (yearFormat === 'YYYY') parts.push(String(new Date().getFullYear()));
+    else if (yearFormat === 'YY') parts.push(String(new Date().getFullYear()).slice(-2));
+    if (monthFormat === 'MM') parts.push(String(new Date().getMonth() + 1).padStart(2, '0'));
+    parts.push(numPadded);
+    return parts.join(separator);
+  }
+
+  return str;
+};
+
+/**
  * @desc    Get all employees for the active company profile
  * @route   GET /api/employees
  * @access  Private
@@ -36,8 +83,9 @@ export const getEmployees = async (req, res) => {
     }
 
     let companyIds = [companyId];
+    let comp = null;
     try {
-      const comp = await Company.findOne({
+      comp = await Company.findOne({
         adminEmail,
         $or: [
           { companyId },
@@ -48,6 +96,9 @@ export const getEmployees = async (req, res) => {
         companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
       }
     } catch {}
+
+    const companySeries = comp?.employeeCodeSeries;
+    const companyPrefix = (companySeries?.prefix || comp?.code || 'RR').trim().toUpperCase();
 
     const filter = {
       companyId: { $in: companyIds },
@@ -60,10 +111,32 @@ export const getEmployees = async (req, res) => {
 
     const employees = await Employee.find(filter).sort({ createdAt: -1 });
 
+    // Normalize employeeId formatting to match company series and persist fixes to DB
+    const normalizedEmployees = await Promise.all(
+      employees.map(async (emp) => {
+        const doc = emp.toJSON();
+        const currentId = doc.employeeId || doc.employeeCode || '';
+        if (currentId) {
+          const formatted = formatEmployeeIdBySeries(currentId, companySeries, companyPrefix);
+          if (formatted && formatted !== currentId) {
+            doc.employeeId = formatted;
+            doc.employeeCode = formatted;
+            try {
+              await Employee.updateOne(
+                { _id: emp._id },
+                { $set: { employeeId: formatted, employeeCode: formatted } }
+              );
+            } catch {}
+          }
+        }
+        return doc;
+      })
+    );
+
     return res.status(200).json({
       success: true,
-      count: employees.length,
-      employees: employees.map(e => e.toJSON())
+      count: normalizedEmployees.length,
+      employees: normalizedEmployees
     });
   } catch (error) {
     console.error('Error fetching employees:', error);
@@ -248,10 +321,9 @@ export const createEmployee = async (req, res) => {
         };
         await company.save();
       }
-    } else if (/^\d+$/.test(resolvedEmpId)) {
-      // If user provided only raw digits (e.g. 1 or 4534545), pad to configured sequence digits and prepend prefix
-      const formattedSeq = resolvedEmpId.length < padding ? resolvedEmpId.padStart(padding, '0') : resolvedEmpId;
-      resolvedEmpId = `${companyPrefix}${separator}${formattedSeq}`;
+    } else {
+      // Format user-entered ID (e.g. 1 -> RR-001, RR005 -> RR-005) according to company series
+      resolvedEmpId = formatEmployeeIdBySeries(resolvedEmpId, companySeries, companyPrefix);
     }
 
     const numBasic = Number(req.body.basic) || 0;
@@ -637,3 +709,194 @@ export const deleteEmployee = async (req, res) => {
     });
   }
 };
+
+/**
+ * @desc    Bulk import employees from parsed spreadsheet records
+ * @route   POST /api/employees/bulk-import
+ * @access  Private (Admin)
+ */
+export const bulkImportEmployees = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+
+    if (!companyId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Active Company ID is required for bulk employee import.'
+      });
+    }
+
+    const {
+      records = [],
+      defaultClientId = '',
+      defaultClientName = '',
+      defaultDepartment = 'Security',
+      defaultDesignation = 'Security Guard'
+    } = req.body;
+
+    if (!Array.isArray(records) || records.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No employee records provided for import.'
+      });
+    }
+
+    // Resolve company and series configuration
+    let companyIds = [companyId];
+    let company = null;
+    try {
+      company = await Company.findOne({
+        adminEmail,
+        $or: [
+          { companyId },
+          { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+        ]
+      });
+      if (company) {
+        companyIds = Array.from(new Set([company.companyId, company._id?.toString(), companyId])).filter(Boolean);
+      }
+    } catch {}
+
+    const companyName = company?.name || company?.companyName || '';
+    const companySeries = company?.employeeCodeSeries;
+    const companyPrefix = (companySeries?.prefix || company?.code || 'RR').trim().toUpperCase();
+    const separator = companySeries?.separator !== undefined ? companySeries.separator : '-';
+    const padding = Number(companySeries?.padding) || 3;
+    const startNumber = Number(companySeries?.startingNumber) || 1;
+
+    // Calculate current sequence count
+    let currentEmployeeCount = await Employee.countDocuments({
+      companyId: { $in: companyIds },
+      adminEmail
+    });
+
+    const results = {
+      total: records.length,
+      created: 0,
+      updated: 0,
+      failed: 0,
+      errors: [],
+      importedEmployees: []
+    };
+
+    for (let i = 0; i < records.length; i++) {
+      const rec = records[i];
+      const rawName = (rec.name || rec.employeeName || rec['EMPLOYEE NAME'] || '').trim();
+
+      if (!rawName) {
+        results.failed++;
+        results.errors.push({ row: i + 1, error: 'Employee Name is required.' });
+        continue;
+      }
+
+      const inputEmpId = String(rec.employeeId || rec.empId || rec['EMPID'] || '').trim();
+      let rawEmpId = '';
+
+      if (!inputEmpId || inputEmpId.toLowerCase() === 'auto-generate') {
+        currentEmployeeCount++;
+        const yearPart = companySeries?.yearFormat === 'YYYY' ? String(new Date().getFullYear()) : companySeries?.yearFormat === 'YY' ? String(new Date().getFullYear()).slice(-2) : '';
+        const monthPart = companySeries?.monthFormat === 'MM' ? String(new Date().getMonth() + 1).padStart(2, '0') : '';
+        const seqPart = String(startNumber + currentEmployeeCount).padStart(padding, '0');
+        const parts = [companyPrefix, yearPart, monthPart, seqPart].filter(Boolean);
+        rawEmpId = parts.join(separator);
+      } else {
+        rawEmpId = formatEmployeeIdBySeries(inputEmpId, companySeries, companyPrefix);
+      }
+
+      const gender = (rec.gender || rec['GENDER'] || 'Male').trim();
+      const dob = String(rec.dob || rec['DOB'] || '').trim();
+      const mobile = String(rec.mobile || rec.contact || rec['MOBILE'] || '').trim();
+      const email = String(rec.email || rec['EMAIL'] || '').trim().toLowerCase();
+
+      // Upsert: check if employee exists by formatted ID or original input ID
+      const query = {
+        companyId: { $in: companyIds },
+        adminEmail,
+        $or: [
+          { employeeId: rawEmpId },
+          { employeeCode: rawEmpId },
+          ...(inputEmpId && inputEmpId !== rawEmpId ? [{ employeeId: inputEmpId }, { employeeCode: inputEmpId }] : [])
+        ]
+      };
+
+      let existing = await Employee.findOne(query);
+
+      if (existing) {
+        existing.name = rawName;
+        if (gender) existing.gender = gender;
+        if (dob) existing.dob = dob;
+        if (mobile) {
+          existing.mobile = mobile;
+          existing.contact = mobile;
+        }
+        if (email) existing.email = email;
+        if (rec.clientId || defaultClientId) existing.clientId = rec.clientId || defaultClientId;
+        if (rec.clientName || defaultClientName) existing.clientName = rec.clientName || defaultClientName;
+        if (rec.department) existing.department = rec.department;
+        if (rec.designation) existing.designation = rec.designation;
+
+        await existing.save();
+        results.updated++;
+        results.importedEmployees.push(existing.toJSON());
+      } else {
+        const newEmp = new Employee({
+          companyId,
+          companyName: company?.name || companyName || 'Company Profile',
+          adminEmail,
+          employeeId: rawEmpId,
+          employeeCode: rawEmpId,
+          name: rawName,
+          gender: gender || 'Male',
+          dob: dob || '',
+          contact: mobile || '',
+          mobile: mobile || '',
+          email: email || '',
+          status: 'Active',
+          employeeStatus: 'Active',
+          employeeType: rec.employeeType || 'Permanent',
+          department: rec.department || defaultDepartment || 'Security',
+          designation: rec.designation || defaultDesignation || 'Security Guard',
+          clientId: rec.clientId || defaultClientId || '',
+          clientName: rec.clientName || defaultClientName || '',
+          siteLocation: rec.siteLocation || '',
+          site: rec.site || '',
+          dutyPost: rec.dutyPost || '',
+          shift: rec.shift || '',
+          joiningDate: rec.joiningDate || new Date().toISOString().split('T')[0]
+        });
+
+        await newEmp.save();
+        results.created++;
+        results.importedEmployees.push(newEmp.toJSON());
+      }
+    }
+
+    if (company && results.created > 0) {
+      company.employeeCodeSeries = {
+        ...(company.employeeCodeSeries || {}),
+        prefix: companyPrefix,
+        separator,
+        padding,
+        startingNumber: startNumber,
+        currentNumber: startNumber + currentEmployeeCount + 1,
+        lastUsedNumber: startNumber + currentEmployeeCount,
+        lastUpdated: new Date().toLocaleString()
+      };
+      await company.save();
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Processed ${results.total} records (Created: ${results.created}, Updated: ${results.updated}${results.failed > 0 ? `, Failed: ${results.failed}` : ''}).`,
+      results
+    });
+  } catch (error) {
+    console.error('Error in bulkImportEmployees:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to bulk import employees.'
+    });
+  }
+};
+

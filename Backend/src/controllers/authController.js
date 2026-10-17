@@ -1,10 +1,14 @@
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import User from '../models/userModel.js';
 import Employee from '../models/employeeModel.js';
 import UserRole from '../models/userRoleModel.js';
 import Client from '../models/clientModel.js';
 import Role from '../models/roleModel.js';
+import PasswordResetToken from '../models/passwordResetTokenModel.js';
+import { sendPasswordResetEmail } from '../services/emailService.js';
+
 
 /**
  * Generate JWT token
@@ -48,31 +52,13 @@ export const login = async (req, res) => {
       lowerIdentifier === 'admin@gmail.com' ||
       lowerIdentifier === 'rrsecurity';
 
-    const defaultAdminPasswords = ['123456', 'Security@123', 'admin123', 'admin', 'Admin@123', 'password', 'rrsecurity'];
-
     // 1. Try finding user in User model (admin, corporate user, etc.)
-    let user = await User.findOne({
+    const user = await User.findOne({
       $or: [
         { email: lowerIdentifier },
         ...(isAdminIdentifier ? [{ email: 'rrsecurity@gmail.com' }, { role: 'admin' }] : [])
       ]
     }).select('+password');
-
-    // Auto-create/seed default admin if searched for admin and record is not found
-    if (!user && isAdminIdentifier) {
-      try {
-        user = await User.create({
-          name: 'RR Security Administrator',
-          email: 'rrsecurity@gmail.com',
-          password: password || '123456',
-          role: 'admin',
-          redirect: '/admin/dashboard',
-          label: 'Admin',
-          department: 'Executive Administration',
-          status: 'Active'
-        });
-      } catch (_) {}
-    }
 
     if (user) {
       if (user.status !== 'Active') {
@@ -82,16 +68,7 @@ export const login = async (req, res) => {
         });
       }
 
-      let isMatch = await user.comparePassword(password);
-      
-      // Fallback matching for admin or known default passwords
-      if (!isMatch && (user.role === 'admin' || isAdminIdentifier)) {
-        if (defaultAdminPasswords.includes(password) || !user.password) {
-          isMatch = true;
-          user.password = password;
-          await user.save().catch(() => {});
-        }
-      }
+      const isMatch = await user.comparePassword(password);
 
       if (isMatch) {
         const token = generateToken(user._id, user.role || 'admin', !!rememberMe);
@@ -160,16 +137,7 @@ export const login = async (req, res) => {
         });
       }
 
-      let isMatch = await employeeDoc.comparePassword(password);
-      if (!isMatch) {
-        const defaultEmpPasswords = ['123456', 'Security@123', 'employee123', 'emp123', 'password'];
-        if (defaultEmpPasswords.includes(password) || (!employeeDoc.password && !employeeDoc.savedPassword)) {
-          isMatch = true;
-          employeeDoc.password = password;
-          employeeDoc.savedPassword = password;
-          await employeeDoc.save().catch(() => {});
-        }
-      }
+      const isMatch = await employeeDoc.comparePassword(password);
 
       if (isMatch) {
         const token = generateToken(employeeDoc._id, 'employee', !!rememberMe);
@@ -226,16 +194,7 @@ export const login = async (req, res) => {
         });
       }
 
-      let isMatch = await clientDoc.comparePassword(password);
-      if (!isMatch) {
-        const defaultClientPasswords = ['123456', 'Security@123', 'client123', 'admin123', 'password'];
-        if (defaultClientPasswords.includes(password) || (!clientDoc.password && !clientDoc.savedPassword)) {
-          isMatch = true;
-          clientDoc.password = password;
-          clientDoc.savedPassword = password;
-          await clientDoc.save().catch(() => {});
-        }
-      }
+      const isMatch = await clientDoc.comparePassword(password);
 
       if (isMatch) {
         const token = generateToken(clientDoc._id, 'client', !!rememberMe);
@@ -278,15 +237,7 @@ export const login = async (req, res) => {
         });
       }
 
-      let isMatch = await userRoleDoc.comparePassword(password);
-      if (!isMatch) {
-        const defaultRolePasswords = ['123456', 'Security@123', 'user123', 'password'];
-        if (defaultRolePasswords.includes(password) || !userRoleDoc.password) {
-          isMatch = true;
-          userRoleDoc.password = password;
-          await userRoleDoc.save().catch(() => {});
-        }
-      }
+      const isMatch = await userRoleDoc.comparePassword(password);
 
       if (isMatch) {
         const token = generateToken(userRoleDoc._id, 'user', !!rememberMe);
@@ -501,3 +452,379 @@ export const logout = async (req, res) => {
     message: 'Logged out successfully.'
   });
 };
+
+/**
+ * @desc    Initiate password reset (Supports Corporate Email, Employee ID, Client ID, User ID)
+ * @route   POST /api/auth/forgot-password
+ * @access  Public
+ */
+export const forgotPassword = async (req, res) => {
+  try {
+    const rawIdentifier = (req.body.identifier || req.body.email || '').trim();
+
+    if (!rawIdentifier) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide your Corporate Email, Employee ID, Client ID, or User ID.'
+      });
+    }
+
+    const cleanIdentifier = rawIdentifier.trim();
+    const lowerIdentifier = cleanIdentifier.toLowerCase();
+    const alphanumericOnly = cleanIdentifier.replace(/[^a-zA-Z0-9]/g, '');
+
+    // Dynamic pattern matching for prefixed IDs (e.g., RR004, RR-004, CLI001, CLI-001, EMP001, EMP-001, USR001)
+    let flexibleRegex;
+    const matchAlphaNum = alphanumericOnly.match(/^([a-zA-Z]+)(0*)(\d+)$/);
+    if (matchAlphaNum) {
+      const prefix = matchAlphaNum[1];
+      const digits = matchAlphaNum[3];
+      // Match prefix + optional separator + optional leading zeros + digits (e.g. RR[-_\s]?0*4)
+      flexibleRegex = new RegExp(`^${prefix}[-_\\s]?0*${digits}$`, 'i');
+    } else if (alphanumericOnly.length >= 2) {
+      flexibleRegex = new RegExp(`^${alphanumericOnly.replace(/([a-zA-Z]+)(\d+)/, '$1[-_\\s]?$2')}$`, 'i');
+    } else {
+      flexibleRegex = new RegExp(`^${cleanIdentifier.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+    }
+
+    // Pre-computed literal variants for high-speed indexed lookup
+    const literalVariants = Array.from(new Set([
+      rawIdentifier,
+      cleanIdentifier,
+      lowerIdentifier,
+      alphanumericOnly,
+      alphanumericOnly.toUpperCase(),
+      alphanumericOnly.toLowerCase(),
+      matchAlphaNum ? `${matchAlphaNum[1].toUpperCase()}-${matchAlphaNum[2]}${matchAlphaNum[3]}` : null,
+      matchAlphaNum ? `${matchAlphaNum[1].toUpperCase()}-${matchAlphaNum[3]}` : null,
+      matchAlphaNum ? `${matchAlphaNum[1].toUpperCase()}-${String(matchAlphaNum[3]).padStart(3, '0')}` : null,
+      matchAlphaNum ? `${matchAlphaNum[1].toUpperCase()}${matchAlphaNum[2]}${matchAlphaNum[3]}` : null,
+      matchAlphaNum ? `${matchAlphaNum[1].toUpperCase()}${String(matchAlphaNum[3]).padStart(3, '0')}` : null,
+    ])).filter(Boolean);
+
+    let account = null;
+    let userType = '';
+    let userModelName = '';
+    let registeredEmail = '';
+    let accountName = '';
+    let displayId = '';
+    let companyId = '';
+
+    // 1. Check User model (Admin or standard corporate user)
+    const isAdminIdentifier = 
+      lowerIdentifier === 'rrsecurity@gmail.com' ||
+      lowerIdentifier === 'admin' ||
+      lowerIdentifier === 'admin@rrsecurity.com' ||
+      lowerIdentifier === 'admin@gmail.com' ||
+      lowerIdentifier === 'rrsecurity';
+
+    const orUserConditions = [
+      { email: lowerIdentifier },
+      ...(isAdminIdentifier ? [{ email: 'rrsecurity@gmail.com' }, { role: 'admin' }] : []),
+      ...(mongoose.Types.ObjectId.isValid(rawIdentifier) ? [{ _id: rawIdentifier }] : [])
+    ];
+    const userDoc = await User.findOne({ $or: orUserConditions });
+    if (userDoc) {
+      account = userDoc;
+      userType = userDoc.role === 'admin' ? 'admin' : (userDoc.role || 'user');
+      userModelName = 'User';
+      registeredEmail = (userDoc.email || '').trim();
+      accountName = userDoc.name || 'Administrator';
+      displayId = userDoc.email;
+      companyId = userDoc.companyId || '';
+    }
+
+    // 2. Check Employee model (by employeeId, employeeCode, email, contact, mobile)
+    if (!account) {
+      const empDoc = await Employee.findOne({
+        $or: [
+          { employeeId: { $in: literalVariants } },
+          { employeeCode: { $in: literalVariants } },
+          { employeeId: { $regex: flexibleRegex } },
+          { employeeCode: { $regex: flexibleRegex } },
+          { email: lowerIdentifier },
+          { contact: cleanIdentifier },
+          { mobile: cleanIdentifier }
+        ]
+      });
+
+      if (empDoc) {
+        account = empDoc;
+        userType = 'employee';
+        userModelName = 'Employee';
+        registeredEmail = (empDoc.email || empDoc.personalEmail || '').trim();
+        if (!registeredEmail && empDoc.adminEmail) {
+          registeredEmail = empDoc.adminEmail.trim();
+        }
+        accountName = empDoc.name || 'Employee';
+        displayId = empDoc.employeeId || empDoc.employeeCode || empDoc.name;
+        companyId = empDoc.companyId || '';
+      }
+    }
+
+    // 3. Check Client model (by clientId, email, contactNumber, phone)
+    if (!account) {
+      const clientDoc = await Client.findOne({
+        $or: [
+          { clientId: { $in: literalVariants } },
+          { clientId: { $regex: flexibleRegex } },
+          { email: lowerIdentifier },
+          { contactNumber: cleanIdentifier },
+          { phone: cleanIdentifier }
+        ]
+      });
+
+      if (clientDoc) {
+        account = clientDoc;
+        userType = 'client';
+        userModelName = 'Client';
+        registeredEmail = (clientDoc.email || '').trim();
+        if (!registeredEmail && clientDoc.adminEmail) {
+          registeredEmail = clientDoc.adminEmail.trim();
+        }
+        accountName = clientDoc.contactPerson || clientDoc.name || 'Client';
+        displayId = clientDoc.clientId || clientDoc.name;
+        companyId = clientDoc.companyId || '';
+      }
+    }
+
+    // 4. Check UserRole model (Sub-admins & Role users by userId, email, mobile)
+    if (!account) {
+      const userRoleDoc = await UserRole.findOne({
+        $or: [
+          { userId: { $in: literalVariants } },
+          { userId: { $regex: flexibleRegex } },
+          { email: lowerIdentifier },
+          { mobile: cleanIdentifier }
+        ]
+      });
+
+      if (userRoleDoc) {
+        account = userRoleDoc;
+        userType = 'user';
+        userModelName = 'UserRole';
+        registeredEmail = (userRoleDoc.email || '').trim();
+        if (!registeredEmail && userRoleDoc.adminEmail) {
+          registeredEmail = userRoleDoc.adminEmail.trim();
+        }
+        accountName = userRoleDoc.name || 'User';
+        displayId = userRoleDoc.userId || userRoleDoc.name;
+        companyId = userRoleDoc.companyId || '';
+      }
+    }
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: `No active account found matching "${rawIdentifier}". Please verify your Email, Employee ID, Client ID, or User ID.`
+      });
+    }
+
+    // Validate that the account has a registered email
+    if (!registeredEmail || !registeredEmail.includes('@')) {
+      return res.status(400).json({
+        success: false,
+        message: `The account for "${displayId}" does not have a registered email address on file. Please contact your system administrator to configure your email or reset your password directly.`
+      });
+    }
+
+    // Generate secure random reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const expiresInMinutes = 60;
+    const expiresAt = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+
+    // Invalidate any existing pending tokens for this account
+    await PasswordResetToken.deleteMany({ userId: account._id });
+
+    // Store new token in database
+    await PasswordResetToken.create({
+      token: resetToken,
+      userType,
+      userId: account._id,
+      userModelName,
+      email: registeredEmail.toLowerCase(),
+      identifier: displayId,
+      name: accountName,
+      companyId: companyId || '',
+      expiresAt
+    });
+
+
+    // Send professional HTML email
+    const clientUrl = process.env.CLIENT_URL || req.headers.origin || 'http://localhost:5173';
+    const emailResult = await sendPasswordResetEmail({
+      to: registeredEmail,
+      name: accountName,
+      identifier: displayId,
+      role: userType,
+      token: resetToken,
+      companyId,
+      clientUrl
+    });
+
+    // Mask registered email for privacy display (e.g. r***r@gmail.com)
+    const [localPart, domainPart] = registeredEmail.split('@');
+    const maskedLocal = localPart.length > 2
+      ? `${localPart[0]}${'*'.repeat(Math.min(localPart.length - 2, 5))}${localPart.slice(-1)}`
+      : `${localPart[0]}*`;
+    const maskedEmail = `${maskedLocal}@${domainPart}`;
+
+    return res.status(200).json({
+      success: true,
+      message: `Password reset instructions have been sent to your registered email (${maskedEmail}).`,
+      maskedEmail,
+      userType,
+      identifier: displayId,
+      devResetUrl: emailResult.devFallback ? emailResult.resetUrl : undefined
+    });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to process password reset request. Please try again later.'
+    });
+  }
+};
+
+/**
+ * @desc    Verify if a password reset token is active & valid
+ * @route   GET /api/auth/reset-password/verify
+ * @access  Public
+ */
+export const verifyResetToken = async (req, res) => {
+  try {
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset token is required.'
+      });
+    }
+
+    const resetDoc = await PasswordResetToken.findOne({
+      token: String(token).trim(),
+      used: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!resetDoc) {
+      return res.status(400).json({
+        success: false,
+        message: 'This password reset link is invalid or has expired. Please request a new reset link.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Token is valid.',
+      email: resetDoc.email,
+      name: resetDoc.name,
+      identifier: resetDoc.identifier,
+      userType: resetDoc.userType
+    });
+  } catch (error) {
+    console.error('Verify reset token error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to verify password reset token.'
+    });
+  }
+};
+
+/**
+ * @desc    Reset password using valid token
+ * @route   POST /api/auth/reset-password
+ * @access  Public
+ */
+export const resetPassword = async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token is required.'
+      });
+    }
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.trim().length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters long.'
+      });
+    }
+
+    const cleanToken = String(token).trim();
+    const cleanPassword = newPassword.trim();
+
+    const resetDoc = await PasswordResetToken.findOne({
+      token: cleanToken,
+      used: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!resetDoc) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password reset link is invalid or has expired. Please request a new one.'
+      });
+    }
+
+    // Update password in the corresponding model
+    if (resetDoc.userModelName === 'User') {
+      const user = await User.findById(resetDoc.userId).select('+password');
+      if (!user) {
+        return res.status(404).json({ success: false, message: 'User account not found.' });
+      }
+      user.password = cleanPassword;
+      user.markModified('password');
+      await user.save({ validateBeforeSave: false });
+    } else if (resetDoc.userModelName === 'Employee') {
+      const emp = await Employee.findById(resetDoc.userId).select('+password');
+      if (!emp) {
+        return res.status(404).json({ success: false, message: 'Employee account not found.' });
+      }
+      emp.password = cleanPassword;
+      emp.savedPassword = cleanPassword;
+      emp.markModified('password');
+      emp.markModified('savedPassword');
+      await emp.save({ validateBeforeSave: false });
+    } else if (resetDoc.userModelName === 'Client') {
+      const client = await Client.findById(resetDoc.userId).select('+password');
+      if (!client) {
+        return res.status(404).json({ success: false, message: 'Client account not found.' });
+      }
+      client.password = cleanPassword;
+      client.savedPassword = cleanPassword;
+      client.markModified('password');
+      client.markModified('savedPassword');
+      await client.save({ validateBeforeSave: false });
+    } else if (resetDoc.userModelName === 'UserRole') {
+      const uRole = await UserRole.findById(resetDoc.userId).select('+password');
+      if (!uRole) {
+        return res.status(404).json({ success: false, message: 'Role user account not found.' });
+      }
+      uRole.password = cleanPassword;
+      uRole.markModified('password');
+      await uRole.save({ validateBeforeSave: false });
+    }
+
+    // Invalidate token
+    resetDoc.used = true;
+    await resetDoc.save();
+    await PasswordResetToken.deleteMany({ userId: resetDoc.userId });
+
+    return res.status(200).json({
+      success: true,
+      message: `Password has been reset successfully for ${resetDoc.name || resetDoc.email}! You can now sign in with your new password.`
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to reset password. Please try again later.'
+    });
+  }
+};
+

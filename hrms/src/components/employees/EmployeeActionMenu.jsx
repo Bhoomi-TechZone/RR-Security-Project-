@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit2, ArrowLeftRight, Download, Trash2, MoreVertical, Key } from 'lucide-react';
+import { Eye, Edit2, ArrowLeftRight, Download, Trash2, MoreVertical, Key, FileText } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './EmployeeActionMenu.module.css';
 import { usePermissions } from '../../context/PermissionContext';
@@ -55,6 +55,12 @@ function EmployeeActionMenu({ employee, onAction }) {
             </button>
           </li>
         )}
+        <li>
+          <button className={styles.menuItem} onClick={() => onAction('payslip', employee)}>
+            <FileText size={14} />
+            <span>Payslip</span>
+          </button>
+        </li>
         {allowExport && (
           <li>
             <button className={styles.menuItem} onClick={() => onAction('download', employee)}>

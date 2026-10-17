@@ -14,6 +14,7 @@ import Toast from '../../components/common/Toast';
 import StatusBadge from '../../components/common/StatusBadge';
 
 import { useCompany } from '../../context/CompanyContext';
+import { usePermissions } from '../../context/PermissionContext';
 import authService from '../../services/authService';
 import clientService from '../../services/clientService';
 import employeeService from '../../services/employeeService';
@@ -24,6 +25,7 @@ function CompanyDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
+  const { canDelete } = usePermissions();
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
 
@@ -36,6 +38,7 @@ function CompanyDetails() {
   // Form / Modal States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
 
   // Toast Notification state
@@ -187,6 +190,40 @@ function CompanyDetails() {
     );
   };
 
+  const handleDeleteClient = async () => {
+    const targetId = company?._id || company?.id || company?.clientId;
+    try {
+      if (currentCompanyId && targetId) {
+        await clientService.deleteClient(currentCompanyId, targetId);
+      }
+
+      // Remove from local storage cache
+      const key = `novaspark_clients_${currentCompanyId}`;
+      try {
+        const saved = localStorage.getItem(key);
+        if (saved) {
+          const list = JSON.parse(saved);
+          if (Array.isArray(list)) {
+            const next = list.filter((c) =>
+              !((c._id && c._id === targetId) || c.id === targetId || c.clientId === targetId)
+            );
+            localStorage.setItem(key, JSON.stringify(next));
+          }
+        }
+      } catch (e) { }
+
+      window.dispatchEvent(new CustomEvent('clients-updated'));
+      window.dispatchEvent(new CustomEvent('employees-updated'));
+
+      setIsDeleteConfirmOpen(false);
+      navigate('/admin/clients');
+    } catch (err) {
+      console.error('Failed to delete client:', err);
+      showToast(err.message || 'Failed to delete client from database.', 'error');
+      setIsDeleteConfirmOpen(false);
+    }
+  };
+
   // Handle Save Credentials (Password & Portal Access)
   const handleSaveCredentials = async (targetClientId, credentialsData) => {
     const token = authService.getToken();
@@ -311,6 +348,16 @@ function CompanyDetails() {
           onCancel={() => setIsConfirmOpen(false)}
         />
 
+        <ConfirmModal
+          isOpen={isDeleteConfirmOpen}
+          title="Delete Client Permanently?"
+          description={`Are you sure you want to permanently delete "${company.name}" (${company.clientId || company.id})? This will completely remove the client from the database and unlink all assigned employees. This action cannot be undone.`}
+          confirmLabel="Delete Permanently"
+          variant="danger"
+          onConfirm={handleDeleteClient}
+          onCancel={() => setIsDeleteConfirmOpen(false)}
+        />
+
         {/* Breadcrumbs */}
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
           <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
@@ -330,6 +377,7 @@ function CompanyDetails() {
           onEdit={() => setIsFormOpen(true)}
           onToggleStatus={handleStatusToggle}
           onOpenCredentials={() => setIsCredentialsOpen(true)}
+          onDelete={canDelete('clients') ? () => setIsDeleteConfirmOpen(true) : null}
         />
 
         {/* Tabs switcher menu */}
