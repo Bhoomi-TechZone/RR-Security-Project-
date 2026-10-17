@@ -440,6 +440,13 @@ function Attendance() {
     return filteredRecords.slice(start, start + pageSize);
   }, [filteredRecords, currentPage, pageSize]);
 
+  // Count pending corrections
+  const pendingCorrectionsCount = useMemo(() => {
+    return (corrections || []).filter(
+      (c) => !c.status || c.status === 'pendingCorrection' || c.status.toLowerCase().includes('pending')
+    ).length;
+  }, [corrections]);
+
   // Handle Delete Record
   const handleDeleteRecord = (record) => {
     setDeleteModalRecord(record);
@@ -749,6 +756,44 @@ function Attendance() {
           </div>
         </div>
 
+        {/* Tabs Navigation */}
+        <div className={styles.tabsRow}>
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'daily' ? styles.activeTab : ''}`}
+            onClick={() => {
+              setActiveTab('daily');
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.delete('tab');
+                return next;
+              });
+            }}
+          >
+            <Clock size={16} />
+            <span>Daily Attendance</span>
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'corrections' ? styles.activeTab : ''}`}
+            onClick={() => {
+              setActiveTab('corrections');
+              setSearchParams((prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('tab', 'corrections');
+                return next;
+              });
+            }}
+          >
+            <AlertCircle size={16} />
+            <span>Correction Requests</span>
+            {pendingCorrectionsCount > 0 && (
+              <span className={styles.badgeCount}>{pendingCorrectionsCount}</span>
+            )}
+          </button>
+        </div>
+
         {/* TAB 1: DAILY ATTENDANCE */}
         {activeTab === 'daily' && (
           <div className={styles.tabContent}>
@@ -812,7 +857,7 @@ function Attendance() {
           <div className={styles.tabContent}>
             <div className={styles.correctionsHeader}>
               <div>
-                <h2 className={styles.sectionHeading}>Pending Attendance Corrections</h2>
+                <h2 className={styles.sectionHeading}>Attendance Correction Requests</h2>
                 <p className={styles.sectionSub}>
                   Review and approve or reject employee check-in / check-out correction requests.
                 </p>

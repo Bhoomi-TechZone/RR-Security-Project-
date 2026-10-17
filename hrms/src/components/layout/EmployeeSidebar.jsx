@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import {
   Bell,
   CalendarCheck,
@@ -8,7 +8,8 @@ import {
   LayoutDashboard,
   LogOut,
   Shirt,
-  Zap
+  Zap,
+  ChevronDown
 } from 'lucide-react';
 import styles from './EmployeeSidebar.module.css';
 import { useCompany } from '../../context/CompanyContext';
@@ -17,7 +18,17 @@ import authService from '../../services/authService';
 
 const ALL_NAV_ITEMS = [
   { path: '/employee/dashboard', name: 'Dashboard', icon: LayoutDashboard, key: 'allowDashboard' },
-  { path: '/employee/attendance', name: 'My Attendance', icon: CalendarCheck, key: 'allowAttendance' },
+  {
+    path: '/employee/attendance',
+    name: 'My Attendance',
+    icon: CalendarCheck,
+    key: 'allowAttendance',
+    hasDropdown: true,
+    subItems: [
+      { path: '/employee/attendance', name: 'Attendance Register' },
+      { path: '/employee/attendance?tab=corrections', name: 'Correction Requests' },
+    ]
+  },
   { path: '/employee/leave', name: 'My Leave', icon: CalendarDays, key: 'allowLeaves' },
   { path: '/employee/salary-slips', name: 'My Salary Slips', icon: FileText, key: 'allowSalarySlips' },
   { path: '/employee/assets', name: 'Assets / Uniform', icon: Shirt, key: 'allowAssetsUniform' },
@@ -26,6 +37,8 @@ const ALL_NAV_ITEMS = [
 
 function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const { activeCompany } = useCompany();
+  const location = useLocation();
+
   const [portalAccess, setPortalAccess] = useState({
     enabled: true,
     allowDashboard: true,
@@ -37,8 +50,30 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
     allowNotifications: true
   });
 
+  // Track open dropdowns
+  const [openDropdowns, setOpenDropdowns] = useState(() => ({
+    '/employee/attendance': location.pathname.startsWith('/employee/attendance'),
+  }));
+
   const currentUser = authService.getCurrentUser();
   const companyId = activeCompany?.companyId || activeCompany?.id || currentUser?.companyId || 'RRS8392014SEC';
+
+  // Automatically expand dropdown if user navigates to attendance
+  useEffect(() => {
+    if (location.pathname.startsWith('/employee/attendance')) {
+      setOpenDropdowns((prev) => ({
+        ...prev,
+        '/employee/attendance': true,
+      }));
+    }
+  }, [location.pathname]);
+
+  const toggleDropdown = (path) => {
+    setOpenDropdowns((prev) => ({
+      ...prev,
+      [path]: !prev[path]
+    }));
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -108,21 +143,115 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
 
         <nav className={styles.navContainer}>
           <ul className={styles.navList}>
-            {visibleNavItems.map(({ path, name, icon: Icon }) => (
-              <li key={path} className={styles.item}>
-                <NavLink
-                  to={path}
-                  end={path === '/employee/dashboard'}
-                  className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}
-                  onClick={handleNavigation}
-                  title={isCollapsed ? name : undefined}
-                >
-                  <span className={styles.iconWrap}><Icon size={18} strokeWidth={2} /></span>
-                  {!isCollapsed && <span className={styles.itemName}>{name}</span>}
-                  {isCollapsed && <span className={styles.tooltip} role="tooltip">{name}</span>}
-                </NavLink>
-              </li>
-            ))}
+            {visibleNavItems.map((item) => {
+              const Icon = item.icon;
+              const isDropdownActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+
+              if (item.hasDropdown && item.subItems) {
+                return (
+                  <li key={item.path} className={styles.item}>
+                    <div className={styles.dropdownItemWrap}>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className={[
+                          styles.link,
+                          styles.dropdownToggle,
+                          isDropdownActive ? styles.active : ''
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => toggleDropdown(item.path)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleDropdown(item.path);
+                          }
+                        }}
+                        title={isCollapsed ? item.name : undefined}
+                      >
+                        <span className={styles.iconWrap}>
+                          <Icon size={18} strokeWidth={2} />
+                        </span>
+                        {!isCollapsed && (
+                          <>
+                            <span className={styles.itemName}>{item.name}</span>
+                            <ChevronDown
+                              size={15}
+                              className={[
+                                styles.chevronIcon,
+                                openDropdowns[item.path] ? styles.chevronIconRotated : ''
+                              ].filter(Boolean).join(' ')}
+                            />
+                          </>
+                        )}
+                        {isCollapsed && (
+                          <span className={styles.tooltip} role="tooltip">
+                            {item.name}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Submenu Items */}
+                      {!isCollapsed && (
+                        <div
+                          className={[
+                            styles.submenuWrapper,
+                            openDropdowns[item.path] ? styles.submenuWrapperExpanded : ''
+                          ].filter(Boolean).join(' ')}
+                          aria-hidden={!openDropdowns[item.path]}
+                        >
+                          <div className={styles.submenuInner}>
+                            <ul className={styles.subMenuList}>
+                              {item.subItems.map((subItem, subIdx) => {
+                                const currentFullUrl = location.pathname + location.search;
+                                let isSubActive = false;
+                                if (subItem.path.includes('?')) {
+                                  isSubActive = currentFullUrl === subItem.path;
+                                } else {
+                                  isSubActive = location.pathname === subItem.path && !location.search;
+                                }
+
+                                return (
+                                  <li key={subIdx} className={styles.subMenuItem}>
+                                    <NavLink
+                                      to={subItem.path}
+                                      className={[
+                                        styles.subItemLink,
+                                        isSubActive ? styles.subItemActive : ''
+                                      ].filter(Boolean).join(' ')}
+                                      onClick={handleNavigation}
+                                    >
+                                      <span className={styles.subItemBullet} />
+                                      <span>{subItem.name}</span>
+                                    </NavLink>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </li>
+                );
+              }
+
+              return (
+                <li key={item.path} className={styles.item}>
+                  <NavLink
+                    to={item.path}
+                    end={item.path === '/employee/dashboard'}
+                    className={({ isActive }) => `${styles.link} ${isActive ? styles.active : ''}`}
+                    onClick={handleNavigation}
+                    title={isCollapsed ? item.name : undefined}
+                  >
+                    <span className={styles.iconWrap}><Icon size={18} strokeWidth={2} /></span>
+                    {!isCollapsed && <span className={styles.itemName}>{item.name}</span>}
+                    {isCollapsed && <span className={styles.tooltip} role="tooltip">{item.name}</span>}
+                  </NavLink>
+                </li>
+              );
+            })}
+
             {visibleNavItems.length === 0 && !isCollapsed && (
               <li style={{ padding: '16px 12px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
                 No portal modules enabled by administrator.
