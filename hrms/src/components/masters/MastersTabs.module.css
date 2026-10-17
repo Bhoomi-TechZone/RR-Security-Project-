@@ -6,7 +6,7 @@
   padding-bottom: 4px;
   scroll-behavior: smooth;
   scrollbar-width: thin;
-  scrollbar-color: #2563eb transparent;
+  scrollbar-color: var(--border) transparent;
 }
 
 .tabsWrapper::-webkit-scrollbar {

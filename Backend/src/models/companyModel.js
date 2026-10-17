@@ -124,6 +124,10 @@ const companySchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+    pfCodeSeries: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
     adminEmail: {
       type: String,
       required: true,

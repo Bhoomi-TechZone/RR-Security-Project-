@@ -56,8 +56,7 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/clients', name: 'All Clients' },
-          { path: '/user/clients?status=active', name: 'Active Clients' },
-          { path: '/user/clients?status=inactive', name: 'Inactive Clients' },
+          { path: '/user/clients/billing', name: 'Billing' },
         ]
       },
       { 

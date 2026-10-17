@@ -143,7 +143,8 @@ export const createCompany = async (req, res) => {
       timeZone,
       currency,
       regionalSettings,
-      employeeCodeSeries
+      employeeCodeSeries,
+      pfCodeSeries
     } = req.body;
 
     if (!name || !name.trim()) {
@@ -193,6 +194,7 @@ export const createCompany = async (req, res) => {
       currency: currency || 'INR (₹)',
       regionalSettings: regionalSettings || {},
       employeeCodeSeries: employeeCodeSeries || null,
+      pfCodeSeries: pfCodeSeries || null,
       adminEmail,
       status: 'Active',
       isDefault: false
@@ -251,7 +253,7 @@ export const updateCompany = async (req, res) => {
     const fields = [
       'name', 'code', 'industry', 'email', 'phone', 'alternatePhone', 'alternateContact',
       'address', 'city', 'state', 'pinCode', 'gstin', 'pan', 'tan', 'logo', 'status',
-      'dateFormat', 'timeZone', 'currency', 'regionalSettings', 'employeeCodeSeries'
+      'dateFormat', 'timeZone', 'currency', 'regionalSettings', 'employeeCodeSeries', 'pfCodeSeries'
     ];
 
     fields.forEach(field => {

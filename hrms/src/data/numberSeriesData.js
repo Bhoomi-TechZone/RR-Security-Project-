@@ -93,6 +93,24 @@ export const mockNumberSeriesList = [
     lastUpdated: '2026-03-01 10:30 AM'
   },
   {
+    id: 'pf-code',
+    name: 'PF Member Code / Number',
+    code: 'SERIES-PF',
+    moduleTarget: 'Statutory & PF Compliance',
+    prefix: 'PF',
+    startingNumber: 1,
+    currentNumber: 1,
+    lastUsedNumber: 0,
+    padding: 5,
+    separator: '-',
+    yearFormat: 'None',
+    monthFormat: 'None',
+    resetFrequency: 'Never',
+    description: 'Provident Fund member number / series automatically assigned to PF-eligible employees.',
+    status: 'Active',
+    lastUpdated: '2026-03-01 10:30 AM'
+  },
+  {
     id: 'salary-slip',
     name: 'Salary Slip No.',
     code: 'SERIES-SAL',

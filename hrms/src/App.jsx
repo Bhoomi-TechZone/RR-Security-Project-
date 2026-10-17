@@ -23,6 +23,7 @@ import ClientNotifications from './pages/client/ClientNotifications'
 import ClientProfile from './pages/client/ClientProfile'
 import Companies from './pages/admin/Companies'
 import CompanyDetails from './pages/admin/CompanyDetails'
+import ClientBillingAdmin from './pages/admin/ClientBillingAdmin'
 import Employees from './pages/admin/Employees'
 import EmployeeDetails from './pages/admin/EmployeeDetails'
 import EditEmployee from './pages/admin/EditEmployee'
@@ -79,8 +80,10 @@ function App() {
       <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
       <Route path="/admin/clients" element={<AdminRoute><Companies /></AdminRoute>} />
+      <Route path="/admin/clients/billing" element={<AdminRoute><ClientBillingAdmin /></AdminRoute>} />
       <Route path="/admin/clients/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
       <Route path="/admin/companies" element={<AdminRoute><Companies /></AdminRoute>} />
+      <Route path="/admin/companies/billing" element={<AdminRoute><ClientBillingAdmin /></AdminRoute>} />
       <Route path="/admin/companies/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
 
       <Route path="/admin/employees" element={<AdminRoute><Employees /></AdminRoute>} />
@@ -121,8 +124,10 @@ function App() {
 
         {/* Workforce Modules */}
         <Route path="clients" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
+        <Route path="clients/billing" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Client Billing"><ClientBillingAdmin /></ModulePermissionRoute>} />
         <Route path="clients/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
         <Route path="companies" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
+        <Route path="companies/billing" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Client Billing"><ClientBillingAdmin /></ModulePermissionRoute>} />
         <Route path="companies/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
         <Route path="employees" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><Employees /></ModulePermissionRoute>} />
         <Route path="employees/:id" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EmployeeDetails /></ModulePermissionRoute>} />

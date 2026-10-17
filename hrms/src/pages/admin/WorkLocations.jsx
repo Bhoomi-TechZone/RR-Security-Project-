@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import styles from './WorkLocations.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -299,6 +300,14 @@ function WorkLocations() {
           <span className={styles.separator}>/</span>
           <span 
             className={styles.crumbLink} 
+            onClick={() => navigate('/admin/company-setup')}
+            style={{ cursor: 'pointer', color: 'var(--primary, #2563eb)', fontWeight: 500 }}
+          >
+            Company Setup
+          </span>
+          <span className={styles.separator}>/</span>
+          <span 
+            className={styles.crumbLink} 
             onClick={handleResetFilters}
             style={{ 
               cursor: (filters.status !== 'all' || filters.locationType !== 'all') ? 'pointer' : 'default',
@@ -306,7 +315,7 @@ function WorkLocations() {
               fontWeight: (filters.status !== 'all' || filters.locationType !== 'all') ? 500 : 600
             }}
           >
-            Work Locations
+            Branch (Work Locations)
           </span>
           {(filters.locationType !== 'all' || filters.status !== 'all') && (
             <>
@@ -325,7 +334,28 @@ function WorkLocations() {
         {/* Page Header */}
         <header className={styles.header}>
           <div className={styles.titleArea}>
-            <h1 className={styles.title}>Work Locations</h1>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/company-setup')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                background: '#ffffff',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                marginBottom: '10px',
+                width: 'fit-content'
+              }}
+            >
+              <ArrowLeft size={15} /> Back to Company Setup
+            </button>
+            <h1 className={styles.title}>Branch / Work Locations</h1>
             <p className={styles.description}>
               Manage offices, branches and work locations used across the HRMS for{' '}
               <strong>{activeCompany?.name || 'RR Security'}</strong>.

@@ -481,8 +481,10 @@ function CompanyDetails() {
           {activeTab === 'billing' && (
             <EmptyState
               icon={CreditCard}
-              title="Billing & Invoicing"
-              description="Invoices, payroll charge slips, and contracting billing statements will be accessible here."
+              title="Client Invoicing & Billing"
+              description={`Manage commercial invoices, statutory GST calculations, and settlement registers for ${company?.name || 'this client'}.`}
+              actionLabel="Open Client Billing Operations"
+              onAction={() => navigate('/admin/clients/billing')}
             />
           )}
         </div>

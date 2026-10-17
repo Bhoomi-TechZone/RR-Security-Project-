@@ -2,7 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Building2, MapPin, Phone, Mail, Upload, X, FileText, 
-  Calendar, UserCheck, Sparkles, Hash, SlidersHorizontal 
+  Calendar, UserCheck, Sparkles, Hash, SlidersHorizontal, ShieldCheck,
+  Search, ArrowRight, ArrowLeft, Layers
 } from 'lucide-react';
 import styles from './CompanySetup.module.css';
 
@@ -22,6 +23,91 @@ import {
   mockNumberSeriesList 
 } from '../../data/numberSeriesData';
 
+const SETUP_CATEGORIES = [
+  { id: 'all', label: 'All Setup Modules' },
+  { id: 'company-profile', label: 'Company Profile' },
+  { id: 'branch', label: 'Branch' },
+  { id: 'departments', label: 'Departments' },
+  { id: 'designations', label: 'Designations' },
+  { id: 'employee-code', label: 'Employee Code' },
+  { id: 'pf-code', label: 'PF Code' }
+];
+
+const SETUP_MODULES = [
+  {
+    id: 'company-profile',
+    title: 'Company Profile',
+    desc: 'Manage corporate identity, logo, addresses, contacts, PAN/GST and regional settings.',
+    category: 'company-profile',
+    icon: Building2,
+    badge: 'Identity',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    route: '/admin/company-setup?section=company-profile',
+    isExternal: false
+  },
+  {
+    id: 'branch',
+    title: 'Branch',
+    desc: 'Manage branch offices, operational facilities, and physical work locations.',
+    category: 'branch',
+    icon: MapPin,
+    badge: 'Locations',
+    iconBg: '#ecfdf5',
+    iconColor: '#059669',
+    route: '/admin/work-locations',
+    isExternal: true
+  },
+  {
+    id: 'departments',
+    title: 'Departments',
+    desc: 'Configure company departments, divisions, and department head assignments.',
+    category: 'departments',
+    icon: Layers,
+    badge: 'Masters',
+    iconBg: '#f5f3ff',
+    iconColor: '#7c3aed',
+    route: '/admin/masters?tab=departments',
+    isExternal: true
+  },
+  {
+    id: 'designations',
+    title: 'Designations',
+    desc: 'Define employee job designations, corporate roles, and grading structures.',
+    category: 'designations',
+    icon: UserCheck,
+    badge: 'Masters',
+    iconBg: '#fffbeb',
+    iconColor: '#d97706',
+    route: '/admin/masters?tab=designations',
+    isExternal: true
+  },
+  {
+    id: 'employee-code',
+    title: 'Employee Code Configuration',
+    desc: 'Configure automatic employee code numbering, prefix format, and sequence rules.',
+    category: 'employee-code',
+    icon: Hash,
+    badge: 'Series',
+    iconBg: '#f0fdf4',
+    iconColor: '#16a34a',
+    route: '/admin/company-setup?section=employee-code',
+    isExternal: false
+  },
+  {
+    id: 'pf-code',
+    title: 'PF Code Configuration',
+    desc: 'Configure Provident Fund establishment numbering, office prefix, and sequence rules.',
+    category: 'pf-code',
+    icon: ShieldCheck,
+    badge: 'EPFO',
+    iconBg: '#fff1f2',
+    iconColor: '#e11d48',
+    route: '/admin/company-setup?section=pf-code',
+    isExternal: false
+  }
+];
+
 function CompanySetup() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -29,7 +115,33 @@ function CompanySetup() {
   const { activeCompany, updateCompanyProfile } = useCompany();
 
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
-  const activeSection = searchParams.get('section') || 'company-profile';
+  const rawSection = searchParams.get('section');
+  const isExplorerView = !rawSection;
+  const activeSection = rawSection || 'company-profile';
+
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [explorerCategory, setExplorerCategory] = useState('all');
+
+  const filteredCatalog = useMemo(() => {
+    return SETUP_MODULES.filter((item) => {
+      const matchesCategory =
+        explorerCategory === 'all' || item.category === explorerCategory;
+
+      const query = catalogSearch.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        item.title.toLowerCase().includes(query) ||
+        item.desc.toLowerCase().includes(query) ||
+        item.badge.toLowerCase().includes(query);
+
+      return matchesCategory && matchesSearch;
+    });
+  }, [explorerCategory, catalogSearch]);
+
+  const getCategoryCount = (categoryId) => {
+    if (categoryId === 'all') return SETUP_MODULES.length;
+    return SETUP_MODULES.filter((m) => m.category === categoryId).length;
+  };
 
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
@@ -106,6 +218,19 @@ function CompanySetup() {
           }));
         }
       }
+
+      // Sync PF code series configuration for active company
+      if (activeCompany.pfCodeSeries) {
+        setPfCodeSeries({ ...activeCompany.pfCodeSeries });
+      } else {
+        const compId = activeCompany.companyId || activeCompany.id;
+        const savedPfSeries = compId ? localStorage.getItem(`novaspark_pf_number_series_${compId}`) : null;
+        if (savedPfSeries) {
+          try {
+            setPfCodeSeries(JSON.parse(savedPfSeries));
+          } catch (e) {}
+        }
+      }
     }
   }, [activeCompany]);
 
@@ -169,6 +294,56 @@ function CompanySetup() {
     };
   });
 
+  // PF Code Series State
+  const [pfCodeSeries, setPfCodeSeries] = useState(() => {
+    if (activeCompany?.pfCodeSeries) {
+      return { ...activeCompany.pfCodeSeries };
+    }
+    const compId = activeCompany?.companyId || activeCompany?.id;
+    const savedComp = compId ? localStorage.getItem(`novaspark_pf_number_series_${compId}`) : null;
+    if (savedComp) {
+      try {
+        const parsed = JSON.parse(savedComp);
+        return parsed;
+      } catch (e) {}
+    }
+    const savedList = localStorage.getItem('novaspark_number_series');
+    if (savedList) {
+      try {
+        const parsed = JSON.parse(savedList);
+        const pfSeries = parsed.find(s => s.id === 'pf-code');
+        if (pfSeries) {
+          return {
+            ...pfSeries,
+            prefix: pfSeries.prefix || 'PF',
+            startingNumber: pfSeries.startingNumber || 1,
+            currentNumber: pfSeries.currentNumber || 1
+          };
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return {
+      id: 'pf-code',
+      name: 'PF Member Code / Number',
+      code: 'SERIES-PF',
+      moduleTarget: 'Statutory & PF Compliance',
+      prefix: 'PF',
+      startingNumber: 1,
+      currentNumber: 1,
+      lastUsedNumber: 0,
+      padding: 5,
+      separator: '-',
+      yearFormat: 'None',
+      monthFormat: 'None',
+      resetFrequency: 'Never',
+      description: 'Provident Fund member number / series automatically assigned to PF-eligible employees.',
+      status: 'Active',
+      lastUpdated: '2026-03-01 10:30 AM'
+    };
+  });
+
   // Logo preview state
   const [logoPreview, setLogoPreview] = useState(() => {
     return activeCompany?.logo || localStorage.getItem('novaspark_company_logo_preview') || null;
@@ -204,6 +379,23 @@ function CompanySetup() {
   const empCodePreview = useMemo(() => {
     return generateSeriesPreview(empCodeSeries);
   }, [empCodeSeries]);
+
+  const handlePfCodeSeriesChange = (field, value) => {
+    setPfCodeSeries(prev => {
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+      if (field === 'startingNumber') {
+        updated.currentNumber = value;
+      }
+      return updated;
+    });
+  };
+
+  const pfCodePreview = useMemo(() => {
+    return generateSeriesPreview(pfCodeSeries);
+  }, [pfCodeSeries]);
 
   const handleLogoUpload = (e) => {
     const file = e.target.files?.[0];
@@ -255,7 +447,12 @@ function CompanySetup() {
         lastUpdated: new Date().toLocaleString()
       };
 
-      // 1. Update company profile & employeeCodeSeries in backend database & CompanyContext
+      const updatedPfSeries = {
+        ...pfCodeSeries,
+        lastUpdated: new Date().toLocaleString()
+      };
+
+      // 1. Update company profile & employeeCodeSeries / pfCodeSeries in backend database & CompanyContext
       if (activeCompany) {
         const compId = activeCompany.companyId || activeCompany.id;
         await updateCompanyProfile(compId, {
@@ -277,18 +474,26 @@ function CompanySetup() {
           timeZone: formData.timeZone,
           currency: formData.currency,
           employeeCodeSeries: updatedEmpSeries,
+          pfCodeSeries: updatedPfSeries,
         });
 
         localStorage.setItem(`novaspark_number_series_${compId}`, JSON.stringify(updatedEmpSeries));
+        localStorage.setItem(`novaspark_pf_number_series_${compId}`, JSON.stringify(updatedPfSeries));
       }
 
       // 2. Persist local cache
       localStorage.setItem('novaspark_company_setup', JSON.stringify(formData));
       
-      // Also persist and sync Employee Code Series to global number series
+      // Also persist and sync Employee Code Series and PF Code Series to global number series
       const savedSeriesList = localStorage.getItem('novaspark_number_series');
       let allSeries = savedSeriesList ? JSON.parse(savedSeriesList) : mockNumberSeriesList;
       allSeries = allSeries.map(s => s.id === 'employee-code' ? updatedEmpSeries : s);
+      const hasPf = allSeries.some(s => s.id === 'pf-code');
+      if (hasPf) {
+        allSeries = allSeries.map(s => s.id === 'pf-code' ? updatedPfSeries : s);
+      } else {
+        allSeries.push(updatedPfSeries);
+      }
       localStorage.setItem('novaspark_number_series', JSON.stringify(allSeries));
 
       setIsSaving(false);
@@ -300,38 +505,87 @@ function CompanySetup() {
   };
 
   const handleCancel = () => {
-    navigate('/admin/dashboard');
+    navigate('/admin/company-setup');
   };
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
 
-  const hasSectionParam = Boolean(searchParams.get('section'));
+  const isEmployeeCodeSection = activeSection === 'employee-code';
+  const isPfCodeSection = activeSection === 'pf-code';
 
-  // Auto-scroll when section is specified in query param
+  const SECTION_TITLES = {
+    'company-profile': 'Company Profile',
+    'logo': 'Company Logo',
+    'employee-code': 'Employee Code Configuration',
+    'pf-code': 'PF Code Configuration',
+    'address': 'Address Details',
+    'contact-details': 'Contact Details',
+    'pan-tan-gst': 'Statutory Information (PAN / TAN / GST)',
+    'regional-settings': 'Regional Settings & Date Format',
+    'date-format': 'Regional Settings & Date Format'
+  };
+
+  const SECTION_DESCRIPTIONS = {
+    'company-profile': 'Manage registered company identity and corporate profile details.',
+    'logo': 'Upload and manage official company logo for documents, payslips and reports.',
+    'employee-code': 'Configure automatic employee code generation, prefix, sequence formatting and reset rules.',
+    'pf-code': 'Configure automatic Provident Fund (PF) member number / code series formatting and sequence rules.',
+    'address': 'Manage company registered office and branch address details.',
+    'contact-details': 'Official primary telephone, alternate contact numbers and corporate email.',
+    'pan-tan-gst': 'Statutory registration numbers for PAN, TAN, and Goods & Services Tax (GSTIN).',
+    'regional-settings': 'Configure default system date format, time zone and currency.',
+    'date-format': 'Configure default system date format, time zone and currency.'
+  };
+
+  // Check if specifically targeted to a single section (e.g. from Organisation Settings modal or individual section deep link)
+  const isSpecificSectionMode = isFromOrgSettings || [
+    'logo',
+    'address',
+    'contact-details',
+    'pan-tan-gst',
+    'regional-settings',
+    'date-format'
+  ].includes(activeSection);
+
+  // Auto-scroll when specific section anchor is specified (e.g. from modal or deep-link)
   useEffect(() => {
-    if (activeSection) {
+    if (activeSection && activeSection !== 'company-profile' && activeSection !== 'employee-code' && activeSection !== 'pf-code') {
       const timer = setTimeout(() => {
         const el = document.getElementById(activeSection);
         if (el) {
           el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      }, 100);
+      }, 150);
       return () => clearTimeout(timer);
     }
   }, [activeSection]);
 
   const shouldShow = (sectionKey) => {
-    if (!isFromOrgSettings && !hasSectionParam) return true;
-    if (activeSection === sectionKey) return true;
-    if (
-      (sectionKey === 'regional-settings' || sectionKey === 'date-format') &&
-      (activeSection === 'regional-settings' || activeSection === 'date-format')
-    ) {
-      return true;
+    // 1. When coming from Organisation Settings modal or specific sub-section link, show ONLY that clicked section
+    if (isSpecificSectionMode) {
+      if (activeSection === sectionKey) return true;
+      if (
+        (sectionKey === 'regional-settings' || sectionKey === 'date-format') &&
+        (activeSection === 'regional-settings' || activeSection === 'date-format')
+      ) {
+        return true;
+      }
+      return false;
     }
-    return false;
+
+    // 2. Default sidebar navigation:
+    if (sectionKey === 'employee-code') {
+      return isEmployeeCodeSection;
+    }
+
+    if (sectionKey === 'pf-code') {
+      return isPfCodeSection;
+    }
+
+    // When opening Company Profile from sidebar, show company-profile, logo, address, contact-details, pan-tan-gst and regional-settings all together
+    return !isEmployeeCodeSection && !isPfCodeSection;
   };
 
   return (
@@ -344,24 +598,191 @@ function CompanySetup() {
           onClose={() => setToast({ message: '', type: 'success' })}
         />
 
-        {/* Breadcrumb */}
-        <div className={styles.breadcrumb}>
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
-            Dashboard
-          </span>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Company Setup</span>
-        </div>
+        {isExplorerView ? (
+          <>
+            {/* Breadcrumb */}
+            <div className={styles.breadcrumb}>
+              <span
+                className={styles.crumbLink}
+                onClick={() => navigate('/admin/dashboard')}
+                style={{ cursor: 'pointer' }}
+              >
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>Company Setup</span>
+            </div>
 
-        {/* Page Header */}
-        <header className={styles.header}>
-          <div className={styles.titleArea}>
-            <h1 className={styles.title}>Company Setup</h1>
-            <p className={styles.description}>
-              Manage your company profile, employee code numbering, contact information, statutory details and regional settings.
-            </p>
-          </div>
-        </header>
+            {/* Page Header */}
+            <header className={styles.header} style={{ marginBottom: '16px' }}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Building2 size={24} color="#2563eb" />
+                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Company Setup</h1>
+                </div>
+                <p className={styles.description} style={{ marginTop: '6px' }}>
+                  Configure your organization profile, branch locations, departments, designations, employee code numbering, and PF code compliance.
+                </p>
+              </div>
+            </header>
+
+            {/* 2-Column Setup Explorer */}
+            <div className={styles.setupExplorerLayout}>
+              {/* Left Sidebar Filter Panel */}
+              <aside className={styles.explorerSidebar}>
+                <div className={styles.explorerSearchWrap}>
+                  <input
+                    type="text"
+                    className={styles.explorerSearchInput}
+                    placeholder="Search Setup Modules"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                  />
+                  {catalogSearch ? (
+                    <button
+                      type="button"
+                      className={styles.explorerClearBtn}
+                      onClick={() => setCatalogSearch('')}
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : (
+                    <span style={{ position: 'absolute', right: 10, color: '#94a3b8', pointerEvents: 'none', display: 'flex' }}>
+                      <Search size={14} />
+                    </span>
+                  )}
+                </div>
+
+                <ul className={styles.categoryList}>
+                  {SETUP_CATEGORIES.map((cat) => {
+                    const count = getCategoryCount(cat.id);
+                    const isActive = explorerCategory === cat.id;
+                    return (
+                      <li key={cat.id}>
+                        <button
+                          type="button"
+                          className={`${styles.categoryBtn} ${isActive ? styles.categoryBtnActive : ''}`}
+                          onClick={() => setExplorerCategory(cat.id)}
+                        >
+                          <span className={isActive ? styles.sidebarActiveDot : styles.sidebarDot} />
+                          <span>{cat.label}</span>
+                          <span className={styles.categoryBadge}>{count}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </aside>
+
+              {/* Right Grid of Setup Cards */}
+              <main style={{ minWidth: 0 }}>
+                {filteredCatalog.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <p className={styles.emptyStateText}>No setup modules found matching "{catalogSearch}".</p>
+                    <button
+                      type="button"
+                      className={styles.emptyResetBtn}
+                      onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                    >
+                      Show All Setup Modules
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.explorerCardsGrid}>
+                    {filteredCatalog.map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <div key={item.id} className={styles.referenceModuleCard}>
+                          <div>
+                            <div className={styles.cardHeaderTop}>
+                              <div
+                                className={styles.cardIconWrap}
+                                style={{ background: item.iconBg, color: item.iconColor }}
+                              >
+                                <ItemIcon size={19} />
+                              </div>
+                              <span className={styles.moduleBadge}>{item.badge}</span>
+                            </div>
+                            <div className={styles.cardBody}>
+                              <h4 className={styles.cardTitle}>{item.title}</h4>
+                              <p className={styles.cardDesc}>{item.desc}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.cardOpenBtn}
+                            onClick={() => navigate(item.route)}
+                          >
+                            Configure <ArrowRight size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </main>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Breadcrumb */}
+            <div className={styles.breadcrumb}>
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span
+                className={styles.crumbLink}
+                onClick={() => navigate('/admin/company-setup')}
+                style={{ cursor: 'pointer', color: 'var(--primary, #2563eb)', fontWeight: 500 }}
+              >
+                Company Setup
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>
+                {isSpecificSectionMode
+                  ? (SECTION_TITLES[activeSection] || 'Settings')
+                  : (isEmployeeCodeSection
+                      ? 'Employee Code'
+                      : isPfCodeSection
+                      ? 'PF Code'
+                      : 'Company Profile')}
+              </span>
+            </div>
+
+            {/* Page Header */}
+            <header className={styles.header}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/admin/company-setup')}
+                    className={styles.backBtn}
+                  >
+                    <ArrowLeft size={15} /> Back to Company Setup
+                  </button>
+                  <h1 className={styles.title} style={{ margin: 0, fontSize: '22px' }}>
+                    {isSpecificSectionMode
+                      ? (SECTION_TITLES[activeSection] || 'Company Setup')
+                      : (isEmployeeCodeSection
+                          ? 'Employee Code Configuration'
+                          : isPfCodeSection
+                          ? 'PF Code Configuration'
+                          : 'Company Profile')}
+                  </h1>
+                </div>
+                <p className={styles.description} style={{ marginTop: '6px' }}>
+                  {isSpecificSectionMode
+                    ? (SECTION_DESCRIPTIONS[activeSection] || 'Manage company setup details.')
+                    : (isEmployeeCodeSection
+                        ? 'Configure automatic employee code generation, prefix, sequence formatting and reset rules.'
+                        : isPfCodeSection
+                        ? 'Configure automatic Provident Fund (PF) member number / code series formatting and sequence rules.'
+                        : 'Manage your company profile, logo, address, contact details, statutory information (PAN / TAN / GST) and regional settings.')}
+                </p>
+              </div>
+            </header>
 
         <form onSubmit={handleSubmit}>
           {/* 1. Company Profile Section */}
@@ -590,6 +1011,156 @@ function CompanySetup() {
             </section>
           )}
 
+          {/* 3.1 PF Code Number Series Section */}
+          {shouldShow('pf-code') && (
+            <section id="pf-code" className={styles.card}>
+              <div className={styles.cardHeader}>
+                <ShieldCheck size={20} className={styles.cardIcon} />
+                <h2 className={styles.cardTitle}>PF Code Configuration</h2>
+              </div>
+              <div className={styles.cardBody}>
+                {/* Format Preview Banner */}
+                <div className={styles.previewBanner}>
+                  <div className={styles.previewInfo}>
+                    <span className={styles.previewLabel}>Active Sample Preview</span>
+                    <span className={styles.previewCode}>{pfCodePreview}</span>
+                  </div>
+                  <div className={styles.previewBadge}>
+                    <Sparkles size={14} />
+                    <span>Auto-Sequenced PF Code</span>
+                  </div>
+                </div>
+
+                <div className={styles.formGrid}>
+                  <div>
+                    <label className={styles.label}>Prefix Code</label>
+                    <FormInput
+                      id="pfPrefix"
+                      name="pfPrefix"
+                      type="text"
+                      placeholder="e.g. PF or DL-CPM"
+                      value={pfCodeSeries.prefix || ''}
+                      onChange={(e) => handlePfCodeSeriesChange('prefix', e.target.value.toUpperCase())}
+                      icon={Hash}
+                    />
+                    <span className={styles.inputHelper}>Provident Fund region or establishment prefix</span>
+                  </div>
+
+                  <div className={styles.selectWrapper}>
+                    <label className={styles.label}>Separator</label>
+                    <div className={styles.selectContainer}>
+                      <SlidersHorizontal size={17} className={styles.selectIcon} />
+                      <select
+                        value={pfCodeSeries.separator !== undefined ? pfCodeSeries.separator : '-'}
+                        onChange={(e) => handlePfCodeSeriesChange('separator', e.target.value)}
+                        className={styles.select}
+                      >
+                        {SEPARATOR_OPTIONS.map(opt => (
+                          <option key={opt.label} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className={styles.inputHelper}>Character dividing prefix, date & digits</span>
+                  </div>
+
+                  <div className={styles.selectWrapper}>
+                    <label className={styles.label}>Year Token</label>
+                    <div className={styles.selectContainer}>
+                      <Calendar size={17} className={styles.selectIcon} />
+                      <select
+                        value={pfCodeSeries.yearFormat || 'None'}
+                        onChange={(e) => handlePfCodeSeriesChange('yearFormat', e.target.value)}
+                        className={styles.select}
+                      >
+                        {YEAR_FORMAT_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.selectWrapper}>
+                    <label className={styles.label}>Month Token</label>
+                    <div className={styles.selectContainer}>
+                      <Calendar size={17} className={styles.selectIcon} />
+                      <select
+                        value={pfCodeSeries.monthFormat || 'None'}
+                        onChange={(e) => handlePfCodeSeriesChange('monthFormat', e.target.value)}
+                        className={styles.select}
+                      >
+                        {MONTH_FORMAT_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.selectWrapper}>
+                    <label className={styles.label}>Sequence Digits (Padding)</label>
+                    <div className={styles.selectContainer}>
+                      <Hash size={17} className={styles.selectIcon} />
+                      <select
+                        value={pfCodeSeries.padding || 5}
+                        onChange={(e) => handlePfCodeSeriesChange('padding', Number(e.target.value))}
+                        className={styles.select}
+                      >
+                        {PADDING_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className={styles.inputHelper}>Zero-padding digits for sequence count</span>
+                  </div>
+
+                  <div>
+                    <label className={styles.label}>Starting Sequence Number</label>
+                    <FormInput
+                      id="pfStartingNumber"
+                      name="pfStartingNumber"
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={pfCodeSeries.startingNumber || 1}
+                      onChange={(e) => handlePfCodeSeriesChange('startingNumber', Math.max(1, parseInt(e.target.value) || 1))}
+                    />
+                    <span className={styles.inputHelper}>Initial sequence value</span>
+                  </div>
+
+                  <div className={styles.selectWrapper}>
+                    <label className={styles.label}>Reset Frequency</label>
+                    <div className={styles.selectContainer}>
+                      <SlidersHorizontal size={17} className={styles.selectIcon} />
+                      <select
+                        value={pfCodeSeries.resetFrequency || 'Never'}
+                        onChange={(e) => handlePfCodeSeriesChange('resetFrequency', e.target.value)}
+                        className={styles.select}
+                      >
+                        {RESET_FREQUENCY_OPTIONS.map(opt => (
+                          <option key={opt.value} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className={styles.selectWrapper}>
+                    <label className={styles.label}>Series Status</label>
+                    <div className={styles.selectContainer}>
+                      <ShieldCheck size={17} className={styles.selectIcon} />
+                      <select
+                        value={pfCodeSeries.status || 'Active'}
+                        onChange={(e) => handlePfCodeSeriesChange('status', e.target.value)}
+                        className={styles.select}
+                      >
+                        <option value="Active">Active (Auto-Generating)</option>
+                        <option value="Inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* 4. Address Section */}
           {shouldShow('address') && (
             <section id="address" className={styles.card}>
@@ -801,8 +1372,10 @@ function CompanySetup() {
             </PrimaryButton>
           </div>
         </form>
-      </div>
-    </AdminLayout>
+      </>
+    )}
+  </div>
+</AdminLayout>
   );
 }
 
