@@ -341,6 +341,16 @@ function Companies() {
         company,
         actionType: 'activate'
       });
+    } else if (actionType === 'delete') {
+      setConfirmModal({
+        isOpen: true,
+        title: 'Delete Client?',
+        description: `Are you sure you want to permanently delete "${company.name}" (${company.clientId || company.id})? This will completely delete the client from the database and unlink any assigned employees. This action cannot be undone.`,
+        confirmLabel: 'Delete Permanently',
+        variant: 'danger',
+        company,
+        actionType: 'delete'
+      });
     }
   };
 
@@ -394,9 +404,60 @@ function Companies() {
     const { company, actionType } = confirmModal;
     if (!company) return;
 
-    const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
     const targetId = company._id || company.id || company.clientId;
     const token = authService.getToken();
+
+    if (actionType === 'delete') {
+      try {
+        let msg = '';
+        if (token && targetId) {
+          const res = await fetch(`${API_BASE_URL}/clients/${targetId}`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+              'x-company-id': currentCompanyId
+            }
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            throw new Error(data.message || 'Failed to delete client from database');
+          }
+          msg = data.message;
+        }
+
+        // Update state and local storage cache
+        setCompanies((prev) => {
+          const next = prev.filter((c) =>
+            !((c._id && c._id === targetId) || c.id === targetId || c.clientId === targetId)
+          );
+          localStorage.setItem(`novaspark_clients_${currentCompanyId}`, JSON.stringify(next));
+          return next;
+        });
+
+        // Trigger events across modules
+        window.dispatchEvent(new CustomEvent('clients-updated'));
+        window.dispatchEvent(new CustomEvent('employees-updated'));
+
+        showToast(msg || `✓ Client "${company.name}" deleted permanently from database.`, 'success');
+      } catch (err) {
+        console.error('Failed to delete client:', err);
+        showToast(err.message || 'Failed to delete client.', 'error');
+      } finally {
+        setConfirmModal({
+          isOpen: false,
+          title: '',
+          description: '',
+          confirmLabel: '',
+          variant: 'danger',
+          company: null,
+          actionType: null
+        });
+      }
+      return;
+    }
+
+    const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
 
     if (token && targetId) {
       try {

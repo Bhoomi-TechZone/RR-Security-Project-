@@ -4,6 +4,17 @@ import EmployeeActionMenu from './EmployeeActionMenu';
 import EmptyState from '../common/EmptyState';
 import styles from './EmployeeTable.module.css';
 
+const formatDisplayEmployeeId = (id) => {
+  if (!id) return '—';
+  const str = String(id).trim();
+  // Normalize unseparated IDs like RR005, RR006 -> RR-005, RR-006
+  const match = str.match(/^([A-Za-z]+)(\d+)$/);
+  if (match) {
+    return `${match[1].toUpperCase()}-${match[2]}`;
+  }
+  return str;
+};
+
 /**
  * EmployeeTable Component
  * Displays a list of employees in an enterprise table for desktop,
@@ -90,7 +101,9 @@ function EmployeeTable({
             {employees.map((employee) => (
               <tr key={employee.id || employee._id || employee.employeeId}>
                 <td>
-                  <span role="text" className={styles.employeeId}>{employee.employeeId}</span>
+                  <span role="text" className={styles.employeeId}>
+                    {formatDisplayEmployeeId(employee.employeeId || employee.employeeCode)}
+                  </span>
                 </td>
                 <td>
                   <div className={String(employee.status || '').toLowerCase() === 'inactive' ? `${styles.employeeCell} ${styles.inactiveRow}` : styles.employeeCell} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -135,7 +148,9 @@ function EmployeeTable({
             <div className={styles.cardHeader}>
               <div className={styles.employeeInfo}>
                 <div className={styles.info}>
-                  <span className={styles.employeeId}>{employee.employeeId}</span>
+                  <span className={styles.employeeId}>
+                    {formatDisplayEmployeeId(employee.employeeId || employee.employeeCode)}
+                  </span>
                   <h4 className={styles.employeeName}>{employee.name}</h4>
                 </div>
               </div>

@@ -103,6 +103,13 @@ export const getAdminDashboardStats = async (req, res) => {
       a.status === 'present' || a.status === 'late' || a.status === 'halfDay'
     ).length;
 
+    const employeeMap = {};
+    employees.forEach(emp => {
+      if (emp.employeeId) employeeMap[emp.employeeId] = emp;
+      if (emp.employeeCode) employeeMap[emp.employeeCode] = emp;
+      if (emp._id) employeeMap[String(emp._id)] = emp;
+    });
+
     const approvedLeavesToday = await Leave.find({
       $or: [
         { companyId: companyId },
@@ -113,7 +120,105 @@ export const getAdminDashboardStats = async (req, res) => {
       toDate: { $gte: todayStr }
     }).lean();
 
-    const onLeaveToday = approvedLeavesToday.length;
+    const onLeaveTodayList = [];
+    const seenOnLeaveEmpIds = new Set();
+
+    approvedLeavesToday.forEach(lv => {
+      const emp = employeeMap[lv.employeeId] || {};
+      seenOnLeaveEmpIds.add(lv.employeeId);
+      onLeaveTodayList.push({
+        id: lv.leaveId || lv._id,
+        leaveId: lv.leaveId || lv._id,
+        employeeId: lv.employeeId || emp.employeeCode || '',
+        name: lv.employeeName || emp.name || emp.employeeName || 'Staff Member',
+        gender: emp.gender || 'Male',
+        department: lv.department || emp.department || 'Security',
+        designation: emp.designation || lv.employeeRole || 'Staff',
+        clientName: lv.clientName || emp.clientName || emp.companyName || 'RR Security & Facilities',
+        contact: emp.contact || emp.mobile || '',
+        mobile: emp.mobile || emp.contact || '',
+        email: emp.email || '',
+        photo: lv.employeeAvatar || emp.employeePhoto || emp.photo || null,
+        leaveType: lv.leaveType || 'Leave',
+        leaveCode: lv.leaveCode || 'LV',
+        category: lv.category || 'Paid',
+        durationType: lv.durationType || 'Full Day',
+        fromDate: lv.fromDate,
+        toDate: lv.toDate,
+        days: lv.days || 1,
+        reason: lv.reason || 'Personal Work',
+        source: 'leave_request'
+      });
+    });
+
+    // Also include daily roster attendance marked onLeave
+    todayAttendance.filter(a => a.status === 'onLeave').forEach(att => {
+      if (!seenOnLeaveEmpIds.has(att.employeeId)) {
+        const emp = employeeMap[att.employeeId] || {};
+        seenOnLeaveEmpIds.add(att.employeeId);
+        onLeaveTodayList.push({
+          id: att.attendanceId || att._id,
+          leaveId: att.attendanceId || att._id,
+          employeeId: att.employeeId || emp.employeeCode || '',
+          name: att.employeeName || emp.name || emp.employeeName || 'Staff Member',
+          gender: emp.gender || 'Male',
+          department: att.department || emp.department || 'Security',
+          designation: emp.designation || 'Staff',
+          clientName: att.clientName || att.companyName || emp.clientName || 'RR Security & Facilities',
+          contact: emp.contact || emp.mobile || '',
+          mobile: emp.mobile || emp.contact || '',
+          email: emp.email || '',
+          photo: emp.employeePhoto || emp.photo || null,
+          leaveType: 'Daily Roster Leave',
+          leaveCode: 'LVE',
+          category: 'Standard',
+          durationType: 'Full Day',
+          fromDate: todayStr,
+          toDate: todayStr,
+          days: 1,
+          reason: 'Marked on leave in daily attendance roster',
+          source: 'attendance'
+        });
+      }
+    });
+
+    const onLeaveToday = onLeaveTodayList.length;
+
+    // Fetch all leave requests for company context
+    const allLeaveRequests = await Leave.find({
+      $or: [
+        { companyId: companyId },
+        { employeeId: { $in: empIds } }
+      ]
+    }).sort({ createdAt: -1, fromDate: -1 }).limit(100).lean();
+
+    const formattedAllLeaveRequests = allLeaveRequests.map(lv => {
+      const emp = employeeMap[lv.employeeId] || {};
+      return {
+        id: lv.leaveId || lv._id,
+        leaveId: lv.leaveId || lv._id,
+        employeeId: lv.employeeId || emp.employeeCode || '',
+        name: lv.employeeName || emp.name || emp.employeeName || 'Staff Member',
+        gender: emp.gender || 'Male',
+        department: lv.department || emp.department || 'Security',
+        designation: emp.designation || lv.employeeRole || 'Staff',
+        clientName: lv.clientName || emp.clientName || emp.companyName || 'RR Security & Facilities',
+        contact: emp.contact || emp.mobile || '',
+        mobile: emp.mobile || emp.contact || '',
+        email: emp.email || '',
+        photo: lv.employeeAvatar || emp.employeePhoto || emp.photo || null,
+        leaveType: lv.leaveType || 'Casual Leave',
+        leaveCode: lv.leaveCode || 'CL',
+        category: lv.category || 'Paid',
+        durationType: lv.durationType || 'Full Day',
+        fromDate: lv.fromDate,
+        toDate: lv.toDate,
+        days: lv.days || 1,
+        status: lv.status || 'Pending',
+        reason: lv.reason || 'Personal Work',
+        appliedOn: lv.createdAt || lv.appliedOn || null
+      };
+    });
 
     // If attendance wasn't logged for today yet, default present to active employees minus leaves
     if (todayAttendance.length === 0 && activeEmployees > 0) {
@@ -137,19 +242,75 @@ export const getAdminDashboardStats = async (req, res) => {
       status: { $regex: /^pending$/i }
     });
 
-    // 5. Birthdays in current month
+    // 5. Birthdays calculation & chronological list
     const currentMonth = now.getMonth() + 1;
-    const upcomingBirthdaysCount = employees.filter(e => {
-      if (!e.dob) return false;
-      try {
-        const parts = e.dob.split(/[-/]/);
-        if (parts.length >= 2) {
-          const m = parseInt(parts[1], 10);
-          return m === currentMonth;
-        }
-      } catch (_) {}
-      return false;
-    }).length;
+    const todayDay = now.getDate();
+    const currentYear = now.getFullYear();
+
+    const parseDob = (dobStr) => {
+      if (!dobStr) return null;
+      const str = String(dobStr).trim();
+      let match = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+      if (match) {
+        return { year: parseInt(match[1], 10), month: parseInt(match[2], 10), day: parseInt(match[3], 10) };
+      }
+      match = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (match) {
+        return { day: parseInt(match[1], 10), month: parseInt(match[2], 10), year: parseInt(match[3], 10) };
+      }
+      return null;
+    };
+
+    const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+    const birthdayEmployees = [];
+    employees.forEach(emp => {
+      if (!emp.dob) return;
+      const parsed = parseDob(emp.dob);
+      if (!parsed || !parsed.month || !parsed.day) return;
+
+      const todayMidnight = new Date(currentYear, now.getMonth(), todayDay);
+      let nextBirthday = new Date(currentYear, parsed.month - 1, parsed.day);
+      if (nextBirthday < todayMidnight) {
+        nextBirthday = new Date(currentYear + 1, parsed.month - 1, parsed.day);
+      }
+
+      const diffDays = Math.round((nextBirthday.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+      const isThisMonth = parsed.month === currentMonth;
+
+      birthdayEmployees.push({
+        id: emp.employeeId || emp._id,
+        employeeId: emp.employeeId || emp.employeeCode || '',
+        name: emp.name || emp.employeeName || 'Staff',
+        gender: emp.gender || 'Male',
+        department: emp.department || 'Security',
+        designation: emp.designation || 'Staff',
+        clientName: emp.clientName || emp.companyName || 'RR Security & Facilities',
+        contact: emp.contact || emp.mobile || '',
+        mobile: emp.mobile || emp.contact || '',
+        email: emp.email || '',
+        employeePhoto: emp.employeePhoto || emp.photo || '',
+        dob: emp.dob,
+        birthMonth: parsed.month,
+        birthDay: parsed.day,
+        birthYear: parsed.year,
+        formattedDate: `${parsed.day} ${fullMonthNames[parsed.month - 1]}`,
+        shortDate: `${parsed.day} ${shortMonthNames[parsed.month - 1]}`,
+        daysLeft: diffDays,
+        isToday: diffDays === 0,
+        isTomorrow: diffDays === 1,
+        isThisMonth,
+        ageTurning: parsed.year ? nextBirthday.getFullYear() - parsed.year : null
+      });
+    });
+
+    // Sort by daysLeft ascending (closest upcoming birthday first)
+    birthdayEmployees.sort((a, b) => a.daysLeft - b.daysLeft);
+
+    const thisMonthBirthdays = birthdayEmployees.filter(b => b.isThisMonth);
+    const upcomingNext30 = birthdayEmployees.filter(b => b.daysLeft <= 30);
+    const upcomingBirthdaysCount = thisMonthBirthdays.length > 0 ? thisMonthBirthdays.length : upcomingNext30.length;
 
     // 6. Department Wise Employees Distribution
     const deptMap = {};
@@ -182,9 +343,7 @@ export const getAdminDashboardStats = async (req, res) => {
     const totalDeductions = Math.round(totalGross * 0.082); // ~8.2% PF, ESI, PT
     const totalNetPayable = totalGross - totalDeductions;
 
-    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    const currentMonthName = monthNames[now.getMonth()];
-    const currentYear = now.getFullYear();
+    const currentMonthName = fullMonthNames[now.getMonth()];
     const currentMonthLabel = `${currentMonthName} ${currentYear}`;
 
     // 8. Client Wise Payroll Summary
@@ -288,10 +447,16 @@ export const getAdminDashboardStats = async (req, res) => {
         attendanceToday: `${presentToday.toLocaleString()} / ${activeEmployees.toLocaleString()}`,
         attendancePct: `${attendancePct}% Present`,
         onLeaveToday: onLeaveToday.toString(),
+        onLeaveTodayList: onLeaveTodayList,
         leavePct: `${leavePct}%`,
         leaveRequests: pendingLeaveCount.toString(),
+        allLeaveRequestsList: formattedAllLeaveRequests,
         pendingClaims: (pendingLeaveCount + 2).toString(),
-        upcomingBirthdays: upcomingBirthdaysCount.toString().padStart(2, '0')
+        upcomingBirthdays: upcomingBirthdaysCount.toString().padStart(2, '0'),
+        upcomingBirthdaysList: birthdayEmployees,
+        thisMonthBirthdaysCount: thisMonthBirthdays.length,
+        next30BirthdaysCount: upcomingNext30.length,
+        allBirthdaysCount: birthdayEmployees.length
       },
       departmentDistribution: departmentWise,
       attendanceTrend: weeklyTrend,

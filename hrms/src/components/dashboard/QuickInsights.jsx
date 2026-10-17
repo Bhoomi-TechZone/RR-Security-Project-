@@ -63,7 +63,7 @@ const insights = [
   },
 ];
 
-function QuickInsights({ data }) {
+function QuickInsights({ data, onOpenBirthdays, onOpenOnLeave, onOpenLeaveRequests }) {
   const currentMonthName = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
   const dynamicInsights = [
@@ -98,8 +98,9 @@ function QuickInsights({ data }) {
       label: 'On Leave Today',
       value: data?.onLeaveToday || '0',
       sub: data?.leavePct || '0%',
-      link: '/admin/leave',
-      linkLabel: null
+      link: null,
+      isModalTrigger: true,
+      linkLabel: 'View Details →'
     },
     {
       id: 'leaverequests',
@@ -108,7 +109,8 @@ function QuickInsights({ data }) {
       iconColor: '#ffffff',
       label: 'Leave Requests',
       value: data?.leaveRequests || '0',
-      link: '/admin/leave',
+      link: null,
+      isModalTrigger: true,
       linkLabel: 'View Details →'
     },
     {
@@ -128,7 +130,8 @@ function QuickInsights({ data }) {
       iconColor: '#ffffff',
       label: 'Upcoming Birthdays',
       value: data?.upcomingBirthdays || '00',
-      link: '/admin/employees',
+      link: null,
+      isModalTrigger: true,
       linkLabel: 'View Details →'
     },
   ];
@@ -141,6 +144,20 @@ function QuickInsights({ data }) {
       <div className={styles.grid}>
         {dynamicInsights.map((item) => {
           const Icon = item.icon;
+          const isBirthday = item.id === 'birthdays';
+          const isOnLeave = item.id === 'onleave';
+          const isLeaveRequests = item.id === 'leaverequests';
+          const isInteractive =
+            (isBirthday && onOpenBirthdays) ||
+            (isOnLeave && onOpenOnLeave) ||
+            (isLeaveRequests && onOpenLeaveRequests);
+
+          const handleClick = () => {
+            if (isBirthday && onOpenBirthdays) onOpenBirthdays();
+            if (isOnLeave && onOpenOnLeave) onOpenOnLeave();
+            if (isLeaveRequests && onOpenLeaveRequests) onOpenLeaveRequests();
+          };
+
           return (
             <div key={item.id} className={styles.insightItem}>
               <div 
@@ -161,9 +178,20 @@ function QuickInsights({ data }) {
                 <span className={styles.insightValue}>{item.value}</span>
                 {item.sub && <span className={styles.insightSub}>{item.sub}</span>}
                 {item.linkLabel && (
-                  <a href={item.link || '#'} className={styles.viewLink}>
-                    {item.linkLabel}
-                  </a>
+                  isInteractive ? (
+                    <button
+                      type="button"
+                      className={styles.viewLinkBtn}
+                      onClick={handleClick}
+                      title={`Open ${item.label}`}
+                    >
+                      {item.linkLabel}
+                    </button>
+                  ) : (
+                    <a href={item.link || '#'} className={styles.viewLink}>
+                      {item.linkLabel}
+                    </a>
+                  )
                 )}
               </div>
             </div>
@@ -175,3 +203,4 @@ function QuickInsights({ data }) {
 }
 
 export default QuickInsights;
+

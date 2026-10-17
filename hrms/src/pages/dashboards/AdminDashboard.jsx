@@ -6,6 +6,9 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import StatCard from '../../components/dashboard/StatCard';
 import AgeDemograph from '../../components/dashboard/AgeDemograph';
 import QuickInsights from '../../components/dashboard/QuickInsights';
+import UpcomingBirthdaysModal from '../../components/dashboard/UpcomingBirthdaysModal';
+import OnLeaveTodayModal from '../../components/dashboard/OnLeaveTodayModal';
+import LeaveRequestsModal from '../../components/dashboard/LeaveRequestsModal';
 import EmployeeDistribution from '../../components/dashboard/EmployeeDistribution';
 import RecentActivities from '../../components/dashboard/RecentActivities';
 import UpcomingReminders from '../../components/dashboard/UpcomingReminders';
@@ -22,6 +25,9 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedDateFilter, setSelectedDateFilter] = useState('Today');
   const [dashboardData, setDashboardData] = useState(null);
+  const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
+  const [isOnLeaveModalOpen, setIsOnLeaveModalOpen] = useState(false);
+  const [isLeaveRequestsModalOpen, setIsLeaveRequestsModalOpen] = useState(false);
 
   const fetchDashboardData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -181,7 +187,12 @@ function AdminDashboard() {
             <AgeDemograph attendanceData={dashboardData?.attendanceTrend || []} />
           </div>
           <div className={styles.col7}>
-            <QuickInsights data={dashboardData?.quickInsights} />
+            <QuickInsights 
+              data={dashboardData?.quickInsights} 
+              onOpenBirthdays={() => setIsBirthdayModalOpen(true)}
+              onOpenOnLeave={() => setIsOnLeaveModalOpen(true)}
+              onOpenLeaveRequests={() => setIsLeaveRequestsModalOpen(true)}
+            />
           </div>
         </div>
 
@@ -208,6 +219,32 @@ function AdminDashboard() {
             loading={loading && !dashboardData}
           />
         </section>
+
+        {/* ---- Upcoming Birthdays Modal Card ---- */}
+        <UpcomingBirthdaysModal
+          isOpen={isBirthdayModalOpen}
+          onClose={() => setIsBirthdayModalOpen(false)}
+          initialList={dashboardData?.quickInsights?.upcomingBirthdaysList}
+          companyId={companyId}
+          companyName={activeCompany?.name}
+        />
+
+        {/* ---- On Leave Today Modal Card (Current Day Only) ---- */}
+        <OnLeaveTodayModal
+          isOpen={isOnLeaveModalOpen}
+          onClose={() => setIsOnLeaveModalOpen(false)}
+          todayLeaves={dashboardData?.quickInsights?.onLeaveTodayList || []}
+          companyName={activeCompany?.name}
+        />
+
+        {/* ---- All Leave Requests Modal Card ---- */}
+        <LeaveRequestsModal
+          isOpen={isLeaveRequestsModalOpen}
+          onClose={() => setIsLeaveRequestsModalOpen(false)}
+          initialList={dashboardData?.quickInsights?.allLeaveRequestsList}
+          companyId={companyId}
+          companyName={activeCompany?.name}
+        />
 
       </div>
     </AdminLayout>

@@ -102,7 +102,85 @@ export const authService = {
     sessionStorage.removeItem('novaspark_auth_token');
     localStorage.removeItem('novaspark_active_user');
     window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }));
+  },
+
+  /**
+   * Request password reset link (Supports Corporate Email, Employee ID, Client ID, User ID)
+   * @param {string} identifier
+   * @returns {Promise<Object>}
+   */
+  async forgotPassword(identifier) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ identifier }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to process password reset request.');
+      }
+
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Verify password reset token
+   * @param {string} token
+   * @returns {Promise<Object>}
+   */
+  async verifyResetToken(token) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password/verify?token=${encodeURIComponent(token)}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Invalid or expired password reset link.');
+      }
+
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
+  /**
+   * Reset password with token
+   * @param {Object} payload - { token, newPassword }
+   * @returns {Promise<Object>}
+   */
+  async resetPassword({ token, newPassword }) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, newPassword }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to reset password.');
+      }
+
+      return data;
+    } catch (error) {
+      throw error;
+    }
   }
 };
+
 
 export default authService;

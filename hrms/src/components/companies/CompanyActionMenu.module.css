@@ -69,3 +69,29 @@
 .activate:hover svg {
   color: var(--success);
 }
+
+.menuDivider {
+  height: 1px;
+  background-color: var(--border, #e2e8f0);
+  margin: 4px 0;
+  list-style: none;
+}
+
+.deleteItem {
+  color: #dc2626;
+  font-weight: 500;
+}
+
+.deleteItem svg {
+  color: #dc2626;
+}
+
+.deleteItem:hover {
+  color: #b91c1c;
+  background-color: #fef2f2;
+}
+
+.deleteItem:hover svg {
+  color: #b91c1c;
+}
+

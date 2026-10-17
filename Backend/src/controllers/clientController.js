@@ -642,41 +642,104 @@ export const toggleClientStatus = async (req, res) => {
 };
 
 /**
- * @desc    Delete a client
+ * @desc    Delete a client permanently from database
  * @route   DELETE /api/clients/:id
  * @access  Private (Admin)
  */
 export const deleteClient = async (req, res) => {
   try {
     const { id } = req.params;
-    const adminEmail = req.user.email.toLowerCase();
+    const adminEmail = (req.user.adminEmail || req.user.email || '').toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.query.companyId || req.body?.companyId;
 
-    const orConditions = [{ clientId: id }];
-    if (mongoose.Types.ObjectId.isValid(id)) {
-      orConditions.push({ _id: id });
+    const cleanId = (id || '').trim();
+    const cleanNoHyphen = cleanId.replace(/[-_ ]/g, '');
+    const flexibleRegex = new RegExp(`^(${cleanId}|${cleanNoHyphen}|CLI-${cleanNoHyphen.replace(/^cli/i, '')})$`, 'i');
+
+    const orConditions = [{ clientId: { $regex: flexibleRegex } }];
+    if (mongoose.Types.ObjectId.isValid(cleanId)) {
+      orConditions.push({ _id: cleanId });
     }
 
-    const client = await Client.findOneAndDelete({
-      $or: orConditions,
-      adminEmail
-    });
+    let client = null;
+    if (companyId) {
+      let companyIds = [companyId];
+      try {
+        const comp = await Company.findOne({
+          $or: [
+            { companyId },
+            { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
+          ]
+        });
+        if (comp) {
+          companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+        }
+      } catch {}
+
+      client = await Client.findOne({
+        $or: orConditions,
+        companyId: { $in: companyIds }
+      });
+    }
+
+    if (!client && adminEmail) {
+      client = await Client.findOne({
+        $or: orConditions,
+        adminEmail
+      });
+    }
+
+    if (!client) {
+      client = await Client.findOne({
+        $or: orConditions
+      });
+    }
 
     if (!client) {
       return res.status(404).json({
         success: false,
-        message: 'Client not found.'
+        message: 'Client not found in database.'
       });
+    }
+
+    const clientIdToDelete = client.clientId;
+    const clientMongoId = client._id.toString();
+    const clientName = client.name;
+
+    // Permanently remove client from database
+    await Client.findByIdAndDelete(client._id);
+
+    // Unlink employees assigned to this deleted client so counts and relations remain accurate
+    try {
+      await Employee.updateMany(
+        {
+          $or: [
+            { clientId: clientIdToDelete },
+            { clientId: clientMongoId },
+            { clientName: clientName }
+          ]
+        },
+        {
+          $set: {
+            clientId: '',
+            clientName: ''
+          }
+        }
+      );
+    } catch (empErr) {
+      console.warn('[deleteClient] Error unlinking employees:', empErr.message);
     }
 
     return res.status(200).json({
       success: true,
-      message: 'Client deleted successfully.'
+      message: `Client "${clientName}" (${clientIdToDelete || cleanId}) deleted successfully from database.`
     });
   } catch (error) {
     console.error('Error deleting client:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to delete client.'
+      message: error.message || 'Failed to delete client.'
     });
   }
 };
+

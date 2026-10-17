@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import Company from '../models/companyModel.js';
 dotenv.config();
 
@@ -1423,6 +1424,416 @@ export const sendClientWelcomeEmail = async ({
   }
 };
 
+/**
+ * Professional HTML Email Template for Password Reset Request
+ */
+export const generatePasswordResetEmailTemplate = ({
+  name = 'User',
+  identifier = '',
+  email = '',
+  role = 'User',
+  resetUrl = '',
+  expiresInMinutes = 60,
+  companyName = 'RR Security & Facilities'
+}) => {
+  const roleLabel = {
+    admin: 'Administrator',
+    employee: 'Workforce Employee',
+    client: 'Corporate Client',
+    user: 'Operations User'
+  }[String(role).toLowerCase()] || role || 'User';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset Your Password - ${companyName}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f1f5f9;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #334155;
+      -webkit-font-smoothing: antialiased;
+    }
+    .wrapper {
+      width: 100%;
+      background-color: #f1f5f9;
+      padding: 30px 10px;
+      box-sizing: border-box;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e2e8f0;
+    }
+    .header {
+      background-color: #0f172a;
+      padding: 24px 30px;
+      text-align: left;
+    }
+    .brand-title {
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin: 0;
+    }
+    .brand-subtitle {
+      color: #94a3b8;
+      font-size: 12px;
+      margin: 4px 0 0;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .banner {
+      background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+      color: #ffffff;
+      padding: 24px 30px;
+      text-align: left;
+    }
+    .banner-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin: 0;
+      letter-spacing: 0.01em;
+    }
+    .banner-desc {
+      font-size: 13.5px;
+      margin: 6px 0 0;
+      opacity: 0.95;
+      line-height: 1.4;
+    }
+    .content {
+      padding: 28px 30px;
+    }
+    .greeting {
+      font-size: 15px;
+      font-weight: 700;
+      color: #0f172a;
+      margin: 0 0 12px;
+    }
+    .lead-text {
+      font-size: 13.5px;
+      color: #475569;
+      line-height: 1.6;
+      margin: 0 0 20px;
+    }
+    .card {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 16px 20px;
+      margin-bottom: 24px;
+    }
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .info-table td {
+      padding: 6px 0;
+      font-size: 13.5px;
+      vertical-align: middle;
+    }
+    .info-label {
+      color: #64748b;
+      width: 42%;
+      font-weight: 500;
+    }
+    .info-value {
+      color: #0f172a;
+      font-weight: 700;
+    }
+    .badge {
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .btn-container {
+      margin: 28px 0 20px;
+      text-align: center;
+    }
+    .btn-primary {
+      display: inline-block;
+      background-color: #2563eb;
+      color: #ffffff !important;
+      text-decoration: none;
+      padding: 14px 36px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+      letter-spacing: 0.02em;
+    }
+    .link-fallback {
+      background-color: #f1f5f9;
+      border: 1px dashed #cbd5e1;
+      padding: 12px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #475569;
+      word-break: break-all;
+      margin-bottom: 24px;
+      line-height: 1.5;
+    }
+    .security-notice {
+      background-color: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 12px 16px;
+      border-radius: 6px;
+      color: #92400e;
+      font-size: 12.5px;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 20px 30px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 11.5px;
+      color: #94a3b8;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      
+      <!-- Brand Header -->
+      <div class="header">
+        <h1 class="brand-title">${companyName}</h1>
+        <p class="brand-subtitle">HRMS Workforce Management Security Service</p>
+      </div>
+
+      <!-- Banner -->
+      <div class="banner">
+        <h2 class="banner-title">Password Reset Verification</h2>
+        <p class="banner-desc">We received a request to reset your portal login credentials.</p>
+      </div>
+
+      <!-- Main Content -->
+      <div class="content">
+        <p class="greeting">Hello ${name},</p>
+        <p class="lead-text">
+          A request has been initiated to reset the password for your <strong>${roleLabel}</strong> account on the <strong>${companyName}</strong> portal. Click the button below to choose a new password.
+        </p>
+
+        <!-- Account Snapshot -->
+        <div class="card">
+          <table class="info-table">
+            <tr>
+              <td class="info-label">Account Name:</td>
+              <td class="info-value">${name}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Account Type / Role:</td>
+              <td class="info-value">${roleLabel}</td>
+            </tr>
+            ${identifier ? `
+            <tr>
+              <td class="info-label">Account ID / Username:</td>
+              <td class="info-value"><span class="badge">${identifier}</span></td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td class="info-label">Registered Email:</td>
+              <td class="info-value">${email}</td>
+            </tr>
+            <tr>
+              <td class="info-label">Validity Window:</td>
+              <td class="info-value" style="color: #dc2626;">Valid for ${expiresInMinutes} minutes</td>
+            </tr>
+          </table>
+        </div>
+
+        <!-- CTA Button -->
+        <div class="btn-container">
+          <a href="${resetUrl}" class="btn-primary" target="_blank">Reset My Password &rarr;</a>
+        </div>
+
+        <!-- Fallback Link -->
+        <p style="font-size: 12px; color: #64748b; margin-bottom: 6px;">
+          Button not working? Copy and paste the link below directly into your browser:
+        </p>
+        <div class="link-fallback">
+          <a href="${resetUrl}" style="color: #2563eb; text-decoration: underline;">${resetUrl}</a>
+        </div>
+
+        <!-- Security Notice -->
+        <div class="security-notice">
+          <strong>Security Notice:</strong> If you did not request this password reset, please ignore this email or contact your system administrator immediately. Your current password will remain unchanged and secure.
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        <p style="margin: 0 0 4px;">
+          This is an automated administrative notification sent from the ${companyName} HRMS Security Center.
+        </p>
+        <p style="margin: 0;">
+          Dispatch timestamp: ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
+        </p>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>
+`;
+};
+
+/**
+ * Plain Text Fallback Template for Password Reset Email
+ */
+export const generatePasswordResetPlainTextTemplate = ({
+  name = 'User',
+  identifier = '',
+  email = '',
+  role = 'User',
+  resetUrl = '',
+  expiresInMinutes = 60,
+  companyName = 'RR Security & Facilities'
+}) => {
+  return `
+[PASSWORD RESET] ${companyName} - Account Recovery
+===================================================================
+
+Hello ${name},
+
+A password reset request was submitted for your account on ${companyName}.
+
+ACCOUNT DETAILS:
+- Name: ${name}
+- Role: ${role}
+${identifier ? `- Identifier / Username: ${identifier}\n` : ''}- Registered Email: ${email}
+- Valid For: ${expiresInMinutes} minutes
+
+RESET LINK:
+Please visit the following URL to choose a new password:
+${resetUrl}
+
+SECURITY NOTICE:
+This link is valid for ${expiresInMinutes} minutes only. If you did not request this reset, you can safely disregard this email. Your password will not change.
+
+-------------------------------------------------------------------
+This is an automated security notification generated on behalf of ${companyName}.
+`;
+};
+
+/**
+ * Send Password Reset Email with Verification Link
+ */
+export const sendPasswordResetEmail = async ({
+  to,
+  name,
+  identifier,
+  role,
+  token,
+  companyId = null,
+  companyName = 'RR Security & Facilities',
+  clientUrl = null
+}) => {
+  try {
+    let senderEmail = (process.env.EMAIL || '').trim();
+    let resolvedCompName = companyName || 'RR Security & Facilities';
+
+    if (companyId) {
+      try {
+        const comp = await Company.findOne({
+          $or: [
+            ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+            { companyId }
+          ]
+        }).lean();
+        senderEmail = comp?.preferences?.emailConfig?.fromEmail || comp?.preferences?.emailConfig?.smtpUsername || senderEmail;
+        if (comp?.name) {
+          resolvedCompName = comp.name;
+        }
+      } catch (err) {
+        console.warn('[EmailService] Could not lookup company details:', err.message);
+      }
+    }
+
+    const recipientEmail = (to || '').trim();
+    if (!recipientEmail) {
+      throw new Error('Recipient email address is required to dispatch password reset instructions.');
+    }
+
+    const portalBaseUrl = clientUrl || process.env.CLIENT_URL || 'http://localhost:5173';
+    const resetUrl = `${portalBaseUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+    const templateParams = {
+      name: name || 'User',
+      identifier: identifier || recipientEmail,
+      email: recipientEmail,
+      role: role || 'User',
+      resetUrl,
+      expiresInMinutes: 60,
+      companyName: resolvedCompName
+    };
+
+    const html = generatePasswordResetEmailTemplate(templateParams);
+    const text = generatePasswordResetPlainTextTemplate(templateParams);
+
+    let info = null;
+    try {
+      const transporter = await createTransporter(companyId);
+      info = await transporter.sendMail({
+        from: `"${resolvedCompName} Security" <${senderEmail}>`,
+        to: recipientEmail,
+        replyTo: senderEmail,
+        subject: `[${resolvedCompName}] Password Reset Request`,
+        text,
+        html,
+        headers: {
+          'X-Mailer': 'NovaSpark HRMS Auth Dispatcher',
+          'X-Priority': '1',
+          'Importance': 'High',
+          'Auto-Submitted': 'auto-generated',
+        }
+      });
+      console.log(`[EmailService] Password reset email delivered to ${recipientEmail}. MessageId: ${info.messageId}`);
+    } catch (transporterErr) {
+      console.warn('[EmailService] SMTP transporter dispatch notice:', transporterErr.message);
+      console.log(`[EmailService] [DEV NOTICE] Password Reset URL for ${recipientEmail}: ${resetUrl}`);
+      return {
+        success: true,
+        devFallback: true,
+        resetUrl,
+        recipient: recipientEmail,
+        note: transporterErr.message
+      };
+    }
+
+    return {
+      success: true,
+      messageId: info?.messageId,
+      recipient: recipientEmail,
+      resetUrl
+    };
+  } catch (error) {
+    console.error('[EmailService] Failed to send password reset email:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+};
+
 export default {
   generateLicenseExpiryEmailTemplate,
   generateLicenseExpiryPlainTextTemplate,
@@ -1432,5 +1843,9 @@ export default {
   sendEmployeeWelcomeEmail,
   generateClientWelcomeEmailTemplate,
   generateClientWelcomePlainTextTemplate,
-  sendClientWelcomeEmail
+  sendClientWelcomeEmail,
+  generatePasswordResetEmailTemplate,
+  generatePasswordResetPlainTextTemplate,
+  sendPasswordResetEmail
 };
+

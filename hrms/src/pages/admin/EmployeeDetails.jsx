@@ -13,6 +13,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
 import EmployeeCredentialsModal from '../../components/employees/EmployeeCredentialsModal';
+import EmployeePayslipModal from '../../components/employees/EmployeePayslipModal';
 import EmployeeForm from '../../components/employees/EmployeeForm';
 import Toast from '../../components/common/Toast';
 
@@ -95,6 +96,7 @@ function EmployeeDetails() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
+  const [isPayslipOpen, setIsPayslipOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false, title: '', description: '', confirmLabel: '', variant: 'danger', actionType: null
   });
@@ -549,6 +551,13 @@ function EmployeeDetails() {
           clients={clients}
         />
 
+        {/* Payslip Modal */}
+        <EmployeePayslipModal
+          isOpen={isPayslipOpen}
+          employee={employee}
+          onClose={() => setIsPayslipOpen(false)}
+        />
+
         {/* Confirm Modal */}
         <ConfirmModal
           isOpen={confirmModal.isOpen}
@@ -686,6 +695,14 @@ function EmployeeDetails() {
             >
               <Key size={15} />
               <span>Credentials</span>
+            </button>
+            <button
+              className={styles.downloadBtn}
+              onClick={() => setIsPayslipOpen(true)}
+              aria-label="View and download payslips"
+            >
+              <FileText size={15} />
+              <span>Payslip</span>
             </button>
             <button
               className={styles.downloadBtn}

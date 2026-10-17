@@ -1,7 +1,9 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/auth/Login'
 import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 import AdminDashboard from './pages/dashboards/AdminDashboard'
+
 import UserDashboard from './pages/dashboards/UserDashboard'
 import UserLayout from './components/layout/UserLayout'
 import EmployeeDashboard from './pages/dashboards/EmployeeDashboard'
@@ -69,6 +71,8 @@ function App() {
       {/* Auth Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+
 
       {/* Admin Dashboard / Modules Routes with strict AdminRoute guard */}
       <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
