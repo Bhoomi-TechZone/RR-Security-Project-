@@ -18,8 +18,12 @@ const SETTINGS_SECTIONS = [
     headerTheme: styles.themeGreenHeader,
     items: [
       { name: 'Company Profile', route: '/admin/company-setup?section=company-profile' },
-      { name: 'Logo', route: '/admin/company-setup?section=logo' },
+      { name: 'Branch', route: '/admin/work-locations' },
+      { name: 'Departments', route: '/admin/masters?tab=departments' },
+      { name: 'Designations', route: '/admin/masters?tab=designations' },
       { name: 'Employee Code', route: '/admin/company-setup?section=employee-code' },
+      { name: 'PF Code', route: '/admin/company-setup?section=pf-code' },
+      { name: 'Logo', route: '/admin/company-setup?section=logo' },
       { name: 'Address', route: '/admin/company-setup?section=address' },
       { name: 'Contact Details', route: '/admin/company-setup?section=contact-details' },
       { name: 'PAN / TAN / GST', route: '/admin/company-setup?section=pan-tan-gst' },
@@ -63,8 +67,6 @@ const SETTINGS_SECTIONS = [
     headerTheme: styles.themeIndigoHeader,
     items: [
       { name: 'Bank', route: '/admin/masters?tab=banks' },
-      { name: 'Department', route: '/admin/masters?tab=departments' },
-      { name: 'Designation', route: '/admin/masters?tab=designations' },
       { name: 'Employee Type', route: '/admin/masters?tab=employee-types' },
       { name: 'Client', route: '/admin/masters?tab=clients' },
       { name: 'Site', route: '/admin/masters?tab=sites' },

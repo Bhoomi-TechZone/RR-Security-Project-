@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { ArrowLeft } from 'lucide-react';
 import styles from './Masters.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -685,9 +686,15 @@ function Masters() {
           <span className={styles.separator}>/</span>
           <span
             className={activeTab ? styles.crumbLink : styles.crumbActive}
-            onClick={() => handleTabChange('banks')}
+            onClick={() => {
+              if (activeTab === 'departments' || activeTab === 'designations') {
+                navigate('/admin/company-setup');
+              } else {
+                handleTabChange('banks');
+              }
+            }}
           >
-            Masters
+            {activeTab === 'departments' || activeTab === 'designations' ? 'Company Setup' : 'Masters'}
           </span>
           {activeTab && (
             <>
@@ -700,9 +707,42 @@ function Masters() {
         {/* Page Header */}
         <header className={styles.header}>
           <div className={styles.titleArea}>
-            <h1 className={styles.title}>Masters Management</h1>
+            {(activeTab === 'departments' || activeTab === 'designations') && (
+              <button
+                type="button"
+                onClick={() => navigate('/admin/company-setup')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  background: '#ffffff',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  marginBottom: '10px',
+                  width: 'fit-content'
+                }}
+              >
+                <ArrowLeft size={15} /> Back to Company Setup
+              </button>
+            )}
+            <h1 className={styles.title}>
+              {activeTab === 'departments'
+                ? 'Department Management'
+                : activeTab === 'designations'
+                ? 'Designation Management'
+                : `${TAB_LABELS[activeTab] || 'Master'} Management`}
+            </h1>
             <p className={styles.description}>
-              Configure and manage organization masters, manpower clients, sites, shifts, statutory components, and document types.
+              {activeTab === 'departments'
+                ? 'Configure and manage company departments, divisions, and operational units.'
+                : activeTab === 'designations'
+                ? 'Configure employee designations, job titles, and organizational roles.'
+                : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
             </p>
           </div>
         </header>
@@ -713,7 +753,7 @@ function Masters() {
           items={getCurrentDataset()}
         />
 
-        {/* Master Switcher Tabs */}
+        {/* Master Active Tab Bar (Displays only the current active / specific tab) */}
         <MastersTabs
           activeTab={activeTab}
           onTabChange={handleTabChange}

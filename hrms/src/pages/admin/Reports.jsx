@@ -152,11 +152,13 @@ const REPORT_CATEGORIES = [
   { id: 'all', label: 'All Reports' },
   { id: 'attendance', label: 'Attendance Report' },
   { id: 'payroll', label: 'Payroll Report' },
+  { id: 'salary', label: 'Salary Reports' },
   { id: 'billing', label: 'Billing Report' },
-  { id: 'employee', label: 'Employee Master Report' },
+  { id: 'employee', label: 'Employee Reports' },
   { id: 'inventory', label: 'Inventory Report' },
   { id: 'pf', label: 'PF Reports' },
-  { id: 'esi', label: 'ESI Reports' }
+  { id: 'esi', label: 'ESI Reports' },
+  { id: 'labour-laws', label: 'Labour Laws Reports' }
 ];
 
 const ALL_REPORTS_CATALOG = [
@@ -164,7 +166,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'attendance',
     title: 'Attendance Report',
-    desc: 'Employee attendance muster roll, duty hours, leaves, and attendance percentage summary.',
+    desc: 'Daily muster roll, work hours, and leave summary.',
     category: 'attendance',
     targetTab: 'attendance',
     formats: ['excel', 'pdf']
@@ -172,7 +174,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'payroll',
     title: 'Payroll Report',
-    desc: 'Statutory Wage & Salary Register with attendance breakdown, wage rates, earnings & deductions.',
+    desc: 'Wage register with earnings and deductions breakdown.',
     category: 'payroll',
     targetTab: 'payroll',
     formats: ['excel', 'pdf']
@@ -180,7 +182,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'billing',
     title: 'Billing Report',
-    desc: 'View billing information grouped by client/company with deployed workforce and overtime.',
+    desc: 'Client-wise deployed workforce and billing summary.',
     category: 'billing',
     targetTab: 'billing',
     formats: ['excel', 'pdf']
@@ -188,7 +190,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'employee',
     title: 'Employee Master Report',
-    desc: 'Complete employee master profiles, statutory numbers (PF/ESI/UAN) and bank details.',
+    desc: 'Employee master profiles, statutory IDs, and bank details.',
     category: 'employee',
     targetTab: 'employee',
     formats: ['excel', 'pdf']
@@ -196,17 +198,17 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'inventory',
     title: 'Inventory Report',
-    desc: 'View inventory stock, issued uniforms, assets, damaged/lost items and total valuations.',
+    desc: 'Stock levels, issued assets, and item valuations.',
     category: 'inventory',
     targetTab: 'inventory',
     formats: ['excel', 'pdf']
   },
 
-  // --- PF Reports (Exact items from User Screenshot) ---
+  // --- PF Reports ---
   {
     id: 'epf-form-11',
     title: 'EPF Form 11 - Declaration Form',
-    desc: 'Declaration form to be submitted by an employee on joining an establishment under EPF Scheme.',
+    desc: 'Declaration form submitted by employees on joining.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -214,7 +216,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-challan',
     title: 'PF  challan',
-    desc: 'Monthly EPFO payment challan and contribution payment confirmation slip.',
+    desc: 'Monthly EPFO payment challan and payment receipt.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -222,7 +224,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-form-3a',
     title: 'PF - Form 3A',
-    desc: 'Member annual contribution card showing monthly wages, EPF and EPS deductions.',
+    desc: 'Annual contribution card with EPF & EPS deductions.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -230,7 +232,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-form-5',
     title: 'PF - Form 5',
-    desc: 'Statutory return of employees qualifying for membership to the Employees\' Provident Fund.',
+    desc: 'Return of employees qualifying for EPF membership.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -238,7 +240,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-form-6a',
     title: 'PF - Form 6A -',
-    desc: 'Consolidated annual statement of contributions for each member for the financial year.',
+    desc: 'Consolidated annual member contribution statement.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -246,7 +248,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-form-10',
     title: 'PF - Form 10 -',
-    desc: 'Statutory return of members leaving service during the month with exit dates and reasons.',
+    desc: 'Return of employees leaving service during the month.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -254,7 +256,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-form-12a',
     title: 'PF - Form 12A -',
-    desc: 'Monthly statement of contributions paid under EPF, EPS and EDLI schemes.',
+    desc: 'Monthly statement of EPF, EPS, and EDLI payments.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -262,7 +264,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-ecr-excel',
     title: 'PF ECR',
-    desc: 'Electronic Challan Cum Return (ECR) Excel format with employee UAN wage breakdown.',
+    desc: 'ECR Excel format with employee wage breakdown.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['excel']
@@ -270,7 +272,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-ecr-text',
     title: 'PF ECR (Text Format)',
-    desc: 'EPFO unified portal raw text format Electronic Challan Cum Return file for bulk upload.',
+    desc: 'Raw text ECR file for EPFO portal bulk upload.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['excel']
@@ -278,7 +280,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-report-employee-wise',
     title: 'PF Peport Employee Wise',
-    desc: 'Employee-wise PF gross wages, employee (12%) and employer (3.67% + 8.33%) contribution sheet.',
+    desc: 'Employee-wise PF gross wages and contribution sheet.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['excel']
@@ -286,7 +288,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-report-location-wise',
     title: 'PF Report Loction Wise',
-    desc: 'Branch and location-wise consolidated statutory PF contribution summary.',
+    desc: 'Branch and site-wise statutory PF liability summary.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['excel']
@@ -294,7 +296,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-summary-report',
     title: 'PF Summry Report',
-    desc: 'Consolidated summary statement of monthly PF statutory liability and accounts.',
+    desc: 'Consolidated monthly PF statutory liability summary.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -302,17 +304,17 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'pf-form-2-revised',
     title: 'PF-Form-2_Revised_',
-    desc: 'Nomination and declaration form under Employees\' Provident Funds & Pension Schemes (Revised).',
+    desc: 'Nomination and declaration form for EPF & EPS schemes.',
     category: 'pf',
     targetTab: 'payroll',
     formats: ['pdf']
   },
 
-  // --- ESI Reports (Exact items from User Screenshot) ---
+  // --- ESI Reports ---
   {
     id: 'esi-form-7-opt1',
     title: 'ESI - Form 7 - Half Yearly Report (option-1)',
-    desc: 'Half-yearly return of contributions under Regulation 26 of ESI Act (Option 1).',
+    desc: 'Half-yearly return of ESI contributions (Option 1).',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -320,7 +322,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'esi-form-7-opt2',
     title: 'ESI - Form 7 - Half Yearly Report(Option-2)',
-    desc: 'Detailed branch-wise Half-Yearly Return of contributions statement (Option 2).',
+    desc: 'Branch-wise half-yearly contribution statement (Option 2).',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -328,7 +330,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'esi-challan',
     title: 'ESI Challan',
-    desc: 'Monthly ESIC payment challan and bank contribution receipt copy.',
+    desc: 'Monthly ESIC payment challan and bank receipt.',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -336,7 +338,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'esi-form-1',
     title: 'ESI Form 1 Declaration Form',
-    desc: 'Declaration form for registration of newly joined insured persons.',
+    desc: 'Declaration form for registering new insured employees.',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -344,15 +346,15 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'esi-summary-employee-pdf',
     title: 'ESI Summry Employee Wise',
-    desc: 'Employee-wise ESI wages, employee contribution (0.75%) and employer share (3.25%).',
+    desc: 'Employee-wise ESI gross wages and contributions (PDF).',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
   },
   {
     id: 'esi-summary-employee-xls',
-    title: 'ESI Summry Employee Wise.xls',
-    desc: 'Excel spreadsheet of employee-wise ESI calculation and insured person numbers.',
+    title: 'ESI Summry Employee Wise',
+    desc: 'Employee-wise ESI calculation spreadsheet (Excel).',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['excel']
@@ -360,23 +362,23 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'esi-summary-location-pdf',
     title: 'ESI Summry Location Wise',
-    desc: 'Location and site-wise distribution of insured employees and ESI contribution amounts.',
+    desc: 'Location-wise distribution of ESI contributions (PDF).',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
   },
   {
     id: 'esi-summary-location-xls',
-    title: 'ESI Summry Location Wise.xls',
-    desc: 'Excel summary of location-wise total ESI wages and payable statutory liability.',
+    title: 'ESI Summry Location Wise',
+    desc: 'Location-wise total ESI wages spreadsheet (Excel).',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['excel']
   },
   {
     id: 'esic-form-3',
-    title: 'ESIC Form3_Return_Declaration_ESI',
-    desc: 'Return of declaration form for insured persons submitted to ESIC.',
+    title: 'ESIC Form3 Return Declaration',
+    desc: 'Return of declaration form for insured persons.',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -384,7 +386,7 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'esic-returns-form-5',
     title: 'ESIC-Returns-Form-5',
-    desc: 'Statutory half-yearly return of contributions under ESIC General Regulations.',
+    desc: 'Statutory half-yearly return of ESIC contributions.',
     category: 'esi',
     targetTab: 'payroll',
     formats: ['pdf']
@@ -392,8 +394,230 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'form-11-accident-book',
     title: 'Form 11 Accident Book',
-    desc: 'Official register of notices of accidents and workplace injury records under ESI rules.',
+    desc: 'Register of notices of accidents and workplace injury.',
     category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+
+  // --- Labour Laws Reports ---
+  {
+    id: 'bonus-register-form-c',
+    title: 'Bonus Register (Form C)',
+    desc: 'Register of annual bonus paid to employees.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'employment-card-form-xiv',
+    title: 'Employment Card (Form XIV)',
+    desc: 'Statutory employment cards issued to workmen.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'muster-roll-form-xvi',
+    title: 'Muster Roll (Form XVI)',
+    desc: 'Daily muster roll and worker attendance register.',
+    category: 'labour-laws',
+    targetTab: 'attendance',
+    formats: ['excel']
+  },
+  {
+    id: 'register-advances-form-xxii',
+    title: 'Register of Advances (Form XXII)',
+    desc: 'Record of salary advances and repayments.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'register-deduction-damage-form-xx',
+    title: 'Register of Deductions for Damage or Loss (Form XX)',
+    desc: 'Deductions recorded for damage or loss.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'register-fines-form-xxi',
+    title: 'Register of Fines (Form XXI)',
+    desc: 'Record of fines imposed on workmen.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'register-overtime-form-xxiii',
+    title: 'Register of Overtime (Form XXIII)',
+    desc: 'Overtime duty hours and wage calculations.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'wages-register',
+    title: 'Wages Register',
+    desc: 'Monthly employee wages, earnings, and deductions.',
+    category: 'labour-laws',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'workman-register-form-xiii',
+    title: 'Workman Register (Form XIII)',
+    desc: 'Contract workmen master records and details.',
+    category: 'labour-laws',
+    targetTab: 'employee',
+    formats: ['excel']
+  },
+
+  // --- Salary Reports ---
+  {
+    id: 'bank-transfer-letter',
+    title: 'Bank Transfer Letter',
+    desc: 'Official bank advice letter for employee salary disbursement.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['word', 'pdf']
+  },
+  {
+    id: 'bank-transfer-report',
+    title: 'Bank Transfer Report',
+    desc: 'Account-wise net salary credit list for bank disbursement.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'form-c-bonus-paid',
+    title: 'Form C - Bonus Paid to Employees',
+    desc: 'Statutory bonus paid return under Payment of Bonus Act.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'form-xxv-register-of-leave',
+    title: 'Register of Leave (Form XXV)',
+    desc: 'Statutory register of annual leave with wages.',
+    category: 'salary',
+    targetTab: 'leave',
+    formats: ['pdf']
+  },
+  {
+    id: 'register-of-leave-se-delhi',
+    title: 'Register of Leave - Form I (Delhi S&E Act)',
+    desc: 'Leave register maintained under Delhi Shops & Establishment Act.',
+    category: 'salary',
+    targetTab: 'leave',
+    formats: ['word', 'pdf']
+  },
+  {
+    id: 'overtime-register-salary',
+    title: 'Overtime Register',
+    desc: 'Employee overtime hours worked and wages payable statement.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'employee-payslip',
+    title: 'Employee Payslip',
+    desc: 'Monthly salary payslip with earnings, deductions, and net pay.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'register-deductions-damage-salary',
+    title: 'Register of Deductions for Damage or Loss',
+    desc: 'Record of deductions made from wages for damages or loss.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'register-fines-employer-salary',
+    title: 'Register of Fines (Employer)',
+    desc: 'Register of fines imposed and recovered by employer.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'salary-sheet-format-1',
+    title: 'Salary Sheet (Format 1)',
+    desc: 'Standard salary register statement with wage breakdown.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'salary-sheet-format-2',
+    title: 'Salary Sheet (Format 2)',
+    desc: 'Detailed monthly salary statement with statutory deductions.',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+
+  // --- Employee Reports ---
+  {
+    id: 'employee-profile-report',
+    title: 'Employee Profile',
+    desc: 'Complete individual employee profile and personal details.',
+    category: 'employee',
+    targetTab: 'employee',
+    formats: ['pdf']
+  },
+  {
+    id: 'fnf-settlement-payslip',
+    title: 'F&F Settlement Payslip',
+    desc: 'Full and final salary settlement statement on exit.',
+    category: 'employee',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'form-16-part-b',
+    title: 'Form 16 (Part B)',
+    desc: 'TDS certificate with salary and tax deduction details.',
+    category: 'employee',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'form-f-gratuity-nomination',
+    title: 'Form F - Gratuity Nomination Form',
+    desc: 'Statutory nomination form under Payment of Gratuity Act.',
+    category: 'employee',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'employee-id-card-report',
+    title: 'Employee ID Card',
+    desc: 'Printable employee identity card with photo and details.',
+    category: 'employee',
+    targetTab: 'employee',
+    formats: ['pdf']
+  },
+  {
+    id: 'employee-payslip-report',
+    title: 'Employee Payslip',
+    desc: 'Monthly salary payslip with gross wages and deductions.',
+    category: 'employee',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'salary-certificate-report',
+    title: 'Salary Certificate',
+    desc: 'Official employee salary certificate for banks and verification.',
+    category: 'employee',
     targetTab: 'payroll',
     formats: ['pdf']
   }
@@ -1556,7 +1780,7 @@ function Reports() {
                   <h1 style={{ margin: 0, fontSize: '22px' }}>Reports</h1>
                 </div>
                 <p className={styles.pageDescription} style={{ marginTop: '6px' }}>
-                  Generate, analyze and export dynamic reports related to attendance, payroll, billing, employee master, PF and ESI compliance.
+                  Generate, analyze and export dynamic reports related to attendance, payroll, billing, employee master, PF, ESI and labour laws compliance.
                 </p>
               </div>
             </header>
@@ -1637,6 +1861,11 @@ function Reports() {
                             )}
                             {item.formats.includes('pdf') && (
                               <span title="Printable PDF (.pdf)" className={styles.iconPdf} style={{ display: 'inline-flex' }}>
+                                <FileText size={16} />
+                              </span>
+                            )}
+                            {item.formats.includes('word') && (
+                              <span title="Word Document (.docx / .doc)" style={{ display: 'inline-flex', color: '#2563eb' }}>
                                 <FileText size={16} />
                               </span>
                             )}

@@ -25,17 +25,7 @@ const NAV_GROUPS = [
         path: '/admin/company-setup',
         name: 'Company Setup',
         icon: Building2,
-        moduleKey: 'company_setup',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/company-setup?section=company-profile', name: 'Company Profile' },
-          { path: '/admin/company-setup?section=logo', name: 'Logo' },
-          { path: '/admin/company-setup?section=employee-code', name: 'Employee Code' },
-          { path: '/admin/company-setup?section=address', name: 'Address' },
-          { path: '/admin/company-setup?section=contact-details', name: 'Contact Details' },
-          { path: '/admin/company-setup?section=pan-tan-gst', name: 'PAN / TAN / GST' },
-          { path: '/admin/company-setup?section=regional-settings', name: 'Regional Settings' },
-        ]
+        moduleKey: 'company_setup'
       },
     ]
   },
@@ -50,8 +40,7 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/clients', name: 'All Clients' },
-          { path: '/admin/clients?status=active', name: 'Active Clients' },
-          { path: '/admin/clients?status=inactive', name: 'Inactive Clients' },
+          { path: '/admin/clients/billing', name: 'Billing' },
         ]
       },
       {
@@ -225,18 +214,6 @@ const NAV_GROUPS = [
     title: 'SETTINGS',
     items: [
       {
-        path: '/admin/work-locations',
-        name: 'Work Locations',
-        icon: MapPin,
-        moduleKey: 'work_locations',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/work-locations', name: 'All Locations' },
-          { path: '/admin/work-locations?type=head-office', name: 'Head Office' },
-          { path: '/admin/work-locations?type=branch', name: 'Branches' },
-        ]
-      },
-      {
         path: '/admin/masters',
         name: 'Masters',
         icon: Settings2,
@@ -245,8 +222,6 @@ const NAV_GROUPS = [
         subItems: [
           { path: '/admin/masters?tab=banks', name: 'Banks' },
           { path: '/admin/masters?tab=clients', name: 'Clients' },
-          { path: '/admin/masters?tab=departments', name: 'Departments' },
-          { path: '/admin/masters?tab=designations', name: 'Designations' },
           { path: '/admin/masters?tab=employee-types', name: 'Employee Types' },
           { path: '/admin/masters?tab=sites', name: 'Sites' },
           { path: '/admin/masters?tab=posts', name: 'Posts' },
@@ -354,7 +329,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
   // Track expanded state of dropdown menus
   const [openDropdowns, setOpenDropdowns] = useState(() => {
     return {
-      '/admin/company-setup': location.pathname.startsWith('/admin/company-setup'),
       '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies'),
       '/admin/employees': location.pathname.startsWith('/admin/employees'),
       '/admin/attendance': location.pathname.startsWith('/admin/attendance'),
@@ -367,8 +341,9 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/overtime': location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/'),
       '/admin/leave': location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/'),
       '/admin/inventory': location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/'),
-      '/admin/work-locations': location.pathname === '/admin/work-locations' || location.pathname.startsWith('/admin/work-locations/'),
-      '/admin/masters': location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/'),
+      '/admin/masters': (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
+        !location.search.includes('tab=departments') &&
+        !location.search.includes('tab=designations'),
       '/admin/roles-permissions': location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/'),
       '/admin/users': location.pathname === '/admin/users' || location.pathname.startsWith('/admin/users/'),
       '/admin/preferences': location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/'),
@@ -380,9 +355,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
   // Automatically keep dropdown open when on matching route
   useEffect(() => {
-    if (location.pathname.startsWith('/admin/company-setup')) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/company-setup': true }));
-    }
     if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/clients': true }));
     }
@@ -419,10 +391,11 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     if (location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/inventory': true }));
     }
-    if (location.pathname === '/admin/work-locations' || location.pathname.startsWith('/admin/work-locations/')) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/work-locations': true }));
-    }
-    if (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) {
+    if (
+      (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
+      !location.search.includes('tab=departments') &&
+      !location.search.includes('tab=designations')
+    ) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/masters': true }));
     }
     if (location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/')) {
@@ -443,7 +416,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     if (location.pathname === '/admin/notifications' || location.pathname.startsWith('/admin/notifications/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/notifications': true }));
     }
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   const toggleDropdown = (path) => {
     setOpenDropdowns(prev => ({
@@ -515,7 +488,19 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                 {group.items.map((item, itemIdx) => {
                   const Icon = item.icon;
 
-                  const isDropdownActive = item.path === '/admin/clients'
+                  const isDropdownActive = item.path === '/admin/company-setup'
+                    ? (
+                        location.pathname.startsWith('/admin/company-setup') ||
+                        location.pathname.startsWith('/admin/work-locations') ||
+                        (location.pathname === '/admin/masters' && (location.search.includes('tab=departments') || location.search.includes('tab=designations')))
+                      )
+                    : item.path === '/admin/masters'
+                    ? (
+                        (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
+                        !location.search.includes('tab=departments') &&
+                        !location.search.includes('tab=designations')
+                      )
+                    : item.path === '/admin/clients'
                     ? (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies'))
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
@@ -581,7 +566,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                         (subItem.path.includes('tab=banks') && location.pathname === '/admin/masters' && !location.search) ||
                                         (subItem.path.includes('section=company-profile') && location.pathname === '/admin/company-setup' && !location.search);
                                     } else {
-                                      isSubActive = (location.pathname === subItem.path && !location.search);
+                                      isSubActive = (location.pathname === subItem.path);
                                     }
 
                                     return (
@@ -611,7 +596,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                           end={item.path === '/admin/dashboard'}
                           className={({ isActive }) => [
                             styles.link,
-                            isActive ? styles.active : '',
+                            (isActive || (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup'))) ? styles.active : '',
                             item.disabled ? styles.disabledLink : ''
                           ].filter(Boolean).join(' ')}
                           onClick={(e) => {
