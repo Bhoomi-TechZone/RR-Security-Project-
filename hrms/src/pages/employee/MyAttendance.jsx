@@ -1,9 +1,14 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { CalendarDays, Clock, Plus, RefreshCw } from 'lucide-react';
 import EmployeeAttendanceSummary from '../../components/employee/EmployeeAttendanceSummary';
 import EmployeeAttendanceCalendar from '../../components/employee/EmployeeAttendanceCalendar';
 import EmployeeAttendanceTable from '../../components/employee/EmployeeAttendanceTable';
 import EmployeeAttendanceFilters from '../../components/employee/EmployeeAttendanceFilters';
 import EmployeeAttendanceDetails from '../../components/employee/EmployeeAttendanceDetails';
+import EmployeeAttendanceCorrectionModal from '../../components/employee/EmployeeAttendanceCorrectionModal';
+import EmployeeCorrectionRequestsList from '../../components/employee/EmployeeCorrectionRequestsList';
+import Toast from '../../components/common/Toast';
 import { getMonthLabel } from '../../data/employeeAttendanceData';
 import { useCompany } from '../../context/CompanyContext';
 import attendanceService from '../../services/attendanceService';
@@ -25,11 +30,25 @@ const generateMonthOptions = () => {
 function MyAttendance() {
   const { activeCompany } = useCompany();
   const activeUser = authService.getCurrentUser() || authService.getUser() || {};
-  const compId = activeCompany?.companyId || activeCompany?.id || activeUser?.companyId;
+  const compId = activeCompany?.companyId || activeCompany?.id || activeUser?.companyId || 'RRS8392014SEC';
 
+  const [searchParams, setSearchParams] = useSearchParams();
   const availableMonths = useMemo(() => generateMonthOptions(), []);
   const initialMonth = availableMonths[0]?.key || new Date().toISOString().slice(0, 7);
 
+  // Tabs state: 'attendance' | 'corrections' synced with URL
+  const [activeTab, setActiveTab] = useState(() => (searchParams.get('tab') === 'corrections' ? 'corrections' : 'attendance'));
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'corrections') {
+      setActiveTab('corrections');
+    } else {
+      setActiveTab('attendance');
+    }
+  }, [searchParams]);
+
+  // Month & filter states
   const [monthKey, setMonthKey] = useState(initialMonth);
   const [draftMonth, setDraftMonth] = useState(initialMonth);
   const [status, setStatus] = useState('All');
@@ -40,10 +59,23 @@ function MyAttendance() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
 
+  // Correction requests state
+  const [correctionRequests, setCorrectionRequests] = useState([]);
+  const [isLoadingCorrections, setIsLoadingCorrections] = useState(false);
+  const [isCorrectionModalOpen, setIsCorrectionModalOpen] = useState(false);
+  const [correctionTargetRecord, setCorrectionTargetRecord] = useState(null);
+
+  // Notification Toast state
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+  };
+
   const [year, monthNumber] = monthKey.split('-').map(Number);
   const monthLabel = getMonthLabel(year, monthNumber);
 
-  // Fetch dynamic attendance records for this month directly from MongoDB
+  // Fetch dynamic attendance records for this month
   const fetchEmployeeAttendance = useCallback(async () => {
     try {
       setIsLoading(true);
@@ -53,48 +85,94 @@ function MyAttendance() {
         search: activeUser?.employeeId || activeUser?.name || '',
       });
 
-      if (Array.isArray(data)) {
-        const formatted = data.map((r) => {
-          const d = new Date(r.date);
-          const dayName = !isNaN(d.getTime()) ? d.toLocaleDateString('en-US', { weekday: 'long' }) : '';
-          let normalizedStatus = 'Present';
-          if (r.status === 'absent') normalizedStatus = 'Absent';
-          else if (r.status === 'halfDay') normalizedStatus = 'Half Day';
-          else if (r.status === 'onLeave' || r.status === 'leave') normalizedStatus = 'Leave';
-          else if (r.status === 'late') normalizedStatus = 'Late';
+      const list = Array.isArray(data) ? data : (data.records || []);
+      const formatted = list.map((r) => {
+        const d = new Date(r.date);
+        const dayName = !isNaN(d.getTime()) ? d.toLocaleDateString('en-US', { weekday: 'long' }) : '';
+        let normalizedStatus = 'Present';
+        if (r.status === 'absent') normalizedStatus = 'Absent';
+        else if (r.status === 'halfDay') normalizedStatus = 'Half Day';
+        else if (r.status === 'onLeave' || r.status === 'leave') normalizedStatus = 'Leave';
+        else if (r.status === 'late') normalizedStatus = 'Late';
 
-          return {
-            id: r.id || r._id,
-            date: r.date,
-            day: dayName,
-            status: normalizedStatus,
-            checkIn: r.checkIn,
-            checkOut: r.checkOut,
-            workingHours: r.workingHours,
-            shift: r.shift || 'General Shift',
-            site: r.site || 'Main Site',
-            department: r.department || 'Operations',
-            employeeName: r.employeeName,
-            employeeId: r.employeeId,
-          };
-        });
-        setRecords(formatted);
-      } else {
-        setRecords([]);
-      }
+        return {
+          id: r.id || r._id,
+          date: r.date,
+          day: dayName,
+          status: normalizedStatus,
+          checkIn: r.checkIn,
+          checkOut: r.checkOut,
+          workingHours: r.workingHours,
+          shift: r.shift || 'General Shift',
+          site: r.site || 'Main Site',
+          department: r.department || 'Operations',
+          employeeName: r.employeeName,
+          employeeId: r.employeeId,
+        };
+      });
+      setRecords(formatted);
     } catch (err) {
-      console.warn('Failed to load employee attendance from MongoDB:', err.message);
+      console.warn('Failed to load employee attendance:', err.message);
       setRecords([]);
     } finally {
       setIsLoading(false);
     }
   }, [compId, monthKey, activeUser?.employeeId, activeUser?.name]);
 
+  // Fetch Correction Requests submitted by this employee
+  const fetchCorrectionRequests = useCallback(async () => {
+    try {
+      setIsLoadingCorrections(true);
+      const allCorrections = await attendanceService.getCorrectionRequests(compId).catch(() => []);
+      
+      const empId = String(activeUser?.employeeId || activeUser?.id || '').toLowerCase();
+      const empName = String(activeUser?.name || '').toLowerCase();
+
+      // Filter corrections specific to this logged in employee
+      const myCorrections = (allCorrections || []).filter((c) => {
+        const cEmpId = String(c.employeeId || '').toLowerCase();
+        const cEmpName = String(c.employeeName || '').toLowerCase();
+        return (empId && cEmpId === empId) || (empName && cEmpName.includes(empName));
+      });
+
+      setCorrectionRequests(myCorrections);
+    } catch (err) {
+      console.warn('Failed to fetch employee correction requests:', err.message);
+    } finally {
+      setIsLoadingCorrections(false);
+    }
+  }, [compId, activeUser?.employeeId, activeUser?.id, activeUser?.name]);
+
   useEffect(() => {
     fetchEmployeeAttendance();
   }, [fetchEmployeeAttendance]);
 
-  // Compute dynamic summary statistics from MongoDB records
+  useEffect(() => {
+    fetchCorrectionRequests();
+  }, [fetchCorrectionRequests]);
+
+  // Handle open correction modal from row or details drawer or header
+  const handleOpenCorrection = (record = null) => {
+    setCorrectionTargetRecord(record);
+    setIsCorrectionModalOpen(true);
+  };
+
+  // Submit correction request to MongoDB
+  const handleSubmitCorrection = async (payload) => {
+    try {
+      await attendanceService.submitCorrectionRequest(compId, payload);
+      showToast(`✓ Correction request for ${payload.date} submitted and saved to database. Sent for Admin review.`);
+      setIsCorrectionModalOpen(false);
+      setCorrectionTargetRecord(null);
+      await fetchCorrectionRequests();
+      setActiveTab('corrections'); // Switch to corrections tab so user can see it
+    } catch (err) {
+      console.error('Error submitting correction to database:', err);
+      showToast(`Failed to submit correction request to database: ${err.message}`, 'danger');
+    }
+  };
+
+  // Compute summary statistics
   const summary = useMemo(() => {
     const present = records.filter((r) => r.status === 'Present' || r.status === 'Late').length;
     const absent = records.filter((r) => r.status === 'Absent').length;
@@ -143,91 +221,147 @@ function MyAttendance() {
     setCurrentPage(1);
   };
 
+  const pendingCorrectionsCount = correctionRequests.filter(
+    (r) => (r.status || '').toLowerCase().includes('pending')
+  ).length;
+
   return (
     <main className={styles.page}>
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
       <div className={styles.container}>
+        {/* Page Header */}
         <header className={styles.pageHeader}>
           <div>
-            <h1>My Attendance</h1>
-            <p>View your dynamic attendance records and monthly attendance summary.</p>
+            <p className={styles.eyebrow}>Self-Service Portal</p>
+            <h1>{activeTab === 'corrections' ? 'My Correction Requests' : 'Attendance Register'}</h1>
+            <p>
+              {activeTab === 'corrections'
+                ? 'Track the status of your submitted punch adjustments and attendance corrections.'
+                : 'View your monthly punch logs, attendance statistics, and working hours.'}
+            </p>
           </div>
 
-          <label className={styles.monthSelector}>
-            Month
-            <select
-              value={monthKey}
-              onChange={(event) => {
-                setMonthKey(event.target.value);
-                setDraftMonth(event.target.value);
-              }}
-            >
-              {availableMonths.map((m) => (
-                <option key={m.key} value={m.key}>{m.label}</option>
-              ))}
-            </select>
-          </label>
+          <div className={styles.headerActions}>
+            {activeTab === 'attendance' && (
+              <label className={styles.monthSelector}>
+                Month
+                <select
+                  value={monthKey}
+                  onChange={(event) => {
+                    setMonthKey(event.target.value);
+                    setDraftMonth(event.target.value);
+                  }}
+                >
+                  {availableMonths.map((m) => (
+                    <option key={m.key} value={m.key}>{m.label}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
         </header>
 
-        <EmployeeAttendanceSummary summary={summary} />
+        {/* VIEW 1: ATTENDANCE REGISTER */}
+        {activeTab === 'attendance' && (
+          <>
+            <EmployeeAttendanceSummary summary={summary} />
 
-        <section className={styles.overview}>
-          <div>
-            <p className={styles.eyebrow}>Attendance Overview</p>
-            <h2>{monthLabel}</h2>
-            <p>Your dynamic attendance summary for {monthLabel}.</p>
-          </div>
-          <strong className={styles.rate}>{summary.attendanceRate}%</strong>
-          <div className={styles.progress}>
-            <span style={{ width: `${summary.attendanceRate}%` }} />
-          </div>
-          <div className={styles.overviewStats}>
-            <span><i className={styles.presentDot} />Present: <b>{summary.present}</b></span>
-            <span><i className={styles.absentDot} />Absent: <b>{summary.absent}</b></span>
-            <span><i className={styles.leaveDot} />Leave: <b>{summary.leave}</b></span>
-          </div>
-        </section>
+            <section className={styles.overview}>
+              <div>
+                <p className={styles.eyebrow}>Attendance Overview</p>
+                <h2>{monthLabel}</h2>
+                <p>Your dynamic attendance summary for {monthLabel}.</p>
+              </div>
+              <strong className={styles.rate}>{summary.attendanceRate}%</strong>
+              <div className={styles.progress}>
+                <span style={{ width: `${summary.attendanceRate}%` }} />
+              </div>
+              <div className={styles.overviewStats}>
+                <span><i className={styles.presentDot} />Present: <b>{summary.present}</b></span>
+                <span><i className={styles.absentDot} />Absent: <b>{summary.absent}</b></span>
+                <span><i className={styles.leaveDot} />Leave: <b>{summary.leave}</b></span>
+              </div>
+            </section>
 
-        <EmployeeAttendanceCalendar
-          records={records}
-          monthLabel={monthLabel}
-          monthKey={monthKey}
-          year={year}
-          monthNumber={monthNumber}
-          onPreviousMonth={() => changeMonth(-1)}
-          onNextMonth={() => changeMonth(1)}
-        />
+            <EmployeeAttendanceCalendar
+              records={records}
+              monthLabel={monthLabel}
+              monthKey={monthKey}
+              year={year}
+              monthNumber={monthNumber}
+              onPreviousMonth={() => changeMonth(-1)}
+              onNextMonth={() => changeMonth(1)}
+            />
 
-        <EmployeeAttendanceFilters
-          draftMonth={draftMonth}
-          draftStatus={draftStatus}
-          months={availableMonths}
-          onMonthChange={setDraftMonth}
-          onStatusChange={setDraftStatus}
-          onApply={applyFilters}
-          onReset={resetFilters}
-        />
+            <EmployeeAttendanceFilters
+              draftMonth={draftMonth}
+              draftStatus={draftStatus}
+              months={availableMonths}
+              onMonthChange={setDraftMonth}
+              onStatusChange={setDraftStatus}
+              onApply={applyFilters}
+              onReset={resetFilters}
+            />
 
-        {isLoading ? (
-          <section className={styles.loading}>Loading live attendance records...</section>
-        ) : (
-          <EmployeeAttendanceTable
-            records={paginatedRecords}
-            totalRecords={filteredRecords.length}
-            currentPage={currentPage}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onSelect={setSelectedRecord}
+            {isLoading ? (
+              <section className={styles.loading}>Loading live attendance records...</section>
+            ) : (
+              <EmployeeAttendanceTable
+                records={paginatedRecords}
+                totalRecords={filteredRecords.length}
+                currentPage={currentPage}
+                pageSize={pageSize}
+                onPageChange={setCurrentPage}
+                onSelect={setSelectedRecord}
+                onRequestCorrection={handleOpenCorrection}
+              />
+            )}
+          </>
+        )}
+
+        {/* TAB 2: CORRECTION REQUESTS */}
+        {activeTab === 'corrections' && (
+          <EmployeeCorrectionRequestsList
+            requests={correctionRequests}
+            onRequestNew={() => handleOpenCorrection(null)}
+            onRefresh={fetchCorrectionRequests}
+            isLoading={isLoadingCorrections}
           />
         )}
       </div>
 
+      {/* Details Drawer */}
       <EmployeeAttendanceDetails
         record={selectedRecord}
         onClose={() => setSelectedRecord(null)}
+        onRequestCorrection={handleOpenCorrection}
+      />
+
+      {/* Correction Request Modal */}
+      <EmployeeAttendanceCorrectionModal
+        isOpen={isCorrectionModalOpen}
+        record={correctionTargetRecord}
+        employeeInfo={{
+          employeeId: activeUser?.employeeId || activeUser?.id,
+          name: activeUser?.name,
+          companyName: activeUser?.companyName || activeCompany?.name
+        }}
+        onClose={() => {
+          setIsCorrectionModalOpen(false);
+          setCorrectionTargetRecord(null);
+        }}
+        onSubmit={handleSubmitCorrection}
       />
     </main>
   );
 }
 
 export default MyAttendance;
-

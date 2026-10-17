@@ -1,8 +1,15 @@
 import React from 'react';
-import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Eye, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import styles from './EmployeeAttendanceTable.module.css';
 
-function EmployeeAttendanceTable({ records = [], onSelect, currentPage = 1, pageSize = 10, onPageChange }) {
+function EmployeeAttendanceTable({
+  records = [],
+  onSelect,
+  onRequestCorrection,
+  currentPage = 1,
+  pageSize = 10,
+  onPageChange
+}) {
   const safeRecords = Array.isArray(records) ? records : [];
   if (!safeRecords.length) {
     return <section className={styles.emptyState}><h2>No attendance records found</h2><p>There are no attendance records available for this month.</p></section>;
@@ -29,7 +36,30 @@ function EmployeeAttendanceTable({ records = [], onSelect, currentPage = 1, page
                 <td>{record.checkIn || '—'}</td>
                 <td>{record.checkOut || '—'}</td>
                 <td>{record.workingHours || '—'}</td>
-                <td><button type="button" className={styles.viewButton} onClick={() => onSelect(record)} aria-label={`View attendance details for ${record.date}`} title="View details"><Eye size={16} /></button></td>
+                <td>
+                  <div className={styles.actionsWrap}>
+                    <button
+                      type="button"
+                      className={styles.viewButton}
+                      onClick={() => onSelect(record)}
+                      aria-label={`View attendance details for ${record.date}`}
+                      title="View details"
+                    >
+                      <Eye size={15} />
+                    </button>
+                    {onRequestCorrection && (
+                      <button
+                        type="button"
+                        className={styles.correctButton}
+                        onClick={() => onRequestCorrection(record)}
+                        aria-label={`Request correction for ${record.date}`}
+                        title="Request Attendance Correction"
+                      >
+                        <Clock size={15} />
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             );
           })}</tbody>

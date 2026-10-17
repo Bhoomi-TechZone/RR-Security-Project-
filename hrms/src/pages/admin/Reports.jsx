@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
+  ArrowRight,
   BarChart3,
   Building2,
   CalendarClock,
@@ -10,10 +11,12 @@ import {
   Download,
   FileBarChart,
   FileCheck,
+  FileSpreadsheet,
+  FileText,
   Filter,
   Printer,
-  Search,
   RefreshCw,
+  Search,
   X
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -144,6 +147,257 @@ const reportMeta = {
     placeholder: 'Search item name, code, brand, category or location...'
   }
 };
+
+const REPORT_CATEGORIES = [
+  { id: 'all', label: 'All Reports' },
+  { id: 'attendance', label: 'Attendance Report' },
+  { id: 'payroll', label: 'Payroll Report' },
+  { id: 'billing', label: 'Billing Report' },
+  { id: 'employee', label: 'Employee Master Report' },
+  { id: 'inventory', label: 'Inventory Report' },
+  { id: 'pf', label: 'PF Reports' },
+  { id: 'esi', label: 'ESI Reports' }
+];
+
+const ALL_REPORTS_CATALOG = [
+  // --- Core HRMS Reports ---
+  {
+    id: 'attendance',
+    title: 'Attendance Report',
+    desc: 'Employee attendance muster roll, duty hours, leaves, and attendance percentage summary.',
+    category: 'attendance',
+    targetTab: 'attendance',
+    formats: ['excel', 'pdf']
+  },
+  {
+    id: 'payroll',
+    title: 'Payroll Report',
+    desc: 'Statutory Wage & Salary Register with attendance breakdown, wage rates, earnings & deductions.',
+    category: 'payroll',
+    targetTab: 'payroll',
+    formats: ['excel', 'pdf']
+  },
+  {
+    id: 'billing',
+    title: 'Billing Report',
+    desc: 'View billing information grouped by client/company with deployed workforce and overtime.',
+    category: 'billing',
+    targetTab: 'billing',
+    formats: ['excel', 'pdf']
+  },
+  {
+    id: 'employee',
+    title: 'Employee Master Report',
+    desc: 'Complete employee master profiles, statutory numbers (PF/ESI/UAN) and bank details.',
+    category: 'employee',
+    targetTab: 'employee',
+    formats: ['excel', 'pdf']
+  },
+  {
+    id: 'inventory',
+    title: 'Inventory Report',
+    desc: 'View inventory stock, issued uniforms, assets, damaged/lost items and total valuations.',
+    category: 'inventory',
+    targetTab: 'inventory',
+    formats: ['excel', 'pdf']
+  },
+
+  // --- PF Reports (Exact items from User Screenshot) ---
+  {
+    id: 'epf-form-11',
+    title: 'EPF Form 11 - Declaration Form',
+    desc: 'Declaration form to be submitted by an employee on joining an establishment under EPF Scheme.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-challan',
+    title: 'PF  challan',
+    desc: 'Monthly EPFO payment challan and contribution payment confirmation slip.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-form-3a',
+    title: 'PF - Form 3A',
+    desc: 'Member annual contribution card showing monthly wages, EPF and EPS deductions.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-form-5',
+    title: 'PF - Form 5',
+    desc: 'Statutory return of employees qualifying for membership to the Employees\' Provident Fund.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-form-6a',
+    title: 'PF - Form 6A -',
+    desc: 'Consolidated annual statement of contributions for each member for the financial year.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-form-10',
+    title: 'PF - Form 10 -',
+    desc: 'Statutory return of members leaving service during the month with exit dates and reasons.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-form-12a',
+    title: 'PF - Form 12A -',
+    desc: 'Monthly statement of contributions paid under EPF, EPS and EDLI schemes.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-ecr-excel',
+    title: 'PF ECR',
+    desc: 'Electronic Challan Cum Return (ECR) Excel format with employee UAN wage breakdown.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'pf-ecr-text',
+    title: 'PF ECR (Text Format)',
+    desc: 'EPFO unified portal raw text format Electronic Challan Cum Return file for bulk upload.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'pf-report-employee-wise',
+    title: 'PF Peport Employee Wise',
+    desc: 'Employee-wise PF gross wages, employee (12%) and employer (3.67% + 8.33%) contribution sheet.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'pf-report-location-wise',
+    title: 'PF Report Loction Wise',
+    desc: 'Branch and location-wise consolidated statutory PF contribution summary.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'pf-summary-report',
+    title: 'PF Summry Report',
+    desc: 'Consolidated summary statement of monthly PF statutory liability and accounts.',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'pf-form-2-revised',
+    title: 'PF-Form-2_Revised_',
+    desc: 'Nomination and declaration form under Employees\' Provident Funds & Pension Schemes (Revised).',
+    category: 'pf',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+
+  // --- ESI Reports (Exact items from User Screenshot) ---
+  {
+    id: 'esi-form-7-opt1',
+    title: 'ESI - Form 7 - Half Yearly Report (option-1)',
+    desc: 'Half-yearly return of contributions under Regulation 26 of ESI Act (Option 1).',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esi-form-7-opt2',
+    title: 'ESI - Form 7 - Half Yearly Report(Option-2)',
+    desc: 'Detailed branch-wise Half-Yearly Return of contributions statement (Option 2).',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esi-challan',
+    title: 'ESI Challan',
+    desc: 'Monthly ESIC payment challan and bank contribution receipt copy.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esi-form-1',
+    title: 'ESI Form 1 Declaration Form',
+    desc: 'Declaration form for registration of newly joined insured persons.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esi-summary-employee-pdf',
+    title: 'ESI Summry Employee Wise',
+    desc: 'Employee-wise ESI wages, employee contribution (0.75%) and employer share (3.25%).',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esi-summary-employee-xls',
+    title: 'ESI Summry Employee Wise.xls',
+    desc: 'Excel spreadsheet of employee-wise ESI calculation and insured person numbers.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'esi-summary-location-pdf',
+    title: 'ESI Summry Location Wise',
+    desc: 'Location and site-wise distribution of insured employees and ESI contribution amounts.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esi-summary-location-xls',
+    title: 'ESI Summry Location Wise.xls',
+    desc: 'Excel summary of location-wise total ESI wages and payable statutory liability.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['excel']
+  },
+  {
+    id: 'esic-form-3',
+    title: 'ESIC Form3_Return_Declaration_ESI',
+    desc: 'Return of declaration form for insured persons submitted to ESIC.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'esic-returns-form-5',
+    title: 'ESIC-Returns-Form-5',
+    desc: 'Statutory half-yearly return of contributions under ESIC General Regulations.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+    id: 'form-11-accident-book',
+    title: 'Form 11 Accident Book',
+    desc: 'Official register of notices of accidents and workplace injury records under ESI rules.',
+    category: 'esi',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  }
+];
 
 /* =========================================================
    1. Wage / Salary Register Table (Matching Image 2 Layout)
@@ -1097,6 +1351,8 @@ function Reports() {
   const [toastMessage, setToastMessage] = useState(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [explorerCategory, setExplorerCategory] = useState('all');
+  const [catalogSearch, setCatalogSearch] = useState('');
 
   // Dynamic API state
   const [overviewStats, setOverviewStats] = useState({
@@ -1248,17 +1504,24 @@ function Reports() {
     setToastMessage('✓ Report filters reset.');
   };
 
-  const displayTitle = activeReport ? reportMeta[activeReport]?.title : 'Reports Management';
-  const displayDescription = activeReport
-    ? reportMeta[activeReport]?.description
-    : 'View, generate and export dynamic HRMS statutory registers and compliance reports.';
+  const getCategoryCount = (catId) => {
+    if (catId === 'all') return ALL_REPORTS_CATALOG.length;
+    return ALL_REPORTS_CATALOG.filter((r) => r.category === catId).length;
+  };
 
-  const overviewCards = [
-    { label: 'Available Reports', value: '5', icon: FileBarChart, tone: styles.cardBlue },
-    { label: 'Generated Today', value: String(overviewStats.stats?.generatedToday || '8'), icon: CheckCircle2, tone: styles.cardGreen },
-    { label: 'Total Companies', value: String(overviewStats.stats?.totalCompanies || '1'), icon: Building2, tone: styles.cardPurple },
-    { label: 'Total Records', value: Number(overviewStats.stats?.totalRecords || 1248).toLocaleString('en-IN'), icon: Database, tone: styles.cardOrange }
-  ];
+  const filteredCatalog = useMemo(() => {
+    return ALL_REPORTS_CATALOG.filter((item) => {
+      const matchesCategory = explorerCategory === 'all' || item.category === explorerCategory;
+      const q = catalogSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [explorerCategory, catalogSearch]);
+
+  const activeCategoryObj = REPORT_CATEGORIES.find((c) => c.id === explorerCategory);
 
   return (
     <AdminLayout>
@@ -1271,121 +1534,203 @@ function Reports() {
           />
         )}
 
-        <div className={styles.breadcrumb}>
-          <span
-            onClick={() => navigate('/admin/dashboard')}
-            style={{ cursor: 'pointer' }}
-          >
-            Dashboard
-          </span>
-          <span>/</span>
-          <span
-            onClick={handleBackToReports}
-            style={{
-              cursor: activeReport ? 'pointer' : 'default',
-              color: activeReport ? 'var(--primary-color, #2563eb)' : 'inherit',
-              fontWeight: activeReport ? 500 : 600
-            }}
-          >
-            Reports
-          </span>
-          {activeReport && (
-            <>
-              <span>/</span>
-              <strong>{reportMeta[activeReport]?.title}</strong>
-            </>
-          )}
-        </div>
-
-        <header className={styles.pageHeader}>
-          <div className={styles.pageHeaderContent}>
-            <h1>{displayTitle}</h1>
-            <p className={styles.pageDescription}>{displayDescription}</p>
-          </div>
-          {activeReport && (
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => setIsExportOpen(true)}
-            >
-              <Download size={16} /> Export Report
-            </button>
-          )}
-        </header>
-
         {!activeReport ? (
           <>
-            {/* Top Overview Cards */}
-            <div className={styles.summaryGrid}>
-              {overviewCards.map(({ label, value, icon: Icon, tone }) => (
-                <div key={label} className={styles.summaryCard}>
-                  <div className={styles.summaryContent}>
-                    <span className={styles.summaryLabel}>{label}</span>
-                    <strong className={styles.summaryValue}>{value}</strong>
-                  </div>
-                  <span className={`${styles.summaryIcon} ${tone}`}>
-                    <Icon size={20} />
-                  </span>
-                </div>
-              ))}
+            {/* Explorer Breadcrumb */}
+            <div className={styles.breadcrumb}>
+              <span
+                onClick={() => navigate('/admin/dashboard')}
+                style={{ cursor: 'pointer' }}
+              >
+                Reports
+              </span>
+              <span>/</span>
+              <strong>{activeCategoryObj?.label || 'All Reports'}</strong>
             </div>
 
-            {/* Report Category Cards */}
-            <section className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <div>
-                  <h2 className={styles.sectionTitle}>HRMS & Statutory Compliance Reports</h2>
+            {/* Explorer Page Header */}
+            <header className={styles.pageHeader} style={{ marginBottom: '16px' }}>
+              <div className={styles.pageHeaderContent}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <BarChart3 size={24} color="#2563eb" />
+                  <h1 style={{ margin: 0, fontSize: '22px' }}>Reports</h1>
                 </div>
+                <p className={styles.pageDescription} style={{ marginTop: '6px' }}>
+                  Generate, analyze and export dynamic reports related to attendance, payroll, billing, employee master, PF and ESI compliance.
+                </p>
               </div>
-              <div className={styles.reportGrid}>
-                {reportCategoryConfigs.map((report) => {
-                  const Icon = report.icon;
-                  const count = overviewStats.categories?.[report.id] || 0;
-                  return (
-                    <div key={report.id} className={styles.reportCard}>
-                      <div className={styles.reportCardHeader}>
-                        <span className={`${styles.reportIcon} ${styles[report.accent] || ''}`}>
-                          <Icon size={18} />
-                        </span>
-                        <span className={styles.reportRecords}>{count} records</span>
+            </header>
+
+            {/* 2-Column Reports Explorer (Matching Reference Image) */}
+            <div className={styles.reportsExplorerLayout}>
+              {/* Left Sidebar Filter Panel */}
+              <aside className={styles.explorerSidebar}>
+                <div className={styles.explorerSearchWrap}>
+                  <input
+                    type="text"
+                    className={styles.explorerSearchInput}
+                    placeholder="Search Reports"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                  />
+                  {catalogSearch ? (
+                    <button
+                      type="button"
+                      className={styles.explorerClearBtn}
+                      onClick={() => setCatalogSearch('')}
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : (
+                    <span style={{ position: 'absolute', right: 10, color: '#94a3b8', pointerEvents: 'none', display: 'flex' }}>
+                      <Search size={14} />
+                    </span>
+                  )}
+                </div>
+
+                <ul className={styles.categoryList}>
+                  {REPORT_CATEGORIES.map((cat) => {
+                    const count = getCategoryCount(cat.id);
+                    const isActive = explorerCategory === cat.id;
+                    return (
+                      <li key={cat.id}>
+                        <button
+                          type="button"
+                          className={`${styles.categoryBtn} ${isActive ? styles.categoryBtnActive : ''}`}
+                          onClick={() => setExplorerCategory(cat.id)}
+                        >
+                          <span className={isActive ? styles.sidebarActiveDot : styles.sidebarDot} />
+                          <span>{cat.label}</span>
+                          <span className={styles.categoryBadge}>{count}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </aside>
+
+              {/* Right Grid of Report Cards */}
+              <main style={{ minWidth: 0 }}>
+                {filteredCatalog.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>No reports found matching "{catalogSearch}".</p>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                      style={{ marginTop: '12px', fontSize: '13px' }}
+                    >
+                      Show All Reports
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.explorerCardsGrid}>
+                    {filteredCatalog.map((item) => (
+                      <div key={item.id} className={styles.referenceReportCard}>
+                        <div>
+                          <div className={styles.cardFormatIcons}>
+                            {item.formats.includes('excel') && (
+                              <span title="Excel Spreadsheet (.xlsx)" className={styles.iconExcel} style={{ display: 'inline-flex' }}>
+                                <FileSpreadsheet size={16} />
+                              </span>
+                            )}
+                            {item.formats.includes('pdf') && (
+                              <span title="Printable PDF (.pdf)" className={styles.iconPdf} style={{ display: 'inline-flex' }}>
+                                <FileText size={16} />
+                              </span>
+                            )}
+                          </div>
+                          <div className={styles.cardBody}>
+                            <h4 className={styles.cardTitle}>{item.title}</h4>
+                            <p className={styles.cardDesc}>{item.desc}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className={styles.cardOpenBtn}
+                          onClick={() => handleSelectReport(item.targetTab)}
+                        >
+                          Open <ArrowRight size={13} />
+                        </button>
                       </div>
-                      <h4>{report.name}</h4>
-                      <p>{report.description}</p>
-                      <button
-                        type="button"
-                        className={styles.primaryButton}
-                        onClick={() => handleSelectReport(report.id)}
-                      >
-                        View Report
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
+                    ))}
+                  </div>
+                )}
+              </main>
+            </div>
           </>
         ) : (
-          <ReportBody
-            activeReport={activeReport}
-            searchTerm={searchTerm}
-            filters={filters}
-            filterOptions={filterOptions}
-            setFilter={(key, value) => {
-              if (key === 'activeReport') {
-                if (value) navigate(`/admin/reports?tab=${value}`);
-                else handleBackToReports();
-              } else if (key === 'searchTerm') {
-                setSearchTerm(value);
-              } else {
-                updateFilter(key, value);
-              }
-            }}
-            reportData={reportData}
-            isLoading={isLoading}
-            onGenerateReport={handleGenerateReport}
-            onResetFilters={handleResetFilters}
-            setExportOpen={setIsExportOpen}
-          />
+          <>
+            {/* Active Report Header & Navigation */}
+            <div className={styles.breadcrumb}>
+              <span
+                onClick={() => navigate('/admin/dashboard')}
+                style={{ cursor: 'pointer' }}
+              >
+                Dashboard
+              </span>
+              <span>/</span>
+              <span
+                onClick={handleBackToReports}
+                style={{
+                  cursor: 'pointer',
+                  color: 'var(--primary-color, #2563eb)',
+                  fontWeight: 500
+                }}
+              >
+                Reports
+              </span>
+              <span>/</span>
+              <strong>{reportMeta[activeReport]?.title}</strong>
+            </div>
+
+            <header className={styles.pageHeader}>
+              <div className={styles.pageHeaderContent}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <button
+                    type="button"
+                    onClick={handleBackToReports}
+                    className={styles.secondaryButton}
+                    style={{ padding: '6px 12px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    <ArrowLeft size={15} /> Back to Reports
+                  </button>
+                  <h1 style={{ margin: 0, fontSize: '22px' }}>{reportMeta[activeReport]?.title}</h1>
+                </div>
+                <p className={styles.pageDescription} style={{ marginTop: '6px' }}>{reportMeta[activeReport]?.description}</p>
+              </div>
+              <button
+                type="button"
+                className={styles.primaryButton}
+                onClick={() => setIsExportOpen(true)}
+              >
+                <Download size={16} /> Export Report
+              </button>
+            </header>
+
+            <ReportBody
+              activeReport={activeReport}
+              searchTerm={searchTerm}
+              filters={filters}
+              filterOptions={filterOptions}
+              setFilter={(key, value) => {
+                if (key === 'activeReport') {
+                  if (value) navigate(`/admin/reports?tab=${value}`);
+                  else handleBackToReports();
+                } else if (key === 'searchTerm') {
+                  setSearchTerm(value);
+                } else {
+                  updateFilter(key, value);
+                }
+              }}
+              reportData={reportData}
+              isLoading={isLoading}
+              onGenerateReport={handleGenerateReport}
+              onResetFilters={handleResetFilters}
+              setExportOpen={setIsExportOpen}
+            />
+          </>
         )}
 
         <ExportReportModal

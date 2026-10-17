@@ -104,8 +104,14 @@ class AttendanceService {
   /**
    * Get correction requests
    */
-  async getCorrectionRequests(companyId) {
-    const res = await fetch(`${API_BASE_URL}/attendance/corrections`, {
+  async getCorrectionRequests(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.status) query.append('status', params.status);
+    if (params.employeeId) query.append('employeeId', params.employeeId);
+    if (companyId) query.append('companyId', companyId);
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const res = await fetch(`${API_BASE_URL}/attendance/corrections${queryString}`, {
       method: 'GET',
       headers: this.getHeaders(companyId),
     });
@@ -140,13 +146,14 @@ class AttendanceService {
   /**
    * Review (approve / reject) correction request
    */
-  async reviewCorrectionRequest(companyId, correctionId, action, rejectReason = '') {
+  async reviewCorrectionRequest(companyId, correctionId, action, rejectReason = '', adminRemarks = '') {
     const res = await fetch(`${API_BASE_URL}/attendance/corrections/${correctionId}`, {
       method: 'PUT',
       headers: this.getHeaders(companyId),
       body: JSON.stringify({
         action,
         rejectReason,
+        adminRemarks,
       }),
     });
 

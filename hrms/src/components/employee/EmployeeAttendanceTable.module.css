@@ -89,13 +89,26 @@ tbody tr:hover {
     color: var(--primary);
 }
 
-.viewButton {
+.actionsWrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.viewButton,
+.correctButton {
     display: grid;
     place-items: center;
     width: 30px;
     height: 30px;
     border: 1px solid var(--border);
     border-radius: var(--radius-xs);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.viewButton {
     color: var(--primary);
 }
 
@@ -103,6 +116,17 @@ tbody tr:hover {
 .viewButton:focus-visible {
     background: var(--primary-light);
     border-color: var(--primary);
+    outline: none;
+}
+
+.correctButton {
+    color: #d97706;
+}
+
+.correctButton:hover,
+.correctButton:focus-visible {
+    background: #fffbeb;
+    border-color: #d97706;
     outline: none;
 }
 

@@ -11,12 +11,14 @@ function CorrectionReviewDrawer({ request, onClose, onApprove, onReject }) {
 
   if (!request) return null;
 
+  const targetId = request._id || request.id || request.correctionId;
+
   const handleReject = () => {
     if (!rejectReason.trim()) {
       setRejectError('Please provide a rejection reason.');
       return;
     }
-    onReject(request.id, rejectReason);
+    onReject(targetId, rejectReason);
   };
 
   return (
@@ -116,7 +118,7 @@ function CorrectionReviewDrawer({ request, onClose, onApprove, onReject }) {
               <button className={styles.rejectBtn} onClick={() => setShowRejectInput(true)}>
                 <XCircle size={16} /> Reject
               </button>
-              <button className={styles.approveBtn} onClick={() => onApprove(request.id)}>
+              <button className={styles.approveBtn} onClick={() => onApprove(targetId)}>
                 <CheckCircle size={16} /> Approve
               </button>
             </>

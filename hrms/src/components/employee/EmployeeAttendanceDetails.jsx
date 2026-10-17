@@ -1,8 +1,8 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Clock } from 'lucide-react';
 import styles from './EmployeeAttendanceDetails.module.css';
 
-function EmployeeAttendanceDetails({ record, onClose }) {
+function EmployeeAttendanceDetails({ record, onClose, onRequestCorrection }) {
   if (!record) return null;
   const dateDisplay = record.date ? (
     !isNaN(new Date(`${record.date}T00:00:00`).getTime())
@@ -21,6 +21,13 @@ function EmployeeAttendanceDetails({ record, onClose }) {
     ['Site', record.site || 'Main Site'],
     ['Department', record.department || 'Operations']
   ];
+
+  const handleRequestCorrection = () => {
+    if (onRequestCorrection) {
+      onRequestCorrection(record);
+      onClose();
+    }
+  };
 
   return (
     <div className={styles.backdrop} onMouseDown={onClose}>
@@ -42,6 +49,19 @@ function EmployeeAttendanceDetails({ record, onClose }) {
             </div>
           ))}
         </dl>
+
+        {onRequestCorrection && (
+          <div className={styles.footerAction}>
+            <button
+              type="button"
+              className={styles.correctActionBtn}
+              onClick={handleRequestCorrection}
+            >
+              <Clock size={16} />
+              <span>Request Correction for this Day</span>
+            </button>
+          </div>
+        )}
       </aside>
     </div>
   );

@@ -61,10 +61,37 @@ const attendanceCorrectionSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    requestedStatus: {
+      type: String,
+      default: 'Present',
+    },
+    category: {
+      type: String,
+      default: 'General',
+    },
     reason: {
       type: String,
       required: [true, 'Please provide a reason for the correction'],
       trim: true,
+    },
+    rejectReason: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    adminRemarks: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedBy: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    reviewedAt: {
+      type: String,
+      default: '',
     },
     submittedAt: {
       type: String,
@@ -72,7 +99,7 @@ const attendanceCorrectionSchema = new mongoose.Schema(
     },
     submittedBy: {
       type: String,
-      default: 'Admin',
+      default: 'Employee',
     },
     status: {
       type: String,
