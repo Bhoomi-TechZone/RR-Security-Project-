@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
   WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
-  Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown
+  Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -217,16 +217,7 @@ const NAV_GROUPS = [
         path: '/admin/reports',
         name: 'Reports',
         icon: BarChart3,
-        moduleKey: 'reports',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/reports', name: 'All Reports' },
-          { path: '/admin/reports?tab=attendance', name: 'Attendance Report' },
-          { path: '/admin/reports?tab=payroll', name: 'Payroll Report' },
-          { path: '/admin/reports?tab=billing', name: 'Billing Report' },
-          { path: '/admin/reports?tab=employee', name: 'Employee Master Report' },
-          { path: '/admin/reports?tab=inventory', name: 'Inventory Report' },
-        ]
+        moduleKey: 'reports'
       },
     ]
   },
@@ -307,7 +298,7 @@ const NAV_GROUPS = [
       },
       {
         path: '/admin/templates',
-        name: 'Templates',
+        name: 'Template Setup',
         icon: FileText,
         moduleKey: 'templates',
         hasDropdown: true,
@@ -320,6 +311,12 @@ const NAV_GROUPS = [
           { path: '/admin/templates?tab=full-final-letter', name: 'Full & Final Letter' },
           /*{ path: '/admin/templates?tab=email', name: 'Email Templates' },*/
         ]
+      },
+      {
+        path: '/admin/letter-management',
+        name: 'Letter Management',
+        icon: FileSignature,
+        moduleKey: 'letter_management'
       },
       {
         path: '/admin/document-compliance',
@@ -370,7 +367,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/overtime': location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/'),
       '/admin/leave': location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/'),
       '/admin/inventory': location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/'),
-      '/admin/reports': location.pathname === '/admin/reports' || location.pathname.startsWith('/admin/reports/'),
       '/admin/work-locations': location.pathname === '/admin/work-locations' || location.pathname.startsWith('/admin/work-locations/'),
       '/admin/masters': location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/'),
       '/admin/roles-permissions': location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/'),
@@ -422,9 +418,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/inventory': true }));
-    }
-    if (location.pathname === '/admin/reports' || location.pathname.startsWith('/admin/reports/')) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/reports': true }));
     }
     if (location.pathname === '/admin/work-locations' || location.pathname.startsWith('/admin/work-locations/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/work-locations': true }));
@@ -650,7 +643,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
         {/* Sidebar Footer (Profile / Logout) */}
         <div className={styles.sidebarFooter}>
-          <div className={styles.profileRow}>
+          {/* <div className={styles.profileRow}>
             <Avatar
               initials={isAdmin ? 'AD' : (currentUser?.initials || 'AD')}
               size={isCollapsed ? 'sm' : 'md'}
@@ -662,7 +655,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                 <span className={styles.profileRole}>Administrator</span>
               </div>
             )}
-          </div>
+          </div> */}
 
           <button
             type="button"

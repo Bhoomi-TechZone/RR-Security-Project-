@@ -46,6 +46,90 @@
 	font-size: 13px;
 }
 
+.headerActions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+}
+
+.requestBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	height: 40px;
+	padding: 0 16px;
+	border: none;
+	border-radius: var(--radius-sm, 6px);
+	background: var(--primary, #2563eb);
+	color: #ffffff;
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	box-shadow: 0 1px 3px rgba(37, 99, 235, 0.2);
+	transition: all 0.15s ease;
+	white-space: nowrap;
+}
+
+.requestBtn:hover {
+	background: var(--primary-dark, #1d4ed8);
+	transform: translateY(-1px);
+}
+
+.tabsBar {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	border-bottom: 2px solid var(--border-light, #f1f5f9);
+	padding-bottom: 2px;
+	margin-top: -6px;
+}
+
+.tabBtn {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	padding: 10px 18px;
+	border: none;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: var(--text-secondary, #64748b);
+	font-size: 13px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.15s ease;
+	margin-bottom: -4px;
+	border-radius: 6px 6px 0 0;
+}
+
+.tabBtn:hover {
+	color: var(--text-primary, #0f172a);
+	background: #f8fafc;
+}
+
+.tabBtnActive {
+	color: var(--primary, #2563eb) !important;
+	border-bottom-color: var(--primary, #2563eb) !important;
+	background: #eff6ff !important;
+}
+
+.tabBadge {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	padding: 1px 7px;
+	border-radius: 9999px;
+	font-size: 11px;
+	font-weight: 700;
+	background: #fef3c7;
+	color: #b45309;
+}
+
+.tabBtnActive .tabBadge {
+	background: #dbeafe;
+	color: #1e40af;
+}
+
 .monthSelector {
 	display: grid;
 	gap: 6px;

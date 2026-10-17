@@ -586,12 +586,21 @@ export const deleteAttendanceRecord = async (req, res) => {
  */
 export const getCorrectionRequests = async (req, res) => {
   try {
-    const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const companyId = req.headers['x-company-id'] || req.query.companyId || req.user?.companyId;
+    const { status, employeeId } = req.query;
 
-    const corrections = await AttendanceCorrection.find({
-      companyId,
-      status: 'pendingCorrection',
-    }).sort({ createdAt: -1 });
+    const query = {};
+    if (companyId) {
+      query.companyId = companyId;
+    }
+    if (employeeId) {
+      query.employeeId = employeeId;
+    }
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+
+    const corrections = await AttendanceCorrection.find(query).sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -614,8 +623,8 @@ export const getCorrectionRequests = async (req, res) => {
  */
 export const submitCorrectionRequest = async (req, res) => {
   try {
-    const adminEmail = req.user.email.toLowerCase();
-    const companyId = req.headers['x-company-id'] || req.body.companyId;
+    const adminEmail = (req.user?.adminEmail || req.user?.email || 'admin@rrsecurity.com').toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId || req.user?.companyId || 'RRS8392014SEC';
     const {
       attendanceId,
       employeeId,
@@ -629,11 +638,14 @@ export const submitCorrectionRequest = async (req, res) => {
       originalStatus,
       requestedCheckIn,
       requestedCheckOut,
+      requestedStatus,
+      category,
       reason,
     } = req.body;
 
+    const empName = employeeName || req.user?.name || 'Employee';
     const initials =
-      (employeeName || 'EM')
+      empName
         .split(' ')
         .map((n) => n[0])
         .join('')
@@ -642,21 +654,23 @@ export const submitCorrectionRequest = async (req, res) => {
 
     const correction = await AttendanceCorrection.create({
       correctionId: `CORR${String(Date.now()).slice(-4)}`,
-      attendanceId,
-      employeeId,
-      employeeName,
+      attendanceId: attendanceId || `att_${Date.now()}`,
+      employeeId: employeeId || req.user?.employeeId || req.user?.id,
+      employeeName: empName,
       initials,
-      clientName: clientName || companyName || '',
-      companyName: clientName || companyName || '',
-      site: site || 'Main Site',
+      clientName: clientName || companyName || req.user?.clientName || '',
+      companyName: companyName || clientName || req.user?.companyName || '',
+      site: site || req.user?.site || 'Main Site',
       date,
-      originalCheckIn,
-      originalCheckOut,
+      originalCheckIn: originalCheckIn || 'Missing',
+      originalCheckOut: originalCheckOut || 'Missing',
       originalStatus: originalStatus || 'present',
       requestedCheckIn,
       requestedCheckOut,
+      requestedStatus: requestedStatus || 'Present',
+      category: category || 'General',
       reason,
-      submittedBy: req.user.name || 'Admin',
+      submittedBy: req.user?.name || empName || 'Employee',
       status: 'pendingCorrection',
       companyId,
       adminEmail,
@@ -695,7 +709,7 @@ export const submitCorrectionRequest = async (req, res) => {
 export const reviewCorrectionRequest = async (req, res) => {
   try {
     const { id } = req.params;
-    const { action, rejectReason } = req.body; // 'approve' or 'reject'
+    const { action, rejectReason, adminRemarks } = req.body; // 'approve' or 'reject'
 
     let correction = null;
     try {
@@ -713,8 +727,12 @@ export const reviewCorrectionRequest = async (req, res) => {
       });
     }
 
+    correction.reviewedBy = req.user?.name || 'Admin';
+    correction.reviewedAt = new Date().toISOString();
+
     if (action === 'approve') {
       correction.status = 'approved';
+      correction.adminRemarks = adminRemarks || 'Approved by administrator';
       await correction.save();
 
       // Calculate approximate working hours if in & out provided
@@ -753,19 +771,23 @@ export const reviewCorrectionRequest = async (req, res) => {
             checkIn: correction.requestedCheckIn,
             checkOut: correction.requestedCheckOut,
             workingHours: workingHours || '8h 00m',
-            status: 'present',
+            status: (correction.requestedStatus || 'present').toLowerCase().replace(/\s+/g, ''),
             lateMinutes: 0,
             earlyOutMinutes: 0,
           },
-        }
+        },
+        { upsert: true, new: true }
       );
 
       return res.status(200).json({
         success: true,
         message: `Correction request approved for ${correction.employeeName}. Attendance updated in database.`,
+        correction: correction.toJSON(),
       });
     } else {
       correction.status = 'rejected';
+      correction.rejectReason = rejectReason || 'Correction request rejected by admin.';
+      correction.adminRemarks = rejectReason || 'Rejected by administrator';
       await correction.save();
 
       // Revert attendance status
@@ -777,7 +799,7 @@ export const reviewCorrectionRequest = async (req, res) => {
         },
         {
           $set: {
-            status: correction.originalStatus || 'present',
+            status: (correction.originalStatus || 'present').toLowerCase().replace(/\s+/g, ''),
           },
         }
       );
@@ -785,6 +807,7 @@ export const reviewCorrectionRequest = async (req, res) => {
       return res.status(200).json({
         success: true,
         message: `Correction request rejected for ${correction.employeeName}.`,
+        correction: correction.toJSON(),
       });
     }
   } catch (error) {

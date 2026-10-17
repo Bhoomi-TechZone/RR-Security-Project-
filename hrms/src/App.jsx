@@ -44,6 +44,7 @@ import Preferences from './pages/admin/Preferences'
 import Templates from './pages/admin/Templates'
 import DocumentCompliance from './pages/admin/DocumentCompliance'
 import Reimbursements from './pages/admin/Reimbursements'
+import LetterManagement from './pages/admin/LetterManagement'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
 import ModulePermissionRoute from './components/common/ModulePermissionRoute'
@@ -85,6 +86,8 @@ function App() {
       <Route path="/admin/masters" element={<AdminRoute><Masters /></AdminRoute>} />
       <Route path="/admin/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
       <Route path="/admin/leave" element={<AdminRoute><Leave /></AdminRoute>} />
+      <Route path="/admin/letter-management" element={<AdminRoute><LetterManagement /></AdminRoute>} />
+      <Route path="/admin/letters" element={<AdminRoute><LetterManagement /></AdminRoute>} />
       <Route path="/admin/overtime" element={<AdminRoute><Overtime /></AdminRoute>} />
       <Route path="/admin/shifts" element={<AdminRoute><ShiftManagement /></AdminRoute>} />
       <Route path="/admin/inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
