@@ -68,13 +68,11 @@ const SETTINGS_SECTIONS = [
     items: [
       { name: 'Bank', route: '/admin/masters?tab=banks' },
       { name: 'Employee Type', route: '/admin/masters?tab=employee-types' },
-      { name: 'Client', route: '/admin/masters?tab=clients' },
       { name: 'Site', route: '/admin/masters?tab=sites' },
       { name: 'Post', route: '/admin/masters?tab=posts' },
       { name: 'Shift', route: '/admin/masters?tab=shifts' },
       { name: 'Leave Type', route: '/admin/masters?tab=leave-types' },
       { name: 'Holiday', route: '/admin/masters?tab=holidays' },
-      { name: 'Salary Components', route: '/admin/masters?tab=salary-components' },
       { name: 'Document Types', route: '/admin/masters?tab=document-types' }
     ]
   },

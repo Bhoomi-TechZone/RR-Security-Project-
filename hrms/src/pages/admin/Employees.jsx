@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Plus, Users, UploadCloud } from 'lucide-react';
 import styles from './Employees.module.css';
 
@@ -7,7 +7,6 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import EmployeeSummaryCards from '../../components/employees/EmployeeSummaryCards';
 import EmployeeFilters from '../../components/employees/EmployeeFilters';
 import EmployeeTable from '../../components/employees/EmployeeTable';
-import EmployeeForm from '../../components/employees/EmployeeForm';
 import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
 import EmployeeCredentialsModal from '../../components/employees/EmployeeCredentialsModal';
 import EmployeePayslipModal from '../../components/employees/EmployeePayslipModal';
@@ -30,8 +29,12 @@ const ITEMS_PER_PAGE = 10;
 
 function Employees() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeCompany } = useCompany();
   const { canAdd, canEdit, canDelete, canExport } = usePermissions();
+
+  const isUserPanel = location.pathname.startsWith('/user');
+  const addEmployeePath = isUserPanel ? '/user/employees/add' : '/admin/employees/add';
 
   const [employees, setEmployees] = useState([]);
   const [clients, setClients] = useState([]);
@@ -97,10 +100,9 @@ function Employees() {
     }
 
     if (searchParams.get('action') === 'add') {
-      setEditingEmployee(null);
-      setIsFormOpen(true);
+      navigate(addEmployeePath, { replace: true });
     }
-  }, [searchParams, companyIdParam]);
+  }, [searchParams, companyIdParam, addEmployeePath, navigate]);
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
@@ -231,14 +233,17 @@ function Employees() {
     const handleSync = () => {
       fetchFilterMasters();
       if (isFormOpen) fetchFormMasters();
+      fetchEmployees();
     };
     window.addEventListener('clients-updated', handleSync);
     window.addEventListener('masters-updated', handleSync);
+    window.addEventListener('employees-updated', handleSync);
     return () => {
       window.removeEventListener('clients-updated', handleSync);
       window.removeEventListener('masters-updated', handleSync);
+      window.removeEventListener('employees-updated', handleSync);
     };
-  }, [fetchFilterMasters, fetchFormMasters, isFormOpen]);
+  }, [fetchFilterMasters, fetchFormMasters, isFormOpen, fetchEmployees]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
@@ -336,13 +341,13 @@ function Employees() {
   // Action menu handler
   const handleActionClick = (actionType, employee) => {
     if (actionType === 'view') {
-      navigate(`/admin/employees/${employee.id || employee._id || employee.employeeId}`);
+      navigate(isUserPanel ? `/user/employees/${employee.id || employee._id || employee.employeeId}` : `/admin/employees/${employee.id || employee._id || employee.employeeId}`);
     } else if (actionType === 'edit') {
-      setEditingEmployee(employee);
-      setIsFormOpen(true);
+      const empId = employee.id || employee._id || employee.employeeId;
+      navigate(isUserPanel ? `/user/employees/${empId}/edit` : `/admin/employees/${empId}/edit`);
     } else if (actionType === 'transfer') {
-      setTransferEmployee(employee);
-      setIsTransferOpen(true);
+      const empId = employee.id || employee._id || employee.employeeId;
+      navigate(isUserPanel ? `/user/employees/transfer?empId=${empId}` : `/admin/employees/transfer?empId=${empId}`);
     } else if (actionType === 'download') {
       downloadEmployeeProfile(employee, activeCompany);
     } else if (actionType === 'credentials') {
@@ -510,25 +515,6 @@ function Employees() {
           onClose={() => setToast({ message: '', type: 'success' })}
         />
 
-        {/* Add/Edit Form */}
-        <EmployeeForm
-          isOpen={isFormOpen}
-          onClose={() => { setIsFormOpen(false); setEditingEmployee(null); }}
-          onSubmit={handleFormSubmit}
-          employee={editingEmployee}
-          clients={clients}
-          departments={departments}
-          designations={designations}
-          employeeTypes={employeeTypes}
-          sites={sites}
-          posts={posts}
-          shifts={shifts}
-          banks={banks}
-          documentTypes={documentTypes}
-          workLocations={workLocations}
-          employeesCount={employees.length}
-        />
-
         {/* Credentials Modal */}
         <EmployeeCredentialsModal
           isOpen={isCredentialsOpen}
@@ -614,7 +600,7 @@ function Employees() {
             {canAdd('employees') && (
               <button
                 className={styles.addBtn}
-                onClick={() => { setEditingEmployee(null); setIsFormOpen(true); }}
+                onClick={() => navigate(addEmployeePath)}
                 aria-label="Add a new employee"
               >
                 <Plus size={16} />
@@ -660,7 +646,7 @@ function Employees() {
               title="No employees yet"
               description={`Add your first employee for ${activeCompany?.name || 'this company profile'}.`}
               actionLabel="+ Add Employee"
-              onAction={() => setIsFormOpen(true)}
+              onAction={() => navigate(addEmployeePath)}
             />
           </div>
         ) : (

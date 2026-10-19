@@ -405,7 +405,7 @@ function PayrollSetup() {
               <button
                 type="button"
                 className={styles.mastersLinkBtn}
-                onClick={() => navigate('/admin/masters')}
+                onClick={() => navigate('/admin/masters?tab=salary-components')}
                 title="Go to Salary Components Master"
               >
                 <span>Salary Components</span>

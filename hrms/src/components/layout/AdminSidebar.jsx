@@ -41,6 +41,7 @@ const NAV_GROUPS = [
         subItems: [
           { path: '/admin/clients', name: 'All Clients' },
           { path: '/admin/clients/billing', name: 'Billing' },
+          { path: '/admin/masters?tab=clients', name: 'Client Master' },
         ]
       },
       {
@@ -51,8 +52,7 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/employees', name: 'All Employees' },
-          { path: '/admin/employees?status=active', name: 'Active Employees' },
-          { path: '/admin/employees?status=inactive', name: 'Inactive Employees' },
+          { path: '/admin/employees/transfer', name: 'Transfer Employees' },
         ]
       },
       {
@@ -62,7 +62,8 @@ const NAV_GROUPS = [
         moduleKey: 'attendance',
         hasDropdown: true,
         subItems: [
-          { path: '/admin/attendance', name: 'Daily Attendance' },
+          { path: '/admin/attendance', name: 'Manual Attendance' },
+          { path: '/admin/biometric-attendance', name: 'Biometric Attendance' },
           { path: '/admin/attendance?tab=corrections', name: 'Correction Requests' },
         ]
       },
@@ -106,6 +107,7 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/payroll-setup', name: 'Pay Groups' },
+          { path: '/admin/masters?tab=salary-components', name: 'Salary Components' },
           { path: '/admin/payroll-setup?tab=pay-schedules', name: 'Pay Schedules' },
           { path: '/admin/payroll-setup?tab=pay-cycles', name: 'Pay Cycles' },
           { path: '/admin/payroll-setup?tab=pay-days', name: 'Pay Days' },
@@ -217,20 +219,7 @@ const NAV_GROUPS = [
         path: '/admin/masters',
         name: 'Masters',
         icon: Settings2,
-        moduleKey: 'masters',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/masters?tab=banks', name: 'Banks' },
-          { path: '/admin/masters?tab=clients', name: 'Clients' },
-          { path: '/admin/masters?tab=employee-types', name: 'Employee Types' },
-          { path: '/admin/masters?tab=sites', name: 'Sites' },
-          { path: '/admin/masters?tab=posts', name: 'Posts' },
-          { path: '/admin/masters?tab=shifts', name: 'Shifts' },
-          { path: '/admin/masters?tab=leave-types', name: 'Leave Types' },
-          { path: '/admin/masters?tab=holidays', name: 'Holidays' },
-          { path: '/admin/masters?tab=salary-components', name: 'Salary Components' },
-          { path: '/admin/masters?tab=document-types', name: 'Document Types' },
-        ]
+        moduleKey: 'masters'
       },
       {
         path: '/admin/roles-permissions',
@@ -329,12 +318,12 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
   // Track expanded state of dropdown menus
   const [openDropdowns, setOpenDropdowns] = useState(() => {
     return {
-      '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies'),
+      '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients')),
       '/admin/employees': location.pathname.startsWith('/admin/employees'),
-      '/admin/attendance': location.pathname.startsWith('/admin/attendance'),
+      '/admin/attendance': location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance'),
       '/admin/shifts': location.pathname.startsWith('/admin/shifts'),
       '/admin/payroll': location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/'),
-      '/admin/payroll-setup': location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/'),
+      '/admin/payroll-setup': location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/') || (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components')),
       '/admin/statutory-setup': location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory',
       '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/'),
       '/admin/reimbursements': location.pathname === '/admin/reimbursements' || location.pathname.startsWith('/admin/reimbursements/'),
@@ -343,7 +332,9 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/inventory': location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/'),
       '/admin/masters': (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
         !location.search.includes('tab=departments') &&
-        !location.search.includes('tab=designations'),
+        !location.search.includes('tab=designations') &&
+        !location.search.includes('tab=clients') &&
+        !location.search.includes('tab=salary-components'),
       '/admin/roles-permissions': location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/'),
       '/admin/users': location.pathname === '/admin/users' || location.pathname.startsWith('/admin/users/'),
       '/admin/preferences': location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/'),
@@ -355,13 +346,13 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
   // Automatically keep dropdown open when on matching route
   useEffect(() => {
-    if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies')) {
+    if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients'))) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/clients': true }));
     }
     if (location.pathname.startsWith('/admin/employees')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/employees': true }));
     }
-    if (location.pathname.startsWith('/admin/attendance')) {
+    if (location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/attendance': true }));
     }
     if (location.pathname.startsWith('/admin/shifts')) {
@@ -370,7 +361,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     if (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/payroll': true }));
     }
-    if (location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/')) {
+    if (location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/') || (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components'))) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/payroll-setup': true }));
     }
     if (location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory') {
@@ -390,13 +381,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/inventory': true }));
-    }
-    if (
-      (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
-      !location.search.includes('tab=departments') &&
-      !location.search.includes('tab=designations')
-    ) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/masters': true }));
     }
     if (location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/roles-permissions': true }));
@@ -498,10 +482,22 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                     ? (
                         (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
                         !location.search.includes('tab=departments') &&
-                        !location.search.includes('tab=designations')
+                        !location.search.includes('tab=designations') &&
+                        !location.search.includes('tab=clients') &&
+                        !location.search.includes('tab=salary-components')
                       )
                     : item.path === '/admin/clients'
-                    ? (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies'))
+                    ? (
+                        location.pathname.startsWith('/admin/clients') ||
+                        location.pathname.startsWith('/admin/companies') ||
+                        (location.pathname === '/admin/masters' && location.search.includes('tab=clients'))
+                      )
+                    : item.path === '/admin/payroll-setup'
+                    ? (
+                        location.pathname === '/admin/payroll-setup' ||
+                        location.pathname.startsWith('/admin/payroll-setup/') ||
+                        (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components'))
+                      )
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
                   return (
@@ -566,7 +562,8 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                         (subItem.path.includes('tab=banks') && location.pathname === '/admin/masters' && !location.search) ||
                                         (subItem.path.includes('section=company-profile') && location.pathname === '/admin/company-setup' && !location.search);
                                     } else {
-                                      isSubActive = (location.pathname === subItem.path);
+                                      isSubActive = (location.pathname === subItem.path) &&
+                                        (!location.search || subItem.path !== '/admin/attendance' || !location.search.includes('tab=corrections'));
                                     }
 
                                     return (

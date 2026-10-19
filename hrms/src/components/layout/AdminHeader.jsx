@@ -269,6 +269,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/admin/leave')) return 'Management / Leave';
     if (path.startsWith('/admin/inventory')) return 'Management / Inventory';
     if (path.startsWith('/admin/reports')) return 'Management / Reports';
+    if (path.startsWith('/admin/biometric-attendance')) return 'Workforce / Biometric Attendance';
     if (path.startsWith('/admin/attendance')) return 'Workforce / Attendance';
     if (path.startsWith('/admin/shifts')) return 'Workforce / Shifts';
     return 'Dashboard';

@@ -57,6 +57,7 @@ const USER_NAV_GROUPS = [
         subItems: [
           { path: '/user/clients', name: 'All Clients' },
           { path: '/user/clients/billing', name: 'Billing' },
+          { path: '/user/masters?tab=clients', name: 'Client Master' },
         ]
       },
       { 
@@ -67,8 +68,7 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/employees', name: 'All Employees' },
-          { path: '/user/employees?status=active', name: 'Active Employees' },
-          { path: '/user/employees?status=inactive', name: 'Inactive Employees' },
+          { path: '/user/employees/transfer', name: 'Transfer Employees' },
         ]
       },
       { 
@@ -78,7 +78,8 @@ const USER_NAV_GROUPS = [
         moduleKey: 'attendance',
         hasDropdown: true,
         subItems: [
-          { path: '/user/attendance', name: 'Daily Attendance' },
+          { path: '/user/attendance', name: 'Manual Attendance' },
+          { path: '/user/biometric-attendance', name: 'Biometric Attendance' },
           { path: '/user/attendance?tab=corrections', name: 'Correction Requests' },
         ]
       },
@@ -122,6 +123,7 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/payroll-setup', name: 'Pay Groups' },
+          { path: '/user/masters?tab=salary-components', name: 'Salary Components' },
           { path: '/user/payroll-setup?tab=pay-schedules', name: 'Pay Schedules' },
           { path: '/user/payroll-setup?tab=pay-cycles', name: 'Pay Cycles' },
           { path: '/user/payroll-setup?tab=pay-days', name: 'Pay Days' },
@@ -269,22 +271,7 @@ const USER_NAV_GROUPS = [
         path: '/user/masters', 
         name: 'Masters', 
         icon: Settings2, 
-        moduleKey: 'masters',
-        hasDropdown: true,
-        subItems: [
-          { path: '/user/masters?tab=banks', name: 'Banks' },
-          { path: '/user/masters?tab=clients', name: 'Clients' },
-          { path: '/user/masters?tab=departments', name: 'Departments' },
-          { path: '/user/masters?tab=designations', name: 'Designations' },
-          { path: '/user/masters?tab=employee-types', name: 'Employee Types' },
-          { path: '/user/masters?tab=sites', name: 'Sites' },
-          { path: '/user/masters?tab=posts', name: 'Posts' },
-          { path: '/user/masters?tab=shifts', name: 'Shifts' },
-          { path: '/user/masters?tab=leave-types', name: 'Leave Types' },
-          { path: '/user/masters?tab=holidays', name: 'Holidays' },
-          { path: '/user/masters?tab=salary-components', name: 'Salary Components' },
-          { path: '/user/masters?tab=document-types', name: 'Document Types' },
-        ]
+        moduleKey: 'masters'
       },
       { 
         path: '/user/roles-permissions', 
@@ -316,7 +303,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const [openDropdowns, setOpenDropdowns] = useState(() => ({
     '/user/clients': location.pathname.startsWith('/user/clients'),
     '/user/employees': location.pathname.startsWith('/user/employees'),
-    '/user/attendance': location.pathname.startsWith('/user/attendance'),
+    '/user/attendance': location.pathname.startsWith('/user/attendance') || location.pathname.startsWith('/user/biometric-attendance'),
     '/user/shifts': location.pathname.startsWith('/user/shifts'),
     '/user/payroll': location.pathname.startsWith('/user/payroll'),
     '/user/payroll-setup': location.pathname.startsWith('/user/payroll-setup'),
@@ -336,7 +323,14 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   // Auto-expand active route's accordion when path changes
   useEffect(() => {
     Object.keys(openDropdowns).forEach((key) => {
-      if (location.pathname === key || location.pathname.startsWith(key + '/') || location.pathname.startsWith(key + '?')) {
+      if (
+        location.pathname === key ||
+        location.pathname.startsWith(key + '/') ||
+        location.pathname.startsWith(key + '?') ||
+        (key === '/user/attendance' && location.pathname.startsWith('/user/biometric-attendance')) ||
+        (key === '/user/clients' && location.pathname === '/user/masters' && location.search.includes('tab=clients')) ||
+        (key === '/user/payroll-setup' && location.pathname === '/user/masters' && location.search.includes('tab=salary-components'))
+      ) {
         setOpenDropdowns(prev => ({ ...prev, [key]: true }));
       }
     });
@@ -484,8 +478,8 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                                       isSubActive = currentFullUrl === subItem.path ||
                                         (subItem.path.includes('tab=banks') && location.pathname === '/user/masters' && !location.search) ||
                                         (subItem.path.includes('section=company-profile') && location.pathname === '/user/company-setup' && !location.search);
-                                    } else {
-                                      isSubActive = (location.pathname === subItem.path && !location.search);
+                                      isSubActive = (location.pathname === subItem.path) &&
+                                        (!location.search || subItem.path !== '/user/attendance' || !location.search.includes('tab=corrections'));
                                     }
 
                                     return (

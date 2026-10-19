@@ -91,6 +91,7 @@ const employeeSchema = new mongoose.Schema(
     site: { type: String, default: '' },
     dutyPost: { type: String, default: '' },
     shift: { type: String, default: '' },
+    attendanceMethod: { type: String, default: 'Manual' },
     joiningDate: { type: String, default: '' },
     reportingSupervisor: { type: String, default: '' },
     joiningLocation: { type: String, default: '' },
@@ -106,6 +107,24 @@ const employeeSchema = new mongoose.Schema(
     exitDate: { type: String, default: '' },
     exitReason: { type: String, default: '' },
     exitDateReason: { type: String, default: '' },
+
+    // Attendance Methods & Mobile Tracking Configuration
+    attendanceMethods: {
+      type: [String],
+      default: ['Default / WiFi / Geolocation']
+    },
+    allowMobileAppLogin: {
+      type: Boolean,
+      default: true
+    },
+    attendanceHolidayOfficeOff: {
+      type: Boolean,
+      default: false
+    },
+    autoPunchOutLocationOff: {
+      type: Boolean,
+      default: false
+    },
 
     // Salary & Statutory
     salaryType: { type: String, default: 'Monthly' },

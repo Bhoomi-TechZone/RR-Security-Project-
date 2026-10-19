@@ -25,10 +25,13 @@ import Companies from './pages/admin/Companies'
 import CompanyDetails from './pages/admin/CompanyDetails'
 import ClientBillingAdmin from './pages/admin/ClientBillingAdmin'
 import Employees from './pages/admin/Employees'
+import AddEmployee from './pages/admin/AddEmployee'
+import EmployeeTransfer from './pages/admin/EmployeeTransfer'
 import EmployeeDetails from './pages/admin/EmployeeDetails'
 import EditEmployee from './pages/admin/EditEmployee'
 import Masters from './pages/admin/Masters'
 import Attendance from './pages/admin/Attendance'
+import BiometricAttendance from './pages/admin/BiometricAttendance'
 import Leave from './pages/admin/Leave'
 import Overtime from './pages/admin/Overtime'
 import ShiftManagement from './pages/admin/ShiftManagement'
@@ -87,11 +90,14 @@ function App() {
       <Route path="/admin/companies/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
 
       <Route path="/admin/employees" element={<AdminRoute><Employees /></AdminRoute>} />
+      <Route path="/admin/employees/add" element={<AdminRoute><AddEmployee /></AdminRoute>} />
+      <Route path="/admin/employees/transfer" element={<AdminRoute><EmployeeTransfer /></AdminRoute>} />
       <Route path="/admin/employees/:id" element={<AdminRoute><EmployeeDetails /></AdminRoute>} />
       <Route path="/admin/employees/:id/edit" element={<AdminRoute><EditEmployee /></AdminRoute>} />
 
       <Route path="/admin/masters" element={<AdminRoute><Masters /></AdminRoute>} />
       <Route path="/admin/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
+      <Route path="/admin/biometric-attendance" element={<AdminRoute><BiometricAttendance /></AdminRoute>} />
       <Route path="/admin/leave" element={<AdminRoute><Leave /></AdminRoute>} />
       <Route path="/admin/letter-management" element={<AdminRoute><LetterManagement /></AdminRoute>} />
       <Route path="/admin/letters" element={<AdminRoute><LetterManagement /></AdminRoute>} />
@@ -130,9 +136,12 @@ function App() {
         <Route path="companies/billing" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Client Billing"><ClientBillingAdmin /></ModulePermissionRoute>} />
         <Route path="companies/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
         <Route path="employees" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><Employees /></ModulePermissionRoute>} />
+        <Route path="employees/add" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Add Employee"><AddEmployee /></ModulePermissionRoute>} />
+        <Route path="employees/transfer" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employee Transfer"><EmployeeTransfer /></ModulePermissionRoute>} />
         <Route path="employees/:id" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EmployeeDetails /></ModulePermissionRoute>} />
         <Route path="employees/:id/edit" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
         <Route path="attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Attendance"><Attendance /></ModulePermissionRoute>} />
+        <Route path="biometric-attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Biometric Attendance"><BiometricAttendance /></ModulePermissionRoute>} />
         <Route path="shifts" element={<ModulePermissionRoute moduleKey="shifts" moduleTitle="Shift Management"><ShiftManagement /></ModulePermissionRoute>} />
 
         {/* Payroll Modules */}

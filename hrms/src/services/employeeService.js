@@ -65,6 +65,34 @@ export const employeeService = {
   },
 
   /**
+   * Update employee details by ID
+   */
+  async updateEmployee(companyId, id, payload) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': companyId || '',
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to update employee');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('employeeService.updateEmployee error:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Dispatch employee portal welcome email with login credentials
    */
   async sendCredentialsEmail(companyId, id, payload = {}) {

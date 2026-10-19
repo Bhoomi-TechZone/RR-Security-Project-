@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw, CalendarDays, CalendarRange } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AttendanceSummaryCards from '../../components/attendance/AttendanceSummaryCards';
@@ -213,6 +213,42 @@ const sanitizeRecords = (list) => {
   });
 };
 
+const addDays = (dateStr, n) => {
+  const d = new Date((dateStr || new Date().toISOString().slice(0, 10)) + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+};
+
+const addMonths = (monthStr, n) => {
+  const [y, m] = (monthStr || new Date().toISOString().slice(0, 7)).split('-').map(Number);
+  const d = new Date(y, m - 1 + n, 1);
+  const nextY = d.getFullYear();
+  const nextM = String(d.getMonth() + 1).padStart(2, '0');
+  return `${nextY}-${nextM}`;
+};
+
+const getWeekRange = (dateStr) => {
+  const d = dateStr ? new Date(dateStr + 'T00:00:00') : new Date();
+  const day = d.getDay();
+  const diffToMonday = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d);
+  monday.setDate(diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const toYMD = (dt) => {
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const dayNum = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dayNum}`;
+  };
+
+  return {
+    start: toYMD(monday),
+    end: toYMD(sunday)
+  };
+};
+
 function Attendance() {
   const { activeCompany } = useCompany();
   const { canAdd, canExport, canApprove } = usePermissions();
@@ -240,7 +276,16 @@ function Attendance() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
-  const [activeTab, setActiveTab] = useState(() => (searchParams.get('tab') === 'corrections' ? 'corrections' : 'daily'));
+  const [activeTab, setActiveTab] = useState(() => {
+    const t = searchParams.get('tab');
+    if (t === 'corrections') return 'corrections';
+    if (t === 'weekly') return 'weekly';
+    if (t === 'monthly') return 'monthly';
+    return 'daily';
+  });
+
+  const [selectedWeekDate, setSelectedWeekDate] = useState(todayStr);
+  const weekRange = useMemo(() => getWeekRange(selectedWeekDate), [selectedWeekDate]);
 
   // --- Filters & Pagination ---
   const [filters, setFilters] = useState(() => ({
@@ -283,10 +328,15 @@ function Attendance() {
       setIsLoading(true);
       const params = {};
 
-      if (viewMode === 'date' && selectedDate) {
-        params.date = selectedDate;
-      } else if (viewMode === 'month' && selectedMonth) {
-        params.month = selectedMonth;
+      if (activeTab === 'daily') {
+        if (selectedDate) params.date = selectedDate;
+      } else if (activeTab === 'weekly') {
+        if (weekRange.start && weekRange.end) {
+          params.fromDate = weekRange.start;
+          params.toDate = weekRange.end;
+        }
+      } else if (activeTab === 'monthly') {
+        if (selectedMonth) params.month = selectedMonth;
       } else if (viewMode === 'year' && selectedYear) {
         params.year = selectedYear;
       } else if (viewMode === 'range' && fromDate && toDate) {
@@ -313,11 +363,36 @@ function Attendance() {
     } finally {
       setIsLoading(false);
     }
-  }, [compId, viewMode, selectedDate, selectedMonth, selectedYear, fromDate, toDate, filters]);
+  }, [compId, activeTab, viewMode, selectedDate, selectedMonth, selectedYear, weekRange.start, weekRange.end, fromDate, toDate, filters]);
 
   useEffect(() => {
     fetchRecords();
   }, [fetchRecords]);
+
+  // Tab & Timeframe Navigation Handlers
+  const handleTabChange = (tabKey) => {
+    setActiveTab(tabKey);
+    setCurrentPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (tabKey === 'daily') {
+        next.delete('tab');
+      } else {
+        next.set('tab', tabKey);
+      }
+      return next;
+    });
+  };
+
+  const handlePrevWeek = () => {
+    setSelectedWeekDate((prev) => addDays(prev, -7));
+    setCurrentPage(1);
+  };
+
+  const handleNextWeek = () => {
+    setSelectedWeekDate((prev) => addDays(prev, 7));
+    setCurrentPage(1);
+  };
 
   // Date / Mode Change Handlers
   const handleViewModeChange = (mode) => {
@@ -372,6 +447,10 @@ function Attendance() {
     const tab = searchParams.get('tab');
     if (tab === 'corrections') {
       setActiveTab('corrections');
+    } else if (tab === 'weekly') {
+      setActiveTab('weekly');
+    } else if (tab === 'monthly') {
+      setActiveTab('monthly');
     } else {
       setActiveTab('daily');
     }
@@ -390,19 +469,24 @@ function Attendance() {
   // Filtered records for active view mode and search/dropdown filters
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
-      // Granularity Date Filtering
-      if (viewMode === 'date' && selectedDate && r.date && r.date !== selectedDate) return false;
-      if (viewMode === 'month' && selectedMonth) {
-        const matchDate = r.date && r.date.startsWith(selectedMonth);
-        const matchMonth = r.month && (r.month === selectedMonth || selectedMonth.toLowerCase().includes(String(r.month).toLowerCase()));
-        if (!matchDate && !matchMonth) return false;
-      }
-      if (viewMode === 'year' && selectedYear) {
+      // Tab Date/Range Filtering
+      if (activeTab === 'daily') {
+        if (selectedDate && r.date && r.date !== selectedDate) return false;
+      } else if (activeTab === 'weekly') {
+        if (weekRange.start && weekRange.end && r.date) {
+          if (r.date < weekRange.start || r.date > weekRange.end) return false;
+        }
+      } else if (activeTab === 'monthly') {
+        if (selectedMonth) {
+          const matchDate = r.date && r.date.startsWith(selectedMonth);
+          const matchMonth = r.month && (r.month === selectedMonth || selectedMonth.toLowerCase().includes(String(r.month).toLowerCase()));
+          if (!matchDate && !matchMonth) return false;
+        }
+      } else if (viewMode === 'year' && selectedYear) {
         const matchDate = r.date && r.date.startsWith(selectedYear);
         const matchYear = r.year && String(r.year) === String(selectedYear);
         if (!matchDate && !matchYear) return false;
-      }
-      if (viewMode === 'range') {
+      } else if (viewMode === 'range') {
         if (fromDate && r.date && r.date < fromDate) return false;
         if (toDate && r.date && r.date > toDate) return false;
       }
@@ -761,30 +845,34 @@ function Attendance() {
           <button
             type="button"
             className={`${styles.tabBtn} ${activeTab === 'daily' ? styles.activeTab : ''}`}
-            onClick={() => {
-              setActiveTab('daily');
-              setSearchParams((prev) => {
-                const next = new URLSearchParams(prev);
-                next.delete('tab');
-                return next;
-              });
-            }}
+            onClick={() => handleTabChange('daily')}
           >
             <Clock size={16} />
-            <span>Daily Attendance</span>
+            <span>Daily</span>
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'weekly' ? styles.activeTab : ''}`}
+            onClick={() => handleTabChange('weekly')}
+          >
+            <CalendarDays size={16} />
+            <span>Weekly</span>
+          </button>
+
+          <button
+            type="button"
+            className={`${styles.tabBtn} ${activeTab === 'monthly' ? styles.activeTab : ''}`}
+            onClick={() => handleTabChange('monthly')}
+          >
+            <CalendarRange size={16} />
+            <span>Monthly</span>
           </button>
 
           <button
             type="button"
             className={`${styles.tabBtn} ${activeTab === 'corrections' ? styles.activeTab : ''}`}
-            onClick={() => {
-              setActiveTab('corrections');
-              setSearchParams((prev) => {
-                const next = new URLSearchParams(prev);
-                next.set('tab', 'corrections');
-                return next;
-              });
-            }}
+            onClick={() => handleTabChange('corrections')}
           >
             <AlertCircle size={16} />
             <span>Correction Requests</span>
@@ -794,8 +882,8 @@ function Attendance() {
           </button>
         </div>
 
-        {/* TAB 1: DAILY ATTENDANCE */}
-        {activeTab === 'daily' && (
+        {/* TAB CONTENT: DAILY / WEEKLY / MONTHLY */}
+        {activeTab !== 'corrections' && (
           <div className={styles.tabContent}>
             {/* Summary Cards */}
             <AttendanceSummaryCards records={filteredRecords} />
@@ -808,12 +896,14 @@ function Attendance() {
               filters={filters}
               onChange={handleFilterChange}
               onReset={handleResetFilters}
-              timeframe={viewMode}
-              onTimeframeChange={handleViewModeChange}
-              selectedMonth={selectedMonth}
-              onMonthChange={handleMonthChange}
+              activeTab={activeTab}
               selectedDate={selectedDate}
               onDateChange={handleDateChange}
+              weekRange={weekRange}
+              onPrevWeek={handlePrevWeek}
+              onNextWeek={handleNextWeek}
+              selectedMonth={selectedMonth}
+              onMonthChange={handleMonthChange}
               selectedYear={selectedYear}
               onYearChange={handleYearChange}
               fromDate={fromDate}

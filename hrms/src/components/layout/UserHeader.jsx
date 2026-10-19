@@ -49,6 +49,7 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/clients')) return 'Workforce / Clients';
     if (path.startsWith('/user/companies')) return 'Workforce / Clients';
     if (path.startsWith('/user/employees')) return 'Workforce / Employees';
+    if (path.startsWith('/user/biometric-attendance')) return 'Workforce / Biometric Attendance';
     if (path.startsWith('/user/attendance')) return 'Workforce / Attendance';
     if (path.startsWith('/user/shifts')) return 'Workforce / Shift Management';
     if (path.startsWith('/user/payroll-setup')) return 'Payroll Management / Payroll Setup';

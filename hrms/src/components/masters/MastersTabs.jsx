@@ -8,7 +8,7 @@ import styles from './MastersTabs.module.css';
 
 const TABS = [
   { id: 'banks', label: 'Banks', icon: Landmark },
-  { id: 'clients', label: 'Clients', icon: Briefcase },
+  { id: 'clients', label: 'Client Master', icon: Briefcase },
   { id: 'departments', label: 'Departments', icon: Layers },
   { id: 'designations', label: 'Designations', icon: Award },
   { id: 'employee-types', label: 'Employee Types', icon: UserCheck },
