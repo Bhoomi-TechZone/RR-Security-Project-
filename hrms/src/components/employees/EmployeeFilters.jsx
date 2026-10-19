@@ -24,21 +24,41 @@ function EmployeeFilters({
 }) {
   const deptList = useMemo(() => {
     if (departments && departments.length > 0) {
-      return departments
+      const items = departments
         .filter(d => typeof d === 'string' || !d.status || d.status === 'active' || d.name === departmentFilter)
-        .map(d => (typeof d === 'string' ? d : d.name || d.label || d));
+        .map(d => (typeof d === 'string' ? d : d.name || d.label || d))
+        .filter(Boolean);
+      return Array.from(new Set(items));
     }
     return [];
   }, [departments, departmentFilter]);
 
   const desgList = useMemo(() => {
     if (designations && designations.length > 0) {
-      return designations
+      const items = designations
         .filter(d => typeof d === 'string' || !d.status || d.status === 'active' || d.name === designationFilter)
-        .map(d => (typeof d === 'string' ? d : d.name || d.label || d));
+        .map(d => (typeof d === 'string' ? d : d.name || d.label || d))
+        .filter(Boolean);
+      return Array.from(new Set(items));
     }
     return [];
   }, [designations, designationFilter]);
+
+  const clientList = useMemo(() => {
+    if (clients && clients.length > 0) {
+      const filtered = clients.filter(
+        (c) => !c.status || c.status === 'active' || (companyFilter !== 'all' && (c.clientId === companyFilter || c.id === companyFilter || c._id === companyFilter))
+      );
+      const seen = new Set();
+      return filtered.filter((c) => {
+        const val = c.clientId || c.id || c._id;
+        if (!val || seen.has(val)) return false;
+        seen.add(val);
+        return true;
+      });
+    }
+    return [];
+  }, [clients, companyFilter]);
 
   return (
     <div className={styles.filtersContainer}>
@@ -62,16 +82,14 @@ function EmployeeFilters({
             aria-label="Filter by Company"
           >
             <option value="all">All Companies</option>
-            {clients
-              .filter((c) => !c.status || c.status === 'active' || (companyFilter !== 'all' && (c.clientId === companyFilter || c.id === companyFilter || c._id === companyFilter)))
-              .map((c) => {
-                const val = c.clientId || c.id || c._id;
-                return (
-                  <option key={val} value={val}>
-                    {c.name}
-                  </option>
-                );
-              })}
+            {clientList.map((c) => {
+              const val = c.clientId || c.id || c._id;
+              return (
+                <option key={val} value={val}>
+                  {c.name}
+                </option>
+              );
+            })}
           </select>
         </div>
 

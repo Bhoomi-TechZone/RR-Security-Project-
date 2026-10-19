@@ -63,18 +63,19 @@ export const getMasters = async (req, res) => {
       query.type = type;
     }
 
-    // If fetching shifts, ensure any records in Shift collection are reflected in Master
+    // If fetching shifts, ensure any records in Shift collection are reflected in Master (batched)
     if (type === 'shifts' || !type) {
       try {
-        const existingShifts = await Shift.find({ companyId: { $in: companyIds } });
-        for (const sh of existingShifts) {
-          const exists = await Master.findOne({
+        const existingShifts = await Shift.find({ companyId: { $in: companyIds } }).lean();
+        if (existingShifts.length > 0) {
+          const shiftMasters = await Master.find({
             companyId: { $in: companyIds },
-            type: 'shifts',
-            name: sh.name
-          });
-          if (!exists) {
-            await Master.create({
+            type: 'shifts'
+          }).select('name').lean();
+          const existingNames = new Set(shiftMasters.map(m => m.name));
+          const toInsert = existingShifts
+            .filter(sh => !existingNames.has(sh.name))
+            .map(sh => ({
               companyId: sh.companyId || companyId,
               adminEmail: sh.adminEmail || adminEmail || 'rrsecurity@gmail.com',
               type: 'shifts',
@@ -87,7 +88,9 @@ export const getMasters = async (req, res) => {
               gracePeriod: sh.gracePeriod || 15,
               description: sh.description || '',
               status: sh.status || 'active'
-            });
+            }));
+          if (toInsert.length > 0) {
+            await Master.insertMany(toInsert);
           }
         }
       } catch (syncErr) {
@@ -95,18 +98,19 @@ export const getMasters = async (req, res) => {
       }
     }
 
-    // If fetching leave types, ensure any records in LeaveType collection are reflected in Master
+    // If fetching leave types, ensure any records in LeaveType collection are reflected in Master (batched)
     if (type === 'leave-types' || !type) {
       try {
-        const existingLeaveTypes = await LeaveType.find({ companyId: { $in: companyIds } });
-        for (const lt of existingLeaveTypes) {
-          const exists = await Master.findOne({
+        const existingLeaveTypes = await LeaveType.find({ companyId: { $in: companyIds } }).lean();
+        if (existingLeaveTypes.length > 0) {
+          const leaveMasters = await Master.find({
             companyId: { $in: companyIds },
-            type: 'leave-types',
-            $or: [{ code: lt.code }, { name: lt.name }]
-          });
-          if (!exists) {
-            await Master.create({
+            type: 'leave-types'
+          }).select('code name').lean();
+          const existingKeys = new Set(leaveMasters.flatMap(m => [m.code, m.name]).filter(Boolean));
+          const toInsert = existingLeaveTypes
+            .filter(lt => !existingKeys.has(lt.code) && !existingKeys.has(lt.name))
+            .map(lt => ({
               companyId: lt.companyId || companyId,
               adminEmail: lt.adminEmail || adminEmail || 'rrsecurity@gmail.com',
               type: 'leave-types',
@@ -119,7 +123,9 @@ export const getMasters = async (req, res) => {
               encashment: false,
               description: lt.description || '',
               status: (lt.status || 'Active').toLowerCase()
-            });
+            }));
+          if (toInsert.length > 0) {
+            await Master.insertMany(toInsert);
           }
         }
       } catch (syncErr) {

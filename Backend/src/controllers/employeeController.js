@@ -64,11 +64,26 @@ export const getEmployees = async (req, res) => {
         return res.status(200).json({ success: true, count: 0, employees: [] });
       }
       const filter = buildAssignedEmployeeFilter(client);
-      const employees = await Employee.find(filter).sort({ createdAt: -1 });
+      const employees = await Employee.find(filter)
+        .select('-documents -documentList -drivingLicenseCopy')
+        .sort({ createdAt: -1 })
+        .lean();
       return res.status(200).json({
         success: true,
         count: employees.length,
-        employees: employees.map(e => e.toJSON())
+        employees: employees.map(e => ({
+          ...e,
+          id: e.employeeId || e._id?.toString(),
+          photo: e.employeePhoto || e.photo || '',
+          employeePhoto: e.employeePhoto || e.photo || '',
+          companyName: e.companyName || e.clientName || '',
+          clientName: e.clientName || e.companyName || '',
+          siteLocation: e.siteLocation || e.site || '',
+          site: e.siteLocation || e.site || '',
+          contact: e.contact || e.mobile || '',
+          mobile: e.mobile || e.contact || '',
+          enablePortalAccess: e.enablePortalAccess !== false && e.enablePortalAccess !== 'false',
+        }))
       });
     }
 
@@ -91,7 +106,7 @@ export const getEmployees = async (req, res) => {
           { companyId },
           { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
         ]
-      });
+      }).select('companyId employeeCodeSeries code').lean();
       if (comp) {
         companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
       }
@@ -109,29 +124,51 @@ export const getEmployees = async (req, res) => {
       filter.clientId = req.query.clientId;
     }
 
-    const employees = await Employee.find(filter).sort({ createdAt: -1 });
+    // Exclude massive base64 document attachments for the listing table
+    const employees = await Employee.find(filter)
+      .select('-documents -documentList -drivingLicenseCopy')
+      .sort({ createdAt: -1 })
+      .lean();
 
-    // Normalize employeeId formatting to match company series and persist fixes to DB
-    const normalizedEmployees = await Promise.all(
-      employees.map(async (emp) => {
-        const doc = emp.toJSON();
-        const currentId = doc.employeeId || doc.employeeCode || '';
-        if (currentId) {
-          const formatted = formatEmployeeIdBySeries(currentId, companySeries, companyPrefix);
-          if (formatted && formatted !== currentId) {
-            doc.employeeId = formatted;
-            doc.employeeCode = formatted;
-            try {
-              await Employee.updateOne(
-                { _id: emp._id },
-                { $set: { employeeId: formatted, employeeCode: formatted } }
-              );
-            } catch {}
-          }
+    // Normalize employeeId formatting in memory and sync non-blocking to DB
+    const normalizedEmployees = employees.map((emp) => {
+      const doc = {
+        ...emp,
+        id: emp.employeeId || emp._id?.toString(),
+        photo: emp.employeePhoto || emp.photo || '',
+        employeePhoto: emp.employeePhoto || emp.photo || '',
+        companyName: emp.companyName || emp.clientName || '',
+        clientName: emp.clientName || emp.companyName || '',
+        siteLocation: emp.siteLocation || emp.site || '',
+        site: emp.siteLocation || emp.site || '',
+        contact: emp.contact || emp.mobile || '',
+        mobile: emp.mobile || emp.contact || '',
+        enablePortalAccess: emp.enablePortalAccess !== false && emp.enablePortalAccess !== 'false',
+        password: emp.savedPassword || '',
+        savedPassword: emp.savedPassword || '',
+      };
+      const currentId = doc.employeeId || doc.employeeCode || '';
+      if (currentId) {
+        const formatted = formatEmployeeIdBySeries(currentId, companySeries, companyPrefix);
+        if (formatted && formatted !== currentId) {
+          doc.employeeId = formatted;
+          doc.employeeCode = formatted;
+          Employee.updateOne(
+            { _id: emp._id },
+            { $set: { employeeId: formatted, employeeCode: formatted } }
+          ).catch(() => {});
         }
-        return doc;
-      })
-    );
+      }
+      return doc;
+    });
+
+    // Ensure dynamic listing is never cached as 304 without body
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    });
 
     return res.status(200).json({
       success: true,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Users, UploadCloud } from 'lucide-react';
 import styles from './Employees.module.css';
@@ -104,43 +104,99 @@ function Employees() {
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
+  // Active fetch abort controller to cancel stale in-flight requests
+  const activeFetchAbortRef = useRef(null);
+
   // Fetch employees strictly isolated for active company
   const fetchEmployees = useCallback(async () => {
-    if (!currentCompanyId) return;
+    if (!currentCompanyId) {
+      setLoading(false);
+      return;
+    }
+
+    // Cancel any previous pending request
+    if (activeFetchAbortRef.current) {
+      activeFetchAbortRef.current.abort();
+    }
+    const abortController = new AbortController();
+    activeFetchAbortRef.current = abortController;
+
     setLoading(true);
     setError(null);
     try {
       const token = authService.getToken();
       const res = await fetch(`${API_BASE_URL}/employees`, {
+        cache: 'no-cache',
+        signal: abortController.signal,
         headers: {
           'Authorization': `Bearer ${token || ''}`,
           'x-company-id': currentCompanyId,
         },
       });
+
+      if (abortController.signal.aborted) return;
+
+      if (!res.ok) {
+        if (res.status === 304) {
+          return;
+        }
+        let errMsg = 'Failed to fetch employees';
+        try {
+          const errData = await res.json();
+          errMsg = errData.message || errMsg;
+        } catch (_) {}
+        if (res.status !== 404) {
+          setError(errMsg);
+        }
+        setEmployees([]);
+        return;
+      }
+
       const data = await res.json();
-      if (res.ok && data.success) {
+      if (data && data.success) {
         setEmployees(data.employees || []);
       } else {
         setEmployees([]);
-        if (!res.ok && res.status !== 404) {
-          setError(data.message || 'Failed to fetch employees');
+        if (data?.message) {
+          setError(data.message);
         }
       }
     } catch (err) {
+      if (err.name === 'AbortError') return;
       console.error('Error fetching employees:', err);
       setError(err.message || 'Network error while fetching employees');
     } finally {
-      setLoading(false);
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [currentCompanyId]);
 
-  // Fetch clients & all masters for current active company to interlink dropdowns
-  const fetchAllMasters = useCallback(async () => {
+  // Clean up abort controller on unmount
+  useEffect(() => {
+    return () => {
+      if (activeFetchAbortRef.current) {
+        activeFetchAbortRef.current.abort();
+      }
+    };
+  }, []);
+
+  // Fetch essential filter masters (clients, departments, designations) for table/filter view
+  const fetchFilterMasters = useCallback(async () => {
     if (!currentCompanyId) return;
     try {
       clientService.getClients(currentCompanyId).then(setClients).catch(() => {});
       masterService.getMasters('departments', currentCompanyId).then(setDepartments).catch(() => {});
       masterService.getMasters('designations', currentCompanyId).then(setDesignations).catch(() => {});
+    } catch (err) {
+      console.error('Error fetching filter masters for employees page:', err);
+    }
+  }, [currentCompanyId]);
+
+  // Lazy-fetch additional form-only masters in background or when form is opened
+  const fetchFormMasters = useCallback(async () => {
+    if (!currentCompanyId) return;
+    try {
       masterService.getMasters('employee-types', currentCompanyId).then(setEmployeeTypes).catch(() => {});
       masterService.getMasters('sites', currentCompanyId).then(setSites).catch(() => {});
       masterService.getMasters('posts', currentCompanyId).then(setPosts).catch(() => {});
@@ -149,19 +205,32 @@ function Employees() {
       masterService.getMasters('document-types', currentCompanyId).then(setDocumentTypes).catch(() => {});
       workLocationService.getWorkLocations(currentCompanyId).then(setWorkLocations).catch(() => {});
     } catch (err) {
-      console.error('Error fetching masters for employees page:', err);
+      console.error('Error fetching form masters:', err);
     }
   }, [currentCompanyId]);
 
   useEffect(() => {
     fetchEmployees();
-    fetchAllMasters();
-  }, [fetchEmployees, fetchAllMasters]);
+    fetchFilterMasters();
+  }, [fetchEmployees, fetchFilterMasters]);
+
+  // Preload form masters when form opens or after brief idle delay
+  useEffect(() => {
+    if (isFormOpen) {
+      fetchFormMasters();
+    } else {
+      const idleTimer = setTimeout(() => {
+        fetchFormMasters();
+      }, 1500);
+      return () => clearTimeout(idleTimer);
+    }
+  }, [isFormOpen, fetchFormMasters]);
 
   // Listen to cross-module updates
   useEffect(() => {
     const handleSync = () => {
-      fetchAllMasters();
+      fetchFilterMasters();
+      if (isFormOpen) fetchFormMasters();
     };
     window.addEventListener('clients-updated', handleSync);
     window.addEventListener('masters-updated', handleSync);
@@ -169,7 +238,7 @@ function Employees() {
       window.removeEventListener('clients-updated', handleSync);
       window.removeEventListener('masters-updated', handleSync);
     };
-  }, [fetchAllMasters]);
+  }, [fetchFilterMasters, fetchFormMasters, isFormOpen]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
