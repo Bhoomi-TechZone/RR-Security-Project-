@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   DollarSign, Calendar, Clock, CalendarDays, Calculator, Plus, 
   Search, Filter, CheckCircle2, AlertCircle, Layers, ArrowUpRight,
   MoreVertical, Edit2, Eye, ToggleLeft, ToggleRight, Sparkles,
-  Loader2, RefreshCw
+  Loader2, RefreshCw, ArrowLeft, ArrowRight, X, SlidersHorizontal
 } from 'lucide-react';
 import styles from './PayrollSetup.module.css';
 
@@ -35,6 +35,82 @@ const TABS = [
   { id: 'calculation-methods', label: 'Salary Calculation Methods', icon: Calculator }
 ];
 
+const SETUP_CATEGORIES = [
+  { id: 'all', label: 'All Modules' },
+  { id: 'pay-groups', label: 'Pay Groups' },
+  { id: 'salary-components', label: 'Salary Components' },
+  { id: 'pay-schedules', label: 'Pay Schedules' },
+  { id: 'pay-cycles', label: 'Pay Cycles' },
+  { id: 'pay-days', label: 'Pay Days' },
+  { id: 'calculation-methods', label: 'Salary Calculation Methods' }
+];
+
+const ALL_SETUP_CATALOG = [
+  {
+    id: 'pay-groups',
+    tab: 'pay-groups',
+    title: 'Pay Groups',
+    desc: 'Configure salary structures, payment frequencies, and assign employee groups to pay brackets.',
+    icon: DollarSign,
+    badge: 'Structure',
+    iconColor: '#2563eb'
+  },
+  {
+    id: 'salary-components',
+    tab: 'salary-components',
+    externalRoute: '/admin/masters?tab=salary-components',
+    title: 'Salary Components',
+    desc: 'Manage earnings, basic pay, HRA, standard allowances, reimbursements, and deduction rules.',
+    icon: Layers,
+    badge: 'Earnings & Deductions',
+    iconColor: '#059669'
+  },
+  {
+    id: 'pay-schedules',
+    tab: 'pay-schedules',
+    title: 'Pay Schedules',
+    desc: 'Set up recurring disbursement frequency timelines such as Monthly, Bi-Weekly, and Weekly.',
+    icon: Calendar,
+    badge: 'Timeline',
+    iconColor: '#0284c7'
+  },
+  {
+    id: 'pay-cycles',
+    tab: 'pay-cycles',
+    title: 'Pay Cycles',
+    desc: 'Define attendance cutoff bounds, calculation periods, and processing dates for payroll runs.',
+    icon: Clock,
+    badge: 'Cutoff',
+    iconColor: '#7c3aed'
+  },
+  {
+    id: 'pay-days',
+    tab: 'pay-days',
+    title: 'Pay Days',
+    desc: 'Configure fixed payout dates, last working day of month, or custom disbursement rules.',
+    icon: CalendarDays,
+    badge: 'Disbursement',
+    iconColor: '#d97706'
+  },
+  {
+    id: 'calculation-methods',
+    tab: 'calculation-methods',
+    title: 'Salary Calculation Methods',
+    desc: 'Define daily salary rate formulas using Calendar Days, Fixed Days, or Working Days basis.',
+    icon: Calculator,
+    badge: 'Formulas',
+    iconColor: '#db2777'
+  }
+];
+
+const TAB_LABELS = {
+  'pay-groups': 'Pay Groups',
+  'pay-schedules': 'Pay Schedules',
+  'pay-cycles': 'Pay Cycles',
+  'pay-days': 'Pay Days',
+  'calculation-methods': 'Salary Calculation Methods'
+};
+
 function PayrollSetup() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,9 +120,14 @@ function PayrollSetup() {
   const { company } = useCompany();
   const companyId = company?.companyId || company?.id || 'RRS8392014SEC';
 
-  // Active Setup Tab
-  const initialTab = searchParams.get('tab') || 'pay-groups';
+  // Active Setup Tab & Explorer View
+  const rawTab = searchParams.get('tab');
+  const isExplorerView = !rawTab;
+  const initialTab = rawTab || 'pay-groups';
   const [activeTab, setActiveTab] = useState(initialTab);
+  
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [explorerCategory, setExplorerCategory] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [frequencyFilter, setFrequencyFilter] = useState('all');
@@ -61,6 +142,19 @@ function PayrollSetup() {
       setActiveTab('pay-groups');
     }
   }, [searchParams]);
+
+  const handleOpenModule = (item) => {
+    if (item.externalRoute) {
+      navigate(item.externalRoute);
+    } else {
+      setActiveTab(item.tab);
+      setSearchParams({ tab: item.tab });
+    }
+  };
+
+  const handleBackToSetup = () => {
+    setSearchParams({});
+  };
 
   // MongoDB State Collections
   const [payGroups, setPayGroups] = useState([]);
@@ -149,6 +243,37 @@ function PayrollSetup() {
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
+
+  const getModuleCount = (tabId) => {
+    switch (tabId) {
+      case 'pay-groups': return payGroups.length;
+      case 'salary-components': return salaryComponents.length;
+      case 'pay-schedules': return schedules.length;
+      case 'pay-cycles': return cycles.length;
+      case 'pay-days': return payDays.length;
+      case 'calculation-methods': return calculationMethods.length;
+      default: return 0;
+    }
+  };
+
+  const getCategoryCount = (catId) => {
+    if (catId === 'all') return ALL_SETUP_CATALOG.length;
+    return getModuleCount(catId);
+  };
+
+  const filteredCatalog = useMemo(() => {
+    return ALL_SETUP_CATALOG.filter((item) => {
+      const matchesCategory =
+        explorerCategory === 'all' || item.id === explorerCategory;
+      const q = catalogSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.badge.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [explorerCategory, catalogSearch]);
 
   // Pay Groups Filtering
   const filteredPayGroups = payGroups.filter(pg => {
@@ -365,55 +490,230 @@ function PayrollSetup() {
           onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         />
 
-        {/* Breadcrumb */}
-        <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
-            Dashboard
-          </span>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/payroll')}>
-            Payroll
-          </span>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Payroll Setup</span>
-        </div>
-
-        {/* Header */}
-        <header className={styles.header}>
-          <div className={styles.titleArea}>
-            <div className={styles.titleWithBadge}>
-              <h1 className={styles.title}>Payroll Setup</h1>
-              <span className={styles.adminBadge}>Admin Configuration</span>
+        {isExplorerView ? (
+          <>
+            {/* Explorer Breadcrumb */}
+            <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/payroll')}>
+                Payroll
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>Payroll Setup</span>
+              {explorerCategory !== 'all' && (
+                <>
+                  <span className={styles.separator}>/</span>
+                  <span className={styles.crumbActive}>
+                    {SETUP_CATEGORIES.find((c) => c.id === explorerCategory)?.label}
+                  </span>
+                </>
+              )}
             </div>
-            <p className={styles.description}>
-              Configure payroll schedules, pay cycles, salary calculation rules and pay groups.
-            </p>
-          </div>
 
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={fetchSetupData}
-              title="Refresh from MongoDB"
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}
-            >
-              <RefreshCw size={14} />
-              <span>Refresh</span>
-            </button>
-            {!isFromOrgSettings && (
-              <button
-                type="button"
-                className={styles.mastersLinkBtn}
-                onClick={() => navigate('/admin/masters?tab=salary-components')}
-                title="Go to Salary Components Master"
-              >
-                <span>Salary Components</span>
-                <ArrowUpRight size={15} />
-              </button>
+            {/* Explorer Header */}
+            <header className={styles.header} style={{ marginBottom: '16px' }}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <SlidersHorizontal size={24} color="#2563eb" />
+                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Payroll Setup</h1>
+                </div>
+                <p className={styles.description} style={{ marginTop: '6px' }}>
+                  Configure payroll schedules, pay cycles, salary calculation rules, and pay groups.
+                </p>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={fetchSetupData}
+                  title="Refresh from MongoDB"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}
+                >
+                  <RefreshCw size={14} />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </header>
+
+            {loading ? (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px', gap: '10px' }}>
+                <Loader2 size={28} className={styles.spin} />
+                <span style={{ color: '#64748b', fontSize: '1rem', fontWeight: 500 }}>Loading setup configurations...</span>
+              </div>
+            ) : (
+              /* 2-Column Payroll Setup Explorer Layout */
+              <div className={styles.payrollExplorerLayout}>
+                {/* Left Sidebar Filter Panel */}
+                <aside className={styles.explorerSidebar}>
+                  <div className={styles.explorerSearchWrap}>
+                    <input
+                      type="text"
+                      className={styles.explorerSearchInput}
+                      placeholder="Search Setup Modules"
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                    />
+                    {catalogSearch ? (
+                      <button
+                        type="button"
+                        className={styles.explorerClearBtn}
+                        onClick={() => setCatalogSearch('')}
+                        aria-label="Clear search"
+                      >
+                        <X size={14} />
+                      </button>
+                    ) : (
+                      <span style={{ position: 'absolute', right: 10, color: '#94a3b8', pointerEvents: 'none', display: 'flex' }}>
+                        <Search size={14} />
+                      </span>
+                    )}
+                  </div>
+
+                  <ul className={styles.categoryList}>
+                    {SETUP_CATEGORIES.map((cat) => {
+                      const count = getCategoryCount(cat.id);
+                      const isActive = explorerCategory === cat.id;
+                      return (
+                        <li key={cat.id}>
+                          <button
+                            type="button"
+                            className={`${styles.categoryBtn} ${isActive ? styles.categoryBtnActive : ''}`}
+                            onClick={() => setExplorerCategory(cat.id)}
+                          >
+                            <span className={isActive ? styles.sidebarActiveDot : styles.sidebarDot} />
+                            <span>{cat.label}</span>
+                            <span className={styles.categoryBadge}>{count}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </aside>
+
+                {/* Right Grid of Setup Cards */}
+                <main style={{ minWidth: 0 }}>
+                  {filteredCatalog.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>No setup modules found matching "{catalogSearch}".</p>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                        style={{ marginTop: '12px', fontSize: '13px' }}
+                      >
+                        Show All Modules
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={styles.explorerCardsGrid}>
+                      {filteredCatalog.map((item) => {
+                        const Icon = item.icon;
+                        const count = getModuleCount(item.tab);
+                        return (
+                          <div key={item.id} className={styles.referenceReportCard}>
+                            <div>
+                              <div className={styles.cardFormatIcons}>
+                                <span style={{ display: 'inline-flex', color: item.iconColor || 'var(--primary, #2563eb)' }}>
+                                  <Icon size={16} />
+                                </span>
+                                <span className={styles.recordCountPill} style={{ marginLeft: 'auto' }}>
+                                  {count} {count === 1 ? 'Record' : 'Records'}
+                                </span>
+                              </div>
+                              <div className={styles.cardBody}>
+                                <h4 className={styles.cardTitle}>{item.title}</h4>
+                                <p className={styles.cardDesc}>{item.desc}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className={styles.cardOpenBtn}
+                              onClick={() => handleOpenModule(item)}
+                            >
+                              Open <ArrowRight size={13} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </main>
+              </div>
             )}
-          </div>
-        </header>
+          </>
+        ) : (
+          <>
+            {/* Breadcrumb */}
+            <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/payroll')}>
+                Payroll
+              </span>
+              <span className={styles.separator}>/</span>
+              <span
+                className={styles.crumbLink}
+                onClick={handleBackToSetup}
+                style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+              >
+                Payroll Setup
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>{TAB_LABELS[activeTab] || activeTab}</span>
+            </div>
+
+            {/* Header */}
+            <header className={styles.header}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleBackToSetup}
+                    className={styles.secondaryButton}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                  >
+                    <ArrowLeft size={15} /> Back to Payroll Setup
+                  </button>
+                </div>
+                <div className={styles.titleWithBadge}>
+                  <h1 className={styles.title}>{TAB_LABELS[activeTab] || 'Payroll Setup'}</h1>
+                  <span className={styles.adminBadge}>Admin Configuration</span>
+                </div>
+                <p className={styles.description}>
+                  Configure payroll schedules, pay cycles, salary calculation rules and pay groups.
+                </p>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={fetchSetupData}
+                  title="Refresh from MongoDB"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}
+                >
+                  <RefreshCw size={14} />
+                  <span>Refresh</span>
+                </button>
+                {!isFromOrgSettings && (
+                  <button
+                    type="button"
+                    className={styles.mastersLinkBtn}
+                    onClick={() => navigate('/admin/masters?tab=salary-components')}
+                    title="Go to Salary Components Master"
+                  >
+                    <span>Salary Components</span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                )}
+              </div>
+            </header>
 
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px', gap: '10px' }}>
@@ -954,6 +1254,8 @@ function PayrollSetup() {
                 </div>
               </div>
             )}
+          </>
+        )}
           </>
         )}
       </div>
