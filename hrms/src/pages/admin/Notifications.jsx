@@ -21,6 +21,7 @@ import {
   Shirt,
   Trash2,
   WalletCards,
+  Cake,
   X,
   XCircle
 } from 'lucide-react';
@@ -80,6 +81,7 @@ const notificationTypeOptions = [
   { value: 'attendance-correction', label: 'Attendance Correction' },
   { value: 'salary-processed', label: 'Salary Processed' },
   { value: 'document-expiry', label: 'Document Expiry' },
+  { value: 'birthday', label: 'Birthday Celebration' },
   { value: 'general', label: 'General Alert' }
 ];
 
@@ -106,6 +108,7 @@ const iconMap = {
   'attendance-correction': Clock,
   'salary-processed': IndianRupee,
   'document-expiry': FileWarning,
+  'birthday': Cake,
   'general': Bell
 };
 
@@ -458,7 +461,7 @@ function NotificationsPage() {
 
   useEffect(() => {
     loadData(true);
-    const interval = setInterval(() => loadData(false), 15000);
+    const interval = setInterval(() => loadData(false), 30000);
     const handleRefresh = () => loadData(false);
 
     window.addEventListener('focus', handleRefresh);

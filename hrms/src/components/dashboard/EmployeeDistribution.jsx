@@ -71,7 +71,7 @@ function EmployeeDistribution({ data = [], loading }) {
               
               {/* Segments */}
               {data.map((item, idx) => {
-                const percentage = item.count / total;
+                const percentage = total > 0 ? item.count / total : 0;
                 const strokeLength = percentage * circumference;
                 const strokeOffset = circumference - (accumulatedPercentage * circumference);
                 
@@ -115,7 +115,7 @@ function EmployeeDistribution({ data = [], loading }) {
         {/* Legend listing details */}
         <div className={styles.legend}>
           {data.map((item, idx) => {
-            const pct = ((item.count / total) * 100).toFixed(2);
+            const pct = total > 0 ? ((item.count / total) * 100).toFixed(1) : '0';
             const indicatorClass = segmentClasses[idx] || segmentClasses[segmentClasses.length - 1];
 
             return (

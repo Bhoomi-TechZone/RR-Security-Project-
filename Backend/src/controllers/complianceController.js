@@ -101,7 +101,7 @@ export const updateExpiryConfig = async (req, res) => {
           'expiryConfig.lastUpdated': new Date().toLocaleString(),
         },
       },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     // Sync or clear notifications depending on whether In-App Bell is enabled/ticked
@@ -367,7 +367,7 @@ export const updatePoliceConfig = async (req, res) => {
           'policeConfig.lastUpdated': new Date().toLocaleString(),
         },
       },
-      { new: true, upsert: true }
+      { returnDocument: 'after', upsert: true }
     );
 
     return res.status(200).json({
@@ -667,12 +667,24 @@ export const getExpiryTracker = async (req, res) => {
   }
 };
 
+const lastComplianceSyncMap = new Map();
+let isComplianceSyncing = false;
+
 /**
  * @desc    Synchronize license expiry alerts into the Notification system based on In-App Bell settings
  */
 export const syncComplianceExpiryNotifications = async (companyId) => {
   try {
     if (!companyId) return { synced: 0, active: false };
+
+    // Throttle: run at most once every 5 minutes per company
+    const lastSync = lastComplianceSyncMap.get(companyId);
+    if (isComplianceSyncing || (lastSync && Date.now() - lastSync < 300000)) {
+      return { synced: 0, active: true };
+    }
+    isComplianceSyncing = true;
+    lastComplianceSyncMap.set(companyId, Date.now());
+
     const config = await ComplianceConfig.findOne({ companyId }).lean();
 
     const isAlertsEnabled = config?.expiryConfig?.enabled !== false;
@@ -702,7 +714,9 @@ export const syncComplianceExpiryNotifications = async (companyId) => {
     const employees = await Employee.find({
       $or: [{ companyId }, { companyId: { $exists: false } }],
       employeeStatus: { $ne: 'Terminated' },
-    }).lean();
+    })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
 
     const recipientRoles = [];
     if (config?.expiryConfig?.recipients?.admin !== false) recipientRoles.push('admin');
@@ -829,7 +843,7 @@ export const syncComplianceExpiryNotifications = async (companyId) => {
                 actionStatus: 'pending',
               },
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
           );
         }
       }

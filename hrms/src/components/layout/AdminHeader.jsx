@@ -1,6 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Menu, Search, Bell, CircleHelp, ChevronDown, User, Settings, LogOut, ArrowLeft, Building2, Plus, Check, Shield } from 'lucide-react';
+import {
+  Menu, Search, Bell, CircleHelp, ChevronDown, User, Settings, LogOut,
+  ArrowLeft, Building2, Plus, Check, Shield, Cake, CalendarCheck, Receipt,
+  WalletCards, CheckCheck, Loader2, Sparkles, Shirt, Package, FileWarning, ArrowRight
+} from 'lucide-react';
 import styles from './AdminHeader.module.css';
 import Avatar from '../common/Avatar';
 import Dropdown from '../common/Dropdown';
@@ -26,19 +30,31 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState(null);
 
+  // Notifications Popover State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notificationsList, setNotificationsList] = useState([]);
+  const [isLoadingNotifs, setIsLoadingNotifs] = useState(false);
+  const [activeNotifTab, setActiveNotifTab] = useState('all');
+  const notifDropdownRef = useRef(null);
+
   const companyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
   useEffect(() => {
     let isMounted = true;
+    let isFetching = false;
     const fetchUnread = async () => {
+      if (isFetching) return;
+      isFetching = true;
       try {
         const count = await notificationService.getUnreadCount(companyId);
         if (isMounted) setUnreadCount(count);
-      } catch {}
+      } catch {} finally {
+        isFetching = false;
+      }
     };
 
     fetchUnread();
-    const interval = setInterval(fetchUnread, 15000); // Polling every 15s for smooth background live updates
+    const interval = setInterval(fetchUnread, 30000); // Polling every 30s
     const handleRefresh = () => fetchUnread();
 
     window.addEventListener('focus', handleRefresh);
@@ -105,6 +121,122 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
   useEffect(() => {
     setIsSettingsModalOpen(location.state?.organisationSettingsOpen === true);
   }, [location.pathname, location.search, location.state]);
+
+  const fetchNotificationsList = async () => {
+    setIsLoadingNotifs(true);
+    try {
+      const res = await notificationService.getNotifications(companyId, { limit: 25 });
+      if (res && res.data) {
+        setNotificationsList(res.data);
+      }
+    } catch (e) {
+      console.error('Failed to load notifications list:', e);
+    } finally {
+      setIsLoadingNotifs(false);
+    }
+  };
+
+  const handleToggleNotifications = () => {
+    const nextState = !isNotificationsOpen;
+    setIsNotificationsOpen(nextState);
+    if (nextState) {
+      fetchNotificationsList();
+    }
+  };
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (notifDropdownRef.current && !notifDropdownRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
+      }
+    };
+    if (isNotificationsOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+      document.addEventListener('touchstart', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+    };
+  }, [isNotificationsOpen]);
+
+  const handleMarkAllAsRead = async () => {
+    try {
+      await notificationService.markAllAsRead(companyId);
+      setUnreadCount(0);
+      setNotificationsList((prev) => prev.map((n) => ({ ...n, status: 'read' })));
+      setToast({ message: 'All notifications marked as read', type: 'success' });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleNotificationClick = async (notif) => {
+    if (notif.status === 'unread') {
+      try {
+        await notificationService.markAsRead(companyId, notif._id);
+        setUnreadCount((c) => Math.max(0, c - 1));
+        setNotificationsList((prev) =>
+          prev.map((n) => (n._id === notif._id ? { ...n, status: 'read' } : n))
+        );
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    setIsNotificationsOpen(false);
+    if (notif.targetUrl) {
+      navigate(notif.targetUrl);
+    } else {
+      navigate('/admin/notifications?tab=notifications');
+    }
+  };
+
+  const formatNotifTime = (dateStr) => {
+    if (!dateStr) return 'Recently';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const diffSec = Math.floor((new Date() - d) / 1000);
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHrs = Math.floor(diffMin / 60);
+    if (diffHrs < 24) return `${diffHrs}h ago`;
+    const diffDays = Math.floor(diffHrs / 24);
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  };
+
+  const getNotificationIconInfo = (type) => {
+    switch (type) {
+      case 'birthday':
+        return { icon: Cake, bg: '#fdf2f8', color: '#db2777', badgeBg: '#fce7f3', label: 'Birthday' };
+      case 'leave-application':
+      case 'leave-approval':
+        return { icon: CalendarCheck, bg: '#faf5ff', color: '#7c3aed', badgeBg: '#f3e8ff', label: 'Leave' };
+      case 'reimbursement':
+        return { icon: Receipt, bg: '#ecfdf5', color: '#059669', badgeBg: '#d1fae5', label: 'Claim' };
+      case 'advance-loan':
+        return { icon: WalletCards, bg: '#fffbeb', color: '#d97706', badgeBg: '#fef3c7', label: 'Advance' };
+      case 'uniform-request':
+        return { icon: Shirt, bg: '#eff6ff', color: '#2563eb', badgeBg: '#dbeafe', label: 'Uniform' };
+      case 'asset-request':
+        return { icon: Package, bg: '#f0fdf4', color: '#16a34a', badgeBg: '#dcfce7', label: 'Asset' };
+      case 'document-expiry':
+      case 'compliance_alert':
+        return { icon: FileWarning, bg: '#fef2f2', color: '#dc2626', badgeBg: '#fee2e2', label: 'Compliance' };
+      default:
+        return { icon: Bell, bg: '#f1f5f9', color: '#475569', badgeBg: '#e2e8f0', label: 'Alert' };
+    }
+  };
+
+  const filteredNotifications = notificationsList.filter((item) => {
+    if (activeNotifTab === 'all') return true;
+    if (activeNotifTab === 'birthday') return item.type === 'birthday';
+    if (activeNotifTab === 'leave') return item.type === 'leave-application' || item.type === 'leave-approval';
+    if (activeNotifTab === 'claim') return item.type === 'reimbursement' || item.type === 'advance-loan';
+    return true;
+  });
 
   const formattedDateTime = new Intl.DateTimeFormat('en-IN', {
     day: '2-digit',
@@ -189,13 +321,13 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
           <span className={styles.dateTimeText}>{formattedDateTime}</span>
         </div>
 
-        {/* Notifications */}
-        <div className={styles.notificationWrapper}>
+        {/* Notifications Popover */}
+        <div className={styles.notificationWrapper} ref={notifDropdownRef}>
           <button 
-            className={styles.actionBtn} 
+            className={`${styles.actionBtn} ${isNotificationsOpen ? styles.actionBtnActive : ''}`} 
             aria-label="View notifications"
-            onClick={() => navigate('/admin/notifications?tab=notifications')}
-            title="System & Employee Activity Notifications"
+            onClick={handleToggleNotifications}
+            title="System, Birthday & Employee Activity Notifications"
           >
             <Bell size={19} strokeWidth={2} />
             {unreadCount > 0 && (
@@ -204,6 +336,143 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
               </span>
             )}
           </button>
+
+          {isNotificationsOpen && (
+            <div className={styles.notificationPopover} role="dialog" aria-label="Notifications Panel">
+              {/* Popover Header */}
+              <div className={styles.popoverHeader}>
+                <div className={styles.popoverTitleRow}>
+                  <div className={styles.popoverTitleWrap}>
+                    <h4 className={styles.popoverTitle}>Notifications</h4>
+                    {unreadCount > 0 && (
+                      <span className={styles.unreadPill}>{unreadCount} new</span>
+                    )}
+                  </div>
+                  {unreadCount > 0 && (
+                    <button
+                      type="button"
+                      className={styles.markAllReadBtn}
+                      onClick={handleMarkAllAsRead}
+                      title="Mark all as read"
+                    >
+                      <CheckCheck size={14} />
+                      <span>Mark all read</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Filter Tabs */}
+                <div className={styles.notifTabs}>
+                  <button
+                    type="button"
+                    className={`${styles.notifTabBtn} ${activeNotifTab === 'all' ? styles.notifTabActive : ''}`}
+                    onClick={() => setActiveNotifTab('all')}
+                  >
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.notifTabBtn} ${activeNotifTab === 'birthday' ? styles.notifTabActive : ''}`}
+                    onClick={() => setActiveNotifTab('birthday')}
+                  >
+                    🎂 Birthdays
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.notifTabBtn} ${activeNotifTab === 'leave' ? styles.notifTabActive : ''}`}
+                    onClick={() => setActiveNotifTab('leave')}
+                  >
+                    🏖️ Leaves
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.notifTabBtn} ${activeNotifTab === 'claim' ? styles.notifTabActive : ''}`}
+                    onClick={() => setActiveNotifTab('claim')}
+                  >
+                    💳 Claims
+                  </button>
+                </div>
+              </div>
+
+              {/* Popover Content */}
+              <div className={styles.popoverBody}>
+                {isLoadingNotifs ? (
+                  <div className={styles.popoverLoading}>
+                    <Loader2 size={22} className={styles.spinning} />
+                    <span>Loading latest updates...</span>
+                  </div>
+                ) : filteredNotifications.length === 0 ? (
+                  <div className={styles.popoverEmpty}>
+                    <div className={styles.emptyIconWrap}>
+                      <Bell size={24} strokeWidth={1.5} color="#94a3b8" />
+                    </div>
+                    <p className={styles.emptyTitle}>All caught up!</p>
+                    <p className={styles.emptySub}>No notifications in this category.</p>
+                  </div>
+                ) : (
+                  <div className={styles.notifList}>
+                    {filteredNotifications.map((notif) => {
+                      const iconInfo = getNotificationIconInfo(notif.type);
+                      const IconComponent = iconInfo.icon;
+                      const isUnread = notif.status === 'unread';
+
+                      return (
+                        <div
+                          key={notif._id}
+                          className={`${styles.notifItem} ${isUnread ? styles.notifItemUnread : ''}`}
+                          onClick={() => handleNotificationClick(notif)}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <div
+                            className={styles.notifIconWrap}
+                            style={{ backgroundColor: iconInfo.bg, color: iconInfo.color }}
+                          >
+                            <IconComponent size={16} strokeWidth={2.2} />
+                          </div>
+
+                          <div className={styles.notifDetails}>
+                            <div className={styles.notifHeaderLine}>
+                              <span className={styles.notifCategoryTag} style={{ backgroundColor: iconInfo.badgeBg, color: iconInfo.color }}>
+                                {iconInfo.label}
+                              </span>
+                              <span className={styles.notifTime}>{formatNotifTime(notif.createdAt || notif.date)}</span>
+                            </div>
+
+                            <p className={styles.notifItemTitle}>{notif.title}</p>
+                            <p className={styles.notifItemMessage}>{notif.message}</p>
+
+                            <div className={styles.notifActionRow}>
+                              <span className={styles.notifActionLink}>
+                                {notif.type === 'birthday' ? 'View Employee →' : notif.type === 'leave-application' ? 'Review Leave →' : notif.type === 'reimbursement' ? 'Review Claim →' : notif.type === 'advance-loan' ? 'Review Advance →' : 'View Details →'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isUnread && <span className={styles.unreadDot} aria-hidden="true" />}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Popover Footer */}
+              <div className={styles.popoverFooter}>
+                <button
+                  type="button"
+                  className={styles.viewAllFooterBtn}
+                  onClick={() => {
+                    setIsNotificationsOpen(false);
+                    navigate('/admin/notifications?tab=notifications');
+                  }}
+                >
+                  <span>View All in Notification Center</span>
+                  <ArrowRight size={13} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Admin settings button - opens Organisation Settings modal */}

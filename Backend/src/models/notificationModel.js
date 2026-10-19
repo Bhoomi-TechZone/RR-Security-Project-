@@ -36,6 +36,7 @@ const notificationSchema = new mongoose.Schema({
       'salary-processed',
       'document-expiry',
       'compliance_alert',
+      'birthday',
       'general'
     ],
     required: true,

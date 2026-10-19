@@ -8,8 +8,8 @@ export default function StatutoryReports({
   pfRecords = [],
   esiRecords = [],
   summary,
-  selectedMonth = '2026-08',
-  monthLabel = 'August 2026',
+  selectedMonth = '',
+  monthLabel = '',
   companies = [],
   departments = [],
   onOpenDownloadModal

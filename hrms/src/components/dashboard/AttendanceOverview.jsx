@@ -16,32 +16,50 @@ function AttendanceOverview({ data = [], loading }) {
     month: { base: '#2563eb', hover: '#1d4ed8' },
   };
 
+  const defaultTodaySlots = [
+    { day: '08:00', percentage: 0, label: '0%' },
+    { day: '10:00', percentage: 0, label: '0%' },
+    { day: '12:00', percentage: 0, label: '0%' },
+    { day: '14:00', percentage: 0, label: '0%' },
+    { day: '16:00', percentage: 0, label: '0%' },
+    { day: '18:00', percentage: 0, label: '0%' },
+    { day: '20:00', percentage: 0, label: '0%' },
+  ];
+
+  const defaultWeekSlots = [
+    { day: 'Mon', percentage: 0, label: '0%' },
+    { day: 'Tue', percentage: 0, label: '0%' },
+    { day: 'Wed', percentage: 0, label: '0%' },
+    { day: 'Thu', percentage: 0, label: '0%' },
+    { day: 'Fri', percentage: 0, label: '0%' },
+    { day: 'Sat', percentage: 0, label: '0%' },
+    { day: 'Sun', percentage: 0, label: '0%' },
+  ];
+
+  const defaultMonthSlots = [
+    { day: 'W1', percentage: 0, label: '0%' },
+    { day: 'W2', percentage: 0, label: '0%' },
+    { day: 'W3', percentage: 0, label: '0%' },
+    { day: 'W4', percentage: 0, label: '0%' },
+    { day: 'W5', percentage: 0, label: '0%' },
+  ];
+
+  const todayData = Array.isArray(data?.today) && data.today.length > 0
+    ? data.today
+    : (Array.isArray(data) && data.length > 0 ? data : defaultTodaySlots);
+
+  const weekData = Array.isArray(data?.week) && data.week.length > 0
+    ? data.week
+    : (Array.isArray(data) && data.length > 0 ? data : defaultWeekSlots);
+
+  const monthData = Array.isArray(data?.month) && data.month.length > 0
+    ? data.month
+    : defaultMonthSlots;
+
   const tabDatasets = {
-    today: [
-      { day: '08:00', percentage: 96, label: '96%' },
-      { day: '10:00', percentage: 98, label: '98%' },
-      { day: '12:00', percentage: 94, label: '94%' },
-      { day: '14:00', percentage: 95, label: '95%' },
-      { day: '16:00', percentage: 92, label: '92%' },
-      { day: '18:00', percentage: 97, label: '97%' },
-      { day: '20:00', percentage: 90, label: '90%' },
-    ],
-    week: data && data.length > 0 ? data : [
-      { day: 'Mon', percentage: 92, label: '92%' },
-      { day: 'Tue', percentage: 95, label: '95%' },
-      { day: 'Wed', percentage: 89, label: '89%' },
-      { day: 'Thu', percentage: 94, label: '94%' },
-      { day: 'Fri', percentage: 96, label: '96%' },
-      { day: 'Sat', percentage: 91, label: '91%' },
-      { day: 'Sun', percentage: 93, label: '93%' },
-    ],
-    month: [
-      { day: 'W1', percentage: 93, label: '93%' },
-      { day: 'W2', percentage: 95, label: '95%' },
-      { day: 'W3', percentage: 91, label: '91%' },
-      { day: 'W4', percentage: 96, label: '96%' },
-      { day: 'W5', percentage: 94, label: '94%' },
-    ]
+    today: todayData,
+    week: weekData,
+    month: monthData,
   };
 
   const currentChartData = tabDatasets[activeTab] || tabDatasets.today;

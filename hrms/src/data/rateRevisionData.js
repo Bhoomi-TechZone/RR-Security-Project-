@@ -330,15 +330,16 @@ export const INITIAL_ARREARS_RECORDS = [
   }
 ];
 
-export function calculateRateRevisionMetrics(revisions) {
+export function calculateRateRevisionMetrics(revisions = [], targetMonth = '') {
+  const currentMonthStr = targetMonth || new Date().toISOString().slice(0, 7);
   const totalRevisions = revisions.length;
-  const pendingApproval = revisions.filter(r => r.status === 'Pending Approval').length;
-  const approved = revisions.filter(r => r.status === 'Approved' || r.status === 'Effective').length;
+  const pendingApproval = revisions.filter(r => String(r.status || '').toLowerCase().includes('pending')).length;
+  const approved = revisions.filter(r => ['approved', 'effective', 'applied'].includes(String(r.status || '').toLowerCase())).length;
   
-  // Revisions effective in the current/selected month (Aug 2026)
+  // Revisions effective in the current/selected month
   const effectiveThisMonth = revisions.filter(r => 
-    r.effectiveFrom && (r.effectiveFrom.startsWith('2026-08') || r.effectiveFrom.startsWith('2026-07')) &&
-    (r.status === 'Approved' || r.status === 'Effective')
+    r.effectiveFrom && String(r.effectiveFrom).startsWith(currentMonthStr) &&
+    ['approved', 'effective', 'applied'].includes(String(r.status || '').toLowerCase())
   ).length;
 
   return {
