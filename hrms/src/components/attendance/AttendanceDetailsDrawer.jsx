@@ -90,8 +90,9 @@ function AttendanceDetailsDrawer({ record, onClose, onEdit, onDelete }) {
         {/* Timing section */}
         <div className={styles.section}>
           <div className={styles.sectionTitle}>
-            <Clock size={14} /> Timing
+            <Clock size={14} /> Timing & Method
           </div>
+          <Row label="Attendance Method" value={record.attendanceMethod || record.method || 'Default / Manual'} />
           <Row label="Check In" value={formatTime(record.checkIn)} />
           <Row label="Check Out" value={formatTime(record.checkOut)} />
           <Row label="Working Hours" value={record.workingHours} highlight />

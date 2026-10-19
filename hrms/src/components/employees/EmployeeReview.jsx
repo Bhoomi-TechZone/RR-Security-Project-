@@ -176,6 +176,26 @@ function EmployeeReview({ data, onEditStep }) {
             {!data.exitDate && !data.exitReason && data.exitDateReason && (
               <ReviewRow label="Exit Date / Reason" value={data.exitDateReason} />
             )}
+            <ReviewRow
+              label="Attendance Methods"
+              value={
+                Array.isArray(data.attendanceMethods) && data.attendanceMethods.length > 0
+                  ? data.attendanceMethods.join(', ')
+                  : (data.attendanceMethod || 'Default / WiFi / Geolocation')
+              }
+            />
+            <ReviewRow
+              label="Mobile App Login"
+              value={data.allowMobileAppLogin ? 'Allowed ✓' : 'Disabled ✗'}
+            />
+            <ReviewRow
+              label="Holiday / Off Day Attendance"
+              value={data.attendanceHolidayOfficeOff ? 'Allowed ✓' : 'Not Allowed'}
+            />
+            <ReviewRow
+              label="Auto Punch-Out (GPS OFF)"
+              value={data.autoPunchOutLocationOff ? 'Enabled (Auto Absent when GPS OFF)' : 'Disabled'}
+            />
           </div>
         </div>
 

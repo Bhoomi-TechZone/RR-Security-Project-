@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   User, Briefcase, FileText, CreditCard, IndianRupee,
   Edit2, ArrowLeftRight, Download, Power, CheckCircle, Clock,
@@ -11,10 +11,8 @@ import styles from './EmployeeDetails.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
 import StatusBadge from '../../components/common/StatusBadge';
 import ConfirmModal from '../../components/common/ConfirmModal';
-import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
 import EmployeeCredentialsModal from '../../components/employees/EmployeeCredentialsModal';
 import EmployeePayslipModal from '../../components/employees/EmployeePayslipModal';
-import EmployeeForm from '../../components/employees/EmployeeForm';
 import Toast from '../../components/common/Toast';
 
 import { useCompany } from '../../context/CompanyContext';
@@ -54,7 +52,11 @@ const TABS = [
 function EmployeeDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeCompany } = useCompany();
+
+  const isUserPanel = location.pathname.startsWith('/user');
+  const basePath = isUserPanel ? '/user/employees' : '/admin/employees';
 
   const [employee, setEmployee] = useState(null);
   const [clients, setClients] = useState([]);
@@ -93,8 +95,6 @@ function EmployeeDetails() {
     return list.filter(l => l && (l.licenseNo || l.photo || (l.licenseType && l.licenseType !== 'Driving License')));
   }, [employee]);
 
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isTransferOpen, setIsTransferOpen] = useState(false);
   const [isCredentialsOpen, setIsCredentialsOpen] = useState(false);
   const [isPayslipOpen, setIsPayslipOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
@@ -248,30 +248,6 @@ function EmployeeDetails() {
     }
   };
 
-  const handleEditSubmit = async (formData) => {
-    try {
-      await updateEmployee(formData);
-      showToast('✓ Employee updated successfully.', 'success');
-      setIsEditOpen(false);
-    } catch (err) {
-      // handled in updateEmployee
-    }
-  };
-
-  const handleTransfer = async (empId, transferData) => {
-    try {
-      await updateEmployee({
-        clientId: transferData.clientId || transferData.companyId,
-        clientName: transferData.clientName || transferData.companyName,
-        companyName: transferData.clientName || transferData.companyName,
-        siteLocation: transferData.siteLocation || transferData.site
-      });
-      showToast('✓ Employee transferred successfully.', 'success');
-      setIsTransferOpen(false);
-    } catch (err) {
-      showToast('Failed to transfer employee.', 'error');
-    }
-  };
 
   const handleSaveCredentials = async (empId, credentialsData) => {
     try {
@@ -525,30 +501,12 @@ function EmployeeDetails() {
           onClose={() => setToast({ message: '', type: 'success' })}
         />
 
-        {/* Edit Form */}
-        <EmployeeForm
-          isOpen={isEditOpen}
-          onClose={() => setIsEditOpen(false)}
-          onSubmit={handleEditSubmit}
-          employee={employee}
-          clients={clients}
-        />
-
         {/* Credentials Modal */}
         <EmployeeCredentialsModal
           isOpen={isCredentialsOpen}
           employee={employee}
           onClose={() => setIsCredentialsOpen(false)}
           onSave={handleSaveCredentials}
-        />
-
-        {/* Transfer Modal */}
-        <TransferEmployeeModal
-          isOpen={isTransferOpen}
-          employee={employee}
-          onClose={() => setIsTransferOpen(false)}
-          onTransfer={handleTransfer}
-          clients={clients}
         />
 
         {/* Payslip Modal */}
@@ -636,9 +594,9 @@ function EmployeeDetails() {
 
         {/* Breadcrumb */}
         <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>Dashboard</span>
+          <span className={styles.crumbLink} onClick={() => navigate(isUserPanel ? '/user/dashboard' : '/admin/dashboard')}>Dashboard</span>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/employees')}>Employees</span>
+          <span className={styles.crumbLink} onClick={() => navigate(basePath)}>Employees</span>
           <span className={styles.separator}>/</span>
           <span className={styles.crumbActive}>{employee.name}</span>
         </div>
@@ -672,22 +630,25 @@ function EmployeeDetails() {
             </div>
           </div>
           <div className={styles.profileActions}>
-            <button
+            {/* <button
               className={styles.editBtn}
-              onClick={() => setIsEditOpen(true)}
+              onClick={() => navigate(`${basePath}/${id}/edit`)}
               aria-label="Edit employee"
             >
               <Edit2 size={15} />
               <span>Edit Employee</span>
-            </button>
-            <button
+            </button> */}
+            {/* <button
               className={styles.transferBtn}
-              onClick={() => setIsTransferOpen(true)}
+              onClick={() => {
+                const empParam = employee?.employeeId || employee?._id || employee?.id || id;
+                navigate(`${basePath}/transfer?empId=${empParam}`);
+              }}
               aria-label="Transfer employee"
             >
               <ArrowLeftRight size={15} />
               <span>Transfer</span>
-            </button>
+            </button> */}
             <button
               className={styles.downloadBtn}
               onClick={() => setIsCredentialsOpen(true)}
@@ -811,6 +772,26 @@ function EmployeeDetails() {
                   <InfoRow label="Status" value={employee.employeeStatus || employee.status || 'Active'} />
                   {employee.exitDate && <InfoRow label="Exit Date" value={employee.exitDate} />}
                   {employee.exitReason && <InfoRow label="Exit Reason" value={employee.exitReason} />}
+                  <InfoRow
+                    label="Attendance Methods"
+                    value={
+                      Array.isArray(employee.attendanceMethods) && employee.attendanceMethods.length > 0
+                        ? employee.attendanceMethods.join(', ')
+                        : (employee.attendanceMethod || 'Default / WiFi / Geolocation')
+                    }
+                  />
+                  <InfoRow
+                    label="Mobile App Login"
+                    value={employee.allowMobileAppLogin !== false ? 'Allowed ✓' : 'Disabled ✗'}
+                  />
+                  <InfoRow
+                    label="Holiday / Off Day Attendance"
+                    value={employee.attendanceHolidayOfficeOff ? 'Allowed ✓' : 'Not Allowed'}
+                  />
+                  <InfoRow
+                    label="Auto Punch-Out (GPS OFF)"
+                    value={employee.autoPunchOutLocationOff ? 'Enabled (Auto Absent when GPS OFF)' : 'Disabled'}
+                  />
                 </div>
               </div>
             </div>

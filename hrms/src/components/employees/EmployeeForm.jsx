@@ -52,6 +52,11 @@ const DEFAULT_FORM_DATA = {
   siteLocation: '',
   dutyPost: '',
   shift: '',
+  attendanceMethod: 'Manual',
+  attendanceMethods: ['Default / WiFi / Geolocation'],
+  allowMobileAppLogin: true,
+  attendanceHolidayOfficeOff: false,
+  autoPunchOutLocationOff: false,
   reportingSupervisor: '',
   joiningLocation: '',
   previousExperience: '',
@@ -255,6 +260,13 @@ const normalizeEmployeeForForm = (employee) => {
     siteLocation: employee.clientAddress ?? employee.siteLocation ?? employee.site ?? '',
     dutyPost: employee.dutyPost ?? '',
     shift: employee.shift ?? '',
+    attendanceMethod: employee.attendanceMethod ?? 'Manual',
+    attendanceMethods: Array.isArray(employee.attendanceMethods) && employee.attendanceMethods.length > 0
+      ? employee.attendanceMethods
+      : (employee.attendanceMethod ? [employee.attendanceMethod] : ['Default / WiFi / Geolocation']),
+    allowMobileAppLogin: employee.allowMobileAppLogin !== undefined ? !!employee.allowMobileAppLogin : true,
+    attendanceHolidayOfficeOff: employee.attendanceHolidayOfficeOff !== undefined ? !!employee.attendanceHolidayOfficeOff : false,
+    autoPunchOutLocationOff: employee.autoPunchOutLocationOff !== undefined ? !!employee.autoPunchOutLocationOff : false,
     reportingSupervisor: employee.reportingSupervisor ?? '',
     joiningLocation: employee.joiningLocation ?? '',
     previousExperience: employee.previousExperience ?? '',
@@ -330,6 +342,7 @@ const normalizeEmployeeForForm = (employee) => {
  */
 function EmployeeForm({
   isOpen,
+  isPageMode = false,
   onClose,
   onSubmit,
   employee,
@@ -353,9 +366,11 @@ function EmployeeForm({
   const modalRef = useRef(null);
 
   const isEditMode = !!employee;
+  const shouldShow = isPageMode || isOpen;
+  const isStackedMode = isPageMode;
 
   useEffect(() => {
-    if (isOpen) {
+    if (shouldShow) {
       setCurrentStep(0);
       setErrors({});
 
@@ -413,21 +428,21 @@ function EmployeeForm({
   }, [isOpen, employee, activeCompany, employeesCount]);
 
   useEffect(() => {
-    if (isOpen && modalRef.current) {
+    if (shouldShow && modalRef.current && !isPageMode) {
       modalRef.current.focus();
     }
-  }, [isOpen]);
+  }, [shouldShow, isPageMode]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isPageMode) return;
     const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && onClose) onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, isPageMode, onClose]);
 
-  if (!isOpen) return null;
+  if (!shouldShow) return null;
 
   const validateStep = (step) => {
     // Required fields are made optional for now as requested
@@ -464,195 +479,654 @@ function EmployeeForm({
   const isLastStep = currentStep === STEPS.length - 1;
 
   return (
-    <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby="employee-form-title">
+    <div
+      className={isPageMode ? styles.pageContainer : styles.overlay}
+      role={isPageMode ? undefined : "dialog"}
+      aria-modal={isPageMode ? undefined : "true"}
+      aria-labelledby="employee-form-title"
+    >
       <div
         ref={modalRef}
-        tabIndex="-1"
-        className={styles.modal}
+        tabIndex={isPageMode ? undefined : "-1"}
+        className={isPageMode ? styles.pageCard : styles.modal}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
+        {/* Header */}
         <header className={styles.header}>
           <div>
             <h2 id="employee-form-title" className={styles.title}>
               {isEditMode ? 'Edit Employee' : 'Add Employee'}
             </h2>
             <p className={styles.subtitle}>
-              Step {currentStep + 1} of {STEPS.length}: {STEPS[currentStep].label}
+              {isStackedMode
+                ? (isEditMode ? 'Update employee details across all sections below' : 'Fill out all employee details below across sections')
+                : `Step ${currentStep + 1} of ${STEPS.length}: ${STEPS[currentStep].label}`}
             </p>
           </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form" disabled={isSubmitting}>
-            <X size={16} />
-          </button>
+
+          {isPageMode ? (
+            <div className={styles.headerActions}>
+              {onClose && (
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Back</span>
+                </button>
+              )}
+              <button
+                type="button"
+                className={styles.submitBtn}
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className={styles.spinner} />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    <span>{isEditMode ? 'Save Changes' : 'Save Employee'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            onClose && (
+              <button
+                className={styles.closeBtn}
+                onClick={onClose}
+                aria-label="Close form"
+                disabled={isSubmitting}
+              >
+                <X size={16} />
+              </button>
+            )
+          )}
         </header>
 
-        {/* Stepper Progress */}
-        <div className={styles.stepperWrapper}>
-          <div className={styles.stepper} role={isEditMode ? 'tablist' : 'list'} aria-label="Form steps">
-            {STEPS.map((step, idx) => {
-              const isDone = idx < currentStep;
-              const isCurrent = idx === currentStep;
+        {/* Stepper Progress OR Quick Section Navigator */}
+        {isStackedMode ? (
+          <div className={styles.quickNavWrapper}>
+            <a href="#section-basic" className={styles.quickNavItem}>
+              <span className={styles.quickNavNumber}>01</span>
+              <span>Basic Details</span>
+            </a>
+            <a href="#section-employment" className={styles.quickNavItem}>
+              <span className={styles.quickNavNumber}>02</span>
+              <span>Employment Details</span>
+            </a>
+            <a href="#section-salary" className={styles.quickNavItem}>
+              <span className={styles.quickNavNumber}>03</span>
+              <span>Salary & Statutory</span>
+            </a>
+            <a href="#section-bank" className={styles.quickNavItem}>
+              <span className={styles.quickNavNumber}>04</span>
+              <span>Bank Details</span>
+            </a>
+            <a href="#section-address" className={styles.quickNavItem}>
+              <span className={styles.quickNavNumber}>05</span>
+              <span>Address & Family</span>
+            </a>
+            <a href="#section-documents" className={styles.quickNavItem}>
+              <span className={styles.quickNavNumber}>06</span>
+              <span>Documents</span>
+            </a>
+          </div>
+        ) : (
+          <div className={styles.stepperWrapper}>
+            <div className={styles.stepper} role={isEditMode ? 'tablist' : 'list'} aria-label="Form steps">
+              {STEPS.map((step, idx) => {
+                const isDone = idx < currentStep;
+                const isCurrent = idx === currentStep;
 
-              if (isEditMode) {
+                if (isEditMode) {
+                  return (
+                    <button
+                      key={step.id}
+                      type="button"
+                      disabled={isSubmitting}
+                      className={`${styles.stepItem} ${styles.stepItemClickable} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
+                      onClick={() => {
+                        if (isSubmitting) return;
+                        setErrors({});
+                        setCurrentStep(idx);
+                      }}
+                      title={`Go to Step ${idx + 1}: ${step.label}`}
+                      role="tab"
+                      aria-selected={isCurrent}
+                    >
+                      <div className={styles.stepCircle}>
+                        {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
+                      </div>
+                      <span className={styles.stepLabel}>{step.label}</span>
+                      {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
+                    </button>
+                  );
+                }
+
                 return (
-                  <button
+                  <div
                     key={step.id}
-                    type="button"
-                    disabled={isSubmitting}
-                    className={`${styles.stepItem} ${styles.stepItemClickable} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
-                    onClick={() => {
-                      if (isSubmitting) return;
-                      setErrors({});
-                      setCurrentStep(idx);
-                    }}
-                    title={`Go to Step ${idx + 1}: ${step.label}`}
-                    role="tab"
-                    aria-selected={isCurrent}
+                    className={`${styles.stepItem} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
+                    role="listitem"
+                    aria-current={isCurrent ? 'step' : undefined}
                   >
                     <div className={styles.stepCircle}>
                       {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
                     </div>
                     <span className={styles.stepLabel}>{step.label}</span>
                     {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
-                  </button>
-                );
-              }
-
-              return (
-                <div
-                  key={step.id}
-                  className={`${styles.stepItem} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
-                  role="listitem"
-                  aria-current={isCurrent ? 'step' : undefined}
-                >
-                  <div className={styles.stepCircle}>
-                    {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
                   </div>
-                  <span className={styles.stepLabel}>{step.label}</span>
-                  {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Step Content */}
-        <div className={styles.content}>
-          {currentStep === 0 && (
-            <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
-          )}
-          {currentStep === 1 && (
-            <EmploymentStep
-              data={formData}
-              onChange={handleFormDataChange}
-              errors={errors}
-              clients={clients}
-              departments={departments}
-              designations={designations}
-              employeeTypes={employeeTypes}
-              sites={sites}
-              posts={posts}
-              shifts={shifts}
-              workLocations={workLocations}
-            />
-          )}
-          {currentStep === 2 && (
-            <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
-          )}
-          {currentStep === 3 && (
-            <BankDetailsStep
-              data={formData}
-              onChange={handleFormDataChange}
-              errors={errors}
-              banks={banks}
-            />
-          )}
-          {currentStep === 4 && (
-            <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
-          )}
-          {currentStep === 5 && (
-            <DocumentsStep
-              data={formData}
-              onChange={handleFormDataChange}
-              designation={formData.designation}
-              documentTypes={documentTypes}
-            />
-          )}
-          {currentStep === 6 && (
-            <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
-          )}
-        </div>
-
-        {/* Footer Navigation */}
-        <footer className={styles.footer}>
-          <button className={styles.cancelBtn} onClick={onClose} type="button" disabled={isSubmitting}>
-            Cancel
-          </button>
-          <div className={styles.navButtons}>
-            {currentStep > 0 && (
-              <button className={styles.backBtn} onClick={handleBack} type="button" disabled={isSubmitting}>
-                <ChevronLeft size={16} />
-                <span>Back</span>
-              </button>
-            )}
-
-            {isEditMode ? (
-              <>
-                {/* Save Changes button on every step for Edit Mode */}
-                <button
-                  className={styles.submitBtn}
-                  onClick={handleSubmit}
-                  type="button"
-                  title="Save changes"
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 size={16} className={styles.spinner} />
-                      <span>Saving...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check size={16} />
-                      <span>Save Changes</span>
-                    </>
-                  )}
-                </button>
-
-                {!isLastStep && (
-                  <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
-                    <span>Continue</span>
-                    <ChevronRight size={16} />
+        {/* Form Content: Stacked Together for Page Mode (Add & Edit), Stepped for Modal Mode */}
+        {isStackedMode ? (
+          <div className={styles.allSectionsWrapper}>
+            {/* 01. Basic Details */}
+            <section id="section-basic" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>01</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Basic Details</h3>
+                    <p className={styles.sectionSubtitle}>Personal information, contact details, identity and profile picture</p>
+                  </div>
+                </div>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeaderSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    title="Save changes for Basic Details"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className={styles.spinner} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Save Changes</span>
                   </button>
                 )}
-              </>
-            ) : (
-              <>
-                {/* Standard Add Employee flow: Save only on last step, Continue on others */}
-                {isLastStep ? (
+              </div>
+              <div className={styles.sectionBody}>
+                <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
                   <button
-                    className={styles.submitBtn}
-                    onClick={handleSubmit}
                     type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
                     disabled={isSubmitting}
                   >
                     {isSubmitting ? (
                       <>
-                        <Loader2 size={16} className={styles.spinner} />
+                        <Loader2 size={14} className={styles.spinner} />
                         <span>Saving...</span>
                       </>
                     ) : (
                       <>
-                        <Check size={16} />
-                        <span>Save Employee</span>
+                        <Check size={14} />
+                        <span>Save Changes</span>
                       </>
                     )}
                   </button>
-                ) : (
-                  <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
-                    <span>Continue</span>
-                    <ChevronRight size={16} />
+                </div>
+              )}
+            </section>
+
+            {/* 02. Employment Details */}
+            <section id="section-employment" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>02</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Employment Details</h3>
+                    <p className={styles.sectionSubtitle}>Client company allocation, site location, designation, department and shift roster</p>
+                  </div>
+                </div>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeaderSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    title="Save changes for Employment Details"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className={styles.spinner} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Save Changes</span>
                   </button>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                <EmploymentStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  errors={errors}
+                  clients={clients}
+                  departments={departments}
+                  designations={designations}
+                  employeeTypes={employeeTypes}
+                  sites={sites}
+                  posts={posts}
+                  shifts={shifts}
+                  workLocations={workLocations}
+                />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* 03. Salary & Statutory */}
+            <section id="section-salary" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>03</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Salary & Statutory Details</h3>
+                    <p className={styles.sectionSubtitle}>Wage structure, basic salary, allowances, PF, ESIC, PT, LWF and compliance</p>
+                  </div>
+                </div>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeaderSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    title="Save changes for Salary & Statutory Details"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className={styles.spinner} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* 04. Bank Details */}
+            <section id="section-bank" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>04</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Bank Details</h3>
+                    <p className={styles.sectionSubtitle}>Salary disbursement bank account, branch, IFSC and payment mode</p>
+                  </div>
+                </div>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeaderSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    title="Save changes for Bank Details"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className={styles.spinner} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                <BankDetailsStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  errors={errors}
+                  banks={banks}
+                />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* 05. Address & Family */}
+            <section id="section-address" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>05</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Address & Family Information</h3>
+                    <p className={styles.sectionSubtitle}>Present & permanent residential address, family members and insurance nominees</p>
+                  </div>
+                </div>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeaderSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    title="Save changes for Address & Family Information"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className={styles.spinner} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* 06. Documents & Licenses */}
+            <section id="section-documents" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>06</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Documents & Licenses</h3>
+                    <p className={styles.sectionSubtitle}>Driving & armed licenses, KYC documents and administrative verification</p>
+                  </div>
+                </div>
+                {isEditMode && (
+                  <button
+                    type="button"
+                    className={styles.sectionHeaderSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                    title="Save changes for Documents & Licenses"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 size={13} className={styles.spinner} />
+                    ) : (
+                      <Check size={13} />
+                    )}
+                    <span>Save Changes</span>
+                  </button>
+                )}
+              </div>
+              <div className={styles.sectionBody}>
+                <DocumentsStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  designation={formData.designation}
+                  documentTypes={documentTypes}
+                />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
+        ) : (
+          <div className={styles.content}>
+            {currentStep === 0 && (
+              <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
+            )}
+            {currentStep === 1 && (
+              <EmploymentStep
+                data={formData}
+                onChange={handleFormDataChange}
+                errors={errors}
+                clients={clients}
+                departments={departments}
+                designations={designations}
+                employeeTypes={employeeTypes}
+                sites={sites}
+                posts={posts}
+                shifts={shifts}
+                workLocations={workLocations}
+              />
+            )}
+            {currentStep === 2 && (
+              <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
+            )}
+            {currentStep === 3 && (
+              <BankDetailsStep
+                data={formData}
+                onChange={handleFormDataChange}
+                errors={errors}
+                banks={banks}
+              />
+            )}
+            {currentStep === 4 && (
+              <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
+            )}
+            {currentStep === 5 && (
+              <DocumentsStep
+                data={formData}
+                onChange={handleFormDataChange}
+                designation={formData.designation}
+                documentTypes={documentTypes}
+              />
+            )}
+            {currentStep === 6 && (
+              <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
+            )}
+          </div>
+        )}
+
+        {/* Footer Navigation */}
+        <footer className={styles.footer}>
+          {onClose && (
+            <button className={styles.cancelBtn} onClick={onClose} type="button" disabled={isSubmitting}>
+              {isPageMode ? (
+                <>
+                  <ChevronLeft size={16} />
+                  <span>Back</span>
+                </>
+              ) : (
+                'Cancel'
+              )}
+            </button>
+          )}
+
+          <div className={styles.navButtons}>
+            {isStackedMode ? (
+              <button
+                className={styles.submitBtn}
+                onClick={handleSubmit}
+                type="button"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 size={16} className={styles.spinner} />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} />
+                    <span>{isEditMode ? 'Save Changes' : 'Save Employee'}</span>
+                  </>
+                )}
+              </button>
+            ) : (
+              <>
+                {currentStep > 0 && (
+                  <button className={styles.backBtn} onClick={handleBack} type="button" disabled={isSubmitting}>
+                    <ChevronLeft size={16} />
+                    <span>Back</span>
+                  </button>
+                )}
+
+                {isEditMode ? (
+                  <>
+                    <button
+                      className={styles.submitBtn}
+                      onClick={handleSubmit}
+                      type="button"
+                      title="Save changes"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={16} className={styles.spinner} />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check size={16} />
+                          <span>Save Changes</span>
+                        </>
+                      )}
+                    </button>
+
+                    {!isLastStep && (
+                      <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
+                        <span>Continue</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {isLastStep ? (
+                      <button
+                        className={styles.submitBtn}
+                        onClick={handleSubmit}
+                        type="button"
+                        disabled={isSubmitting}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 size={16} className={styles.spinner} />
+                            <span>Saving...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Check size={16} />
+                            <span>Save Employee</span>
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
+                        <span>Continue</span>
+                        <ChevronRight size={16} />
+                      </button>
+                    )}
+                  </>
                 )}
               </>
             )}

@@ -63,16 +63,30 @@ const addDays = (dateStr, n) => {
   return d.toISOString().split('T')[0];
 };
 
+const formatDisplayWeek = (startStr, endStr) => {
+  if (!startStr || !endStr) return '—';
+  const d1 = new Date(startStr + 'T00:00:00');
+  const d2 = new Date(endStr + 'T00:00:00');
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return `${startStr} - ${endStr}`;
+  const p1 = d1.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
+  const p2 = d2.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return `${p1} - ${p2}`;
+};
+
 function AttendanceFilters({
   filters,
   onChange,
   onReset,
   timeframe = 'month',
   onTimeframeChange,
+  activeTab,
   selectedMonth,
   onMonthChange,
   selectedDate,
   onDateChange,
+  weekRange,
+  onPrevWeek,
+  onNextWeek,
   selectedYear,
   onYearChange,
   fromDate,
@@ -135,116 +149,216 @@ function AttendanceFilters({
           />
         </div>
 
-        {/* Timeframe Filter Dropdown Selector */}
-        <div className={styles.timeframeGroup}>
-          <span style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
-            {getTimeframeIcon()}
-          </span>
-          <select
-            className={styles.timeframeSelect}
-            value={timeframe}
-            onChange={(e) => onTimeframeChange(e.target.value)}
-            title="Filter by Timeframe (Current Month, Single Date, Date Range, Year, All Records)"
-          >
-            {TIMEFRAME_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+        {/* Timeframe Controls — Context-sensitive based on activeTab or fallback timeframe */}
+        {activeTab ? (
+          <div className={styles.timeframeGroup}>
+            {activeTab === 'daily' && (
+              <>
+                <span style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
+                  <Clock size={15} color="#1e40af" />
+                </span>
+                <div className={styles.dateNavControl}>
+                  <button
+                    type="button"
+                    className={styles.navArrowBtn}
+                    onClick={() => onDateChange(addDays(selectedDate, -1))}
+                    title="Previous day"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className={styles.dateDisplayLabel}>{formatDisplayDate(selectedDate)}</span>
+                  <button
+                    type="button"
+                    className={styles.navArrowBtn}
+                    onClick={() => onDateChange(addDays(selectedDate, 1))}
+                    title="Next day"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                  <input
+                    type="date"
+                    className={styles.inputControl}
+                    value={selectedDate}
+                    onChange={(e) => onDateChange(e.target.value)}
+                    style={{ width: '130px', padding: '4px 6px' }}
+                  />
+                </div>
+              </>
+            )}
 
-          {/* Context-Sensitive Timeframe Controls */}
-          {timeframe === 'month' && (
-            <div className={styles.dateNavControl}>
-              <button
-                type="button"
-                className={styles.navArrowBtn}
-                onClick={() => onMonthChange(addMonths(selectedMonth, -1))}
-                title="Previous month"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <span className={styles.dateDisplayLabel}>{formatDisplayMonth(selectedMonth)}</span>
-              <button
-                type="button"
-                className={styles.navArrowBtn}
-                onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
-                title="Next month"
-              >
-                <ChevronRight size={14} />
-              </button>
-              <input
-                type="month"
-                className={styles.inputControl}
-                value={selectedMonth}
-                onChange={(e) => onMonthChange(e.target.value)}
-                style={{ width: '130px', padding: '4px 6px' }}
-              />
-            </div>
-          )}
+            {activeTab === 'weekly' && (
+              <>
+                <span style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
+                  <CalendarDays size={15} color="#1e40af" />
+                </span>
+                <div className={styles.dateNavControl}>
+                  <button
+                    type="button"
+                    className={styles.navArrowBtn}
+                    onClick={onPrevWeek}
+                    title="Previous week"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className={styles.dateDisplayLabel}>
+                    {formatDisplayWeek(weekRange?.start, weekRange?.end)}
+                  </span>
+                  <button
+                    type="button"
+                    className={styles.navArrowBtn}
+                    onClick={onNextWeek}
+                    title="Next week"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </>
+            )}
 
-          {timeframe === 'date' && (
-            <div className={styles.dateNavControl}>
-              <button
-                type="button"
-                className={styles.navArrowBtn}
-                onClick={() => onDateChange(addDays(selectedDate, -1))}
-                title="Previous day"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <span className={styles.dateDisplayLabel}>{formatDisplayDate(selectedDate)}</span>
-              <button
-                type="button"
-                className={styles.navArrowBtn}
-                onClick={() => onDateChange(addDays(selectedDate, 1))}
-                title="Next day"
-              >
-                <ChevronRight size={14} />
-              </button>
-              <input
-                type="date"
-                className={styles.inputControl}
-                value={selectedDate}
-                onChange={(e) => onDateChange(e.target.value)}
-                style={{ width: '130px', padding: '4px 6px' }}
-              />
-            </div>
-          )}
+            {activeTab === 'monthly' && (
+              <>
+                <span style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
+                  <CalendarRange size={15} color="#1e40af" />
+                </span>
+                <div className={styles.dateNavControl}>
+                  <button
+                    type="button"
+                    className={styles.navArrowBtn}
+                    onClick={() => onMonthChange(addMonths(selectedMonth, -1))}
+                    title="Previous month"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span className={styles.dateDisplayLabel}>{formatDisplayMonth(selectedMonth)}</span>
+                  <button
+                    type="button"
+                    className={styles.navArrowBtn}
+                    onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
+                    title="Next month"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                  <input
+                    type="month"
+                    className={styles.inputControl}
+                    value={selectedMonth}
+                    onChange={(e) => onMonthChange(e.target.value)}
+                    style={{ width: '130px', padding: '4px 6px' }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className={styles.timeframeGroup}>
+            <span style={{ display: 'flex', alignItems: 'center', marginLeft: '4px' }}>
+              {getTimeframeIcon()}
+            </span>
+            <select
+              className={styles.timeframeSelect}
+              value={timeframe}
+              onChange={(e) => onTimeframeChange(e.target.value)}
+              title="Filter by Timeframe (Current Month, Single Date, Date Range, Year, All Records)"
+            >
+              {TIMEFRAME_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
 
-          {timeframe === 'range' && (
-            <div className={styles.rangeInputs}>
-              <span className={styles.rangeText}>From:</span>
-              <input
-                type="date"
-                className={styles.inputControl}
-                value={fromDate || ''}
-                onChange={(e) => onRangeChange({ fromDate: e.target.value, toDate })}
-                style={{ width: '125px', padding: '4px 6px' }}
-              />
-              <span className={styles.rangeText}>To:</span>
-              <input
-                type="date"
-                className={styles.inputControl}
-                value={toDate || ''}
-                onChange={(e) => onRangeChange({ fromDate, toDate: e.target.value })}
-                style={{ width: '125px', padding: '4px 6px' }}
-              />
-            </div>
-          )}
+            {timeframe === 'month' && (
+              <div className={styles.dateNavControl}>
+                <button
+                  type="button"
+                  className={styles.navArrowBtn}
+                  onClick={() => onMonthChange(addMonths(selectedMonth, -1))}
+                  title="Previous month"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className={styles.dateDisplayLabel}>{formatDisplayMonth(selectedMonth)}</span>
+                <button
+                  type="button"
+                  className={styles.navArrowBtn}
+                  onClick={() => onMonthChange(addMonths(selectedMonth, 1))}
+                  title="Next month"
+                >
+                  <ChevronRight size={14} />
+                </button>
+                <input
+                  type="month"
+                  className={styles.inputControl}
+                  value={selectedMonth}
+                  onChange={(e) => onMonthChange(e.target.value)}
+                  style={{ width: '130px', padding: '4px 6px' }}
+                />
+              </div>
+            )}
 
-          {timeframe === 'year' && (
-            <div className={styles.dateNavControl}>
-              <select
-                className={styles.inputControl}
-                value={selectedYear}
-                onChange={(e) => onYearChange(e.target.value)}
-              >
-                {yearsList.map((y) => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
+            {timeframe === 'date' && (
+              <div className={styles.dateNavControl}>
+                <button
+                  type="button"
+                  className={styles.navArrowBtn}
+                  onClick={() => onDateChange(addDays(selectedDate, -1))}
+                  title="Previous day"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                <span className={styles.dateDisplayLabel}>{formatDisplayDate(selectedDate)}</span>
+                <button
+                  type="button"
+                  className={styles.navArrowBtn}
+                  onClick={() => onDateChange(addDays(selectedDate, 1))}
+                  title="Next day"
+                >
+                  <ChevronRight size={14} />
+                </button>
+                <input
+                  type="date"
+                  className={styles.inputControl}
+                  value={selectedDate}
+                  onChange={(e) => onDateChange(e.target.value)}
+                  style={{ width: '130px', padding: '4px 6px' }}
+                />
+              </div>
+            )}
+
+            {timeframe === 'range' && (
+              <div className={styles.rangeInputs}>
+                <span className={styles.rangeText}>From:</span>
+                <input
+                  type="date"
+                  className={styles.inputControl}
+                  value={fromDate || ''}
+                  onChange={(e) => onRangeChange({ fromDate: e.target.value, toDate })}
+                  style={{ width: '125px', padding: '4px 6px' }}
+                />
+                <span className={styles.rangeText}>To:</span>
+                <input
+                  type="date"
+                  className={styles.inputControl}
+                  value={toDate || ''}
+                  onChange={(e) => onRangeChange({ fromDate, toDate: e.target.value })}
+                  style={{ width: '125px', padding: '4px 6px' }}
+                />
+              </div>
+            )}
+
+            {timeframe === 'year' && (
+              <div className={styles.dateNavControl}>
+                <select
+                  className={styles.inputControl}
+                  value={selectedYear}
+                  onChange={(e) => onYearChange(e.target.value)}
+                >
+                  {yearsList.map((y) => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Client Dropdown with SVG Icon */}
         <div className={styles.selectWrap}>

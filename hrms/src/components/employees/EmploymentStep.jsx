@@ -1,6 +1,15 @@
 import React, { useMemo } from 'react';
 import styles from './EmployeeFormSteps.module.css';
 
+export const ATTENDANCE_METHODS_LIST = [
+  'Default / WiFi / Geolocation',
+  'Biometric Device',
+  'QR Code',
+  'NFC',
+  'Selfie Attendance',
+  'Face Scan Terminal'
+];
+
 function EmploymentStep({
   data,
   onChange,
@@ -407,6 +416,103 @@ function EmploymentStep({
             value={data.exitReason || ''}
             onChange={(e) => handleChange('exitReason', e.target.value)}
           />
+        </div>
+
+        {/* Attendance Methods (Multi-Select) & Rules Configuration */}
+        <div className={styles.attendanceConfigSection}>
+          <div className={styles.attendanceMethodsBlock}>
+            <label className={styles.attendanceLabel}>
+              Attendance Methods <span className={styles.required}>*</span>
+            </label>
+            <div className={styles.attendanceMethodsBox} role="listbox" aria-multiselectable="true">
+              {ATTENDANCE_METHODS_LIST.map((method) => {
+                const currentMethods = Array.isArray(data.attendanceMethods) ? data.attendanceMethods : [];
+                const isSelected = currentMethods.includes(method);
+                return (
+                  <div
+                    key={method}
+                    role="option"
+                    aria-selected={isSelected}
+                    className={`${styles.attendanceMethodOption} ${isSelected ? styles.attendanceMethodSelected : ''}`}
+                    onClick={() => {
+                      let nextMethods;
+                      if (isSelected) {
+                        nextMethods = currentMethods.filter(m => m !== method);
+                        if (nextMethods.length === 0) nextMethods = [method]; // Keep at least one
+                      } else {
+                        nextMethods = [...currentMethods, method];
+                      }
+                      onChange({
+                        ...data,
+                        attendanceMethods: nextMethods,
+                        attendanceMethod: nextMethods[0] || 'Manual'
+                      });
+                    }}
+                  >
+                    <span>{method}</span>
+                    <span className={`${styles.attendanceCheckIndicator} ${isSelected ? styles.attendanceCheckIndicatorSelected : ''}`}>
+                      {isSelected ? '✓' : ''}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className={styles.attendanceHelperText}>
+              Select one or multiple attendance methods allowed for this employee.
+            </p>
+          </div>
+
+          {/* 3 Attendance Rules Checkboxes */}
+          <div className={styles.attendanceRulesGrid}>
+            {/* 1. Allow Mobile App Login */}
+            <label className={`${styles.attendanceRuleCard} ${data.allowMobileAppLogin ? styles.attendanceRuleCardActive : ''}`}>
+              <input
+                type="checkbox"
+                className={styles.attendanceRuleCheckbox}
+                checked={data.allowMobileAppLogin !== undefined ? !!data.allowMobileAppLogin : true}
+                onChange={(e) => handleChange('allowMobileAppLogin', e.target.checked)}
+              />
+              <div className={styles.attendanceRuleContent}>
+                <span className={styles.attendanceRuleTitle}>Allow Mobile App Login</span>
+                <p className={styles.attendanceRuleDesc}>
+                  Controls whether this user can sign in to the main mobile app as employee or company admin.
+                </p>
+              </div>
+            </label>
+
+            {/* 2. Attendance during Holiday and Office off Days */}
+            <label className={`${styles.attendanceRuleCard} ${data.attendanceHolidayOfficeOff ? styles.attendanceRuleCardActive : ''}`}>
+              <input
+                type="checkbox"
+                className={styles.attendanceRuleCheckbox}
+                checked={!!data.attendanceHolidayOfficeOff}
+                onChange={(e) => handleChange('attendanceHolidayOfficeOff', e.target.checked)}
+              />
+              <div className={styles.attendanceRuleContent}>
+                <span className={styles.attendanceRuleTitle}>Attendance during Holiday and Office off Days</span>
+                <p className={styles.attendanceRuleDesc}>
+                  Allows employee to record attendance on gazetted holidays, festivals, and weekly offs.
+                </p>
+              </div>
+            </label>
+
+            {/* 3. Auto Punch-Out When Location OFF */}
+            <label className={`${styles.attendanceRuleCard} ${data.autoPunchOutLocationOff ? styles.attendanceRuleCardActive : ''}`}>
+              <input
+                type="checkbox"
+                className={styles.attendanceRuleCheckbox}
+                checked={!!data.autoPunchOutLocationOff}
+                onChange={(e) => handleChange('autoPunchOutLocationOff', e.target.checked)}
+              />
+              <div className={styles.attendanceRuleContent}>
+                <span className={styles.attendanceRuleTitle}>Auto Punch-Out When Location OFF</span>
+                <p className={styles.attendanceRuleDesc}>
+                  <strong>When Checked (ON):</strong> Employee is automatically punched out & marked Absent when GPS is OFF.<br />
+                  <strong>When Unchecked (OFF):</strong> Employee stays Present.
+                </p>
+              </div>
+            </label>
+          </div>
         </div>
       </div>
     </div>
