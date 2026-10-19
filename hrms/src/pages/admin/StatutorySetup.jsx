@@ -42,12 +42,12 @@ const INITIAL_PF = {
   wageCeilingRestricted: true,
   allowVPF: true,
   vpfMaxPercentage: 100,
-  effectiveDate: '2026-04-01',
+  effectiveDate: '',
   status: 'active',
-  createdBy: 'System SuperAdmin',
-  createdDate: '2025-04-01',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  createdBy: '',
+  createdDate: '',
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 const INITIAL_ESI = {
@@ -56,21 +56,21 @@ const INITIAL_ESI = {
   employerContribution: 3.25,
   wageEligibilityLimit: 21000,
   disabilityWageLimit: 25000,
-  effectiveDate: '2026-04-01',
+  effectiveDate: '',
   status: 'active',
-  notes: 'Applicable to all staff drawing gross monthly wage up to ₹21,000.',
-  createdBy: 'System SuperAdmin',
-  createdDate: '2025-04-01',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  notes: 'Applicable to staff drawing gross monthly wage up to ₹21,000.',
+  createdBy: '',
+  createdDate: '',
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 const INITIAL_PT = {
   enabled: true,
   status: 'active',
-  effectiveDate: '2026-04-01',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  effectiveDate: '',
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 const INITIAL_TDS = {
@@ -80,11 +80,11 @@ const INITIAL_TDS = {
   standardDeductionNewRegime: 75000,
   standardDeductionOldRegime: 50000,
   investmentDeclarationRequired: true,
-  proofSubmissionDeadline: '2027-01-31',
+  proofSubmissionDeadline: '',
   monthlyTDSThreshold: 500000,
   status: 'active',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 const INITIAL_BONUS = {
@@ -95,10 +95,10 @@ const INITIAL_BONUS = {
   statutoryWageCeiling: 7000,
   minimumServiceDays: 30,
   disbursementSchedule: 'Annual (Diwali / Puja Festival)',
-  effectiveDate: '2026-04-01',
+  effectiveDate: '',
   status: 'active',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 const INITIAL_GRATUITY = {
@@ -107,18 +107,18 @@ const INITIAL_GRATUITY = {
   calculationBasis: 'Basic + DA',
   formulaMethod: '15 Days × (Last Drawn Basic + DA) × Completed Years / 26',
   maximumTaxExemptionLimit: 2000000,
-  effectiveDate: '2026-04-01',
+  effectiveDate: '',
   status: 'active',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 const INITIAL_LWF = {
   enabled: true,
   status: 'active',
-  effectiveDate: '2026-04-01',
-  lastUpdatedBy: 'Admin',
-  lastUpdatedDate: '2026-04-01'
+  effectiveDate: '',
+  lastUpdatedBy: '',
+  lastUpdatedDate: ''
 };
 
 function StatutorySetup() {
@@ -301,8 +301,8 @@ function StatutorySetup() {
     try {
       setIsSaving(true);
       const payload = {
-        id: editingPTSlab?.id,
-        ...formData
+        ...formData,
+        id: editingPTSlab?.id || editingPTSlab?._id || formData.id || undefined,
       };
       const res = await statutoryService.savePTSlab(compId, payload);
       if (res?.ptSlabs) {
@@ -319,13 +319,14 @@ function StatutorySetup() {
   };
 
   const handleDeletePTSlab = async (slabId) => {
+    if (!slabId) return;
     try {
       setIsSaving(true);
       const res = await statutoryService.deletePTSlab(compId, slabId);
       if (res?.ptSlabs) {
         setPTSlabs(res.ptSlabs);
       }
-      showToast('✓ PT Slab removed.');
+      showToast('✓ Professional Tax slab removed successfully.');
     } catch (err) {
       showToast(`Failed to delete PT slab: ${err.message}`, 'danger');
     } finally {
@@ -338,8 +339,8 @@ function StatutorySetup() {
     try {
       setIsSaving(true);
       const payload = {
-        id: editingLWFRule?.id,
-        ...formData
+        ...formData,
+        id: editingLWFRule?.id || editingLWFRule?._id || formData.id || undefined,
       };
       const res = await statutoryService.saveLWFRule(compId, payload);
       if (res?.lwfRules) {
@@ -356,13 +357,14 @@ function StatutorySetup() {
   };
 
   const handleDeleteLWFRule = async (ruleId) => {
+    if (!ruleId) return;
     try {
       setIsSaving(true);
       const res = await statutoryService.deleteLWFRule(compId, ruleId);
       if (res?.lwfRules) {
         setLWFRules(res.lwfRules);
       }
-      showToast('✓ LWF rule removed.');
+      showToast('✓ LWF rule removed successfully.');
     } catch (err) {
       showToast(`Failed to delete LWF rule: ${err.message}`, 'danger');
     } finally {
@@ -714,6 +716,13 @@ function StatutorySetup() {
                   </div>
                 </div>
 
+                {!pfConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Provident Fund (PF) is currently disabled. Statutory deductions will not be processed during payroll calculations.</span>
+                  </div>
+                )}
+
                 <form
                   onSubmit={(e) => handleSaveModule(e, 'pf', pfConfig, '✓ PF configuration saved successfully.')}
                   className={styles.configForm}
@@ -800,10 +809,12 @@ function StatutorySetup() {
                   </div>
 
                   {/* Audit Info */}
-                  <div className={styles.auditBar}>
-                    <span>Created: {pfConfig.createdDate} by {pfConfig.createdBy}</span>
-                    <span>Last Updated: {pfConfig.lastUpdatedDate} by {pfConfig.lastUpdatedBy}</span>
-                  </div>
+                  {(pfConfig.createdDate || pfConfig.lastUpdatedDate) && (
+                    <div className={styles.auditBar}>
+                      {pfConfig.createdDate && <span>Created: {pfConfig.createdDate} {pfConfig.createdBy ? `by ${pfConfig.createdBy}` : ''}</span>}
+                      {pfConfig.lastUpdatedDate && <span>Last Updated: {pfConfig.lastUpdatedDate} {pfConfig.lastUpdatedBy ? `by ${pfConfig.lastUpdatedBy}` : ''}</span>}
+                    </div>
+                  )}
 
                   <div className={styles.formActions}>
                     <button type="submit" className={styles.saveBtn} disabled={isSaving}>
@@ -836,6 +847,13 @@ function StatutorySetup() {
                     <StatusBadge status={esiConfig.enabled ? 'active' : 'inactive'} />
                   </div>
                 </div>
+
+                {!esiConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Employee State Insurance (ESI) is currently disabled. Statutory deductions will not be processed during payroll calculations.</span>
+                  </div>
+                )}
 
                 <form
                   onSubmit={(e) => handleSaveModule(e, 'esi', esiConfig, '✓ ESI configuration saved successfully.')}
@@ -917,10 +935,12 @@ function StatutorySetup() {
                   </div>
 
                   {/* Audit Info */}
-                  <div className={styles.auditBar}>
-                    <span>Created: {esiConfig.createdDate} by {esiConfig.createdBy}</span>
-                    <span>Last Updated: {esiConfig.lastUpdatedDate} by {esiConfig.lastUpdatedBy}</span>
-                  </div>
+                  {(esiConfig.createdDate || esiConfig.lastUpdatedDate) && (
+                    <div className={styles.auditBar}>
+                      {esiConfig.createdDate && <span>Created: {esiConfig.createdDate} {esiConfig.createdBy ? `by ${esiConfig.createdBy}` : ''}</span>}
+                      {esiConfig.lastUpdatedDate && <span>Last Updated: {esiConfig.lastUpdatedDate} {esiConfig.lastUpdatedBy ? `by ${esiConfig.lastUpdatedBy}` : ''}</span>}
+                    </div>
+                  )}
 
                   <div className={styles.formActions}>
                     <button type="submit" className={styles.saveBtn} disabled={isSaving}>
@@ -953,6 +973,13 @@ function StatutorySetup() {
                     <StatusBadge status={ptConfig.enabled ? 'active' : 'inactive'} />
                   </div>
                 </div>
+
+                {!ptConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Professional Tax (PT) is currently disabled. State tax deductions will not be processed during payroll calculations.</span>
+                  </div>
+                )}
 
                 {/* Toolbar */}
                 <div className={styles.ptToolbar}>
@@ -1007,15 +1034,24 @@ function StatutorySetup() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredPTSlabs.length === 0 ? (
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={7} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                              <Loader2 size={18} className="spinning" />
+                              <span>Loading Professional Tax slabs from database...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : filteredPTSlabs.length === 0 ? (
                         <tr>
                           <td colSpan={7} style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
                             No Professional Tax slabs configured for the selected filter.
                           </td>
                         </tr>
                       ) : (
-                        filteredPTSlabs.map((slab) => (
-                          <tr key={slab.id}>
+                        filteredPTSlabs.map((slab, sIdx) => (
+                          <tr key={slab.id || slab._id || `${slab.state}-${slab.minSalary}-${sIdx}`}>
                             <td><span className={styles.stateBadge}>{slab.state}</span></td>
                             <td>
                               <span className={styles.rangeText}>
@@ -1048,7 +1084,7 @@ function StatutorySetup() {
                                   type="button"
                                   className={styles.deleteIconBtn}
                                   title="Delete Slab"
-                                  onClick={() => handleDeletePTSlab(slab.id)}
+                                  onClick={() => handleDeletePTSlab(slab.id || slab._id)}
                                 >
                                   <Trash2 size={14} />
                                 </button>
@@ -1084,6 +1120,13 @@ function StatutorySetup() {
                     <StatusBadge status={tdsConfig.enabled ? 'active' : 'inactive'} />
                   </div>
                 </div>
+
+                {!tdsConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Tax Deducted at Source (TDS) is currently disabled. Income tax deductions will not be processed during payroll calculations.</span>
+                  </div>
+                )}
 
                 <form
                   onSubmit={(e) => handleSaveModule(e, 'tds', tdsConfig, '✓ TDS configuration saved successfully.')}
@@ -1165,9 +1208,11 @@ function StatutorySetup() {
                   </div>
 
                   {/* Audit Info */}
-                  <div className={styles.auditBar}>
-                    <span>Last Updated: {tdsConfig.lastUpdatedDate} by {tdsConfig.lastUpdatedBy}</span>
-                  </div>
+                  {tdsConfig.lastUpdatedDate && (
+                    <div className={styles.auditBar}>
+                      <span>Last Updated: {tdsConfig.lastUpdatedDate} {tdsConfig.lastUpdatedBy ? `by ${tdsConfig.lastUpdatedBy}` : ''}</span>
+                    </div>
+                  )}
 
                   <div className={styles.formActions}>
                     <button type="submit" className={styles.saveBtn} disabled={isSaving}>
@@ -1200,6 +1245,13 @@ function StatutorySetup() {
                     <StatusBadge status={bonusConfig.enabled ? 'active' : 'inactive'} />
                   </div>
                 </div>
+
+                {!bonusConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Statutory Bonus is currently disabled. Bonus disbursements will not be included in payroll calculations.</span>
+                  </div>
+                )}
 
                 <form
                   onSubmit={(e) => handleSaveModule(e, 'bonus', bonusConfig, '✓ Bonus configuration saved successfully.')}
@@ -1283,9 +1335,11 @@ function StatutorySetup() {
                   </div>
 
                   {/* Audit Info */}
-                  <div className={styles.auditBar}>
-                    <span>Last Updated: {bonusConfig.lastUpdatedDate} by {bonusConfig.lastUpdatedBy}</span>
-                  </div>
+                  {bonusConfig.lastUpdatedDate && (
+                    <div className={styles.auditBar}>
+                      <span>Last Updated: {bonusConfig.lastUpdatedDate} {bonusConfig.lastUpdatedBy ? `by ${bonusConfig.lastUpdatedBy}` : ''}</span>
+                    </div>
+                  )}
 
                   <div className={styles.formActions}>
                     <button type="submit" className={styles.saveBtn} disabled={isSaving}>
@@ -1318,6 +1372,13 @@ function StatutorySetup() {
                     <StatusBadge status={gratuityConfig.enabled ? 'active' : 'inactive'} />
                   </div>
                 </div>
+
+                {!gratuityConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Gratuity is currently disabled. Gratuity provisions will not be computed during payroll calculations.</span>
+                  </div>
+                )}
 
                 <form
                   onSubmit={(e) => handleSaveModule(e, 'gratuity', gratuityConfig, '✓ Gratuity configuration saved successfully.')}
@@ -1381,9 +1442,11 @@ function StatutorySetup() {
                   </div>
 
                   {/* Audit Info */}
-                  <div className={styles.auditBar}>
-                    <span>Last Updated: {gratuityConfig.lastUpdatedDate} by {gratuityConfig.lastUpdatedBy}</span>
-                  </div>
+                  {gratuityConfig.lastUpdatedDate && (
+                    <div className={styles.auditBar}>
+                      <span>Last Updated: {gratuityConfig.lastUpdatedDate} {gratuityConfig.lastUpdatedBy ? `by ${gratuityConfig.lastUpdatedBy}` : ''}</span>
+                    </div>
+                  )}
 
                   <div className={styles.formActions}>
                     <button type="submit" className={styles.saveBtn} disabled={isSaving}>
@@ -1416,6 +1479,13 @@ function StatutorySetup() {
                     <StatusBadge status={lwfConfig.enabled ? 'active' : 'inactive'} />
                   </div>
                 </div>
+
+                {!lwfConfig.enabled && (
+                  <div className={styles.disabledNotice}>
+                    <AlertCircle size={16} />
+                    <span>Labour Welfare Fund (LWF) is currently disabled. State welfare contributions will not be processed during payroll calculations.</span>
+                  </div>
+                )}
 
                 {/* Toolbar */}
                 <div className={styles.ptToolbar}>
@@ -1458,15 +1528,24 @@ function StatutorySetup() {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredLWFRules.length === 0 ? (
+                      {isLoading ? (
+                        <tr>
+                          <td colSpan={8} style={{ textAlign: 'center', padding: '36px', color: '#64748b' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                              <Loader2 size={18} className="spinning" />
+                              <span>Loading Labour Welfare Fund rules from database...</span>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : filteredLWFRules.length === 0 ? (
                         <tr>
                           <td colSpan={8} style={{ textAlign: 'center', padding: '30px', color: '#64748b' }}>
                             No Labour Welfare Fund rules configured for the selected filter.
                           </td>
                         </tr>
                       ) : (
-                        filteredLWFRules.map((rule) => (
-                          <tr key={rule.id}>
+                        filteredLWFRules.map((rule, rIdx) => (
+                          <tr key={rule.id || rule._id || `${rule.state}-${rIdx}`}>
                             <td><span className={styles.stateBadge}>{rule.state}</span></td>
                             <td><span className={styles.taxAmountVal}>₹{rule.employeeContribution}</span></td>
                             <td><span className={styles.taxAmountVal}>₹{rule.employerContribution}</span></td>
@@ -1488,7 +1567,7 @@ function StatutorySetup() {
                                   type="button"
                                   className={styles.deleteIconBtn}
                                   title="Delete Rule"
-                                  onClick={() => handleDeleteLWFRule(rule.id)}
+                                  onClick={() => handleDeleteLWFRule(rule.id || rule._id)}
                                 >
                                   <Trash2 size={14} />
                                 </button>

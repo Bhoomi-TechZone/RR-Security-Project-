@@ -91,7 +91,9 @@ export default function SalarySlipPreview({
   const specialAllowance = earnings.specialAllowance || 0;
   const otherAllowance = earnings.otherAllowance || 0;
   const overtime = earnings.overtime || 0;
-  const grossSalary = earnings.totalGross || earnings.grossSalary || slip.grossSalary || (basic + hra + conveyance + vda + specialAllowance + otherAllowance + overtime);
+  const bonus = earnings.bonus || earnings.statutoryBonus || slip.bonus || 0;
+  const arrears = earnings.arrears || slip.arrears || 0;
+  const grossSalary = earnings.totalGross || earnings.grossSalary || slip.grossSalary || (basic + hra + conveyance + vda + specialAllowance + otherAllowance + overtime + bonus + arrears);
 
   // Normalize deductions
   const deductions = slip.deductions || slip.deductionsBreakdown || {};
@@ -99,9 +101,10 @@ export default function SalarySlipPreview({
   const esi = deductions.esiEmployee || deductions.esi || deductions.esic || 0;
   const pt = deductions.pt || deductions.professionalTax || 0;
   const tds = deductions.tds || deductions.incomeTax || 0;
+  const lwf = deductions.lwfEmployee || deductions.lwf || deductions.labourWelfareFund || 0;
   const advance = deductions.advances || deductions.advanceAdjustment || deductions.loanEmi || 0;
   const otherDeductions = deductions.otherDeductions || deductions.otherDeduction || 0;
-  const totalDeductions = deductions.totalDeductions || slip.totalDeductions || (pf + esi + pt + tds + advance + otherDeductions);
+  const totalDeductions = deductions.totalDeductions || slip.totalDeductions || (pf + esi + pt + tds + lwf + advance + otherDeductions);
 
   const netSalary = slip.netSalary || Math.max(0, grossSalary - totalDeductions);
   const amountInWords = numberToIndianWords(netSalary);
@@ -324,6 +327,18 @@ export default function SalarySlipPreview({
                       <span>{formatRupee(specialAllowance)}</span>
                     </div>
                   )}
+                  {bonus > 0 && (
+                    <div className={styles.ledgerLine}>
+                      <span>Statutory Bonus</span>
+                      <span>{formatRupee(bonus)}</span>
+                    </div>
+                  )}
+                  {arrears > 0 && (
+                    <div className={styles.ledgerLine}>
+                      <span>Arrears</span>
+                      <span>{formatRupee(arrears)}</span>
+                    </div>
+                  )}
                   {otherAllowance > 0 && (
                     <div className={styles.ledgerLine}>
                       <span>Other Allowance</span>
@@ -368,6 +383,12 @@ export default function SalarySlipPreview({
                     <div className={styles.ledgerLine}>
                       <span>Tax Deducted at Source (TDS)</span>
                       <span>{formatRupee(tds)}</span>
+                    </div>
+                  )}
+                  {lwf > 0 && (
+                    <div className={styles.ledgerLine}>
+                      <span>Labour Welfare Fund (LWF)</span>
+                      <span>{formatRupee(lwf)}</span>
                     </div>
                   )}
                   {advance > 0 && (

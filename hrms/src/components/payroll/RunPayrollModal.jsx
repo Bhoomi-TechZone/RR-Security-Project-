@@ -14,6 +14,7 @@ export default function RunPayrollModal({
   estimatedGross = 0,
   estimatedDeductions = 0,
   estimatedNet = 0,
+  records = [],
   onComplete,
   onViewIssues
 }) {
@@ -23,7 +24,11 @@ export default function RunPayrollModal({
   const [progress, setProgress] = useState(0);
   const [processedCount, setProcessedCount] = useState(0);
   const [currentStage, setCurrentStage] = useState('');
-  const totalEmployees = employeeCount > 0 ? employeeCount : 1;
+  const totalEmployees = employeeCount > 0 ? employeeCount : (Array.isArray(records) && records.length > 0 ? records.length : 1);
+
+  const missingAttendanceCount = Array.isArray(records)
+    ? records.filter(r => r.hasAttendance === false || r.status === 'Pending Attendance').length
+    : 0;
 
   // Reset state when opening modal
   useEffect(() => {
@@ -126,7 +131,7 @@ export default function RunPayrollModal({
                   value={selectedClient}
                   onChange={(e) => setSelectedClient(e.target.value)}
                 >
-                  <option value="all">All Clients (5 Organizations)</option>
+                  <option value="all">All Clients ({companies.length} Organizations)</option>
                   {companies.map((c) => (
                     <option key={c.id || c.name} value={c.name}>
                       {c.name}
@@ -205,7 +210,7 @@ export default function RunPayrollModal({
                 </li>
                 <li className={styles.checkItem}>
                   <CheckCircle2 size={16} className={styles.iconCheck} />
-                  <span>Attendance records computed (31 Days)</span>
+                  <span>Attendance records computed ({monthLabel})</span>
                 </li>
                 <li className={styles.checkItem}>
                   <CheckCircle2 size={16} className={styles.iconCheck} />
@@ -213,27 +218,38 @@ export default function RunPayrollModal({
                 </li>
                 <li className={styles.checkItem}>
                   <CheckCircle2 size={16} className={styles.iconCheck} />
+                  <span>Statutory PF, ESI, PT, TDS &amp; LWF rules configured</span>
+                </li>
+                <li className={styles.checkItem}>
+                  <CheckCircle2 size={16} className={styles.iconCheck} />
                   <span>Advance and loan deductions adjusted</span>
                 </li>
               </ul>
 
-              {/* Warning Item */}
-              <div className={styles.warningBox}>
-                <div className={styles.warningContent}>
-                  <AlertTriangle size={16} className={styles.iconWarning} />
-                  <span>2 records require attention (Missing attendance reported)</span>
+              {/* Warning Item if missing attendance */}
+              {missingAttendanceCount > 0 ? (
+                <div className={styles.warningBox}>
+                  <div className={styles.warningContent}>
+                    <AlertTriangle size={16} className={styles.iconWarning} />
+                    <span>{missingAttendanceCount} record{missingAttendanceCount > 1 ? 's' : ''} require attention (Missing attendance reported)</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.viewIssuesBtn}
+                    onClick={() => {
+                      onClose();
+                      onViewIssues();
+                    }}
+                  >
+                    View Issues
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  className={styles.viewIssuesBtn}
-                  onClick={() => {
-                    onClose();
-                    onViewIssues();
-                  }}
-                >
-                  View Issues
-                </button>
-              </div>
+              ) : (
+                <div className={styles.checkItem} style={{ marginTop: '0.75rem', color: '#16a34a', fontWeight: 500 }}>
+                  <CheckCircle2 size={16} className={styles.iconCheck} />
+                  <span>All active employee attendances verified and present</span>
+                </div>
+              )}
             </div>
 
             <p className={styles.disclaimerText}>

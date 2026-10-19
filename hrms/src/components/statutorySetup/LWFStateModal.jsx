@@ -29,11 +29,11 @@ function LWFStateModal({
       } else {
         setFormData({
           state: 'Maharashtra',
-          employeeContribution: 12,
-          employerContribution: 36,
-          frequency: 'Half-Yearly',
-          deductionMonths: 'June & December',
-          effectiveDate: '2026-04-01',
+          employeeContribution: '',
+          employerContribution: '',
+          frequency: 'Monthly',
+          deductionMonths: '',
+          effectiveDate: new Date().toISOString().split('T')[0],
           status: 'active'
         });
       }
