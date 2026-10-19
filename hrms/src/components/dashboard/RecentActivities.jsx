@@ -1,5 +1,9 @@
 import React from 'react';
-import { User, Clock, Calendar, CheckSquare, HelpCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  User, Clock, Calendar, CheckSquare, HelpCircle,
+  Receipt, WalletCards, Package
+} from 'lucide-react';
 import styles from './RecentActivities.module.css';
 
 // Icon mapper for activity category type
@@ -7,17 +11,28 @@ const iconMap = {
   employee: { icon: User, bg: '#eff6ff', color: '#1e3a8a' },
   attendance: { icon: CheckSquare, bg: '#fff7ed', color: '#1e3a8a' },
   payroll: { icon: Clock, bg: '#f0fdf4', color: '#1e3a8a' },
-  leave: { icon: Calendar, bg: '#faf5ff', color: '#1e3a8a' },
+  leave: { icon: Calendar, bg: '#faf5ff', color: '#7c3aed' },
+  reimbursement: { icon: Receipt, bg: '#ecfdf5', color: '#059669' },
+  loan: { icon: WalletCards, bg: '#fffbeb', color: '#d97706' },
+  inventory: { icon: Package, bg: '#f0f9ff', color: '#0284c7' },
 };
 
 const tagClassMap = {
+  'Approved': styles.tagSuccess,
   'Success': styles.tagSuccess,
   'New Joiner': styles.tagNewJoiner,
   'Leave': styles.tagLeave,
   'Attendance': styles.tagAttendance,
+  'Claim': styles.tagClaim,
+  'Advance': styles.tagAdvance,
+  'Requisition': styles.tagRequisition,
+  'Rejected': styles.tagRejected,
+  'Pending': styles.tagPending,
 };
 
 function RecentActivities({ activities = [], loading }) {
+  const navigate = useNavigate();
+
   if (loading) {
     return (
       <div className={styles.card}>
@@ -44,9 +59,14 @@ function RecentActivities({ activities = [], loading }) {
     <div className={styles.card}>
       <div className={styles.header}>
         <h3 className={styles.title}>Recent Activities</h3>
-        <a href="#" onClick={(e) => e.preventDefault()} className={styles.viewAll}>
+        <button
+          type="button"
+          onClick={() => navigate('/admin/notifications?tab=notifications')}
+          className={styles.viewAllBtn}
+          title="View all activities and system notifications"
+        >
           View All →
-        </a>
+        </button>
       </div>
       
       <div className={styles.timeline}>
@@ -59,9 +79,17 @@ function RecentActivities({ activities = [], loading }) {
             const config = iconMap[item.type] || { icon: HelpCircle, bg: '#f1f5f9', color: '#64748b' };
             const Icon = config.icon;
             const tagClass = tagClassMap[item.tag] || styles.tagDefault;
+            const isClickable = Boolean(item.targetUrl);
             
             return (
-              <div key={item.id} className={styles.timelineItem}>
+              <div
+                key={item.id}
+                className={`${styles.timelineItem} ${isClickable ? styles.interactiveTimelineItem : ''}`}
+                onClick={() => item.targetUrl && navigate(item.targetUrl)}
+                role={isClickable ? 'button' : undefined}
+                tabIndex={isClickable ? 0 : undefined}
+                title={isClickable ? `Go to ${item.type} details` : undefined}
+              >
                 {/* Timeline connector track */}
                 <div className={styles.line} aria-hidden="true" />
                 

@@ -51,8 +51,8 @@ function AdminDashboard() {
       id: 'total-employees',
       title: 'Total Employees',
       value: dashboardData?.kpi?.totalEmployees ?? '0',
-      trend: '+12.5%',
-      trendType: 'positive',
+      trend: 'Active Roster',
+      trendType: 'neutral',
       subtext: 'registered workforce',
       iconName: 'Users'
     },
@@ -60,7 +60,7 @@ function AdminDashboard() {
       id: 'active-employees',
       title: 'Active Employees',
       value: dashboardData?.kpi?.activeEmployees ?? '0',
-      trend: '+4.8%',
+      trend: `${(dashboardData?.kpi?.totalEmployees > 0) ? Math.round(((dashboardData?.kpi?.activeEmployees || 0) / dashboardData.kpi.totalEmployees) * 100) : 0}% active`,
       trendType: 'positive',
       subtext: 'on duty & operational',
       iconName: 'UserCheck'
@@ -69,8 +69,8 @@ function AdminDashboard() {
       id: 'male-employees',
       title: 'Male Employees',
       value: dashboardData?.kpi?.maleEmployees ?? '0',
-      trend: '+3.1%',
-      trendType: 'positive',
+      trend: `${(dashboardData?.kpi?.totalEmployees > 0) ? Math.round(((dashboardData?.kpi?.maleEmployees || 0) / dashboardData.kpi.totalEmployees) * 100) : 0}% of roster`,
+      trendType: 'neutral',
       subtext: 'field & security staff',
       iconName: 'Mars'
     },
@@ -78,8 +78,8 @@ function AdminDashboard() {
       id: 'female-employees',
       title: 'Female Employees',
       value: dashboardData?.kpi?.femaleEmployees ?? '0',
-      trend: '+5.6%',
-      trendType: 'positive',
+      trend: `${(dashboardData?.kpi?.totalEmployees > 0) ? Math.round(((dashboardData?.kpi?.femaleEmployees || 0) / dashboardData.kpi.totalEmployees) * 100) : 0}% of roster`,
+      trendType: 'neutral',
       subtext: 'facility & operations',
       iconName: 'Venus'
     },
@@ -177,6 +177,7 @@ function AdminDashboard() {
               trendType={kpi.trendType}
               subtext={kpi.subtext}
               iconName={kpi.iconName}
+              loading={loading && !dashboardData}
             />
           ))}
         </section>
@@ -184,7 +185,11 @@ function AdminDashboard() {
         {/* ---- Row 1: Age Demograph & Quick Insights ---- */}
         <div className={styles.topGridRow}>
           <div className={styles.col5}>
-            <AgeDemograph attendanceData={dashboardData?.attendanceTrend || []} />
+            <AgeDemograph 
+              attendanceData={dashboardData?.attendanceOverview || { week: dashboardData?.attendanceTrend || [] }} 
+              ageData={dashboardData?.ageDemographics || []}
+              loading={loading && !dashboardData}
+            />
           </div>
           <div className={styles.col7}>
             <QuickInsights 

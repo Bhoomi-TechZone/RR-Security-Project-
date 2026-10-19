@@ -540,6 +540,15 @@ export const reviewLeaveRequest = async (req, res) => {
         });
       }
 
+      // Sync admin notification status
+      try {
+        const Notification = (await import('../models/notificationModel.js')).default;
+        await Notification.updateMany(
+          { companyId: leaveDoc.companyId, referenceId: leaveDoc.leaveId },
+          { $set: { actionStatus: 'approved', status: 'read' } }
+        );
+      } catch {}
+
       return res.status(200).json({
         success: true,
         message: `Leave request approved and synced to attendance for ${leaveDoc.employeeName}.`,
@@ -593,6 +602,15 @@ export const reviewLeaveRequest = async (req, res) => {
           priority: 'important'
         });
       }
+
+      // Sync admin notification status
+      try {
+        const Notification = (await import('../models/notificationModel.js')).default;
+        await Notification.updateMany(
+          { companyId: leaveDoc.companyId, referenceId: leaveDoc.leaveId },
+          { $set: { actionStatus: 'rejected', status: 'read' } }
+        );
+      } catch {}
 
       return res.status(200).json({
         success: true,

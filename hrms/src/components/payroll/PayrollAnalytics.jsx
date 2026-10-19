@@ -3,7 +3,7 @@ import { TrendingUp, PieChart, Wallet, ArrowUpRight } from 'lucide-react';
 import { formatRupee } from '../../utils/payrollUtils';
 import styles from './PayrollAnalytics.module.css';
 
-export default function PayrollAnalytics({ records = [], selectedMonth = '2026-08', monthLabel = 'August 2026' }) {
+export default function PayrollAnalytics({ records = [], selectedMonth = '', monthLabel = '' }) {
   // Dynamically calculate component breakdown from real records
   const { earningsData, deductionsData, totalGross, totalDeductions, totalNet } = useMemo(() => {
     let basic = 0;

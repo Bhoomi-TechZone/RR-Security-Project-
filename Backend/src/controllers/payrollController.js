@@ -63,7 +63,10 @@ export const getPayrollRecords = async (req, res) => {
       const employees = await Employee.find({
         companyId,
         status: { $regex: /^active$/i },
-      }).sort({ employeeId: 1 });
+      })
+        .select('-documents -documentList -drivingLicenseCopy')
+        .sort({ employeeId: 1 })
+        .lean();
 
       const totalDaysInMonth = getDaysInMonthString(month);
 
@@ -71,7 +74,7 @@ export const getPayrollRecords = async (req, res) => {
       const attendanceList = await Attendance.find({
         companyId,
         date: { $regex: new RegExp(`^${month}`) },
-      });
+      }).select('employeeId date status present halfDay late').lean();
 
       // Fetch Statutory Configuration
       const statutory = await StatutoryConfig.findOne({ companyId });
@@ -93,6 +96,12 @@ export const getPayrollRecords = async (req, res) => {
         });
 
         const hasAttendance = empAtt.length > 0;
+        let presentDays = 0;
+        let weekOffDays = 0;
+        let holidayDays = 0;
+        let paidLeaves = 0;
+        let lopDays = 0;
+        let overtimeHours = 0;
 
         if (hasAttendance) {
           // If aggregated monthly records exist
@@ -104,6 +113,7 @@ export const getPayrollRecords = async (req, res) => {
             if (a.sl !== undefined) paidLeaves += Number(a.sl) || 0;
             if (a.el !== undefined) paidLeaves += Number(a.el) || 0;
             if (a.lwp !== undefined) lopDays += Number(a.lwp) || 0;
+            if (a.overtimeHours !== undefined) overtimeHours += Number(a.overtimeHours) || 0;
           });
         }
 
@@ -268,7 +278,9 @@ export const getPayrollRecords = async (req, res) => {
     }
 
     // If payrollRun was already saved, verify and sanitize any deductions against current employee statutory settings
-    const employees = await Employee.find({ companyId });
+    const employees = await Employee.find({ companyId })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
     const empMap = new Map();
     employees.forEach((e) => {
       if (e.employeeId) empMap.set(String(e.employeeId).toLowerCase(), e);
@@ -276,7 +288,7 @@ export const getPayrollRecords = async (req, res) => {
     });
 
     if (payrollRun && payrollRun.records && payrollRun.records.length > 0) {
-      const statutory = await StatutoryConfig.findOne({ companyId });
+      const statutory = await StatutoryConfig.findOne({ companyId }).lean();
       const pfEnabled = statutory?.pf?.enabled !== false;
       const esiEnabled = statutory?.esi?.enabled !== false;
       const ptEnabled = statutory?.pt?.enabled !== false;
@@ -286,7 +298,7 @@ export const getPayrollRecords = async (req, res) => {
       const monthAttendance = await Attendance.find({
         companyId,
         date: { $regex: new RegExp(`^${payrollRun.month}`) },
-      });
+      }).select('employeeId date status present halfDay late').lean();
       const attendedNormIds = new Set();
       monthAttendance.forEach((a) => {
         if (a.employeeId) attendedNormIds.add(normalizeId(a.employeeId));
@@ -468,11 +480,26 @@ export const getPayrollRecords = async (req, res) => {
       }
 
       if (hasCorrections) {
-        payrollRun.totalGross = payrollRun.records.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
-        payrollRun.totalDeductions = payrollRun.records.reduce((sum, r) => sum + (r.deductions?.totalDeductions || 0), 0);
-        payrollRun.totalNet = payrollRun.records.reduce((sum, r) => sum + (r.netSalary || 0), 0);
-        payrollRun.markModified('records');
-        await payrollRun.save();
+        const totalGross = payrollRun.records.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
+        const totalDeductions = payrollRun.records.reduce((sum, r) => sum + (r.deductions?.totalDeductions || 0), 0);
+        const totalNet = payrollRun.records.reduce((sum, r) => sum + (r.netSalary || 0), 0);
+
+        payrollRun.totalGross = totalGross;
+        payrollRun.totalDeductions = totalDeductions;
+        payrollRun.totalNet = totalNet;
+
+        // Use direct updateOne with $set to prevent VersionError on concurrent read-repairs
+        await PayrollRun.updateOne(
+          { _id: payrollRun._id },
+          {
+            $set: {
+              records: payrollRun.records,
+              totalGross,
+              totalDeductions,
+              totalNet
+            }
+          }
+        ).catch((err) => console.warn('Non-critical payroll background update warning:', err.message));
       }
     }
 
@@ -765,13 +792,15 @@ export const runPayrollCalculation = async (req, res) => {
       const employees = await Employee.find({
         companyId,
         status: { $regex: /^active$/i },
-      });
+      })
+        .select('-documents -documentList -drivingLicenseCopy')
+        .lean();
 
       const totalDaysInMonth = getDaysInMonthString(month);
       const attendanceList = await Attendance.find({
         companyId,
         date: { $regex: new RegExp(`^${month}`) },
-      });
+      }).select('employeeId date status present halfDay late').lean();
 
       const statutory = await StatutoryConfig.findOne({ companyId });
       const pfEnabled = statutory?.pf?.enabled !== false;
@@ -1237,13 +1266,15 @@ export const generateSalarySlips = async (req, res) => {
     const monthAttendance = await Attendance.find({
       companyId,
       date: { $regex: new RegExp(`^${month}`) },
-    });
+    }).select('employeeId date status present halfDay late').lean();
     const attendedNormIds = new Set();
     monthAttendance.forEach((a) => {
       if (a.employeeId) attendedNormIds.add(normalizeId(a.employeeId));
     });
 
-    const allEmps = await Employee.find({ companyId });
+    const allEmps = await Employee.find({ companyId })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
     const empMap = new Map();
     const attendedEmpIdSet = new Set();
 
@@ -1572,14 +1603,16 @@ export const getSalarySlips = async (req, res) => {
     // Fetch month attendance to ensure only employees with valid attendance records have salary slips displayed
     const attQuery = { companyId };
     if (month) attQuery.date = { $regex: new RegExp(`^${month}`) };
-    const monthAttendance = await Attendance.find(attQuery);
+    const monthAttendance = await Attendance.find(attQuery).select('employeeId date status present halfDay late').lean();
 
     const attendedNormIds = new Set();
     monthAttendance.forEach((a) => {
       if (a.employeeId) attendedNormIds.add(normalizeId(a.employeeId));
     });
 
-    const allEmpsList = await Employee.find({ companyId });
+    const allEmpsList = await Employee.find({ companyId })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
     const attendedEmpIdSet = new Set();
     allEmpsList.forEach((e) => {
       const normId = normalizeId(e.employeeId);
@@ -1686,7 +1719,7 @@ export const getSalarySlips = async (req, res) => {
     const ptEnabled = statutory?.pt?.enabled !== false;
     const ptSlabs = statutory?.ptSlabs || [];
 
-    const employees = await Employee.find({ companyId });
+    const employees = allEmpsList;
     const empMap = new Map();
     employees.forEach((e) => {
       if (e.employeeId) empMap.set(String(e.employeeId).toLowerCase(), e);
@@ -1867,7 +1900,7 @@ export const saveRateRevision = async (req, res) => {
           remarks: data.remarks || '',
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     // If applied, update Employee collection gross salary as well
@@ -1974,7 +2007,7 @@ export const saveArrear = async (req, res) => {
           remarks: data.remarks || '',
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     return res.status(200).json({
