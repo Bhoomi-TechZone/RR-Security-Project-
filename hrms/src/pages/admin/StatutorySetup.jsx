@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { 
   Landmark, Shield, Award, FileText, Gift, HeartHandshake, 
   HelpCircle, CheckCircle2, AlertCircle, Plus, Search, Edit2, 
   Trash2, Save, ArrowRight, Sparkles, Layers, SlidersHorizontal,
-  Calendar, Check, ToggleLeft, ToggleRight, Clock, ArrowUpRight, Loader2
+  Calendar, Check, ToggleLeft, ToggleRight, Clock, ArrowUpRight, Loader2,
+  ArrowLeft, X, RefreshCw
 } from 'lucide-react';
 import styles from './StatutorySetup.module.css';
 
@@ -29,6 +30,28 @@ const TABS = [
   { id: 'gratuity', label: 'Gratuity', icon: HeartHandshake, name: 'Gratuity' },
   { id: 'lwf', label: 'LWF', icon: Landmark, name: 'Labour Welfare Fund (LWF)' }
 ];
+
+const STATUTORY_CATEGORIES = [
+  { id: 'all', label: 'All Modules' },
+  { id: 'pf', label: 'Provident Fund (PF)' },
+  { id: 'esi', label: 'ESI' },
+  { id: 'pt', label: 'Professional Tax (PT)' },
+  { id: 'tds', label: 'TDS (Income Tax)' },
+  { id: 'bonus', label: 'Statutory Bonus' },
+  { id: 'gratuity', label: 'Gratuity' },
+  { id: 'lwf', label: 'Labour Welfare Fund (LWF)' }
+];
+
+const TAB_TITLES = {
+  pf: 'Provident Fund (PF)',
+  esi: 'Employee State Insurance (ESI)',
+  pt: 'Professional Tax (PT)',
+  tds: 'Tax Deducted at Source (TDS)',
+  bonus: 'Statutory Bonus',
+  gratuity: 'Gratuity',
+  lwf: 'Labour Welfare Fund (LWF)'
+};
+
 
 const INITIAL_PF = {
   enabled: true,
@@ -130,14 +153,19 @@ function StatutorySetup() {
   const { activeCompany } = useCompany();
   const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
-  // Active Tab from query param or default 'overview'
-  const initialTab = searchParams.get('tab') || 'overview';
+  // Active Tab & Explorer View
+  const rawTab = searchParams.get('tab');
+  const isExplorerView = !rawTab || rawTab === 'overview';
+  const initialTab = isExplorerView ? 'overview' : rawTab;
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [explorerCategory, setExplorerCategory] = useState('all');
 
   // Sync tab with URL
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && TABS.some(t => t.id === tabParam)) {
+    if (tabParam && TABS.some(t => t.id === tabParam && t.id !== 'overview')) {
       setActiveTab(tabParam);
     } else {
       setActiveTab('overview');
@@ -147,6 +175,16 @@ function StatutorySetup() {
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
     setSearchParams(newTab === 'overview' ? {} : { tab: newTab }, { state: location.state });
+  };
+
+  const handleOpenModule = (tabKey) => {
+    setActiveTab(tabKey);
+    setSearchParams({ tab: tabKey }, { state: location.state });
+  };
+
+  const handleBackToStatutory = () => {
+    setActiveTab('overview');
+    setSearchParams({}, { state: location.state });
   };
 
   // Loading and saving states
@@ -163,6 +201,109 @@ function StatutorySetup() {
   const [gratuityConfig, setGratuityConfig] = useState(INITIAL_GRATUITY);
   const [lwfConfig, setLWFConfig] = useState(INITIAL_LWF);
   const [lwfRules, setLWFRules] = useState([]);
+
+  // Catalog definition for Statutory Modules
+  const allStatutoryCatalog = useMemo(() => [
+    {
+      id: 'pf',
+      tab: 'pf',
+      title: 'Provident Fund (PF)',
+      desc: 'Employee & Employer EPF contributions, statutory wage ceiling, admin charges, and VPF rules.',
+      icon: Landmark,
+      badge: 'Retirement Fund',
+      iconColor: '#2563eb',
+      enabled: pfConfig.enabled,
+      pillText: pfConfig.enabled ? `${pfConfig.employeeContribution}% (Emp) / ${pfConfig.employerContribution}% (Empr)` : 'Disabled'
+    },
+    {
+      id: 'esi',
+      tab: 'esi',
+      title: 'Employee State Insurance (ESI)',
+      desc: 'Healthcare insurance coverage, contribution percentages, and monthly wage eligibility limits.',
+      icon: Shield,
+      badge: 'Health & Medical',
+      iconColor: '#0284c7',
+      enabled: esiConfig.enabled,
+      pillText: esiConfig.enabled ? `Wage limit ₹${(esiConfig.wageEligibilityLimit || 21000).toLocaleString()}` : 'Disabled'
+    },
+    {
+      id: 'pt',
+      tab: 'pt',
+      title: 'Professional Tax (PT)',
+      desc: 'State-mandated monthly salary tax slabs, exemption limits, and gender-specific deduction rules.',
+      icon: Layers,
+      badge: 'State Tax',
+      iconColor: '#7c3aed',
+      enabled: ptConfig.enabled,
+      pillText: `${ptSlabs.length} ${ptSlabs.length === 1 ? 'Slab' : 'Slabs'} Configured`
+    },
+    {
+      id: 'tds',
+      tab: 'tds',
+      title: 'Tax Deducted at Source (TDS)',
+      desc: 'Income tax regimes (New vs Old), standard deduction rules, and investment declaration cutoffs.',
+      icon: FileText,
+      badge: 'Income Tax',
+      iconColor: '#d97706',
+      enabled: tdsConfig.enabled,
+      pillText: tdsConfig.enabled ? `${tdsConfig.defaultTaxRegime || 'New Regime'}` : 'Disabled'
+    },
+    {
+      id: 'bonus',
+      tab: 'bonus',
+      title: 'Statutory Bonus',
+      desc: 'Payment of Bonus Act compliance rates, statutory wage ceiling, and disbursement timeline.',
+      icon: Gift,
+      badge: 'Annual Bonus',
+      iconColor: '#db2777',
+      enabled: bonusConfig.enabled,
+      pillText: `${bonusConfig.bonusPercentage}% (Ceiling ₹${(bonusConfig.statutoryWageCeiling || 7000).toLocaleString()})`
+    },
+    {
+      id: 'gratuity',
+      tab: 'gratuity',
+      title: 'Gratuity',
+      desc: 'Payment of Gratuity Act formulas for employee retirement, separation, and tax exemption limit.',
+      icon: HeartHandshake,
+      badge: 'Retirement Benefit',
+      iconColor: '#059669',
+      enabled: gratuityConfig.enabled,
+      pillText: `${gratuityConfig.eligibilityYears || 5} Yrs Eligibility`
+    },
+    {
+      id: 'lwf',
+      tab: 'lwf',
+      title: 'Labour Welfare Fund (LWF)',
+      desc: 'State-mandated welfare fund contributions, deduction frequency schedules, and employer ratios.',
+      icon: Landmark,
+      badge: 'Welfare Fund',
+      iconColor: '#475569',
+      enabled: lwfConfig.enabled,
+      pillText: `${lwfRules.length} ${lwfRules.length === 1 ? 'State Rule' : 'State Rules'}`
+    }
+  ], [pfConfig, esiConfig, ptConfig, ptSlabs, tdsConfig, bonusConfig, gratuityConfig, lwfConfig, lwfRules]);
+
+  const getCategoryCount = (catId) => {
+    if (catId === 'all') return 7;
+    if (catId === 'pt') return ptSlabs.length || 1;
+    if (catId === 'lwf') return lwfRules.length || 1;
+    return 1;
+  };
+
+  const filteredCatalog = useMemo(() => {
+    return allStatutoryCatalog.filter((item) => {
+      const matchesCategory =
+        explorerCategory === 'all' || item.id === explorerCategory;
+      const q = catalogSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.badge.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [allStatutoryCatalog, explorerCategory, catalogSearch]);
+
 
   // Filtering states for PT & LWF tables
   const [selectedPTState, setSelectedPTState] = useState('All States');
@@ -415,284 +556,256 @@ function StatutorySetup() {
           onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         />
 
-        {/* Breadcrumbs */}
-        <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
-            Dashboard
-          </span>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/payroll-setup')}>
-            Payroll Setup
-          </span>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Statutory Setup</span>
-        </div>
-
-        {/* Page Header */}
-        <header className={styles.header}>
-          <div className={styles.titleArea}>
-            <div className={styles.titleWithBadge}>
-              <h1 className={styles.title}>Statutory Setup</h1>
-              <span className={styles.complianceBadge}>Compliance & Statutory Rules</span>
-            </div>
-            <p className={styles.description}>
-              Configure statutory deductions, employee contributions, state tax slabs and compliance calculation rules.
-            </p>
-          </div>
-
-          {!isFromOrgSettings && (
-            <div className={styles.headerActions}>
-              <button
-                type="button"
-                className={styles.mastersLinkBtn}
-                onClick={() => navigate('/admin/masters')}
-                title="View Salary Components in Masters"
-              >
-                <span>Masters Components</span>
-                <ArrowUpRight size={15} />
-              </button>
-            </div>
-          )}
-        </header>
-
-        {isLoading ? (
-          <div className={styles.loadingState}>
-            <Loader2 size={32} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
-            <span>Loading statutory configuration...</span>
-          </div>
-        ) : (
+        {isExplorerView ? (
           <>
-            {/* TAB 0: OVERVIEW LANDING VIEW */}
-            {activeTab === 'overview' && (
-              <div className={styles.overviewContainer}>
-                <div className={styles.overviewGrid}>
-                  {/* 1. PF Card */}
-                  <div className={`${styles.moduleCard} ${pfConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Provident Fund (PF)</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('pf', pfConfig.enabled)}
-                          disabled={isSaving}
-                          title={pfConfig.enabled ? 'Click to Disable' : 'Click to Enable'}
-                        >
-                          {pfConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${pfConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {pfConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>Employee & Employer EPF contributions with wage ceiling limits</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Contribution:</span>
-                      <span className={styles.metricVal}>{pfConfig.employeeContribution}% (Emp) / {pfConfig.employerContribution}% (Empr)</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Effective: {pfConfig.effectiveDate}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('pf')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
+            {/* Explorer Breadcrumbs */}
+            <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/payroll')}>
+                Payroll
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>Statutory Setup</span>
+              {explorerCategory !== 'all' && (
+                <>
+                  <span className={styles.separator}>/</span>
+                  <span className={styles.crumbActive}>
+                    {STATUTORY_CATEGORIES.find((c) => c.id === explorerCategory)?.label}
+                  </span>
+                </>
+              )}
+            </div>
 
-                  {/* 2. ESI Card */}
-                  <div className={`${styles.moduleCard} ${esiConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Employee State Insurance (ESI)</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('esi', esiConfig.enabled)}
-                          disabled={isSaving}
-                        >
-                          {esiConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${esiConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {esiConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>Healthcare insurance for employees drawing gross wages up to ₹21,000</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Contribution:</span>
-                      <span className={styles.metricVal}>{esiConfig.employeeContribution}% (Emp) / {esiConfig.employerContribution}% (Empr)</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Effective: {esiConfig.effectiveDate}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('esi')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 3. PT Card */}
-                  <div className={`${styles.moduleCard} ${ptConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Professional Tax (PT)</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('pt', ptConfig.enabled)}
-                          disabled={isSaving}
-                        >
-                          {ptConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${ptConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {ptConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>State-specific tax slabs applied to monthly gross earnings</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Configured:</span>
-                      <span className={styles.metricVal}>{ptSlabs.length} Slabs across {ptStatesList.length - 1} States</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Effective: {ptConfig.effectiveDate}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('pt')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 4. TDS Card */}
-                  <div className={`${styles.moduleCard} ${tdsConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Tax Deducted at Source (TDS)</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('tds', tdsConfig.enabled)}
-                          disabled={isSaving}
-                        >
-                          {tdsConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${tdsConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {tdsConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>Income tax withholding regimes, standard deductions, and declaration workflows</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Regime:</span>
-                      <span className={styles.metricVal}>{tdsConfig.defaultTaxRegime} ({tdsConfig.effectiveFinancialYear})</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Std Ded: ₹{tdsConfig.standardDeductionNewRegime.toLocaleString()}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('tds')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 5. Bonus Card */}
-                  <div className={`${styles.moduleCard} ${bonusConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Statutory Bonus</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('bonus', bonusConfig.enabled)}
-                          disabled={isSaving}
-                        >
-                          {bonusConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${bonusConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {bonusConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>Payment of Bonus Act compliance rates, wage ceiling, and eligibility rules</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Rate:</span>
-                      <span className={styles.metricVal}>{bonusConfig.bonusPercentage}% (Min 8.33% - Max 20%)</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Ceiling: ₹{bonusConfig.statutoryWageCeiling.toLocaleString()}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('bonus')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 6. Gratuity Card */}
-                  <div className={`${styles.moduleCard} ${gratuityConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Gratuity</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('gratuity', gratuityConfig.enabled)}
-                          disabled={isSaving}
-                        >
-                          {gratuityConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${gratuityConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {gratuityConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>Payment of Gratuity Act rules for employee retirement and separation</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Eligibility:</span>
-                      <span className={styles.metricVal}>{gratuityConfig.eligibilityYears} Years Continuous Service</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Basis: {gratuityConfig.calculationBasis}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('gratuity')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* 7. LWF Card */}
-                  <div className={`${styles.moduleCard} ${lwfConfig.enabled ? styles.cardActive : styles.cardDisabled}`}>
-                    <div className={styles.cardHeader}>
-                      <h3 className={styles.moduleName}>Labour Welfare Fund (LWF)</h3>
-                      <div className={styles.statusToggleWrap}>
-                        <button
-                          type="button"
-                          className={styles.toggleBtn}
-                          onClick={() => triggerModuleToggle('lwf', lwfConfig.enabled)}
-                          disabled={isSaving}
-                        >
-                          {lwfConfig.enabled ? <ToggleRight size={24} color="#10b981" /> : <ToggleLeft size={24} color="#94a3b8" />}
-                        </button>
-                        <span className={`${styles.statusPill} ${lwfConfig.enabled ? styles.pillActive : styles.pillDisabled}`}>
-                          {lwfConfig.enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                      </div>
-                    </div>
-                    <p className={styles.moduleSub}>State-mandated welfare fund contributions and deduction frequency rules</p>
-                    <div className={styles.cardMetric}>
-                      <span className={styles.metricLabel}>Rules:</span>
-                      <span className={styles.metricVal}>{lwfRules.length} Active State Rules</span>
-                    </div>
-                    <div className={styles.cardFooter}>
-                      <span className={styles.effectiveText}>Effective: {lwfConfig.effectiveDate}</span>
-                      <button type="button" className={styles.configureBtn} onClick={() => handleTabChange('lwf')}>
-                        <span>Configure</span>
-                        <ArrowRight size={14} />
-                      </button>
-                    </div>
-                  </div>
+            {/* Explorer Page Header */}
+            <header className={styles.header} style={{ marginBottom: '16px' }}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Landmark size={24} color="#2563eb" />
+                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Statutory Setup</h1>
                 </div>
+                <p className={styles.description} style={{ marginTop: '6px' }}>
+                  Configure statutory deductions, employee contributions, state tax slabs and compliance calculation rules.
+                </p>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={fetchStatutoryConfig}
+                  title="Refresh from Database"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}
+                >
+                  <RefreshCw size={14} />
+                  <span>Refresh</span>
+                </button>
+                {!isFromOrgSettings && (
+                  <button
+                    type="button"
+                    className={styles.mastersLinkBtn}
+                    onClick={() => navigate('/admin/masters')}
+                    title="View Salary Components in Masters"
+                  >
+                    <span>Masters Components</span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                )}
+              </div>
+            </header>
+
+            {isLoading ? (
+              <div className={styles.loadingState}>
+                <Loader2 size={32} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                <span>Loading statutory configuration...</span>
+              </div>
+            ) : (
+              /* 2-Column Statutory Explorer Layout */
+              <div className={styles.statutoryExplorerLayout}>
+                {/* Left Sidebar Filter Panel */}
+                <aside className={styles.explorerSidebar}>
+                  <div className={styles.explorerSearchWrap}>
+                    <input
+                      type="text"
+                      className={styles.explorerSearchInput}
+                      placeholder="Search Statutory Modules"
+                      value={catalogSearch}
+                      onChange={(e) => setCatalogSearch(e.target.value)}
+                    />
+                    {catalogSearch ? (
+                      <button
+                        type="button"
+                        className={styles.explorerClearBtn}
+                        onClick={() => setCatalogSearch('')}
+                        aria-label="Clear search"
+                      >
+                        <X size={14} />
+                      </button>
+                    ) : (
+                      <span style={{ position: 'absolute', right: 10, color: '#94a3b8', pointerEvents: 'none', display: 'flex' }}>
+                        <Search size={14} />
+                      </span>
+                    )}
+                  </div>
+
+                  <ul className={styles.categoryList}>
+                    {STATUTORY_CATEGORIES.map((cat) => {
+                      const count = getCategoryCount(cat.id);
+                      const isActive = explorerCategory === cat.id;
+                      return (
+                        <li key={cat.id}>
+                          <button
+                            type="button"
+                            className={`${styles.categoryBtn} ${isActive ? styles.categoryBtnActive : ''}`}
+                            onClick={() => setExplorerCategory(cat.id)}
+                          >
+                            <span className={isActive ? styles.sidebarActiveDot : styles.sidebarDot} />
+                            <span>{cat.label}</span>
+                            <span className={styles.categoryBadge}>{count}</span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </aside>
+
+                {/* Right Grid of Statutory Cards */}
+                <main style={{ minWidth: 0 }}>
+                  {filteredCatalog.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>No statutory modules found matching "{catalogSearch}".</p>
+                      <button
+                        type="button"
+                        className={styles.secondaryButton}
+                        onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                        style={{ marginTop: '12px', fontSize: '13px' }}
+                      >
+                        Show All Modules
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={styles.explorerCardsGrid}>
+                      {filteredCatalog.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <div key={item.id} className={styles.referenceReportCard}>
+                            <div>
+                              <div className={styles.cardFormatIcons}>
+                                <span style={{ display: 'inline-flex', color: item.iconColor || 'var(--primary, #2563eb)' }}>
+                                  <Icon size={16} />
+                                </span>
+                                <span
+                                  className={styles.recordCountPill}
+                                  style={{
+                                    marginLeft: 'auto',
+                                    color: item.enabled ? '#059669' : '#dc2626',
+                                    background: item.enabled ? '#ecfdf5' : '#fef2f2',
+                                    borderColor: item.enabled ? '#a7f3d0' : '#fecaca'
+                                  }}
+                                >
+                                  {item.pillText || (item.enabled ? 'Active' : 'Disabled')}
+                                </span>
+                              </div>
+                              <div className={styles.cardBody}>
+                                <h4 className={styles.cardTitle}>{item.title}</h4>
+                                <p className={styles.cardDesc}>{item.desc}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className={styles.cardOpenBtn}
+                              onClick={() => handleOpenModule(item.tab)}
+                            >
+                              Configure <ArrowRight size={13} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </main>
               </div>
             )}
+          </>
+        ) : (
+          <>
+            {/* Active Module Breadcrumbs */}
+            <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/payroll')}>
+                Payroll
+              </span>
+              <span className={styles.separator}>/</span>
+              <span
+                className={styles.crumbLink}
+                onClick={handleBackToStatutory}
+                style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+              >
+                Statutory Setup
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>{TAB_TITLES[activeTab] || activeTab}</span>
+            </div>
+
+            {/* Active Module Header */}
+            <header className={styles.header}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleBackToStatutory}
+                    className={styles.secondaryButton}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                  >
+                    <ArrowLeft size={15} /> Back to Statutory Setup
+                  </button>
+                </div>
+                <div className={styles.titleWithBadge}>
+                  <h1 className={styles.title}>{TAB_TITLES[activeTab] || 'Statutory Setup'}</h1>
+                  <span className={styles.complianceBadge}>Compliance & Statutory Rules</span>
+                </div>
+                <p className={styles.description}>
+                  Configure statutory deductions, employee contributions, state tax slabs and compliance calculation rules.
+                </p>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={fetchStatutoryConfig}
+                  title="Refresh from Database"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: '0.875rem' }}
+                >
+                  <RefreshCw size={14} />
+                  <span>Refresh</span>
+                </button>
+                {!isFromOrgSettings && (
+                  <button
+                    type="button"
+                    className={styles.mastersLinkBtn}
+                    onClick={() => navigate('/admin/masters')}
+                    title="View Salary Components in Masters"
+                  >
+                    <span>Masters Components</span>
+                    <ArrowUpRight size={15} />
+                  </button>
+                )}
+              </div>
+            </header>
+
+            {isLoading ? (
+              <div className={styles.loadingState}>
+                <Loader2 size={32} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+                <span>Loading statutory configuration...</span>
+              </div>
+            ) : (
+              <>
 
             {/* TAB 1: PF CONFIGURATION */}
             {activeTab === 'pf' && (
@@ -1581,6 +1694,8 @@ function StatutorySetup() {
                 </div>
               </div>
             )}
+          </>
+        )}
           </>
         )}
       </div>

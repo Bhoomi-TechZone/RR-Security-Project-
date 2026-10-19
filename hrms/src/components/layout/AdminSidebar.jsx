@@ -103,33 +103,13 @@ const NAV_GROUPS = [
         path: '/admin/payroll-setup',
         name: 'Payroll Setup',
         icon: SlidersHorizontal,
-        moduleKey: 'payroll_setup',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/payroll-setup', name: 'Pay Groups' },
-          { path: '/admin/masters?tab=salary-components', name: 'Salary Components' },
-          { path: '/admin/payroll-setup?tab=pay-schedules', name: 'Pay Schedules' },
-          { path: '/admin/payroll-setup?tab=pay-cycles', name: 'Pay Cycles' },
-          { path: '/admin/payroll-setup?tab=pay-days', name: 'Pay Days' },
-          { path: '/admin/payroll-setup?tab=calculation-methods', name: 'Calculation Methods' },
-        ]
+        moduleKey: 'payroll_setup'
       },
       {
         path: '/admin/statutory-setup',
         name: 'Statutory Setup',
         icon: Landmark,
-        moduleKey: 'statutory_setup',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/statutory-setup', name: 'Overview' },
-          { path: '/admin/statutory-setup?tab=pf', name: 'PF (Provident Fund)' },
-          { path: '/admin/statutory-setup?tab=esi', name: 'ESI' },
-          { path: '/admin/statutory-setup?tab=pt', name: 'Professional Tax (PT)' },
-          { path: '/admin/statutory-setup?tab=tds', name: 'TDS' },
-          { path: '/admin/statutory-setup?tab=bonus', name: 'Bonus' },
-          { path: '/admin/statutory-setup?tab=gratuity', name: 'Gratuity' },
-          { path: '/admin/statutory-setup?tab=lwf', name: 'Labour Welfare Fund (LWF)' },
-        ]
+        moduleKey: 'statutory_setup'
       },
       {
         path: '/admin/advances-loans',
@@ -264,17 +244,7 @@ const NAV_GROUPS = [
         path: '/admin/templates',
         name: 'Template Setup',
         icon: FileText,
-        moduleKey: 'templates',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/templates', name: 'Overview' },
-          { path: '/admin/templates?tab=salary-slip', name: 'Salary Slip' },
-          { path: '/admin/templates?tab=appointment-letter', name: 'Appointment Letter' },
-          { path: '/admin/templates?tab=joining-letter', name: 'Joining Letter' },
-          { path: '/admin/templates?tab=experience-letter', name: 'Experience Letter' },
-          { path: '/admin/templates?tab=full-final-letter', name: 'Full & Final Letter' },
-          /*{ path: '/admin/templates?tab=email', name: 'Email Templates' },*/
-        ]
+        moduleKey: 'templates'
       },
       {
         path: '/admin/letter-management',
@@ -361,12 +331,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     if (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/payroll': true }));
     }
-    if (location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/') || (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components'))) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/payroll-setup': true }));
-    }
-    if (location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory') {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/statutory-setup': true }));
-    }
     if (location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/advances-loans': true }));
     }
@@ -390,9 +354,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/preferences': true }));
-    }
-    if (location.pathname === '/admin/templates' || location.pathname.startsWith('/admin/templates/')) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/templates': true }));
     }
     if (location.pathname === '/admin/document-compliance' || location.pathname.startsWith('/admin/document-compliance/') || location.pathname === '/admin/settings/document-compliance') {
       setOpenDropdowns(prev => ({ ...prev, '/admin/document-compliance': true }));
@@ -492,12 +453,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                         location.pathname.startsWith('/admin/companies') ||
                         (location.pathname === '/admin/masters' && location.search.includes('tab=clients'))
                       )
-                    : item.path === '/admin/payroll-setup'
-                    ? (
-                        location.pathname === '/admin/payroll-setup' ||
-                        location.pathname.startsWith('/admin/payroll-setup/') ||
-                        (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components'))
-                      )
+
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
                   return (

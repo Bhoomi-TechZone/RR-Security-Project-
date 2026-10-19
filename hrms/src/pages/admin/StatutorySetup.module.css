@@ -775,3 +775,267 @@
   color: #991b1b;
   margin-bottom: 20px;
 }
+
+/* =========================================================
+   Statutory Setup Explorer Layout (Matching Reports, Masters & PayrollSetup)
+   ========================================================= */
+.statutoryExplorerLayout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: flex-start;
+  margin-top: 6px;
+}
+
+.explorerSidebar {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.05));
+  position: sticky;
+  top: 80px;
+}
+
+.explorerSearchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.explorerSearchInput {
+  width: 100%;
+  padding: 8px 30px 8px 12px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+  font-size: 13px;
+  background: #ffffff;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.explorerSearchInput:focus {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.12);
+}
+
+.explorerClearBtn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.explorerClearBtn:hover {
+  color: #0f172a;
+}
+
+.categoryList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.categoryBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.categoryBtn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.categoryBtnActive {
+  background: #eff6ff !important;
+  color: var(--primary, #2563eb) !important;
+  font-weight: 600;
+}
+
+.sidebarDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+  flex-shrink: 0;
+}
+
+.sidebarActiveDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary, #2563eb);
+  flex-shrink: 0;
+}
+
+.categoryBadge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.categoryBtnActive .categoryBadge {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.explorerCardsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+@media (max-width: 1280px) {
+  .explorerCardsGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .explorerCardsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .statutoryExplorerLayout {
+    grid-template-columns: 1fr;
+  }
+  .explorerSidebar {
+    position: static;
+  }
+  .explorerCardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.referenceReportCard {
+  background: #ffffff;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-sm, 8px);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 165px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: all 0.2s ease;
+}
+
+.referenceReportCard:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  transform: translateY(-1px);
+}
+
+.cardFormatIcons {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-bottom: 14px;
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.cardDesc {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 33px;
+}
+
+.recordCountPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+.cardOpenBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.cardOpenBtn:hover {
+  background: #1d4ed8;
+}
+
+.secondaryButton {
+  background: #ffffff;
+  border: 1px solid var(--border, #cbd5e1);
+  color: var(--text-primary, #1e293b);
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+
+.secondaryButton:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}

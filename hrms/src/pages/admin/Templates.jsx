@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { 
   FileText, DollarSign, Award, HeartHandshake, FileCheck, 
   Mail, Save, RotateCcw, Eye, Plus, Search, Edit2, Copy, 
-  Trash2, ArrowRight, Check, X, Shield, Sparkles, SlidersHorizontal,
+  Trash2, ArrowRight, ArrowLeft, Check, X, Shield, Sparkles, SlidersHorizontal,
   Printer, Download, Building2, UserCheck, Layers, Info, User, UserPlus
 } from 'lucide-react';
 import styles from './Templates.module.css';
@@ -41,6 +41,25 @@ const TABS = [
   { id: 'full-final-letter', label: 'Full & Final Letter', icon: HeartHandshake },
   { id: 'email', label: 'Email Templates', icon: Mail }
 ];
+
+const TEMPLATE_CATEGORIES = [
+  { id: 'all', label: 'All Templates' },
+  { id: 'salary-slip', label: 'Salary Slip' },
+  { id: 'appointment-letter', label: 'Appointment Letter' },
+  { id: 'joining-letter', label: 'Joining Letter' },
+  { id: 'experience-letter', label: 'Experience Letter' },
+  { id: 'full-final-letter', label: 'Full & Final Letter' },
+  { id: 'email', label: 'Email Templates' }
+];
+
+const TAB_TITLES = {
+  'salary-slip': 'Salary Slip Template',
+  'appointment-letter': 'Appointment Letter',
+  'joining-letter': 'Joining Letter',
+  'experience-letter': 'Experience Letter',
+  'full-final-letter': 'Full & Final Letter',
+  'email': 'Email Templates'
+};
 
 // Smart address formatting to avoid duplicating city, state, or pinCode if address already contains them
 function formatCompanyAddress(company, defaultAddress = 'Plot 45, Sector 18, Gurugram, Haryana - 122008') {
@@ -567,6 +586,120 @@ function Templates() {
     return saved ? JSON.parse(saved) : mockEmailTemplates;
   });
 
+  // 2-Column Explorer Catalog for Template Setup
+  const isExplorerView = !searchParams.get('tab') || searchParams.get('tab') === 'overview';
+  const [catalogSearch, setCatalogSearch] = useState('');
+  const [explorerCategory, setExplorerCategory] = useState('all');
+
+  const allTemplatesCatalog = useMemo(() => [
+    {
+      id: 'salary-slip',
+      tab: 'salary-slip',
+      title: 'Salary Slip Template',
+      desc: 'Configure visible ledger sections, company header branding, attendance matrix and signatory notes on employee payslips.',
+      icon: DollarSign,
+      iconColor: '#2563eb',
+      badge: 'Payslip',
+      statusColor: '#059669',
+      statusBg: '#ecfdf5',
+      statusBorder: '#a7f3d0',
+      pillText: salarySlipConfig.isDefault ? 'Default Template' : (salarySlipConfig.status || 'Active')
+    },
+    {
+      id: 'appointment-letter',
+      tab: 'appointment-letter',
+      title: 'Appointment Letter',
+      desc: 'Standardized formal offer and appointment terms with dynamic salary breakdown, CTC placeholders & probation clauses.',
+      icon: FileCheck,
+      iconColor: '#059669',
+      badge: 'Appointment',
+      statusColor: '#059669',
+      statusBg: '#ecfdf5',
+      statusBorder: '#a7f3d0',
+      pillText: appointmentConfig.status || 'Active'
+    },
+    {
+      id: 'joining-letter',
+      tab: 'joining-letter',
+      title: 'Joining Letter',
+      desc: 'Official joining confirmation, branch/site deployment instructions and reporting officer assignment.',
+      icon: UserCheck,
+      iconColor: '#0284c7',
+      badge: 'Onboarding',
+      statusColor: '#059669',
+      statusBg: '#ecfdf5',
+      statusBorder: '#a7f3d0',
+      pillText: joiningConfig.status || 'Active'
+    },
+    {
+      id: 'experience-letter',
+      tab: 'experience-letter',
+      title: 'Experience Letter',
+      desc: 'Service tenure certificate, conduct statement and relieving acknowledgment issued upon exit.',
+      icon: Award,
+      iconColor: '#d97706',
+      badge: 'Experience',
+      statusColor: '#059669',
+      statusBg: '#ecfdf5',
+      statusBorder: '#a7f3d0',
+      pillText: experienceConfig.status || 'Active'
+    },
+    {
+      id: 'full-final-letter',
+      tab: 'full-final-letter',
+      title: 'Full & Final Letter',
+      desc: 'F&F settlement voucher statement, leave encashment, asset clearance declaration and final payout breakdown.',
+      icon: HeartHandshake,
+      iconColor: '#7c3aed',
+      badge: 'Exit Settlement',
+      statusColor: '#059669',
+      statusBg: '#ecfdf5',
+      statusBorder: '#a7f3d0',
+      pillText: fullFinalConfig.status || 'Active'
+    },
+    {
+      id: 'email',
+      tab: 'email',
+      title: 'Email Templates',
+      desc: 'Automated transactional emails for onboarding, leave approvals, salary slips, overtime and password resets.',
+      icon: Mail,
+      iconColor: '#e11d48',
+      badge: 'Communications',
+      statusColor: '#0284c7',
+      statusBg: '#f0f9ff',
+      statusBorder: '#bae6fd',
+      pillText: `${emailTemplates.length} Templates`
+    }
+  ], [salarySlipConfig, appointmentConfig, joiningConfig, experienceConfig, fullFinalConfig, emailTemplates]);
+
+  const getCategoryCount = (catId) => {
+    if (catId === 'all') return 6;
+    if (catId === 'email') return emailTemplates.length || 1;
+    return 1;
+  };
+
+  const filteredCatalog = useMemo(() => {
+    return allTemplatesCatalog.filter((item) => {
+      const matchesCategory =
+        explorerCategory === 'all' || item.id === explorerCategory;
+      const q = catalogSearch.trim().toLowerCase();
+      const matchesSearch =
+        !q ||
+        item.title.toLowerCase().includes(q) ||
+        item.desc.toLowerCase().includes(q) ||
+        item.badge?.toLowerCase().includes(q);
+      return matchesCategory && matchesSearch;
+    });
+  }, [allTemplatesCatalog, explorerCategory, catalogSearch]);
+
+  const handleOpenTemplate = (tabKey) => {
+    handleTabChange(tabKey);
+  };
+
+  const handleBackToTemplates = () => {
+    handleTabChange('overview');
+  };
+
   // Email Templates Search & Filters
   const [emailSearch, setEmailSearch] = useState('');
   const [emailCategory, setEmailCategory] = useState('All Categories');
@@ -1022,268 +1155,189 @@ function Templates() {
           })}
         />
 
-        {/* Page Header */}
-        <header className={styles.pageHeader}>
-          <div className={styles.headerLeft}>
-            <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-              <span 
-                className={styles.breadcrumbLink}
-                onClick={() => navigate('/admin/dashboard')}
-                style={{ cursor: 'pointer' }}
-              >
+        {isExplorerView ? (
+          <>
+            {/* Explorer Breadcrumbs */}
+            <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
                 Dashboard
               </span>
-              <span>/</span>
-              <span 
-                className={styles.breadcrumbLink}
-                onClick={() => handleTabChange('overview')}
-                style={{ cursor: activeTab !== 'overview' ? 'pointer' : 'default', color: activeTab !== 'overview' ? 'var(--primary-color, #2563eb)' : 'inherit', fontWeight: activeTab !== 'overview' ? 500 : 600 }}
-              >
-                Templates
-              </span>
-              {activeTab !== 'overview' && (
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>Template Setup</span>
+              {explorerCategory !== 'all' && (
                 <>
-                  <span>/</span>
-                  <span style={{ color: 'var(--text-primary, #0f172a)', fontWeight: 600 }}>
-                    {TABS.find(t => t.id === activeTab)?.label || activeTab}
+                  <span className={styles.separator}>/</span>
+                  <span className={styles.crumbActive}>
+                    {TEMPLATE_CATEGORIES.find((c) => c.id === explorerCategory)?.label}
                   </span>
                 </>
               )}
-            </nav>
-            <h1 className={styles.pageTitle}>Templates</h1>
-            <p className={styles.pageSubtitle}>
-              Manage salary slips, employee letters and communication templates used across NovaSpark HRMS.
-            </p>
-          </div>
-        </header>
-
-        {/* Tabs Bar with Scroller */}
-        <div className={styles.tabsContainer}>
-          <div className={styles.tabsScroller}>
-            {TABS.filter(t => t.id === activeTab).map((tab) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`${styles.tabButton} ${styles.tabButtonActive}`}
-                  style={{ cursor: 'default' }}
-                >
-                  <IconComponent size={15} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* TAB CONTENTS */}
-        <div className={styles.tabContent}>
-
-          {/* 1. OVERVIEW LANDING TAB */}
-          {activeTab === 'overview' && (
-            <div className={styles.overviewGrid}>
-              
-              {/* Card 1: Salary Slip */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Salary Slip Template</h3>
-                    <StatusBadge status={salarySlipConfig.status} />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    Configure visible ledger sections, company header branding, attendance matrix and signatory notes on employee payslips.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Template Name:</span>
-                    <span className={styles.metaValue}>{salarySlipConfig.templateName}</span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Default Template:</span>
-                    <span className={styles.metaValue}>{salarySlipConfig.isDefault ? 'Yes (Primary)' : 'Custom'}</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('salary-slip')}
-                  >
-                    <span>Configure Payslip</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 2: Appointment Letter */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Appointment Letter</h3>
-                    <StatusBadge status={appointmentConfig.status} />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    Standardized formal offer and appointment terms with dynamic salary breakdown, CTC placeholders & probation clauses.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Template Name:</span>
-                    <span className={styles.metaValue}>{appointmentConfig.templateName}</span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Clauses:</span>
-                    <span className={styles.metaValue}>CTC, Probation, Notice, Schedule</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('appointment-letter')}
-                  >
-                    <span>Configure Letter</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 3: Joining Letter */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Joining Letter</h3>
-                    <StatusBadge status={joiningConfig.status} />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    Official joining confirmation, branch/site deployment instructions and reporting officer assignment.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Template Name:</span>
-                    <span className={styles.metaValue}>{joiningConfig.templateName}</span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Reporting Hierarchy:</span>
-                    <span className={styles.metaValue}>Site/Branch Supervisor Linked</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('joining-letter')}
-                  >
-                    <span>Configure Letter</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 4: Experience Letter */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Experience Letter</h3>
-                    <StatusBadge status={experienceConfig.status} />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    Service tenure certificate, conduct statement and relieving acknowledgment issued upon exit.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Template Name:</span>
-                    <span className={styles.metaValue}>{experienceConfig.templateName}</span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Seal &amp; Signature:</span>
-                    <span className={styles.metaValue}>HR Director Authorized</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('experience-letter')}
-                  >
-                    <span>Configure Letter</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 5: Full & Final Letter */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Full &amp; Final Letter</h3>
-                    <StatusBadge status={fullFinalConfig.status} />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    F&amp;F settlement voucher statement, leave encashment, asset clearance declaration and final payout breakdown.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Template Name:</span>
-                    <span className={styles.metaValue}>{fullFinalConfig.templateName}</span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Settlement Structure:</span>
-                    <span className={styles.metaValue}>Earnings, Deductions &amp; Clearance</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('full-final-letter')}
-                  >
-                    <span>Configure Statement</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Card 6: Email Templates */}
-              <div className={styles.overviewCard}>
-                <div>
-                  <div className={styles.overviewCardHeader}>
-                    <h3 className={styles.overviewCardTitle}>Email Templates</h3>
-                    <StatusBadge status="Active" />
-                  </div>
-                  <p className={styles.overviewCardDesc}>
-                    Automated transactional emails for onboarding, leave approvals, salary slips, overtime and password resets.
-                  </p>
-                </div>
-                <div className={styles.cardMetaSummary}>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Total Templates:</span>
-                    <span className={styles.metaValue}>{emailTemplates.length} System Templates</span>
-                  </div>
-                  <div className={styles.metaSummaryRow}>
-                    <span className={styles.metaLabel}>Active Categories:</span>
-                    <span className={styles.metaValue}>Onboarding, Leave, Payroll, Security</span>
-                  </div>
-                </div>
-                <div className={styles.overviewCardFooter}>
-                  <button 
-                    type="button" 
-                    className={styles.btnOutlinePrimary}
-                    onClick={() => handleTabChange('email')}
-                  >
-                    <span>Manage Email Templates</span>
-                    <ArrowRight size={14} />
-                  </button>
-                </div>
-              </div>
-
             </div>
-          )}
+
+            {/* Explorer Page Header */}
+            <header className={styles.header} style={{ marginBottom: '16px' }}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <FileText size={24} color="#2563eb" />
+                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Template Setup</h1>
+                </div>
+                <p className={styles.description} style={{ marginTop: '6px' }}>
+                  Manage salary slips, employee letters, exit settlements, and transactional email communication templates.
+                </p>
+              </div>
+            </header>
+
+            {/* 2-Column Template Explorer Layout */}
+            <div className={styles.templateExplorerLayout}>
+              {/* Left Sidebar Filter Panel */}
+              <aside className={styles.explorerSidebar}>
+                <div className={styles.explorerSearchWrap}>
+                  <input
+                    type="text"
+                    className={styles.explorerSearchInput}
+                    placeholder="Search Templates"
+                    value={catalogSearch}
+                    onChange={(e) => setCatalogSearch(e.target.value)}
+                  />
+                  {catalogSearch ? (
+                    <button
+                      type="button"
+                      className={styles.explorerClearBtn}
+                      onClick={() => setCatalogSearch('')}
+                      aria-label="Clear search"
+                    >
+                      <X size={14} />
+                    </button>
+                  ) : (
+                    <span style={{ position: 'absolute', right: 10, color: '#94a3b8', pointerEvents: 'none', display: 'flex' }}>
+                      <Search size={14} />
+                    </span>
+                  )}
+                </div>
+
+                <ul className={styles.categoryList}>
+                  {TEMPLATE_CATEGORIES.map((cat) => {
+                    const count = getCategoryCount(cat.id);
+                    const isActive = explorerCategory === cat.id;
+                    return (
+                      <li key={cat.id}>
+                        <button
+                          type="button"
+                          className={`${styles.categoryBtn} ${isActive ? styles.categoryBtnActive : ''}`}
+                          onClick={() => setExplorerCategory(cat.id)}
+                        >
+                          <span className={isActive ? styles.sidebarActiveDot : styles.sidebarDot} />
+                          <span>{cat.label}</span>
+                          <span className={styles.categoryBadge}>{count}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </aside>
+
+              {/* Right Grid of Template Cards */}
+              <main style={{ minWidth: 0 }}>
+                {filteredCatalog.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>No templates found matching "{catalogSearch}".</p>
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                      style={{ marginTop: '12px', fontSize: '13px' }}
+                    >
+                      Show All Templates
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.explorerCardsGrid}>
+                    {filteredCatalog.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.id} className={styles.referenceReportCard}>
+                          <div>
+                            <div className={styles.cardFormatIcons}>
+                              <span style={{ display: 'inline-flex', color: item.iconColor || 'var(--primary, #2563eb)' }}>
+                                <Icon size={16} />
+                              </span>
+                              <span
+                                className={styles.recordCountPill}
+                                style={{
+                                  marginLeft: 'auto',
+                                  color: item.statusColor || '#059669',
+                                  background: item.statusBg || '#ecfdf5',
+                                  borderColor: item.statusBorder || '#a7f3d0'
+                                }}
+                              >
+                                {item.pillText || 'Active'}
+                              </span>
+                            </div>
+                            <div className={styles.cardBody}>
+                              <h4 className={styles.cardTitle}>{item.title}</h4>
+                              <p className={styles.cardDesc}>{item.desc}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className={styles.cardOpenBtn}
+                            onClick={() => handleOpenTemplate(item.tab)}
+                          >
+                            <span>Configure</span>
+                            <ArrowRight size={13} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </main>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Active Module Breadcrumbs */}
+            <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </span>
+              <span className={styles.separator}>/</span>
+              <span
+                className={styles.crumbLink}
+                onClick={handleBackToTemplates}
+                style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+              >
+                Template Setup
+              </span>
+              <span className={styles.separator}>/</span>
+              <span className={styles.crumbActive}>{TAB_TITLES[activeTab] || activeTab}</span>
+            </div>
+
+            {/* Active Module Header */}
+            <header className={styles.header}>
+              <div className={styles.titleArea}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={handleBackToTemplates}
+                    className={styles.secondaryButton}
+                    style={{ padding: '6px 12px', fontSize: '13px' }}
+                  >
+                    <ArrowLeft size={15} /> Back to Template Setup
+                  </button>
+                </div>
+                <div className={styles.titleWithBadge}>
+                  <h1 className={styles.title}>{TAB_TITLES[activeTab] || 'Template Setup'}</h1>
+                  <span className={styles.complianceBadge}>Template Editor</span>
+                </div>
+                <p className={styles.description}>
+                  Customize layout, sections, dynamic placeholders, and live document preview.
+                </p>
+              </div>
+            </header>
+
+            {/* TAB CONTENTS */}
+            <div className={styles.tabContent}>
 
           {/* 2. SALARY SLIP CONFIGURATION TAB */}
           {activeTab === 'salary-slip' && (
@@ -3284,7 +3338,9 @@ function Templates() {
             </div>
           )}
 
-        </div>
+            </div>
+          </>
+        )}
       </div>
     </AdminLayout>
   );
