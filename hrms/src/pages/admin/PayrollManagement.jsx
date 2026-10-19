@@ -290,43 +290,52 @@ export default function PayrollManagement() {
   const dynamicPFRecords = useMemo(() => {
     return records
       .filter(r => (r.pf > 0 || r.pfApplicable))
-      .map(r => ({
-        id: `pf-${r.id || r.employeeId}`,
-        employeeId: r.employeeId,
-        employeeName: r.employeeName,
-        designation: r.designation || 'Staff',
-        department: r.department || 'General',
-        clientName: r.clientName || 'Main Client',
-        initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
-        uan: r.uan || `101${(r.employeeId || '1').replace(/\D/g, '').padStart(9, '0')}`,
-        pfNumber: r.pfNumber || `DL/CPM/${r.employeeId || '001'}`,
-        eligibleSalary: Math.min(r.basicSalary || r.basic || 15000, 15000),
-        employeePF: r.pf || 0,
-        employerPF: r.pf || 0,
-        totalPF: (r.pf || 0) * 2,
-        status: 'Compliant'
-      }));
+      .map(r => {
+        const empPF = r.deductions?.pfEmployee !== undefined ? r.deductions.pfEmployee : (r.pf || 0);
+        const empyrPF = r.deductions?.pfEmployer !== undefined ? r.deductions.pfEmployer : empPF;
+        const basicWages = (r.earnings?.basic || 0) + (r.earnings?.vda || 0);
+        return {
+          id: `pf-${r.id || r.employeeId}`,
+          employeeId: r.employeeId,
+          employeeName: r.employeeName,
+          designation: r.designation || 'Staff',
+          department: r.department || 'General',
+          clientName: r.clientName || 'Main Client',
+          initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
+          uan: r.uan || `101${(r.employeeId || '1').replace(/\D/g, '').padStart(9, '0')}`,
+          pfNumber: r.pfNumber || r.pfNo || `DL/CPM/${r.employeeId || '001'}`,
+          eligibleSalary: basicWages > 0 ? basicWages : Math.min(r.basicSalary || r.basic || 15000, 15000),
+          employeePF: empPF,
+          employerPF: empyrPF,
+          totalPF: empPF + empyrPF,
+          status: 'Compliant'
+        };
+      });
   }, [records]);
 
   // Dynamic Statutory ESI Records from live employee calculations
   const dynamicESIRecords = useMemo(() => {
     return records
       .filter(r => (r.esi > 0 || r.esiApplicable))
-      .map(r => ({
-        id: `esi-${r.id || r.employeeId}`,
-        employeeId: r.employeeId,
-        employeeName: r.employeeName,
-        designation: r.designation || 'Staff',
-        department: r.department || 'General',
-        clientName: r.clientName || 'Main Client',
-        initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
-        esiNumber: r.esiNumber || `31000${(r.employeeId || '1').replace(/\D/g, '').padStart(6, '0')}`,
-        eligibleSalary: r.grossSalary || 0,
-        employeeESI: r.esi || 0,
-        employerESI: Math.round((r.grossSalary || 0) * 0.0325),
-        totalESI: (r.esi || 0) + Math.round((r.grossSalary || 0) * 0.0325),
-        status: 'Compliant'
-      }));
+      .map(r => {
+        const empESI = r.deductions?.esiEmployee !== undefined ? r.deductions.esiEmployee : (r.esi || 0);
+        const empyrESI = r.deductions?.esiEmployer !== undefined ? r.deductions.esiEmployer : Math.round((r.grossSalary || 0) * 0.0325);
+        return {
+          id: `esi-${r.id || r.employeeId}`,
+          employeeId: r.employeeId,
+          employeeName: r.employeeName,
+          designation: r.designation || 'Staff',
+          department: r.department || 'General',
+          clientName: r.clientName || 'Main Client',
+          initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
+          esiNumber: r.esiNumber || r.esicNo || `31000${(r.employeeId || '1').replace(/\D/g, '').padStart(6, '0')}`,
+          eligibleSalary: r.earnings?.totalGross || r.grossSalary || 0,
+          employeeESI: empESI,
+          employerESI: empyrESI,
+          totalESI: empESI + empyrESI,
+          status: 'Compliant'
+        };
+      });
   }, [records]);
 
   // Statutory Summary
@@ -1247,6 +1256,7 @@ export default function PayrollManagement() {
             estimatedGross={summaryKPI.estimatedGross}
             estimatedDeductions={summaryKPI.estimatedDeductions}
             estimatedNet={summaryKPI.totalNetPayroll}
+            records={records}
             onComplete={handleCompleteRunPayroll}
             onViewIssues={() => {
               setStatusFilter('on_hold');

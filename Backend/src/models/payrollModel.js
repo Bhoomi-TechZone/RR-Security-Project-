@@ -117,6 +117,7 @@ const payrollRunSchema = new mongoose.Schema(
     totalESI: { type: Number, default: 0 },
     totalPT: { type: Number, default: 0 },
     totalTDS: { type: Number, default: 0 },
+    totalLWF: { type: Number, default: 0 },
     records: [payrollRecordSchema],
   },
   {
