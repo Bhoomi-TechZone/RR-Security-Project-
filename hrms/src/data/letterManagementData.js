@@ -80,16 +80,65 @@ export function getTemplateConfig(letterTypeId) {
   return null;
 }
 
+export const formatDateDisplay = (dateVal) => {
+  if (!dateVal) return '';
+  const str = String(dateVal).trim();
+  if (/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i.test(str)) return str;
+  const d = new Date(str);
+  if (isNaN(d.getTime())) return str;
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
 // Helper to fill placeholders in template text
 export function renderLetterBody(rawTemplateText, employee = {}, company = {}, customVars = {}) {
   if (!rawTemplateText) return '';
 
-  const compName = company?.name || employee?.companyName || 'RR Security & Allied Services Pvt. Ltd.';
-  const compAddress = company?.address || 'Plot 45, Sector 18, Gurugram, Haryana - 122008';
+  const compName = company?.name || employee?.companyName || 'RR Security & Facilities';
+  const rawAddr = (company?.address || '').trim();
+  const city = (company?.city || '').trim();
+  const state = (company?.state || '').trim();
+  const pinCode = (company?.pinCode || '').trim();
+
+  let formattedAddress = rawAddr;
+  if (!formattedAddress) {
+    formattedAddress = [city, state, pinCode].filter(Boolean).join(', ');
+  } else {
+    const lowerAddr = rawAddr.toLowerCase();
+    if (city && !lowerAddr.includes(city.toLowerCase())) {
+      formattedAddress += `, ${city}`;
+    }
+    if (state && !lowerAddr.includes(state.toLowerCase())) {
+      formattedAddress += `, ${state}`;
+    }
+    if (pinCode && !formattedAddress.includes(pinCode)) {
+      formattedAddress += ` - ${pinCode}`;
+    }
+  }
+  const compAddress = formattedAddress || 'Plot 45, Sector 18, Gurugram, Haryana - 122008';
   const compEmail = company?.email || 'admin@rrsecurity.com';
   const compPhone = company?.phone || '+91 98765 43210';
-  const compGstin = company?.gstin || '07AAAAA0000A1Z5';
-  const compPan = company?.pan || 'AAACR1234F';
+  const compGstin = company?.gstin || '';
+  const compPan = company?.pan || '';
+
+  const empName = employee?.name || customVars.employeeName;
+  const empCode = employee?.employeeCode || employee?.employeeId || customVars.employeeCode;
+  const desig = customVars.designation || employee?.designation;
+  const dept = customVars.department || employee?.department;
+  const loc = customVars.location || employee?.siteLocation || employee?.joiningLocation;
+  const repManager = customVars.reportingManager || employee?.reportingSupervisor || employee?.reportingManager || 'Vikram Singh (Head of Operations)';
+  const rawJoinDate = customVars.joiningDate || employee?.joiningDate;
+  const rawLastDate = customVars.lastWorkingDate || employee?.lastWorkingDate;
+  const joinDate = formatDateDisplay(rawJoinDate);
+  const lastDate = formatDateDisplay(rawLastDate);
+  const curDate = formatDateDisplay(customVars.issueDate) || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const sal = customVars.salary || (employee?.grossSalary ? `₹${Number(employee.grossSalary).toLocaleString('en-IN')}` : '');
+  const ctcVal = customVars.ctc || (employee?.grossSalary ? `₹${(Number(employee.grossSalary) * 12).toLocaleString('en-IN')}` : '');
+  const prob = customVars.probationPeriod || '6 Months';
+  const notice = customVars.noticePeriod || '30 Days';
+  const hours = customVars.workingHours || (employee?.shift ? `${employee.shift} Shift (9 hrs)` : '9:00 AM - 6:00 PM');
+  const signName = customVars.signatoryName || company?.signatoryName || 'Amitabh Sharma';
+  const signDesig = customVars.signatoryDesignation || company?.signatoryDesignation || 'Director - Human Resources';
+  const settleAmt = customVars.settlementAmount || '';
 
   const placeholders = {
     '{{companyName}}': compName,
@@ -98,28 +147,30 @@ export function renderLetterBody(rawTemplateText, employee = {}, company = {}, c
     '{{companyPhone}}': compPhone,
     '{{companyGstin}}': compGstin,
     '{{companyPan}}': compPan,
-    '{{currentDate}}': customVars.issueDate || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    '{{employeeName}}': employee?.name || customVars.employeeName || 'Rahul Kumar',
-    '{{employeeCode}}': employee?.employeeCode || employee?.employeeId || customVars.employeeCode || 'EMP001',
-    '{{designation}}': customVars.designation || employee?.designation || 'Security Officer',
-    '{{department}}': customVars.department || employee?.department || 'Operations',
-    '{{location}}': customVars.location || employee?.siteLocation || employee?.joiningLocation || 'DLF Cyber City, Tower B, Gurugram',
-    '{{reportingManager}}': customVars.reportingManager || employee?.reportingSupervisor || 'Vikram Singh (Head of Operations)',
-    '{{joiningDate}}': customVars.joiningDate || employee?.joiningDate || '15 Jan 2025',
-    '{{lastWorkingDate}}': customVars.lastWorkingDate || '28 Feb 2026',
-    '{{salary}}': customVars.salary || (employee?.grossSalary ? `₹${Number(employee.grossSalary).toLocaleString('en-IN')}` : '₹30,000'),
-    '{{ctc}}': customVars.ctc || (employee?.grossSalary ? `₹${(Number(employee.grossSalary) * 12).toLocaleString('en-IN')}` : '₹3,60,000'),
-    '{{probationPeriod}}': customVars.probationPeriod || '6 Months',
-    '{{noticePeriod}}': customVars.noticePeriod || '30 Days',
-    '{{workingHours}}': customVars.workingHours || (employee?.shift ? `${employee.shift} Shift (9 hrs)` : '9:00 AM - 6:00 PM'),
-    '{{signatoryName}}': customVars.signatoryName || 'Amitabh Sharma',
-    '{{signatoryDesignation}}': customVars.signatoryDesignation || 'Director - Human Resources',
-    '{{settlementAmount}}': customVars.settlementAmount || '₹38,450'
+    '{{currentDate}}': curDate,
+    '{{employeeName}}': empName || '{{employeeName}}',
+    '{{employeeCode}}': empCode || '{{employeeCode}}',
+    '{{designation}}': desig || '{{designation}}',
+    '{{department}}': dept || '{{department}}',
+    '{{location}}': loc || '{{location}}',
+    '{{reportingManager}}': repManager,
+    '{{joiningDate}}': joinDate || '{{joiningDate}}',
+    '{{lastWorkingDate}}': lastDate || '{{lastWorkingDate}}',
+    '{{salary}}': sal || '{{salary}}',
+    '{{ctc}}': ctcVal || '{{ctc}}',
+    '{{probationPeriod}}': prob,
+    '{{noticePeriod}}': notice,
+    '{{workingHours}}': hours,
+    '{{signatoryName}}': signName,
+    '{{signatoryDesignation}}': signDesig,
+    '{{settlementAmount}}': settleAmt || '{{settlementAmount}}'
   };
 
   let rendered = rawTemplateText;
   Object.entries(placeholders).forEach(([key, val]) => {
-    rendered = rendered.split(key).join(val || '');
+    if (val !== undefined && val !== null) {
+      rendered = rendered.split(key).join(val);
+    }
   });
 
   return rendered;

@@ -11,6 +11,7 @@ export const employeeService = {
       const token = authService.getToken();
       const response = await fetch(`${API_BASE_URL}/employees`, {
         method: 'GET',
+        cache: 'no-cache',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token || ''}`,
@@ -18,11 +19,17 @@ export const employeeService = {
         },
       });
 
-      const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch employees');
+        if (response.status === 304) return [];
+        let errMsg = 'Failed to fetch employees';
+        try {
+          const errData = await response.json();
+          errMsg = errData.message || errMsg;
+        } catch (_) {}
+        throw new Error(errMsg);
       }
 
+      const data = await response.json();
       return Array.isArray(data.employees) ? data.employees : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error('employeeService.getEmployees error:', error);

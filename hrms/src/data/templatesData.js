@@ -93,7 +93,7 @@ export const mockAppointmentLetterConfig = {
   isDefault: true,
   headerTitle: 'APPOINTMENT LETTER',
   subject: 'Offer of Appointment for the position of {{designation}}',
-  content: `Dear {{employeeName}},
+  content: `Dear {{employeeName}} {{employeeCode}},
 
 We are pleased to offer you an appointment with {{companyName}} for the position of {{designation}} in our {{department}} department, based at {{location}}.
 
