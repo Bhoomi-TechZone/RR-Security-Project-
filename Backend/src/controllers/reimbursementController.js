@@ -406,6 +406,15 @@ export const reviewReimbursementClaim = async (req, res) => {
       });
     }
 
+    // Sync admin notification status
+    try {
+      const Notification = (await import('../models/notificationModel.js')).default;
+      await Notification.updateMany(
+        { companyId: claim.companyId, referenceId: claim.claimId },
+        { $set: { actionStatus: action === 'approve' ? 'approved' : 'rejected', status: 'read' } }
+      );
+    } catch {}
+
     return res.status(200).json({
       success: true,
       message: `✓ Claim ${claim.claimId} ${claim.approvalStatus.toLowerCase()} successfully.`,

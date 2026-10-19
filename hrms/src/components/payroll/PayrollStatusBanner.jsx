@@ -2,8 +2,8 @@ import React from 'react';
 import { PlayCircle, AlertCircle, CheckCircle2, Lock, Sparkles, ArrowRight } from 'lucide-react';
 import styles from './PayrollStatusBanner.module.css';
 
-export default function PayrollStatusBanner({ monthLabel, status = 'Processing', processedCount = 1184, totalCount = 1250, onContinueProcessing }) {
-  const percentage = Math.min(100, Math.round((processedCount / totalCount) * 100));
+export default function PayrollStatusBanner({ monthLabel, status = 'Draft', processedCount = 0, totalCount = 0, onContinueProcessing }) {
+  const percentage = totalCount > 0 ? Math.min(100, Math.round((processedCount / totalCount) * 100)) : 0;
 
   const getStatusBadge = () => {
     switch (status.toLowerCase()) {
@@ -42,7 +42,7 @@ export default function PayrollStatusBanner({ monthLabel, status = 'Processing',
     <div className={styles.banner}>
       <div className={styles.bannerLeft}>
         <div className={styles.titleRow}>
-          <h2 className={styles.bannerTitle}>{monthLabel || 'August 2026'} Payroll</h2>
+          <h2 className={styles.bannerTitle}>{monthLabel ? `${monthLabel} Payroll` : 'Monthly Payroll'}</h2>
           <div className={`${styles.statusBadge} ${statusMeta.className}`}>
             <span className={styles.dot} />
             <StatusIcon size={14} />

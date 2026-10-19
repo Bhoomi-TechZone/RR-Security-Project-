@@ -2,11 +2,30 @@ import authService from './authService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+const mastersCache = new Map();
+
 export const masterService = {
+  clearCache(companyId) {
+    if (companyId) {
+      for (const key of mastersCache.keys()) {
+        if (key.startsWith(`${companyId}_`)) {
+          mastersCache.delete(key);
+        }
+      }
+    } else {
+      mastersCache.clear();
+    }
+  },
+
   /**
    * Fetch all master records for a given category type and company
    */
   async getMasters(type, companyId) {
+    const cacheKey = `${companyId || 'all'}_${type || 'all'}`;
+    if (mastersCache.has(cacheKey)) {
+      return mastersCache.get(cacheKey);
+    }
+
     try {
       const token = authService.getToken();
       const url = new URL(`${API_BASE_URL}/masters`);
@@ -27,7 +46,9 @@ export const masterService = {
         throw new Error(data.message || 'Failed to fetch master records');
       }
 
-      return data.data || [];
+      const result = data.data || [];
+      mastersCache.set(cacheKey, result);
+      return result;
     } catch (error) {
       console.error(`masterService.getMasters (${type}) error:`, error);
       throw error;
@@ -55,6 +76,7 @@ export const masterService = {
         throw new Error(data.message || 'Failed to create master record');
       }
 
+      this.clearCache(companyId);
       return data.data;
     } catch (error) {
       console.error('masterService.createMaster error:', error);
@@ -83,6 +105,7 @@ export const masterService = {
         throw new Error(data.message || 'Failed to update master record');
       }
 
+      this.clearCache(companyId);
       return data.data;
     } catch (error) {
       console.error('masterService.updateMaster error:', error);
@@ -111,6 +134,7 @@ export const masterService = {
         throw new Error(data.message || 'Failed to update master status');
       }
 
+      this.clearCache(companyId);
       return data.data;
     } catch (error) {
       console.error('masterService.toggleMasterStatus error:', error);
@@ -138,6 +162,7 @@ export const masterService = {
         throw new Error(data.message || 'Failed to delete master record');
       }
 
+      this.clearCache(companyId);
       return true;
     } catch (error) {
       console.error('masterService.deleteMaster error:', error);

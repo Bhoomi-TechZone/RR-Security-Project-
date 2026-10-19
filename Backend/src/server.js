@@ -30,6 +30,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import reportRoutes from './routes/reportRoutes.js';
 import overtimeRoutes from './routes/overtimeRoutes.js';
 import complianceRoutes from './routes/complianceRoutes.js';
+import letterRoutes from './routes/letterRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -55,6 +56,8 @@ connectDB();
 // Initialize Express App
 // ===========================================
 const app = express();
+// Disable etags globally so API responses never return 304 empty bodies to fetch()
+app.set('etag', false);
 const PORT = process.env.PORT;
 
 
@@ -237,6 +240,9 @@ app.use('/api/overtime', overtimeRoutes);
 
 // Dynamic Document & Compliance (Verification Rules, Expiry Alerts, License Tracker, Police Verification)
 app.use('/api/compliance', complianceRoutes);
+
+// Dynamic Letter Management (Appointment, Joining, Experience, F&F Letters & Templates)
+app.use('/api/letters', letterRoutes);
 
 
 // ===========================================

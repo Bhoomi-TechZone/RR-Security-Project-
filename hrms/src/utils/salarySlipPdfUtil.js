@@ -151,11 +151,14 @@ export async function generateSalarySlipPdf({
   const specialAllowance = earnings.specialAllowance || 0;
   const otherAllowance = earnings.otherAllowance || 0;
   const overtime = earnings.overtime || 0;
+  const bonus = earnings.bonus || earnings.statutoryBonus || slip.bonus || 0;
+  const arrears = earnings.arrears || slip.arrears || 0;
+  const incentive = earnings.incentive || earnings.performanceIncentive || 0;
   const grossSalary =
     earnings.totalGross ||
     earnings.grossSalary ||
     slip.grossSalary ||
-    (basic + hra + conveyance + vda + specialAllowance + otherAllowance + overtime);
+    (basic + hra + conveyance + vda + specialAllowance + otherAllowance + overtime + bonus + arrears + incentive);
 
   // 3. Resolve Deductions
   const deductions = slip.deductions || slip.deductionsBreakdown || {};
@@ -163,12 +166,13 @@ export async function generateSalarySlipPdf({
   const esi = deductions.esiEmployee || deductions.esi || deductions.esic || 0;
   const pt = deductions.pt || deductions.professionalTax || 0;
   const tds = deductions.tds || deductions.incomeTax || 0;
+  const lwf = deductions.lwfEmployee || deductions.lwf || deductions.labourWelfareFund || 0;
   const advance = deductions.advances || deductions.advanceAdjustment || deductions.loanEmi || 0;
   const otherDeductions = deductions.otherDeductions || deductions.otherDeduction || 0;
   const totalDeductions =
     deductions.totalDeductions ||
     slip.totalDeductions ||
-    (pf + esi + pt + tds + advance + otherDeductions);
+    (pf + esi + pt + tds + lwf + advance + otherDeductions);
 
   const netSalary = slip.netSalary || Math.max(0, grossSalary - totalDeductions);
   const amountInWords = numberToIndianWords(netSalary);
@@ -474,6 +478,9 @@ export async function generateSalarySlipPdf({
     ...(vda > 0 ? [{ label: 'Variable DA (VDA)', amount: vda }] : []),
     ...(conveyance > 0 ? [{ label: 'Conveyance Allowance', amount: conveyance }] : []),
     ...(specialAllowance > 0 ? [{ label: 'Special Allowance', amount: specialAllowance }] : []),
+    ...(bonus > 0 ? [{ label: 'Statutory Bonus', amount: bonus }] : []),
+    ...(incentive > 0 ? [{ label: 'Incentive', amount: incentive }] : []),
+    ...(arrears > 0 ? [{ label: 'Arrears', amount: arrears }] : []),
     ...(otherAllowance > 0 ? [{ label: 'Other Allowance', amount: otherAllowance }] : []),
     ...(overtime > 0 ? [{ label: 'Overtime Pay', amount: overtime }] : []),
   ];
@@ -483,6 +490,7 @@ export async function generateSalarySlipPdf({
     { label: 'Employee State Insurance (ESIC)', amount: esi },
     ...(pt > 0 ? [{ label: 'Professional Tax (PT)', amount: pt }] : []),
     ...(tds > 0 ? [{ label: 'Tax Deducted at Source (TDS)', amount: tds }] : []),
+    ...(lwf > 0 ? [{ label: 'Labour Welfare Fund (LWF)', amount: lwf }] : []),
     ...(advance > 0 ? [{ label: 'Advance / Loan Recovery', amount: advance }] : []),
     ...(otherDeductions > 0 ? [{ label: 'Other Deductions', amount: otherDeductions }] : []),
   ];

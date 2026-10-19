@@ -3,19 +3,21 @@ import { Users, ClipboardCheck } from 'lucide-react';
 import AttendanceOverview from './AttendanceOverview';
 import styles from './AgeDemograph.module.css';
 
-const ageGroups = [
-  { range: '<18', count: 14, percentage: 1 },
-  { range: '19-25', count: 330, percentage: 22 },
-  { range: '26-35', count: 661, percentage: 43 },
-  { range: '36-45', count: 321, percentage: 21 },
-  { range: '46-55', count: 177, percentage: 12 },
-  { range: '56-60', count: 22, percentage: 1 },
-  { range: '60+', count: 6, percentage: 0 },
-];
-
-function AgeDemograph({ attendanceData = [] }) {
+function AgeDemograph({ attendanceData = {}, ageData = [], loading = false }) {
   const [activeView, setActiveView] = useState('attendance'); // 'age' | 'attendance' - default attendance
   const [hoveredBarIndex, setHoveredBarIndex] = useState(null);
+
+  const defaultAgeGroups = [
+    { range: '<18', count: 0, percentage: 0 },
+    { range: '19-25', count: 0, percentage: 0 },
+    { range: '26-35', count: 0, percentage: 0 },
+    { range: '36-45', count: 0, percentage: 0 },
+    { range: '46-55', count: 0, percentage: 0 },
+    { range: '56-60', count: 0, percentage: 0 },
+    { range: '60+', count: 0, percentage: 0 },
+  ];
+
+  const ageGroups = Array.isArray(ageData) && ageData.length > 0 ? ageData : defaultAgeGroups;
 
   // Bar chart SVG configurations
   const svgWidth = 500;
@@ -65,7 +67,7 @@ function AgeDemograph({ attendanceData = [] }) {
             <ClipboardCheck size={16} />
           </button>
         </div>
-        <AttendanceOverview data={attendanceData} loading={false} />
+        <AttendanceOverview data={attendanceData} loading={loading} />
       </div>
     );
   }
@@ -176,7 +178,8 @@ function AgeDemograph({ attendanceData = [] }) {
             const barHeight = chartHeight * (activeItem.percentage / 100);
             const y = paddingY + chartHeight - barHeight;
 
-            const tooltipWidth = 52;
+            const labelStr = activeItem.count !== undefined ? `${activeItem.percentage}% (${activeItem.count})` : `${activeItem.percentage}%`;
+            const tooltipWidth = activeItem.count !== undefined ? 68 : 52;
             const tooltipHeight = 22;
 
             // Keep tooltip horizontally inside chart boundaries
@@ -203,7 +206,7 @@ function AgeDemograph({ attendanceData = [] }) {
                   y={tooltipY + 15.5} 
                   className={styles.tooltipText}
                 >
-                  {activeItem.percentage}%
+                  {labelStr}
                 </text>
               </g>
             );

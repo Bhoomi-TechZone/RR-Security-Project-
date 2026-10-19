@@ -4,6 +4,28 @@ import Employee from '../models/employeeModel.js';
 import Company from '../models/companyModel.js';
 import Attendance from '../models/attendanceModel.js';
 import StatutoryConfig from '../models/statutoryModel.js';
+import { resolveStatutoryConfig } from './statutoryController.js';
+import {
+  calculatePT,
+  calculateLWF,
+  calculateTDS,
+  calculatePF,
+  calculateESI,
+  calculateBonus,
+  computeEmployeePayrollCalculations,
+  normalizeId,
+} from '../services/statutoryCalculationService.js';
+
+export {
+  calculatePT,
+  calculateLWF,
+  calculateTDS,
+  calculatePF,
+  calculateESI,
+  calculateBonus,
+  computeEmployeePayrollCalculations,
+  normalizeId,
+};
 
 // Helper to get total days in a month string "YYYY-MM"
 const getDaysInMonthString = (monthStr) => {
@@ -19,30 +41,6 @@ const getMonthLabel = (monthStr) => {
   const d = new Date(year, month - 1, 1);
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 };
-
-// Helper to calculate PT for an employee gross salary & state
-const calculatePT = (gross, state, ptSlabs = []) => {
-  if (!state || !Array.isArray(ptSlabs) || ptSlabs.length === 0) return 0;
-  const stateLower = String(state).trim().toLowerCase();
-  const stateSlabs = ptSlabs.filter((s) => {
-    if (s.status !== 'active') return false;
-    const slabState = String(s.state || '').trim().toLowerCase();
-    return slabState && (stateLower === slabState || stateLower.includes(slabState) || slabState.includes(stateLower));
-  });
-  if (stateSlabs.length === 0) return 0;
-
-  for (const slab of stateSlabs) {
-    const min = Number(slab.minSalary || 0);
-    const max = Number(slab.maxSalary || 9999999);
-    if (gross >= min && gross <= max) {
-      return Number(slab.taxAmount) || 0;
-    }
-  }
-  return 0;
-};
-
-// Helper to normalize employee IDs for case- and separator-insensitive matching (e.g., "RR-001", "RR 001", "rr001" all match)
-const normalizeId = (id) => String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
  * @desc    Get dynamic payroll records for a month (calculates on-the-fly from MongoDB if not yet run)
@@ -63,7 +61,10 @@ export const getPayrollRecords = async (req, res) => {
       const employees = await Employee.find({
         companyId,
         status: { $regex: /^active$/i },
-      }).sort({ employeeId: 1 });
+      })
+        .select('-documents -documentList -drivingLicenseCopy')
+        .sort({ employeeId: 1 })
+        .lean();
 
       const totalDaysInMonth = getDaysInMonthString(month);
 
@@ -71,188 +72,22 @@ export const getPayrollRecords = async (req, res) => {
       const attendanceList = await Attendance.find({
         companyId,
         date: { $regex: new RegExp(`^${month}`) },
-      });
+      }).select('employeeId date status present halfDay late').lean();
 
-      // Fetch Statutory Configuration
-      const statutory = await StatutoryConfig.findOne({ companyId });
-      const pfEnabled = statutory?.pf?.enabled !== false;
-      const esiEnabled = statutory?.esi?.enabled !== false;
-      const ptEnabled = statutory?.pt?.enabled !== false;
-      const ptSlabs = statutory?.ptSlabs || [];
+      // Fetch Statutory Configuration dynamically from MongoDB Atlas
+      const statutory = (await resolveStatutoryConfig(companyId, user?.email)).config;
 
       const records = [];
 
       for (const emp of employees) {
-        // Match attendance for this employee
-        const normEmpId = normalizeId(emp.employeeId);
-        const normCode = normalizeId(emp.employeeCode);
-        const normMongoId = normalizeId(emp._id);
-        const empAtt = attendanceList.filter((a) => {
-          const aId = normalizeId(a.employeeId);
-          return aId === normEmpId || aId === normCode || aId === normMongoId;
-        });
-
-        const hasAttendance = empAtt.length > 0;
-
-        if (hasAttendance) {
-          // If aggregated monthly records exist
-          empAtt.forEach((a) => {
-            if (a.present !== undefined) presentDays += Number(a.present) || 0;
-            if (a.weekOff !== undefined) weekOffDays += Number(a.weekOff) || 0;
-            if (a.holidays !== undefined) holidayDays += Number(a.holidays) || 0;
-            if (a.cl !== undefined) paidLeaves += Number(a.cl) || 0;
-            if (a.sl !== undefined) paidLeaves += Number(a.sl) || 0;
-            if (a.el !== undefined) paidLeaves += Number(a.el) || 0;
-            if (a.lwp !== undefined) lopDays += Number(a.lwp) || 0;
-          });
-        }
-
-        // Attendance is mandatory for paid days. If employee has no attendance record, paidDays = 0
-        const totalPaidDays = hasAttendance
-          ? Math.min(totalDaysInMonth, presentDays + weekOffDays + holidayDays + paidLeaves)
-          : 0;
-
-        const calculatedLop = hasAttendance
-          ? Math.max(0, totalDaysInMonth - totalPaidDays)
-          : totalDaysInMonth;
-
-        // Salary components from Employee Master (dynamic, not hardcoded)
-        let basic = Number(emp.basic) || 0;
-        let hra = Number(emp.hra) || 0;
-        let vda = Number(emp.vda) || 0;
-        let conveyance = Number(emp.conveyance) || 0;
-        let specialAllowance = Number(emp.specialAllowance) || 0;
-        let otherAllowance = Number(emp.otherAllowance) || 0;
-        let monthlyGross = Number(emp.grossSalary) || (basic + hra + vda + conveyance + specialAllowance + otherAllowance);
-
-        // If components were not individually configured but gross was provided
-        if (basic === 0 && hra === 0 && vda === 0 && monthlyGross > 0) {
-          basic = Math.round(monthlyGross * 0.5);
-          hra = Math.round(monthlyGross * 0.2);
-          vda = Math.round(monthlyGross * 0.15);
-          otherAllowance = Math.max(0, monthlyGross - (basic + hra + vda));
-        }
-
-        const overtimeRate = Number(emp.overtimeRate) || (totalDaysInMonth > 0 ? Math.round((monthlyGross / totalDaysInMonth / 8) * 1.5) : 0);
-        const overtimePay = hasAttendance ? Math.round(overtimeHours * overtimeRate) : 0;
-
-        // Pro-rate earnings by paid days (0 if attendance is not present)
-        const ratio = totalDaysInMonth > 0 && hasAttendance ? totalPaidDays / totalDaysInMonth : 0;
-        const earnedBasic = Math.round(basic * ratio);
-        const earnedHra = Math.round(hra * ratio);
-        const earnedVda = Math.round(vda * ratio);
-        const earnedConv = Math.round(conveyance * ratio);
-        const earnedSpAll = Math.round(specialAllowance * ratio);
-        const earnedOther = Math.round(otherAllowance * ratio);
-        const earnedGross = earnedBasic + earnedHra + earnedVda + earnedConv + earnedSpAll + earnedOther + overtimePay;
-
-        // Statutory Deductions — strictly honor employee settings
-        let pfEmployee = 0;
-        let pfEmployer = 0;
-        const isPf = pfEnabled && (emp.pfApplicable === true || String(emp.pfApplicable).toLowerCase() === 'yes') && hasAttendance;
-        if (isPf) {
-          const pfWage = Math.min(earnedBasic + earnedVda, statutory?.pf?.wageCeiling || 15000);
-          pfEmployee = Math.round(pfWage * ((statutory?.pf?.employeeContribution || 12) / 100));
-          pfEmployer = Math.round(pfWage * ((statutory?.pf?.employerContribution || 12) / 100));
-        }
-
-        let esiEmployee = 0;
-        let esiEmployer = 0;
-        const isEsi = esiEnabled && (emp.esiApplicable === true || String(emp.esiApplicable).toLowerCase() === 'yes') && monthlyGross <= (statutory?.esi?.wageEligibilityLimit || 21000) && hasAttendance;
-        if (isEsi) {
-          esiEmployee = Math.round(earnedGross * ((statutory?.esi?.employeeContribution || 0.75) / 100));
-          esiEmployer = Math.round(earnedGross * ((statutory?.esi?.employerContribution || 3.25) / 100));
-        }
-
-        let pt = 0;
-        const isPt = ptEnabled && (emp.ptApplicable === true || String(emp.ptApplicable).toLowerCase() === 'yes') && hasAttendance;
-        if (isPt) {
-          const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
-          pt = calculatePT(earnedGross, empState, ptSlabs);
-        }
-
-        const isTds = (emp.tdsApplicable === true || String(emp.tdsApplicable).toLowerCase() === 'yes') && hasAttendance;
-        const tds = isTds ? Math.round(earnedGross * 0.05) : 0;
-        const totalDeductions = pfEmployee + esiEmployee + pt + tds;
-        const netSalary = Math.max(0, earnedGross - totalDeductions);
-
-        const initials =
-          (emp.name || emp.employeeName || 'EM')
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .substring(0, 2)
-            .toUpperCase() || 'EM';
-
-        records.push({
-          id: `pay-${emp.employeeId || emp._id}`,
-          employeeId: emp.employeeId || emp.employeeCode,
-          employeeName: emp.name || emp.employeeName,
-          initials,
-          designation: emp.designation || 'Staff',
-          department: emp.department || 'Operations',
-          clientName: emp.clientName || 'RR Security Services',
-          companyName: emp.companyName || 'RR Security Services',
-          site: emp.site || emp.siteLocation || 'Main Site',
-          dutyPost: emp.dutyPost || '',
-          joiningDate: emp.joiningDate || '',
-          pan: emp.pan || '',
-          uan: emp.uan || '',
-          pfNo: emp.pfNo || '',
-          esicNo: emp.esicNo || '',
-          bankName: emp.bankName || '',
-          bankAccountNo: emp.bankAccountNo || emp.accountNumber || emp.accountNo || '',
-          ifscCode: emp.ifscCode || emp.ifsc || '',
+        const record = computeEmployeePayrollCalculations({
+          emp,
+          attendanceList,
+          statutoryConfig: statutory,
+          month,
           totalDaysInMonth,
-          presentDays: hasAttendance ? presentDays : 0,
-          paidDays: totalPaidDays,
-          lopDays: calculatedLop,
-          overtimeHours: hasAttendance ? overtimeHours : 0,
-          overtimeRate,
-          overtimePay: hasAttendance ? overtimePay : 0,
-          hasAttendance,
-          basicSalary: basic,
-          basic,
-          hra,
-          vda,
-          conveyance,
-          transportAllowance: conveyance,
-          otherAllowance,
-          specialAllowance,
-          grossSalary: monthlyGross,
-          pf: pfEmployee,
-          esi: esiEmployee,
-          otherDeduction: pt + tds,
-          totalDeductions,
-          netSalary,
-          earnings: {
-            basic: earnedBasic,
-            vda: earnedVda,
-            hra: earnedHra,
-            conveyance: earnedConv,
-            otherAllowance: earnedOther,
-            specialAllowance: earnedSpAll,
-            bonus: 0,
-            overtime: overtimePay,
-            arrears: 0,
-            totalGross: earnedGross,
-          },
-          deductions: {
-            pfEmployee,
-            pfEmployer,
-            esiEmployee,
-            esiEmployer,
-            pt,
-            tds,
-            lwf: 0,
-            advances: 0,
-            loanEmi: 0,
-            otherDeductions: 0,
-            totalDeductions,
-          },
-          status: hasAttendance ? 'Calculated' : 'Pending Attendance',
-          remarks: hasAttendance ? '' : 'Attendance record not uploaded for this month',
         });
+        records.push(record);
       }
 
       return res.status(200).json({
@@ -268,7 +103,9 @@ export const getPayrollRecords = async (req, res) => {
     }
 
     // If payrollRun was already saved, verify and sanitize any deductions against current employee statutory settings
-    const employees = await Employee.find({ companyId });
+    const employees = await Employee.find({ companyId })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
     const empMap = new Map();
     employees.forEach((e) => {
       if (e.employeeId) empMap.set(String(e.employeeId).toLowerCase(), e);
@@ -276,7 +113,7 @@ export const getPayrollRecords = async (req, res) => {
     });
 
     if (payrollRun && payrollRun.records && payrollRun.records.length > 0) {
-      const statutory = await StatutoryConfig.findOne({ companyId });
+      const statutory = (await resolveStatutoryConfig(companyId, user?.email)).config;
       const pfEnabled = statutory?.pf?.enabled !== false;
       const esiEnabled = statutory?.esi?.enabled !== false;
       const ptEnabled = statutory?.pt?.enabled !== false;
@@ -286,7 +123,7 @@ export const getPayrollRecords = async (req, res) => {
       const monthAttendance = await Attendance.find({
         companyId,
         date: { $regex: new RegExp(`^${payrollRun.month}`) },
-      });
+      }).select('employeeId date status present halfDay late').lean();
       const attendedNormIds = new Set();
       monthAttendance.forEach((a) => {
         if (a.employeeId) attendedNormIds.add(normalizeId(a.employeeId));
@@ -418,36 +255,66 @@ export const getPayrollRecords = async (req, res) => {
             }
           }
 
-          if (!isPf && ((rec.deductions.pfEmployee || 0) > 0 || (rec.deductions.pfEmployer || 0) > 0)) {
-            rec.deductions.pfEmployee = 0;
-            rec.deductions.pfEmployer = 0;
-            modified = true;
-          } else if (isPf && (rec.deductions.pfEmployee || 0) === 0 && (rec.earnings.basic || 0) > 0) {
-            const pfWage = Math.min((rec.earnings.basic || 0) + (rec.earnings.vda || 0), statutory?.pf?.wageCeiling || 15000);
-            rec.deductions.pfEmployee = Math.round(pfWage * ((statutory?.pf?.employeeContribution || 12) / 100));
-            rec.deductions.pfEmployer = Math.round(pfWage * ((statutory?.pf?.employerContribution || 12) / 100));
+          const earnedGross = rec.earnings?.totalGross || 0;
+          const earnedBasic = rec.earnings?.basic || 0;
+          const earnedVda = rec.earnings?.vda || 0;
+          const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
+
+          // PF recheck
+          const pfCalc = calculatePF(earnedBasic, earnedVda, emp, statutory?.pf);
+          if (rec.deductions.pfEmployee !== pfCalc.employee || rec.deductions.pfEmployer !== pfCalc.employer) {
+            rec.deductions.pfEmployee = pfCalc.employee;
+            rec.deductions.pfEmployer = pfCalc.employer;
             modified = true;
           }
 
-          if (!isEsi && ((rec.deductions.esiEmployee || 0) > 0 || (rec.deductions.esiEmployer || 0) > 0)) {
-            rec.deductions.esiEmployee = 0;
-            rec.deductions.esiEmployer = 0;
-            modified = true;
-          } else if (isEsi && (rec.deductions.esiEmployee || 0) === 0 && (rec.earnings.totalGross || 0) > 0 && (emp.grossSalary || rec.earnings.totalGross) <= (statutory?.esi?.wageEligibilityLimit || 21000)) {
-            rec.deductions.esiEmployee = Math.round((rec.earnings.totalGross || 0) * ((statutory?.esi?.employeeContribution || 0.75) / 100));
-            rec.deductions.esiEmployer = Math.round((rec.earnings.totalGross || 0) * ((statutory?.esi?.employerContribution || 3.25) / 100));
+          // ESI recheck
+          const esiCalc = calculateESI(earnedGross, Number(emp.grossSalary) || earnedGross, rec.paidDays || 0, emp, statutory?.esi);
+          if (rec.deductions.esiEmployee !== esiCalc.employee || rec.deductions.esiEmployer !== esiCalc.employer) {
+            rec.deductions.esiEmployee = esiCalc.employee;
+            rec.deductions.esiEmployer = esiCalc.employer;
             modified = true;
           }
 
-          const empState = emp.state || emp.workState || emp.siteState || '';
-          const correctPt = isPt ? calculatePT(rec.earnings?.totalGross || 0, empState, ptSlabs) : 0;
+          // PT recheck
+          const correctPt = calculatePT(earnedGross, empState, ptSlabs, payrollRun.month, ptEnabled);
           if ((rec.deductions.pt || 0) !== correctPt) {
             rec.deductions.pt = correctPt;
             modified = true;
           }
-          if (!isTds && (rec.deductions.tds || 0) > 0) {
-            rec.deductions.tds = 0;
+
+          // TDS recheck
+          const correctTds = calculateTDS(earnedGross, emp, statutory?.tds);
+          if ((rec.deductions.tds || 0) !== correctTds) {
+            rec.deductions.tds = correctTds;
             modified = true;
+          }
+
+          // LWF recheck
+          const isLwfApplicable = emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no';
+          const lwfCalc = calculateLWF(earnedGross, empState, statutory?.lwfRules, payrollRun.month, isLwfApplicable, statutory?.lwf?.enabled !== false);
+          if ((rec.deductions.lwf || 0) !== lwfCalc.employee) {
+            rec.deductions.lwf = lwfCalc.employee;
+            modified = true;
+          }
+
+          // Bonus recheck if draft/calculated
+          if (['draft', 'calculated'].includes(String(payrollRun.status || '').toLowerCase())) {
+            const correctBonus = calculateBonus(earnedBasic, rec.paidDays || 0, rec.totalDaysInMonth || 30, emp, statutory?.bonus);
+            if ((rec.earnings.bonus || 0) !== correctBonus) {
+              rec.earnings.bonus = correctBonus;
+              rec.earnings.totalGross =
+                (rec.earnings.basic || 0) +
+                (rec.earnings.hra || 0) +
+                (rec.earnings.vda || 0) +
+                (rec.earnings.conveyance || 0) +
+                (rec.earnings.specialAllowance || 0) +
+                (rec.earnings.otherAllowance || 0) +
+                (rec.earnings.bonus || 0) +
+                (rec.earnings.overtime || 0) +
+                (rec.earnings.arrears || 0);
+              modified = true;
+            }
           }
 
           if (modified) {
@@ -468,11 +335,26 @@ export const getPayrollRecords = async (req, res) => {
       }
 
       if (hasCorrections) {
-        payrollRun.totalGross = payrollRun.records.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
-        payrollRun.totalDeductions = payrollRun.records.reduce((sum, r) => sum + (r.deductions?.totalDeductions || 0), 0);
-        payrollRun.totalNet = payrollRun.records.reduce((sum, r) => sum + (r.netSalary || 0), 0);
-        payrollRun.markModified('records');
-        await payrollRun.save();
+        const totalGross = payrollRun.records.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
+        const totalDeductions = payrollRun.records.reduce((sum, r) => sum + (r.deductions?.totalDeductions || 0), 0);
+        const totalNet = payrollRun.records.reduce((sum, r) => sum + (r.netSalary || 0), 0);
+
+        payrollRun.totalGross = totalGross;
+        payrollRun.totalDeductions = totalDeductions;
+        payrollRun.totalNet = totalNet;
+
+        // Use direct updateOne with $set to prevent VersionError on concurrent read-repairs
+        await PayrollRun.updateOne(
+          { _id: payrollRun._id },
+          {
+            $set: {
+              records: payrollRun.records,
+              totalGross,
+              totalDeductions,
+              totalNet
+            }
+          }
+        ).catch((err) => console.warn('Non-critical payroll background update warning:', err.message));
       }
     }
 
@@ -626,16 +508,9 @@ export const saveSalaryStructure = async (req, res) => {
     const targetMonth = month || new Date().toISOString().slice(0, 7);
     const payrollRun = await PayrollRun.findOne({ companyId, month: targetMonth });
 
-    const statutory = await StatutoryConfig.findOne({ companyId });
-    const pfEnabled = statutory?.pf?.enabled !== false;
-    const esiEnabled = statutory?.esi?.enabled !== false;
+    const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
     const ptEnabled = statutory?.pt?.enabled !== false;
     const ptSlabs = statutory?.ptSlabs || [];
-
-    const isPf = pfEnabled && (employee.pfApplicable === true || String(employee.pfApplicable).toLowerCase() === 'yes');
-    const isEsi = esiEnabled && (employee.esiApplicable === true || String(employee.esiApplicable).toLowerCase() === 'yes') && numGross <= (statutory?.esi?.wageEligibilityLimit || 21000);
-    const isPt = ptEnabled && (employee.ptApplicable === true || String(employee.ptApplicable).toLowerCase() === 'yes');
-    const isTds = (employee.tdsApplicable === true || String(employee.tdsApplicable).toLowerCase() === 'yes');
 
     let updatedPayrollRecord = null;
 
@@ -658,33 +533,70 @@ export const saveSalaryStructure = async (req, res) => {
         const earnedSpecial = Math.round(numSpecial * ratio);
         const earnedOther = Math.round(numOther * ratio);
         const overtimePay = rec.earnings?.overtime || 0;
-        const earnedGross = earnedBasic + earnedVda + earnedHra + earnedConv + earnedSpecial + earnedOther + overtimePay;
+        const bonus = statutory?.bonus?.enabled === false
+          ? 0
+          : (rec.earnings?.bonus !== undefined
+              ? rec.earnings.bonus
+              : calculateBonus(earnedBasic, paidDays, totalDaysInMonth, employee, statutory?.bonus));
+        const arrears = rec.earnings?.arrears || 0;
+        const earnedGross = earnedBasic + earnedVda + earnedHra + earnedConv + earnedSpecial + earnedOther + bonus + overtimePay + arrears;
 
+        const empState = employee.state || employee.workState || employee.siteState || employee.siteLocation || employee.site || employee.presentAddress || employee.address || '';
+
+        // PF (strictly respecting module active status)
         let pfEmployee = 0;
         let pfEmployer = 0;
-        if (pf !== undefined && pf !== null) {
+        if (statutory?.pf?.enabled === false) {
+          pfEmployee = 0;
+          pfEmployer = 0;
+        } else if (pf !== undefined && pf !== null) {
           pfEmployee = Number(pf) || 0;
-        } else if (isPf) {
-          const pfWage = Math.min(earnedBasic + earnedVda, statutory?.pf?.wageCeiling || 15000);
-          pfEmployee = Math.round(pfWage * ((statutory?.pf?.employeeContribution || 12) / 100));
-          pfEmployer = Math.round(pfWage * ((statutory?.pf?.employerContribution || 12) / 100));
+          pfEmployer = Number(pf) || 0;
+        } else {
+          const pfCalc = calculatePF(earnedBasic, earnedVda, employee, statutory?.pf);
+          pfEmployee = pfCalc.employee;
+          pfEmployer = pfCalc.employer;
         }
 
+        // ESI (strictly respecting module active status)
         let esiEmployee = 0;
         let esiEmployer = 0;
-        if (esi !== undefined && esi !== null) {
+        if (statutory?.esi?.enabled === false) {
+          esiEmployee = 0;
+          esiEmployer = 0;
+        } else if (esi !== undefined && esi !== null) {
           esiEmployee = Number(esi) || 0;
-        } else if (isEsi) {
-          esiEmployee = Math.round(earnedGross * ((statutory?.esi?.employeeContribution || 0.75) / 100));
-          esiEmployer = Math.round(earnedGross * ((statutory?.esi?.employerContribution || 3.25) / 100));
+          esiEmployer = Math.round(Number(esi) * 4.33);
+        } else {
+          const esiCalc = calculateESI(earnedGross, numGross, paidDays, employee, statutory?.esi);
+          esiEmployee = esiCalc.employee;
+          esiEmployer = esiCalc.employer;
         }
 
-        const empState = employee.state || employee.workState || employee.siteState || '';
-        const pt = isPt ? calculatePT(earnedGross, empState, ptSlabs) : 0;
-        const tds = isTds ? Math.round(earnedGross * 0.05) : 0;
+        // PT (strictly respecting module active status)
+        const ptVal = statutory?.pt?.enabled === false ? 0 : calculatePT(earnedGross, empState, ptSlabs, targetMonth, ptEnabled);
+
+        // TDS (strictly respecting module active status)
+        const tdsVal = statutory?.tds?.enabled === false ? 0 : calculateTDS(earnedGross, employee, statutory?.tds);
+
+        // LWF (strictly respecting module active status)
+        const isLwfApplicable = employee.lwfApplicable !== false && String(employee.lwfApplicable).toLowerCase() !== 'no';
+        const lwfCalc = statutory?.lwf?.enabled === false
+          ? { employee: 0, employer: 0 }
+          : calculateLWF(earnedGross, empState, statutory?.lwfRules, targetMonth, isLwfApplicable, statutory?.lwf?.enabled !== false);
+
         const otherDed = otherDeduction !== undefined ? Number(otherDeduction) || 0 : (rec.deductions?.otherDeductions || 0);
 
-        const totalDeductions = pfEmployee + esiEmployee + pt + tds + (rec.deductions?.lwf || 0) + (rec.deductions?.advances || 0) + (rec.deductions?.loanEmi || 0) + otherDed;
+        const totalDeductions =
+          pfEmployee +
+          esiEmployee +
+          ptVal +
+          tdsVal +
+          lwfCalc.employee +
+          (rec.deductions?.advances || 0) +
+          (rec.deductions?.loanEmi || 0) +
+          otherDed;
+
         const netSalary = Math.max(0, earnedGross - totalDeductions);
 
         rec.earnings = {
@@ -694,9 +606,9 @@ export const saveSalaryStructure = async (req, res) => {
           conveyance: earnedConv,
           specialAllowance: earnedSpecial,
           otherAllowance: earnedOther,
-          bonus: rec.earnings?.bonus || 0,
+          bonus,
           overtime: overtimePay,
-          arrears: rec.earnings?.arrears || 0,
+          arrears,
           totalGross: earnedGross,
         };
 
@@ -705,9 +617,9 @@ export const saveSalaryStructure = async (req, res) => {
           pfEmployer,
           esiEmployee,
           esiEmployer,
-          pt,
-          tds,
-          lwf: rec.deductions?.lwf || 0,
+          pt: ptVal,
+          tds: tdsVal,
+          lwf: lwfCalc.employee,
           advances: rec.deductions?.advances || 0,
           loanEmi: rec.deductions?.loanEmi || 0,
           otherDeductions: otherDed,
@@ -758,170 +670,59 @@ export const runPayrollCalculation = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Month is required.' });
     }
 
-    let calculatedRecords = reqRecords;
+    // Fetch active employees to guarantee accurate master data
+    const employees = await Employee.find({
+      companyId,
+      status: { $regex: /^active$/i },
+    })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
 
-    if (!Array.isArray(calculatedRecords) || calculatedRecords.length === 0) {
-      // Pull and calculate from MongoDB database
-      const employees = await Employee.find({
-        companyId,
-        status: { $regex: /^active$/i },
-      });
+    const totalDaysInMonth = getDaysInMonthString(month);
+    const attendanceList = await Attendance.find({
+      companyId,
+      date: { $regex: new RegExp(`^${month}`) },
+    }).select('employeeId date status present halfDay late overtimeHours').lean();
 
-      const totalDaysInMonth = getDaysInMonthString(month);
-      const attendanceList = await Attendance.find({
-        companyId,
-        date: { $regex: new RegExp(`^${month}`) },
-      });
+    const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
 
-      const statutory = await StatutoryConfig.findOne({ companyId });
-      const pfEnabled = statutory?.pf?.enabled !== false;
-      const esiEnabled = statutory?.esi?.enabled !== false;
-      const ptEnabled = statutory?.pt?.enabled !== false;
-      const ptSlabs = statutory?.ptSlabs || [];
-
-      calculatedRecords = employees.map((emp) => {
-        const normEmpId = normalizeId(emp.employeeId);
-        const normCode = normalizeId(emp.employeeCode);
-        const normMongoId = normalizeId(emp._id);
-        const empAtt = attendanceList.filter((a) => {
-          const aId = normalizeId(a.employeeId);
-          return aId === normEmpId || aId === normCode || aId === normMongoId;
-        });
-        const hasAttendance = empAtt.length > 0;
-        let presentDays = 0;
-        let weekOffDays = 0;
-        let holidayDays = 0;
-        let paidLeaves = 0;
-
-        if (hasAttendance) {
-          empAtt.forEach((a) => {
-            if (a.present !== undefined) presentDays += Number(a.present) || 0;
-            if (a.weekOff !== undefined) weekOffDays += Number(a.weekOff) || 0;
-            if (a.holidays !== undefined) holidayDays += Number(a.holidays) || 0;
-            if (a.cl !== undefined) paidLeaves += Number(a.cl) || 0;
-            if (a.sl !== undefined) paidLeaves += Number(a.sl) || 0;
-            if (a.el !== undefined) paidLeaves += Number(a.el) || 0;
-          });
-        }
-
-        const totalPaidDays = hasAttendance
-          ? Math.min(totalDaysInMonth, presentDays + weekOffDays + holidayDays + paidLeaves)
-          : 0;
-        const calculatedLop = hasAttendance
-          ? Math.max(0, totalDaysInMonth - totalPaidDays)
-          : totalDaysInMonth;
-
-        let basic = Number(emp.basic) || 0;
-        let hra = Number(emp.hra) || 0;
-        let vda = Number(emp.vda) || 0;
-        let conveyance = Number(emp.conveyance) || 0;
-        let specialAllowance = Number(emp.specialAllowance) || 0;
-        let otherAllowance = Number(emp.otherAllowance) || 0;
-        let monthlyGross = Number(emp.grossSalary) || (basic + hra + vda + conveyance + specialAllowance + otherAllowance);
-
-        // If components were not individually configured but gross was provided
-        if (basic === 0 && hra === 0 && vda === 0 && monthlyGross > 0) {
-          basic = Math.round(monthlyGross * 0.5);
-          hra = Math.round(monthlyGross * 0.2);
-          vda = Math.round(monthlyGross * 0.15);
-          otherAllowance = Math.max(0, monthlyGross - (basic + hra + vda));
-        }
-
-        const ratio = (hasAttendance && totalDaysInMonth > 0) ? totalPaidDays / totalDaysInMonth : 0;
-        const earnedBasic = Math.round(basic * ratio);
-        const earnedHra = Math.round(hra * ratio);
-        const earnedVda = Math.round(vda * ratio);
-        const earnedConv = Math.round(conveyance * ratio);
-        const earnedSpAll = Math.round(specialAllowance * ratio);
-        const earnedOther = Math.round(otherAllowance * ratio);
-        const earnedGross = earnedBasic + earnedHra + earnedVda + earnedConv + earnedSpAll + earnedOther;
-
-        // Statutory Deductions — strictly honor employee settings
-        let pfEmployee = 0;
-        let pfEmployer = 0;
-        const isPf = hasAttendance && pfEnabled && (emp.pfApplicable === true || String(emp.pfApplicable).toLowerCase() === 'yes');
-        if (isPf) {
-          const pfWage = Math.min(earnedBasic + earnedVda, statutory?.pf?.wageCeiling || 15000);
-          pfEmployee = Math.round(pfWage * ((statutory?.pf?.employeeContribution || 12) / 100));
-          pfEmployer = Math.round(pfWage * ((statutory?.pf?.employerContribution || 12) / 100));
-        }
-
-        let esiEmployee = 0;
-        let esiEmployer = 0;
-        const isEsi = hasAttendance && esiEnabled && (emp.esiApplicable === true || String(emp.esiApplicable).toLowerCase() === 'yes') && monthlyGross <= (statutory?.esi?.wageEligibilityLimit || 21000);
-        if (isEsi) {
-          esiEmployee = Math.round(earnedGross * ((statutory?.esi?.employeeContribution || 0.75) / 100));
-          esiEmployer = Math.round(earnedGross * ((statutory?.esi?.employerContribution || 3.25) / 100));
-        }
-
-        let pt = 0;
-        const isPt = hasAttendance && ptEnabled && (emp.ptApplicable === true || String(emp.ptApplicable).toLowerCase() === 'yes');
-        if (isPt) {
-          const empState = emp.state || emp.workState || emp.siteState || '';
-          pt = calculatePT(earnedGross, empState, ptSlabs);
-        }
-
-        const isTds = hasAttendance && (emp.tdsApplicable === true || String(emp.tdsApplicable).toLowerCase() === 'yes');
-        const tds = isTds ? Math.round(earnedGross * 0.05) : 0;
-        const totalDeductions = pfEmployee + esiEmployee + pt + tds;
-        const netSalary = Math.max(0, earnedGross - totalDeductions);
-
-        return {
-          id: `pay-${emp.employeeId}`,
-          employeeId: emp.employeeId,
-          employeeName: emp.name,
-          designation: emp.designation || 'Staff',
-          department: emp.department || 'Operations',
-          clientId: emp.clientId || '',
-          clientName: emp.clientName || emp.companyName || 'RR Security',
-          companyName: emp.companyName || 'RR Security',
-          site: emp.site || emp.siteLocation || 'Main Site',
-          pan: emp.pan || '',
-          uan: emp.uan || '',
-          pfNo: emp.pfNo || '',
-          esicNo: emp.esicNo || '',
-          bankName: emp.bankName || '',
-          bankAccountNo: emp.bankAccountNo || emp.accountNumber || emp.accountNo || '',
-          ifscCode: emp.ifscCode || emp.ifsc || '',
-          totalDaysInMonth,
-          presentDays: hasAttendance ? presentDays : 0,
-          paidDays: totalPaidDays,
-          lopDays: calculatedLop,
-          overtimeHours: 0,
-          overtimeRate: 0,
-          overtimePay: 0,
-          hasAttendance,
-          earnings: {
-            basic: earnedBasic,
-            vda: earnedVda,
-            hra: earnedHra,
-            conveyance: earnedConv,
-            otherAllowance: earnedOther,
-            specialAllowance: earnedSpAll,
-            bonus: 0,
-            overtime: 0,
-            arrears: 0,
-            totalGross: earnedGross,
-          },
-          deductions: {
-            pfEmployee,
-            pfEmployer,
-            esiEmployee,
-            esiEmployer,
-            pt,
-            tds,
-            lwf: 0,
-            advances: 0,
-            loanEmi: 0,
-            otherDeductions: 0,
-            totalDeductions,
-          },
-          netSalary,
-          status: hasAttendance ? 'Calculated' : 'Pending Attendance',
-          remarks: hasAttendance ? '' : 'Attendance record not uploaded for this month',
-        };
+    const reqRecordsMap = new Map();
+    if (Array.isArray(reqRecords) && reqRecords.length > 0) {
+      reqRecords.forEach((r) => {
+        if (r.employeeId) reqRecordsMap.set(normalizeId(r.employeeId), r);
+        if (r.id) reqRecordsMap.set(normalizeId(r.id), r);
       });
     }
+
+    const calculatedRecords = employees.map((emp) => {
+      const normEmpId = normalizeId(emp.employeeId);
+      const normCode = normalizeId(emp.employeeCode);
+      const reqRec = reqRecordsMap.get(normEmpId) || reqRecordsMap.get(normCode);
+
+      const overrides = {};
+      if (reqRec) {
+        if (reqRec.paidDays !== undefined) overrides.paidDays = reqRec.paidDays;
+        if (reqRec.presentDays !== undefined) overrides.presentDays = reqRec.presentDays;
+        if (reqRec.lopDays !== undefined) overrides.lopDays = reqRec.lopDays;
+        if (reqRec.hasAttendance !== undefined) overrides.hasAttendance = reqRec.hasAttendance;
+        if (reqRec.overtimeHours !== undefined) overrides.overtimeHours = reqRec.overtimeHours;
+        if (reqRec.overtimePay !== undefined) overrides.overtimePay = reqRec.overtimePay;
+        if (reqRec.earnings?.overtime !== undefined) overrides.overtimePay = reqRec.earnings.overtime;
+        if (reqRec.earnings?.arrears !== undefined) overrides.arrears = reqRec.earnings.arrears;
+        if (reqRec.deductions?.advances !== undefined) overrides.advances = reqRec.deductions.advances;
+        if (reqRec.deductions?.loanEmi !== undefined) overrides.loanEmi = reqRec.deductions.loanEmi;
+        if (reqRec.deductions?.otherDeductions !== undefined) overrides.otherDeductions = reqRec.deductions.otherDeductions;
+      }
+
+      return computeEmployeePayrollCalculations({
+        emp,
+        attendanceList,
+        statutoryConfig: statutory,
+        month,
+        totalDaysInMonth,
+        overrides,
+      });
+    });
 
     const totalGross = calculatedRecords.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
     const totalDeductions = calculatedRecords.reduce((sum, r) => sum + (r.deductions?.totalDeductions || 0), 0);
@@ -931,6 +732,7 @@ export const runPayrollCalculation = async (req, res) => {
     const totalESI = calculatedRecords.reduce((sum, r) => sum + (r.deductions?.esiEmployee || 0), 0);
     const totalPT = calculatedRecords.reduce((sum, r) => sum + (r.deductions?.pt || 0), 0);
     const totalTDS = calculatedRecords.reduce((sum, r) => sum + (r.deductions?.tds || 0), 0);
+    const totalLWF = calculatedRecords.reduce((sum, r) => sum + (r.deductions?.lwf || 0), 0);
 
     const updatedRun = await PayrollRun.findOneAndUpdate(
       { companyId, month },
@@ -950,6 +752,7 @@ export const runPayrollCalculation = async (req, res) => {
           totalESI,
           totalPT,
           totalTDS,
+          totalLWF,
           records: calculatedRecords,
         },
       },
@@ -1054,159 +857,20 @@ export const generateSalarySlips = async (req, res) => {
         date: { $regex: new RegExp(`^${month}`) },
       });
 
-      const statutory = await StatutoryConfig.findOne({ companyId });
+      const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
       const pfEnabled = statutory?.pf?.enabled !== false;
       const esiEnabled = statutory?.esi?.enabled !== false;
       const ptEnabled = statutory?.pt?.enabled !== false;
       const ptSlabs = statutory?.ptSlabs || [];
 
       const calculatedRecords = employees.map((emp) => {
-        const normEmpId = normalizeId(emp.employeeId);
-        const normCode = normalizeId(emp.employeeCode);
-        const normMongoId = normalizeId(emp._id);
-        const empAtt = attendanceList.filter((a) => {
-          const aId = normalizeId(a.employeeId);
-          return aId === normEmpId || aId === normCode || aId === normMongoId;
-        });
-        const hasAttendance = empAtt.length > 0;
-        let presentDays = 0;
-        let weekOffDays = 0;
-        let holidayDays = 0;
-        let paidLeaves = 0;
-
-        if (hasAttendance) {
-          empAtt.forEach((a) => {
-            if (a.present !== undefined) presentDays += Number(a.present) || 0;
-            if (a.weekOff !== undefined) weekOffDays += Number(a.weekOff) || 0;
-            if (a.holidays !== undefined) holidayDays += Number(a.holidays) || 0;
-            if (a.cl !== undefined) paidLeaves += Number(a.cl) || 0;
-            if (a.sl !== undefined) paidLeaves += Number(a.sl) || 0;
-            if (a.el !== undefined) paidLeaves += Number(a.el) || 0;
-          });
-        }
-
-        const totalPaidDays = hasAttendance
-          ? Math.min(totalDaysInMonth, presentDays + weekOffDays + holidayDays + paidLeaves)
-          : 0;
-        const calculatedLop = hasAttendance
-          ? Math.max(0, totalDaysInMonth - totalPaidDays)
-          : totalDaysInMonth;
-
-        let basic = Number(emp.basic) || 0;
-        let hra = Number(emp.hra) || 0;
-        let vda = Number(emp.vda) || 0;
-        let conveyance = Number(emp.conveyance) || 0;
-        let specialAllowance = Number(emp.specialAllowance) || 0;
-        let otherAllowance = Number(emp.otherAllowance) || 0;
-        let monthlyGross = Number(emp.grossSalary) || (basic + hra + vda + conveyance + specialAllowance + otherAllowance);
-
-        // If components were not individually configured but gross was provided
-        if (basic === 0 && hra === 0 && vda === 0 && monthlyGross > 0) {
-          basic = Math.round(monthlyGross * 0.5);
-          hra = Math.round(monthlyGross * 0.2);
-          vda = Math.round(monthlyGross * 0.15);
-          otherAllowance = Math.max(0, monthlyGross - (basic + hra + vda));
-        }
-
-        const ratio = (hasAttendance && totalDaysInMonth > 0) ? totalPaidDays / totalDaysInMonth : 0;
-        const earnedBasic = Math.round(basic * ratio);
-        const earnedHra = Math.round(hra * ratio);
-        const earnedVda = Math.round(vda * ratio);
-        const earnedConv = Math.round(conveyance * ratio);
-        const earnedSpAll = Math.round(specialAllowance * ratio);
-        const earnedOther = Math.round(otherAllowance * ratio);
-        const earnedGross = earnedBasic + earnedHra + earnedVda + earnedConv + earnedSpAll + earnedOther;
-
-        // Statutory Deductions — strictly honor employee settings
-        let pfEmployee = 0;
-        let pfEmployer = 0;
-        const isPf = hasAttendance && pfEnabled && (emp.pfApplicable === true || String(emp.pfApplicable).toLowerCase() === 'yes');
-        if (isPf) {
-          const pfWage = Math.min(earnedBasic + earnedVda, statutory?.pf?.wageCeiling || 15000);
-          pfEmployee = Math.round(pfWage * ((statutory?.pf?.employeeContribution || 12) / 100));
-          pfEmployer = Math.round(pfWage * ((statutory?.pf?.employerContribution || 12) / 100));
-        }
-
-        let esiEmployee = 0;
-        let esiEmployer = 0;
-        const isEsi = hasAttendance && esiEnabled && (emp.esiApplicable === true || String(emp.esiApplicable).toLowerCase() === 'yes') && monthlyGross <= (statutory?.esi?.wageEligibilityLimit || 21000);
-        if (isEsi) {
-          esiEmployee = Math.round(earnedGross * ((statutory?.esi?.employeeContribution || 0.75) / 100));
-          esiEmployer = Math.round(earnedGross * ((statutory?.esi?.employerContribution || 3.25) / 100));
-        }
-
-        let pt = 0;
-        const isPt = hasAttendance && ptEnabled && (emp.ptApplicable === true || String(emp.ptApplicable).toLowerCase() === 'yes');
-        if (isPt) {
-          const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
-          pt = calculatePT(earnedGross, empState, ptSlabs);
-        }
-
-        const isTds = hasAttendance && (emp.tdsApplicable === true || String(emp.tdsApplicable).toLowerCase() === 'yes');
-        const tds = isTds ? Math.round(earnedGross * 0.05) : 0;
-        const totalDeductions = pfEmployee + esiEmployee + pt + tds;
-        const netSalary = Math.max(0, earnedGross - totalDeductions);
-
-        const initials =
-          (emp.name || emp.employeeName || 'EM')
-            .split(' ')
-            .map((n) => n[0])
-            .join('')
-            .substring(0, 2)
-            .toUpperCase() || 'EM';
-
-        return {
-          id: `pay-${emp.employeeId || emp._id}`,
-          employeeId: emp.employeeId || emp.employeeCode,
-          employeeName: emp.name || emp.employeeName || 'Staff',
-          initials,
-          designation: emp.designation || 'Staff',
-          department: emp.department || 'Operations',
-          clientId: emp.clientId || '',
-          clientName: emp.clientName || emp.companyName || 'RR Security Services',
-          companyName: emp.companyName || 'RR Security Services',
-          site: emp.site || emp.siteLocation || 'Main Site',
-          pan: emp.pan || '',
-          uan: emp.uan || '',
-          pfNo: emp.pfNo || '',
-          esicNo: emp.esicNo || '',
-          bankName: emp.bankName || '',
-          bankAccountNo: emp.bankAccountNo || emp.accountNumber || emp.accountNo || '',
-          ifscCode: emp.ifscCode || emp.ifsc || '',
+        return computeEmployeePayrollCalculations({
+          emp,
+          attendanceList,
+          statutoryConfig: statutory,
+          month,
           totalDaysInMonth,
-          presentDays: hasAttendance ? presentDays : 0,
-          paidDays: totalPaidDays,
-          lopDays: calculatedLop,
-          hasAttendance,
-          earnings: {
-            basic: earnedBasic,
-            vda: earnedVda,
-            hra: earnedHra,
-            conveyance: earnedConv,
-            otherAllowance: earnedOther,
-            specialAllowance: earnedSpAll,
-            bonus: 0,
-            overtime: 0,
-            arrears: 0,
-            totalGross: earnedGross,
-          },
-          deductions: {
-            pfEmployee,
-            pfEmployer,
-            esiEmployee,
-            esiEmployer,
-            pt,
-            tds,
-            lwf: 0,
-            advances: 0,
-            loanEmi: 0,
-            otherDeductions: 0,
-            totalDeductions,
-          },
-          netSalary,
-          status: hasAttendance ? 'Calculated' : 'Pending Attendance',
-          remarks: hasAttendance ? '' : 'Attendance record not uploaded for this month',
-        };
+        });
       });
 
       const totalGross = calculatedRecords.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
@@ -1237,13 +901,15 @@ export const generateSalarySlips = async (req, res) => {
     const monthAttendance = await Attendance.find({
       companyId,
       date: { $regex: new RegExp(`^${month}`) },
-    });
+    }).select('employeeId date status present halfDay late').lean();
     const attendedNormIds = new Set();
     monthAttendance.forEach((a) => {
       if (a.employeeId) attendedNormIds.add(normalizeId(a.employeeId));
     });
 
-    const allEmps = await Employee.find({ companyId });
+    const allEmps = await Employee.find({ companyId })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
     const empMap = new Map();
     const attendedEmpIdSet = new Set();
 
@@ -1359,7 +1025,7 @@ export const generateSalarySlips = async (req, res) => {
     const generatedEmpIds = new Set();
 
     // Fetch statutory configuration & active employees to validate deductions
-    const statutory = await StatutoryConfig.findOne({ companyId });
+    const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
     const pfEnabled = statutory?.pf?.enabled !== false;
     const esiEnabled = statutory?.esi?.enabled !== false;
     const ptEnabled = statutory?.pt?.enabled !== false;
@@ -1373,30 +1039,33 @@ export const generateSalarySlips = async (req, res) => {
       const rec = eligibleRecords[i];
       const empDoc = empMap.get(String(rec.employeeId).toLowerCase());
       if (empDoc) {
-        const isPf = pfEnabled && (empDoc.pfApplicable === true || String(empDoc.pfApplicable).toLowerCase() === 'yes');
-        const isEsi = esiEnabled && (empDoc.esiApplicable === true || String(empDoc.esiApplicable).toLowerCase() === 'yes') && (rec.earnings?.totalGross || 0) <= (statutory?.esi?.wageEligibilityLimit || 21000);
-        const isPt = ptEnabled && (empDoc.ptApplicable === true || String(empDoc.ptApplicable).toLowerCase() === 'yes');
-        const isTds = (empDoc.tdsApplicable === true || String(empDoc.tdsApplicable).toLowerCase() === 'yes');
-
         if (!rec.deductions) rec.deductions = {};
 
-        if (!isPf) {
-          rec.deductions.pfEmployee = 0;
-          rec.deductions.pfEmployer = 0;
-        }
-        if (!isEsi) {
-          rec.deductions.esiEmployee = 0;
-          rec.deductions.esiEmployer = 0;
-        }
-        if (!isPt) {
-          rec.deductions.pt = 0;
-        } else {
-          const empState = empDoc.state || empDoc.workState || empDoc.siteState || '';
-          rec.deductions.pt = calculatePT(rec.earnings?.totalGross || 0, empState, ptSlabs);
-        }
-        if (!isTds) {
-          rec.deductions.tds = 0;
-        }
+        const earnedGross = rec.earnings?.totalGross || 0;
+        const earnedBasic = rec.earnings?.basic || 0;
+        const earnedVda = rec.earnings?.vda || 0;
+        const empState = empDoc.state || empDoc.workState || empDoc.siteState || empDoc.siteLocation || empDoc.site || empDoc.presentAddress || empDoc.address || '';
+
+        // PF
+        const pfCalc = calculatePF(earnedBasic, earnedVda, empDoc, statutory?.pf);
+        rec.deductions.pfEmployee = pfCalc.employee;
+        rec.deductions.pfEmployer = pfCalc.employer;
+
+        // ESI
+        const esiCalc = calculateESI(earnedGross, Number(empDoc.grossSalary) || earnedGross, rec.paidDays || 0, empDoc, statutory?.esi);
+        rec.deductions.esiEmployee = esiCalc.employee;
+        rec.deductions.esiEmployer = esiCalc.employer;
+
+        // PT
+        rec.deductions.pt = calculatePT(earnedGross, empState, ptSlabs, month, ptEnabled);
+
+        // TDS
+        rec.deductions.tds = calculateTDS(earnedGross, empDoc, statutory?.tds);
+
+        // LWF
+        const isLwfApplicable = empDoc.lwfApplicable !== false && String(empDoc.lwfApplicable).toLowerCase() !== 'no';
+        const lwfCalc = calculateLWF(earnedGross, empState, statutory?.lwfRules, month, isLwfApplicable, statutory?.lwf?.enabled !== false);
+        rec.deductions.lwf = lwfCalc.employee;
 
         rec.deductions.totalDeductions =
           (Number(rec.deductions.pfEmployee) || 0) +
@@ -1572,14 +1241,16 @@ export const getSalarySlips = async (req, res) => {
     // Fetch month attendance to ensure only employees with valid attendance records have salary slips displayed
     const attQuery = { companyId };
     if (month) attQuery.date = { $regex: new RegExp(`^${month}`) };
-    const monthAttendance = await Attendance.find(attQuery);
+    const monthAttendance = await Attendance.find(attQuery).select('employeeId date status present halfDay late').lean();
 
     const attendedNormIds = new Set();
     monthAttendance.forEach((a) => {
       if (a.employeeId) attendedNormIds.add(normalizeId(a.employeeId));
     });
 
-    const allEmpsList = await Employee.find({ companyId });
+    const allEmpsList = await Employee.find({ companyId })
+      .select('-documents -documentList -drivingLicenseCopy')
+      .lean();
     const attendedEmpIdSet = new Set();
     allEmpsList.forEach((e) => {
       const normId = normalizeId(e.employeeId);
@@ -1680,13 +1351,13 @@ export const getSalarySlips = async (req, res) => {
     const allSlips = [...slips.map((s) => s.toJSON()), ...synthesizedFromPayroll].sort((a, b) => (b.month || '').localeCompare(a.month || ''));
 
     // Fetch statutory configuration & active employees to sanitize any old stale slips
-    const statutory = await StatutoryConfig.findOne({ companyId });
+    const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
     const pfEnabled = statutory?.pf?.enabled !== false;
     const esiEnabled = statutory?.esi?.enabled !== false;
     const ptEnabled = statutory?.pt?.enabled !== false;
     const ptSlabs = statutory?.ptSlabs || [];
 
-    const employees = await Employee.find({ companyId });
+    const employees = allEmpsList;
     const empMap = new Map();
     employees.forEach((e) => {
       if (e.employeeId) empMap.set(String(e.employeeId).toLowerCase(), e);
@@ -1714,30 +1385,47 @@ export const getSalarySlips = async (req, res) => {
         if (!json.pfNo && empDoc.pfNo) json.pfNo = empDoc.pfNo;
         if (!json.esicNo && empDoc.esicNo) json.esicNo = empDoc.esicNo;
 
-        const isPf = pfEnabled && (empDoc.pfApplicable === true || String(empDoc.pfApplicable).toLowerCase() === 'yes');
-        const isEsi = esiEnabled && (empDoc.esiApplicable === true || String(empDoc.esiApplicable).toLowerCase() === 'yes') && grossSalary <= (statutory?.esi?.wageEligibilityLimit || 21000);
-        const isPt = ptEnabled && (empDoc.ptApplicable === true || String(empDoc.ptApplicable).toLowerCase() === 'yes');
-        const isTds = (empDoc.tdsApplicable === true || String(empDoc.tdsApplicable).toLowerCase() === 'yes');
+        const earnedBasic = earnings.basic || 0;
+        const earnedVda = earnings.vda || 0;
+        const empState = empDoc.state || empDoc.workState || empDoc.siteState || empDoc.siteLocation || empDoc.site || empDoc.presentAddress || empDoc.address || '';
 
         let modified = false;
-        if (!isPf && (Number(deductions.pfEmployee || 0) > 0 || Number(deductions.pfEmployer || 0) > 0)) {
-          deductions.pfEmployee = 0;
-          deductions.pfEmployer = 0;
+
+        // PF
+        const pfCalc = calculatePF(earnedBasic, earnedVda, empDoc, statutory?.pf);
+        if (Number(deductions.pfEmployee || 0) !== pfCalc.employee || Number(deductions.pfEmployer || 0) !== pfCalc.employer) {
+          deductions.pfEmployee = pfCalc.employee;
+          deductions.pfEmployer = pfCalc.employer;
           modified = true;
         }
-        if (!isEsi && (Number(deductions.esiEmployee || 0) > 0 || Number(deductions.esiEmployer || 0) > 0)) {
-          deductions.esiEmployee = 0;
-          deductions.esiEmployer = 0;
+
+        // ESI
+        const esiCalc = calculateESI(grossSalary, Number(empDoc.grossSalary) || grossSalary, json.paidDays || 30, empDoc, statutory?.esi);
+        if (Number(deductions.esiEmployee || 0) !== esiCalc.employee || Number(deductions.esiEmployer || 0) !== esiCalc.employer) {
+          deductions.esiEmployee = esiCalc.employee;
+          deductions.esiEmployer = esiCalc.employer;
           modified = true;
         }
-        const empState = empDoc.state || empDoc.workState || empDoc.siteState || empDoc.siteLocation || empDoc.site || empDoc.presentAddress || empDoc.address || '';
-        const correctPt = isPt ? calculatePT(grossSalary, empState, ptSlabs) : 0;
+
+        // PT
+        const correctPt = calculatePT(grossSalary, empState, ptSlabs, json.month, ptEnabled);
         if ((Number(deductions.pt) || 0) !== correctPt) {
           deductions.pt = correctPt;
           modified = true;
         }
-        if (!isTds && Number(deductions.tds || 0) > 0) {
-          deductions.tds = 0;
+
+        // TDS
+        const correctTds = calculateTDS(grossSalary, empDoc, statutory?.tds);
+        if ((Number(deductions.tds) || 0) !== correctTds) {
+          deductions.tds = correctTds;
+          modified = true;
+        }
+
+        // LWF
+        const isLwfApplicable = empDoc.lwfApplicable !== false && String(empDoc.lwfApplicable).toLowerCase() !== 'no';
+        const lwfCalc = calculateLWF(grossSalary, empState, statutory?.lwfRules, json.month, isLwfApplicable, statutory?.lwf?.enabled !== false);
+        if ((Number(deductions.lwf) || 0) !== lwfCalc.employee) {
+          deductions.lwf = lwfCalc.employee;
           modified = true;
         }
 
@@ -1867,7 +1555,7 @@ export const saveRateRevision = async (req, res) => {
           remarks: data.remarks || '',
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     // If applied, update Employee collection gross salary as well
@@ -1974,7 +1662,7 @@ export const saveArrear = async (req, res) => {
           remarks: data.remarks || '',
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
     );
 
     return res.status(200).json({

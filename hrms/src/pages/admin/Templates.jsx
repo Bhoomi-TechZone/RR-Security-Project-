@@ -13,6 +13,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import { useCompany } from '../../context/CompanyContext';
+import letterService from '../../services/letterService';
 
 // Reusing existing SalarySlipPreview component
 import SalarySlipPreview from '../../components/payroll/SalarySlipPreview';
@@ -41,18 +42,38 @@ const TABS = [
   { id: 'email', label: 'Email Templates', icon: Mail }
 ];
 
+// Smart address formatting to avoid duplicating city, state, or pinCode if address already contains them
+function formatCompanyAddress(company, defaultAddress = 'Plot 45, Sector 18, Gurugram, Haryana - 122008') {
+  const rawAddr = (company?.address || '').trim();
+  const city = (company?.city || '').trim();
+  const state = (company?.state || '').trim();
+  const pinCode = (company?.pinCode || '').trim();
+
+  let formatted = rawAddr;
+  if (!formatted) {
+    formatted = [city, state, pinCode].filter(Boolean).join(', ');
+  } else {
+    const lower = rawAddr.toLowerCase();
+    if (city && !lower.includes(city.toLowerCase())) {
+      formatted += `, ${city}`;
+    }
+    if (state && !lower.includes(state.toLowerCase())) {
+      formatted += `, ${state}`;
+    }
+    if (pinCode && !formatted.includes(pinCode)) {
+      formatted += ` - ${pinCode}`;
+    }
+  }
+  return formatted || defaultAddress;
+}
+
 // Helper to replace template placeholders dynamically as per active company & dynamic template variables
 function renderPlaceholders(content, activeCompany = null, variables = {}) {
   if (!content) return '';
   let rendered = content;
 
   const compName = activeCompany?.name || 'RR Security & Facilities';
-  const compAddress = [
-    activeCompany?.address,
-    activeCompany?.city,
-    activeCompany?.state,
-    activeCompany?.pinCode
-  ].filter(Boolean).join(', ') || activeCompany?.address || 'Sector 18, Gurugram, Haryana - 122008';
+  const compAddress = formatCompanyAddress(activeCompany);
   const compEmail = activeCompany?.email || 'admin@rrsecurity.com';
   const compPhone = activeCompany?.phone || '+91 9876543210';
   const compGstin = activeCompany?.gstin || '';
@@ -163,12 +184,7 @@ function Templates() {
   const { companies, activeCompany, switchCompany, updateCompanyProfile } = useCompany();
   const activeCompId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
   const activeCompName = activeCompany?.name || 'RR Security & Facilities';
-  const activeCompAddress = [
-    activeCompany?.address,
-    activeCompany?.city,
-    activeCompany?.state,
-    activeCompany?.pinCode
-  ].filter(Boolean).join(', ') || activeCompany?.address || 'Sector 18, Gurugram, Haryana - 122008';
+  const activeCompAddress = formatCompanyAddress(activeCompany);
   const activeCompEmail = activeCompany?.email || 'admin@rrsecurity.com';
   const activeCompPhone = activeCompany?.phone || '+91 9876543210';
   const activeCompGstin = activeCompany?.gstin || '';
@@ -578,6 +594,84 @@ function Templates() {
     onConfirm: () => {}
   });
 
+  // Hydrate saved templates from database
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSavedTemplates = async () => {
+      try {
+        const tpls = await letterService.getLetterTemplates(activeCompId);
+        if (!isMounted || !tpls) return;
+
+        if (tpls['appointment-letter']) {
+          const appt = tpls['appointment-letter'];
+          setAppointmentConfig(prev => {
+            const next = {
+              ...prev,
+              templateName: appt.templateName || prev.templateName,
+              headerTitle: appt.headerTitle || prev.headerTitle,
+              subject: appt.subject || prev.subject,
+              content: appt.content || prev.content,
+              status: appt.status || prev.status
+            };
+            localStorage.setItem('novaspark_template_appointment', JSON.stringify(next));
+            return next;
+          });
+        }
+        if (tpls['joining-letter']) {
+          const join = tpls['joining-letter'];
+          setJoiningConfig(prev => {
+            const next = {
+              ...prev,
+              templateName: join.templateName || prev.templateName,
+              headerTitle: join.headerTitle || prev.headerTitle,
+              subject: join.subject || prev.subject,
+              content: join.content || prev.content,
+              status: join.status || prev.status
+            };
+            localStorage.setItem('novaspark_template_joining', JSON.stringify(next));
+            return next;
+          });
+        }
+        if (tpls['experience-letter']) {
+          const exp = tpls['experience-letter'];
+          setExperienceConfig(prev => {
+            const next = {
+              ...prev,
+              templateName: exp.templateName || prev.templateName,
+              headerTitle: exp.headerTitle || prev.headerTitle,
+              subject: exp.subject || prev.subject,
+              content: exp.content || prev.content,
+              status: exp.status || prev.status
+            };
+            localStorage.setItem('novaspark_template_experience', JSON.stringify(next));
+            return next;
+          });
+        }
+        if (tpls['full-final-letter']) {
+          const fnf = tpls['full-final-letter'];
+          setFullFinalConfig(prev => {
+            const next = {
+              ...prev,
+              templateName: fnf.templateName || prev.templateName,
+              headerTitle: fnf.headerTitle || prev.headerTitle,
+              subject: fnf.subject || prev.subject,
+              content: fnf.content || prev.content,
+              status: fnf.status || prev.status
+            };
+            localStorage.setItem('novaspark_template_full_final', JSON.stringify(next));
+            return next;
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load saved letter templates from MongoDB:', err);
+      }
+    };
+    fetchSavedTemplates();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeCompId]);
+
   // --- SAVE / RESET HANDLERS ---
   const saveSalarySlip = () => {
     const updated = { ...salarySlipConfig, lastUpdated: new Date().toLocaleString() };
@@ -599,11 +693,24 @@ function Templates() {
     });
   };
 
-  const saveAppointment = () => {
+  const saveAppointment = async () => {
     const updated = { ...appointmentConfig, lastUpdated: new Date().toLocaleString() };
     setAppointmentConfig(updated);
     localStorage.setItem('novaspark_template_appointment', JSON.stringify(updated));
-    showToast('Appointment Letter template saved successfully!');
+    try {
+      await letterService.saveLetterTemplate(activeCompId, {
+        letterType: 'appointment-letter',
+        templateName: updated.templateName,
+        headerTitle: updated.headerTitle,
+        subject: updated.subject || 'Offer of Appointment for the position of {{designation}}',
+        content: updated.content,
+        status: updated.status
+      });
+      showToast('Appointment Letter template saved successfully to database!');
+    } catch (e) {
+      console.warn('Failed to save appointment template to DB:', e);
+      showToast('Appointment Letter template saved locally!');
+    }
   };
 
   const resetAppointment = () => {
@@ -619,11 +726,24 @@ function Templates() {
     });
   };
 
-  const saveJoining = () => {
+  const saveJoining = async () => {
     const updated = { ...joiningConfig, lastUpdated: new Date().toLocaleString() };
     setJoiningConfig(updated);
     localStorage.setItem('novaspark_template_joining', JSON.stringify(updated));
-    showToast('Joining Letter template saved successfully!');
+    try {
+      await letterService.saveLetterTemplate(activeCompId, {
+        letterType: 'joining-letter',
+        templateName: updated.templateName,
+        headerTitle: updated.headerTitle,
+        subject: updated.subject || 'Joining Confirmation - Employee ID: {{employeeCode}}',
+        content: updated.content,
+        status: updated.status
+      });
+      showToast('Joining Letter template saved successfully to database!');
+    } catch (e) {
+      console.warn('Failed to save joining template to DB:', e);
+      showToast('Joining Letter template saved locally!');
+    }
   };
 
   const resetJoining = () => {
@@ -639,11 +759,24 @@ function Templates() {
     });
   };
 
-  const saveExperience = () => {
+  const saveExperience = async () => {
     const updated = { ...experienceConfig, lastUpdated: new Date().toLocaleString() };
     setExperienceConfig(updated);
     localStorage.setItem('novaspark_template_experience', JSON.stringify(updated));
-    showToast('Experience Letter template saved successfully!');
+    try {
+      await letterService.saveLetterTemplate(activeCompId, {
+        letterType: 'experience-letter',
+        templateName: updated.templateName,
+        headerTitle: updated.headerTitle,
+        subject: updated.subject || 'Service & Experience Certificate - {{employeeName}}',
+        content: updated.content,
+        status: updated.status
+      });
+      showToast('Experience Letter template saved successfully to database!');
+    } catch (e) {
+      console.warn('Failed to save experience template to DB:', e);
+      showToast('Experience Letter template saved locally!');
+    }
   };
 
   const resetExperience = () => {
@@ -659,11 +792,24 @@ function Templates() {
     });
   };
 
-  const saveFullFinal = () => {
+  const saveFullFinal = async () => {
     const updated = { ...fullFinalConfig, lastUpdated: new Date().toLocaleString() };
     setFullFinalConfig(updated);
     localStorage.setItem('novaspark_template_full_final', JSON.stringify(updated));
-    showToast('Full & Final statement template saved successfully!');
+    try {
+      await letterService.saveLetterTemplate(activeCompId, {
+        letterType: 'full-final-letter',
+        templateName: updated.templateName,
+        headerTitle: updated.headerTitle,
+        subject: updated.subject || 'Final Settlement Voucher - {{employeeName}} ({{employeeCode}})',
+        content: updated.content,
+        status: updated.status
+      });
+      showToast('Full & Final statement template saved successfully to database!');
+    } catch (e) {
+      console.warn('Failed to save full & final template to DB:', e);
+      showToast('Full & Final statement template saved locally!');
+    }
   };
 
   const resetFullFinal = () => {
@@ -1811,6 +1957,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(appointmentConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'EMP-042',
+                          letterType: 'appointment-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: APPT/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/042`,
                           mode: 'print'
                         })}
@@ -1838,6 +1987,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(appointmentConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'EMP-042',
+                          letterType: 'appointment-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: APPT/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/042`,
                           mode: 'download'
                         })}
@@ -2087,6 +2239,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(joiningConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'EMP-018',
+                          letterType: 'joining-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: JOIN/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/018`,
                           mode: 'print'
                         })}
@@ -2114,6 +2269,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(joiningConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'EMP-018',
+                          letterType: 'joining-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: JOIN/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/018`,
                           mode: 'download'
                         })}
@@ -2363,6 +2521,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(experienceConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'RR-1042',
+                          letterType: 'experience-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: EXP/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/056`,
                           mode: 'print'
                         })}
@@ -2390,6 +2551,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(experienceConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'RR-1042',
+                          letterType: 'experience-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: EXP/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/056`,
                           mode: 'download'
                         })}
@@ -2634,6 +2798,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(fullFinalConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'EMP-009',
+                          letterType: 'full-final-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: FNF/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/009`,
                           mode: 'print'
                         })}
@@ -2661,6 +2828,9 @@ function Templates() {
                           },
                           content: renderPlaceholders(fullFinalConfig.content, activeCompany, templateVariables),
                           employeeName: templateVariables['{{employeeName}}'] || 'Rahul Kumar',
+                          employeeCode: templateVariables['{{employeeCode}}'] || 'EMP-009',
+                          letterType: 'full-final-letter',
+                          issueDate: templateVariables['{{currentDate}}'] || new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
                           referenceNo: `REF: FNF/${activeCompany?.code || activeCompInitials}/${new Date().getFullYear()}/009`,
                           mode: 'download'
                         })}

@@ -3,11 +3,20 @@ import { Users, CircleCheck, Clock3, IndianRupee, TrendingUp } from 'lucide-reac
 import { formatRupee } from '../../utils/payrollUtils';
 import styles from './PayrollSummaryCards.module.css';
 
-export default function PayrollSummaryCards({ summary }) {
+export default function PayrollSummaryCards({ summary = {} }) {
+  const totalEmployees = Number(summary?.totalEmployees) || 0;
+  const processedEmployees = Number(summary?.processedEmployees) || 0;
+  const pendingEmployees = Number(summary?.pendingEmployees) || 0;
+  const totalNetPayroll = Number(summary?.totalNetPayroll) || 0;
+
+  const completionPercent = totalEmployees > 0 
+    ? Math.round((processedEmployees / totalEmployees) * 100) 
+    : 0;
+
   const cards = [
     {
       title: 'Total Employees',
-      value: summary?.totalEmployees?.toLocaleString('en-IN') || '1,250',
+      value: totalEmployees.toLocaleString('en-IN'),
       subtitle: 'Eligible for active cycle',
       icon: Users,
       colorClass: styles.blueIcon,
@@ -15,27 +24,27 @@ export default function PayrollSummaryCards({ summary }) {
     },
     {
       title: 'Payroll Processed',
-      value: summary?.processedEmployees?.toLocaleString('en-IN') || '1,184',
-      subtitle: `${((summary?.processedEmployees || 1184) / (summary?.totalEmployees || 1250) * 100).toFixed(0)}% completion rate`,
+      value: processedEmployees.toLocaleString('en-IN'),
+      subtitle: `${completionPercent}% completion rate`,
       icon: CircleCheck,
       colorClass: styles.greenIcon,
-      badge: 'On Track'
+      badge: completionPercent === 100 && totalEmployees > 0 ? 'Completed' : (processedEmployees > 0 ? 'In Progress' : 'Pending')
     },
     {
       title: 'Pending Payroll',
-      value: summary?.pendingEmployees?.toLocaleString('en-IN') || '66',
+      value: pendingEmployees.toLocaleString('en-IN'),
       subtitle: 'Awaiting final approval',
       icon: Clock3,
       colorClass: styles.amberIcon,
-      badge: 'Requires Action'
+      badge: pendingEmployees > 0 ? 'Requires Action' : 'All Clear'
     },
     {
       title: 'Total Net Payroll',
-      value: formatRupee(summary?.totalNetPayroll || 48250000),
+      value: formatRupee(totalNetPayroll),
       subtitle: 'Disbursement estimate',
       icon: IndianRupee,
       colorClass: styles.purpleIcon,
-      badge: '+4.2% MoM'
+      badge: 'Net Payable'
     }
   ];
 

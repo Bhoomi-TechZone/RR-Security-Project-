@@ -79,7 +79,7 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
   }, [selectedMonth, selectedYear, isOpen, slipData]);
 
   // Helper to calculate PT for an employee gross salary & state strictly from statutory slabs
-  const calculatePTFromSlabs = (gross, stateStr, ptSlabs = []) => {
+  const calculatePTFromSlabs = (gross, stateStr, ptSlabs = [], monthStr = '') => {
     if (!stateStr || !Array.isArray(ptSlabs) || ptSlabs.length === 0) return 0;
     const lower = String(stateStr).trim().toLowerCase();
     const stateSlabs = ptSlabs.filter((s) => {
@@ -89,14 +89,108 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
     });
     if (stateSlabs.length === 0) return 0;
 
+    const isFeb = monthStr ? (String(monthStr).includes('-02') || String(monthStr).toLowerCase().includes('feb')) : false;
+
     for (const slab of stateSlabs) {
       const min = Number(slab.minSalary || 0);
       const max = Number(slab.maxSalary || 9999999);
       if (gross >= min && gross <= max) {
+        if (isFeb && slab.februaryTaxAmount !== undefined && slab.februaryTaxAmount !== null && Number(slab.februaryTaxAmount) > 0) {
+          return Number(slab.februaryTaxAmount);
+        }
         return Number(slab.taxAmount) || 0;
       }
     }
     return 0;
+  };
+
+  // Helper to calculate LWF for an employee strictly from statutory LWF rules
+  const calculateLWFFromRules = (gross, stateStr, lwfRules = [], monthStr = '', isApplicable = true, lwfEnabled = true) => {
+    if (lwfEnabled === false || isApplicable === false || !stateStr || !Array.isArray(lwfRules) || lwfRules.length === 0) {
+      return { employee: 0, employer: 0 };
+    }
+    const lower = String(stateStr).trim().toLowerCase();
+    const activeRules = lwfRules.filter((r) => {
+      if (r.status !== 'active') return false;
+      const sState = String(r.state || '').trim().toLowerCase();
+      return sState && (lower === sState || lower.includes(sState) || sState.includes(lower));
+    });
+    if (activeRules.length === 0) return { employee: 0, employer: 0 };
+
+    let monthNum = 0;
+    if (monthStr && monthStr.includes('-')) {
+      monthNum = Number(monthStr.split('-')[1]) || 0;
+    } else {
+      monthNum = new Date().getMonth() + 1;
+    }
+
+    for (const rule of activeRules) {
+      const freq = String(rule.frequency || 'Monthly').trim().toLowerCase();
+      const dedMonths = String(rule.deductionMonths || 'Every Month').trim().toLowerCase();
+      let applies = false;
+      if (freq === 'monthly' || dedMonths.includes('every month')) {
+        applies = true;
+      } else if (freq.includes('half') || dedMonths.includes('june') || dedMonths.includes('december')) {
+        applies = monthNum === 6 || monthNum === 12;
+      } else if (freq.includes('yearly') || freq.includes('annual')) {
+        applies = monthNum === 12;
+      } else {
+        applies = true;
+      }
+      if (applies) {
+        return {
+          employee: Number(rule.employeeContribution) || 0,
+          employer: Number(rule.employerContribution) || 0,
+        };
+      }
+    }
+    return { employee: 0, employer: 0 };
+  };
+
+  // Helper to calculate TDS based on configured statutory TDS regime & slabs
+  const calculateTDSFromSettings = (earnedGross, emp = {}, statutoryTds = {}) => {
+    if (statutoryTds?.enabled === false) return 0;
+    const isApplicable = emp.tdsApplicable === true || String(emp.tdsApplicable).toLowerCase() === 'yes';
+    if (!isApplicable) return 0;
+
+    if (emp.tdsAmount !== undefined && emp.tdsAmount !== null && Number(emp.tdsAmount) > 0) {
+      return Number(emp.tdsAmount);
+    }
+    if (emp.tdsPercentage !== undefined && emp.tdsPercentage !== null && Number(emp.tdsPercentage) > 0) {
+      return Math.round(earnedGross * (Number(emp.tdsPercentage) / 100));
+    }
+
+    const annualGross = earnedGross * 12;
+    const threshold = Number(statutoryTds?.monthlyTDSThreshold) || 500000;
+    if (annualGross <= threshold && threshold > 0) return 0;
+
+    const regime = emp.taxRegime || statutoryTds?.defaultTaxRegime || 'New Regime';
+    const isNew = !String(regime).toLowerCase().includes('old');
+    const stdDed = isNew
+      ? (Number(statutoryTds?.standardDeductionNewRegime) || 75000)
+      : (Number(statutoryTds?.standardDeductionOldRegime) || 50000);
+
+    const taxable = Math.max(0, annualGross - stdDed);
+    let annualTax = 0;
+
+    if (isNew) {
+      if (taxable <= 700000) return 0;
+      let rem = taxable;
+      if (rem > 1500000) { annualTax += (rem - 1500000) * 0.30; rem = 1500000; }
+      if (rem > 1200000) { annualTax += (rem - 1200000) * 0.20; rem = 1200000; }
+      if (rem > 1000000) { annualTax += (rem - 1000000) * 0.15; rem = 1000000; }
+      if (rem > 700000) { annualTax += (rem - 700000) * 0.10; rem = 700000; }
+      if (rem > 300000) { annualTax += (rem - 300000) * 0.05; }
+    } else {
+      if (taxable <= 500000) return 0;
+      let rem = taxable;
+      if (rem > 1000000) { annualTax += (rem - 1000000) * 0.30; rem = 1000000; }
+      if (rem > 500000) { annualTax += (rem - 500000) * 0.20; rem = 500000; }
+      if (rem > 250000) { annualTax += (rem - 250000) * 0.05; }
+    }
+
+    if (annualTax > 0) annualTax *= 1.04;
+    return Math.max(0, Math.round(annualTax / 12));
   };
 
   // Construct or load payslip whenever modal opens or month/year changes
@@ -321,17 +415,28 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
     // Statutory deductions strictly calculated dynamically (zero hardcoding)
     let pfEmployee = 0;
     if (pfEnabled && isPfApplicable) {
+      const isRestricted = statutory?.pf?.wageCeilingRestricted !== false;
       const pfCeiling = Number(statutory?.pf?.wageCeiling) || 15000;
-      const pfWage = Math.min(basic + vda, pfCeiling);
+      const pfWage = isRestricted ? Math.min(basic + vda, pfCeiling) : (basic + vda);
       const pfRate = (Number(statutory?.pf?.employeeContribution) || 12) / 100;
       pfEmployee = Math.round(pfWage * pfRate);
+      if (statutory?.pf?.allowVPF !== false && Number(employee.vpfPercentage) > 0) {
+        const vpfPct = Math.min(Number(employee.vpfPercentage), Number(statutory?.pf?.vpfMaxPercentage) || 100);
+        pfEmployee += Math.round(pfWage * (vpfPct / 100));
+      }
     }
 
     let esiEmployee = 0;
-    const esiWageLimit = Number(statutory?.esi?.wageEligibilityLimit) || 21000;
+    const hasDisability = Boolean(employee.isDisability || employee.disability);
+    const esiWageLimit = hasDisability
+      ? (Number(statutory?.esi?.disabilityWageLimit) || 25000)
+      : (Number(statutory?.esi?.wageEligibilityLimit) || 21000);
     if (esiEnabled && isEsiApplicable && computedGross <= esiWageLimit) {
-      const esiRate = (Number(statutory?.esi?.employeeContribution) || 0.75) / 100;
-      esiEmployee = Math.round(computedGross * esiRate);
+      const dailyWage = computedGross / totalDaysInMonth;
+      if (!employee.isDailyWageExempt && dailyWage >= 176) {
+        const esiRate = (Number(statutory?.esi?.employeeContribution) || 0.75) / 100;
+        esiEmployee = Math.round(computedGross * esiRate);
+      }
     }
 
     let pt = 0;
@@ -347,16 +452,32 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
         employee.address ||
         activeCompany?.state ||
         '';
-      pt = calculatePTFromSlabs(computedGross, empState, ptSlabs);
+      pt = calculatePTFromSlabs(computedGross, empState, ptSlabs, monthKey);
     }
 
-    let tds = 0;
-    if (isTdsApplicable) {
-      tds = Math.round(computedGross * 0.05);
+    const tds = calculateTDSFromSettings(computedGross, employee, statutory?.tds);
+
+    const isLwfApplicable = employee.lwfApplicable !== false && String(employee.lwfApplicable).toLowerCase() !== 'no';
+    const lwfRes = calculateLWFFromRules(
+      computedGross,
+      employee.state || employee.workState || employee.siteState || activeCompany?.state || '',
+      statutory?.lwfRules || [],
+      monthKey,
+      isLwfApplicable,
+      statutory?.lwf?.enabled !== false
+    );
+    const lwf = lwfRes.employee;
+
+    let bonus = 0;
+    if (statutory?.bonus?.enabled && String(statutory?.bonus?.disbursementSchedule || '').toLowerCase().includes('monthly')) {
+      const bonusWage = Math.min(basic, Number(statutory?.bonus?.statutoryWageCeiling) || 7000);
+      bonus = Math.round(bonusWage * ((Number(statutory?.bonus?.bonusPercentage) || 8.33) / 100));
+    } else {
+      bonus = Number(employee.bonus) || 0;
     }
 
-    const totalDeductions = pfEmployee + esiEmployee + pt + tds;
-    const netSalary = Math.max(0, computedGross - totalDeductions);
+    const totalDeductions = pfEmployee + esiEmployee + pt + tds + lwf;
+    const netSalary = Math.max(0, (computedGross + bonus) - totalDeductions);
 
     const generatedSlip = {
       id: `slip-${monthKey}-${empIdentifier}`,
@@ -388,7 +509,7 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
       presentDays: '—',
       paidDays: '—',
       lopDays: '—',
-      grossSalary: computedGross,
+      grossSalary: computedGross + bonus,
       totalDeductions,
       netSalary,
       earnings: {
@@ -398,14 +519,16 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
         conveyance,
         otherAllowance,
         specialAllowance,
+        bonus,
         overtime: 0,
-        totalGross: computedGross,
+        totalGross: computedGross + bonus,
       },
       deductions: {
         pfEmployee,
         esiEmployee,
         pt,
         tds,
+        lwf,
         advances: 0,
         otherDeductions: 0,
         totalDeductions,

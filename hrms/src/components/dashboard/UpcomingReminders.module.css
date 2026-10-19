@@ -23,15 +23,21 @@
   margin: 0;
 }
 
-.viewAll {
+.viewAll,
+.viewAllBtn {
   font-size: 12px;
   font-weight: 600;
   color: var(--primary);
   text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
   transition: opacity 0.15s;
 }
 
-.viewAll:hover {
+.viewAll:hover,
+.viewAllBtn:hover {
   opacity: 0.75;
 }
 
@@ -49,11 +55,20 @@
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-light);
   background-color: var(--background);
-  transition: box-shadow 0.15s;
+  transition: all 0.15s;
 }
 
 .item:hover {
   box-shadow: var(--shadow-sm);
+}
+
+.interactiveItem {
+  cursor: pointer;
+}
+
+.interactiveItem:hover {
+  border-color: #bfdbfe;
+  background-color: #f8fafc;
 }
 
 .iconWrap {
@@ -109,6 +124,28 @@
 .tagGreen {
   background-color: #f0fdf4;
   color: #16a34a;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.emptyText {
+  font-size: 13px;
+  margin: 0;
+  font-weight: 500;
 }
 
 @media (max-width: 480px) {

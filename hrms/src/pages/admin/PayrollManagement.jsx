@@ -172,29 +172,21 @@ export default function PayrollManagement() {
     if (!activeCompanyId) return;
     setIsLoading(true);
     try {
-      // 1. Fetch Payroll Records
-      const payrollRes = await payrollService.getPayrollRecords(activeCompanyId, selectedMonth);
+      // 1. Fetch primary payroll records, employees, and clients concurrently first for instant rendering
+      const [payrollResResult, employeesResult, clientsResult] = await Promise.allSettled([
+        payrollService.getPayrollRecords(activeCompanyId, selectedMonth),
+        employeeService.getEmployees(activeCompanyId),
+        clientService.getClients(activeCompanyId)
+      ]);
+
+      const payrollRes = payrollResResult.status === 'fulfilled' && payrollResResult.value ? payrollResResult.value : {};
       const liveRecords = payrollRes.records || [];
       setRecords(liveRecords);
 
-      // 2. Fetch Salary Slips
-      const liveSlips = await payrollService.getSalarySlips(activeCompanyId, { month: selectedMonth });
-      setSlips(liveSlips || []);
-
-      // 3. Fetch Rate Revisions
-      const liveRevisions = await payrollService.getRateRevisions(activeCompanyId);
-      setRevisions(liveRevisions || []);
-
-      // 4. Fetch Arrears
-      const liveArrears = await payrollService.getArrears(activeCompanyId);
-      setArrears(liveArrears || []);
-
-      // 5. Fetch Employees for dropdowns and masters
-      const liveEmployees = await employeeService.getEmployees(activeCompanyId);
+      const liveEmployees = employeesResult.status === 'fulfilled' && employeesResult.value ? employeesResult.value : [];
       setEmployees(liveEmployees || []);
 
-      // 6. Fetch Clients for filters
-      const liveClients = await clientService.getClients(activeCompanyId);
+      const liveClients = clientsResult.status === 'fulfilled' && clientsResult.value ? clientsResult.value : [];
       setClientsList(liveClients || []);
 
       // Derive unique departments & designations from live employees
@@ -228,10 +220,32 @@ export default function PayrollManagement() {
           };
         }));
       }
+
+      // Primary table data is ready: release main loading lock immediately!
+      setIsLoading(false);
+
+      // 2. Concurrently fetch secondary tabs (slips, rate revisions, arrears) in background without blocking UI
+      Promise.allSettled([
+        payrollService.getSalarySlips(activeCompanyId, { month: selectedMonth }),
+        payrollService.getRateRevisions(activeCompanyId),
+        payrollService.getArrears(activeCompanyId),
+      ]).then(([slipsResult, revisionsResult, arrearsResult]) => {
+        if (slipsResult.status === 'fulfilled' && slipsResult.value) {
+          setSlips(slipsResult.value || []);
+        }
+        if (revisionsResult.status === 'fulfilled' && revisionsResult.value) {
+          setRevisions(revisionsResult.value || []);
+        }
+        if (arrearsResult.status === 'fulfilled' && arrearsResult.value) {
+          setArrears(arrearsResult.value || []);
+        }
+      }).catch((err) => {
+        console.warn('Background secondary payroll tabs fetch error:', err);
+      });
+
     } catch (err) {
       console.error('Failed to load payroll data:', err);
       notify(err.message || 'Error loading live payroll records', 'error');
-    } finally {
       setIsLoading(false);
     }
   }, [activeCompanyId, selectedMonth]);
@@ -241,7 +255,7 @@ export default function PayrollManagement() {
   }, [fetchAllPayrollData]);
 
   // Rate Revision & Arrears Metrics computed dynamically
-  const rateRevMetrics = useMemo(() => calculateRateRevisionMetrics(revisions), [revisions]);
+  const rateRevMetrics = useMemo(() => calculateRateRevisionMetrics(revisions, selectedMonth), [revisions, selectedMonth]);
   const arrearsMetrics = useMemo(() => calculateArrearsMetrics(arrears), [arrears]);
 
   // Dynamic KPI Summary for selected month
@@ -276,43 +290,52 @@ export default function PayrollManagement() {
   const dynamicPFRecords = useMemo(() => {
     return records
       .filter(r => (r.pf > 0 || r.pfApplicable))
-      .map(r => ({
-        id: `pf-${r.id || r.employeeId}`,
-        employeeId: r.employeeId,
-        employeeName: r.employeeName,
-        designation: r.designation || 'Staff',
-        department: r.department || 'General',
-        clientName: r.clientName || 'Main Client',
-        initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
-        uan: r.uan || `101${(r.employeeId || '1').replace(/\D/g, '').padStart(9, '0')}`,
-        pfNumber: r.pfNumber || `DL/CPM/${r.employeeId || '001'}`,
-        eligibleSalary: Math.min(r.basicSalary || r.basic || 15000, 15000),
-        employeePF: r.pf || 0,
-        employerPF: r.pf || 0,
-        totalPF: (r.pf || 0) * 2,
-        status: 'Compliant'
-      }));
+      .map(r => {
+        const empPF = r.deductions?.pfEmployee !== undefined ? r.deductions.pfEmployee : (r.pf || 0);
+        const empyrPF = r.deductions?.pfEmployer !== undefined ? r.deductions.pfEmployer : empPF;
+        const basicWages = (r.earnings?.basic || 0) + (r.earnings?.vda || 0);
+        return {
+          id: `pf-${r.id || r.employeeId}`,
+          employeeId: r.employeeId,
+          employeeName: r.employeeName,
+          designation: r.designation || 'Staff',
+          department: r.department || 'General',
+          clientName: r.clientName || 'Main Client',
+          initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
+          uan: r.uan || `101${(r.employeeId || '1').replace(/\D/g, '').padStart(9, '0')}`,
+          pfNumber: r.pfNumber || r.pfNo || `DL/CPM/${r.employeeId || '001'}`,
+          eligibleSalary: basicWages > 0 ? basicWages : Math.min(r.basicSalary || r.basic || 15000, 15000),
+          employeePF: empPF,
+          employerPF: empyrPF,
+          totalPF: empPF + empyrPF,
+          status: 'Compliant'
+        };
+      });
   }, [records]);
 
   // Dynamic Statutory ESI Records from live employee calculations
   const dynamicESIRecords = useMemo(() => {
     return records
       .filter(r => (r.esi > 0 || r.esiApplicable))
-      .map(r => ({
-        id: `esi-${r.id || r.employeeId}`,
-        employeeId: r.employeeId,
-        employeeName: r.employeeName,
-        designation: r.designation || 'Staff',
-        department: r.department || 'General',
-        clientName: r.clientName || 'Main Client',
-        initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
-        esiNumber: r.esiNumber || `31000${(r.employeeId || '1').replace(/\D/g, '').padStart(6, '0')}`,
-        eligibleSalary: r.grossSalary || 0,
-        employeeESI: r.esi || 0,
-        employerESI: Math.round((r.grossSalary || 0) * 0.0325),
-        totalESI: (r.esi || 0) + Math.round((r.grossSalary || 0) * 0.0325),
-        status: 'Compliant'
-      }));
+      .map(r => {
+        const empESI = r.deductions?.esiEmployee !== undefined ? r.deductions.esiEmployee : (r.esi || 0);
+        const empyrESI = r.deductions?.esiEmployer !== undefined ? r.deductions.esiEmployer : Math.round((r.grossSalary || 0) * 0.0325);
+        return {
+          id: `esi-${r.id || r.employeeId}`,
+          employeeId: r.employeeId,
+          employeeName: r.employeeName,
+          designation: r.designation || 'Staff',
+          department: r.department || 'General',
+          clientName: r.clientName || 'Main Client',
+          initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
+          esiNumber: r.esiNumber || r.esicNo || `31000${(r.employeeId || '1').replace(/\D/g, '').padStart(6, '0')}`,
+          eligibleSalary: r.earnings?.totalGross || r.grossSalary || 0,
+          employeeESI: empESI,
+          employerESI: empyrESI,
+          totalESI: empESI + empyrESI,
+          status: 'Compliant'
+        };
+      });
   }, [records]);
 
   // Statutory Summary
@@ -762,15 +785,23 @@ export default function PayrollManagement() {
         />
 
         {/* Loading Indicator */}
-        {isLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '1.5rem', color: '#64748b' }}>
-            <Loader2 size={20} className={styles.spinning} />
+        {isLoading && records.length === 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '2rem', color: '#64748b' }}>
+            <Loader2 size={24} className={styles.spinning} />
             <span>Loading live payroll data...</span>
           </div>
         )}
 
+        {/* Background syncing status */}
+        {isLoading && records.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px', padding: '0.25rem 0.5rem 0.75rem', color: '#0284c7', fontSize: '0.85rem', fontWeight: 500 }}>
+            <Loader2 size={15} className={styles.spinning} />
+            <span>Syncing live payroll records...</span>
+          </div>
+        )}
+
         {/* TAB 1: PAYROLL PROCESSING */}
-        {!isLoading && activeTab === 'processing' && (
+        {(records.length > 0 || !isLoading) && activeTab === 'processing' && (
           <section className={styles.tabSection}>
             <div className={styles.tabHeaderRow}>
               <div>
@@ -869,7 +900,7 @@ export default function PayrollManagement() {
         )}
 
         {/* TAB 2: SALARY STRUCTURE */}
-        {!isLoading && activeTab === 'structure' && (
+        {(records.length > 0 || !isLoading) && activeTab === 'structure' && (
           <section className={styles.tabSection}>
             <div className={styles.tabHeaderRow}>
               <div>
@@ -1225,6 +1256,7 @@ export default function PayrollManagement() {
             estimatedGross={summaryKPI.estimatedGross}
             estimatedDeductions={summaryKPI.estimatedDeductions}
             estimatedNet={summaryKPI.totalNetPayroll}
+            records={records}
             onComplete={handleCompleteRunPayroll}
             onViewIssues={() => {
               setStatusFilter('on_hold');

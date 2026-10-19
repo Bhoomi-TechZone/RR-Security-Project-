@@ -29,12 +29,12 @@ function PTSlabModal({
         setFormData({ ...editingItem });
       } else {
         setFormData({
-          state: selectedState || 'Maharashtra',
-          minSalary: 0,
-          maxSalary: 15000,
-          taxAmount: 200,
+          state: selectedState && selectedState !== 'All States' ? selectedState : 'Maharashtra',
+          minSalary: '',
+          maxSalary: '',
+          taxAmount: '',
           februaryTaxAmount: '',
-          effectiveFrom: '2026-04-01',
+          effectiveFrom: new Date().toISOString().split('T')[0],
           status: 'active'
         });
       }
@@ -130,7 +130,7 @@ function PTSlabModal({
                 min="0"
                 className={`${styles.input} ${errors.minSalary ? styles.inputError : ''}`}
                 placeholder="0"
-                value={formData.minSalary ?? 0}
+                value={formData.minSalary !== undefined && formData.minSalary !== null ? formData.minSalary : ''}
                 onChange={(e) => setFormData({ ...formData, minSalary: e.target.value })}
               />
               {errors.minSalary && <span className={styles.errorText}>{errors.minSalary}</span>}
@@ -143,7 +143,7 @@ function PTSlabModal({
                 min="0"
                 className={`${styles.input} ${errors.maxSalary ? styles.inputError : ''}`}
                 placeholder="9999999 for Above"
-                value={formData.maxSalary ?? 9999999}
+                value={formData.maxSalary !== undefined && formData.maxSalary !== null ? formData.maxSalary : ''}
                 onChange={(e) => setFormData({ ...formData, maxSalary: e.target.value })}
               />
               {errors.maxSalary && <span className={styles.errorText}>{errors.maxSalary}</span>}
@@ -158,7 +158,7 @@ function PTSlabModal({
                 min="0"
                 className={`${styles.input} ${errors.taxAmount ? styles.inputError : ''}`}
                 placeholder="e.g. 200"
-                value={formData.taxAmount ?? 0}
+                value={formData.taxAmount !== undefined && formData.taxAmount !== null ? formData.taxAmount : ''}
                 onChange={(e) => setFormData({ ...formData, taxAmount: e.target.value })}
               />
               {errors.taxAmount && <span className={styles.errorText}>{errors.taxAmount}</span>}

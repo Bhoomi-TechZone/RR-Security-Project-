@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import StatutoryConfig from '../models/statutoryModel.js';
+import Company from '../models/companyModel.js';
 
 const DEFAULT_PT_SLABS = [
   {
@@ -148,6 +150,56 @@ const DEFAULT_LWF_RULES = [
 ];
 
 /**
+ * Resolves the statutory configuration across company IDs and aliases
+ */
+export const resolveStatutoryConfig = async (companyId, adminEmail = null) => {
+  const candidateIds = new Set();
+  if (companyId) candidateIds.add(String(companyId).trim());
+
+  let comp = null;
+  try {
+    comp = await Company.findOne({
+      $or: [
+        { companyId },
+        ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+        { code: companyId },
+        ...(adminEmail ? [{ email: adminEmail.toLowerCase() }, { adminEmail: adminEmail.toLowerCase() }] : [])
+      ]
+    }).lean();
+
+    if (comp) {
+      if (comp.companyId) candidateIds.add(comp.companyId);
+      if (comp._id) candidateIds.add(String(comp._id));
+      if (comp.code) candidateIds.add(comp.code);
+    }
+  } catch {}
+
+  const specificIds = Array.from(candidateIds).filter(Boolean);
+
+  let config = null;
+  if (specificIds.length > 0) {
+    config = await StatutoryConfig.findOne({ companyId: { $in: specificIds } });
+  }
+
+  if (!config && adminEmail) {
+    config = await StatutoryConfig.findOne({ adminEmail: adminEmail.toLowerCase() });
+  }
+
+  if (!config) {
+    config = await StatutoryConfig.findOne({
+      $or: [
+        { companyId: { $in: ['RRS8392014SEC', 'comp_rr_security'] } },
+        { isDefault: true }
+      ]
+    });
+  }
+
+  const primaryCompanyId = (companyId && String(companyId).trim()) || comp?.companyId || (specificIds.length > 0 ? specificIds[0] : 'RRS8392014SEC');
+
+  return { config, primaryCompanyId, resolvedIds: specificIds };
+};
+
+/**
  * @desc    Get statutory setup configuration for company directly from MongoDB
  * @route   GET /api/statutory
  * @access  Private
@@ -155,15 +207,15 @@ const DEFAULT_LWF_RULES = [
 export const getStatutoryConfig = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId || 'RRS8392014SEC';
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
-    let config = await StatutoryConfig.findOne({ companyId });
+    let { config, primaryCompanyId } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
 
     if (!config) {
-      // Seed initial Indian standard compliance rules in MongoDB Atlas
-      const adminEmail = user?.email || 'admin@rrsecurity.com';
+      // Seed initial standard compliance rules in MongoDB Atlas
       config = await StatutoryConfig.create({
-        companyId,
+        companyId: primaryCompanyId,
         adminEmail,
         ptSlabs: DEFAULT_PT_SLABS,
         lwfRules: DEFAULT_LWF_RULES,
@@ -192,9 +244,10 @@ export const getStatutoryConfig = async (req, res) => {
 export const updateStatutoryModule = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.body.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.body.companyId || user?.companyId || 'RRS8392014SEC';
     const { moduleKey } = req.params;
     const moduleData = req.body;
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
     const validModules = ['pf', 'esi', 'pt', 'tds', 'bonus', 'gratuity', 'lwf'];
     if (!validModules.includes(moduleKey)) {
@@ -204,22 +257,28 @@ export const updateStatutoryModule = async (req, res) => {
       });
     }
 
+    let { config, primaryCompanyId } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
+    if (!config) {
+      config = await StatutoryConfig.create({
+        companyId: primaryCompanyId,
+        adminEmail,
+        ptSlabs: DEFAULT_PT_SLABS,
+        lwfRules: DEFAULT_LWF_RULES,
+      });
+    }
+
     const timestamp = new Date().toISOString().split('T')[0];
     const adminName = user?.name || user?.email || 'Admin';
 
-    const updatePayload = {
-      [`${moduleKey}`]: {
-        ...moduleData,
-        lastUpdatedBy: adminName,
-        lastUpdatedDate: timestamp,
-      },
+    config[moduleKey] = {
+      ...(config[moduleKey] || {}),
+      ...moduleData,
+      lastUpdatedBy: adminName,
+      lastUpdatedDate: timestamp,
     };
 
-    const config = await StatutoryConfig.findOneAndUpdate(
-      { companyId },
-      { $set: updatePayload },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    config.markModified(moduleKey);
+    await config.save();
 
     return res.status(200).json({
       success: true,
@@ -244,9 +303,10 @@ export const updateStatutoryModule = async (req, res) => {
 export const toggleModuleStatus = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.body.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.body.companyId || user?.companyId || 'RRS8392014SEC';
     const { moduleKey } = req.params;
     const { enabled } = req.body;
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
     const validModules = ['pf', 'esi', 'pt', 'tds', 'bonus', 'gratuity', 'lwf'];
     if (!validModules.includes(moduleKey)) {
@@ -256,21 +316,27 @@ export const toggleModuleStatus = async (req, res) => {
       });
     }
 
+    let { config, primaryCompanyId } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
+    if (!config) {
+      config = await StatutoryConfig.create({
+        companyId: primaryCompanyId,
+        adminEmail,
+        ptSlabs: DEFAULT_PT_SLABS,
+        lwfRules: DEFAULT_LWF_RULES,
+      });
+    }
+
     const timestamp = new Date().toISOString().split('T')[0];
     const adminName = user?.name || user?.email || 'Admin';
 
-    const updatePayload = {
-      [`${moduleKey}.enabled`]: Boolean(enabled),
-      [`${moduleKey}.status`]: enabled ? 'active' : 'inactive',
-      [`${moduleKey}.lastUpdatedBy`]: adminName,
-      [`${moduleKey}.lastUpdatedDate`]: timestamp,
-    };
+    if (!config[moduleKey]) config[moduleKey] = {};
+    config[moduleKey].enabled = Boolean(enabled);
+    config[moduleKey].status = enabled ? 'active' : 'inactive';
+    config[moduleKey].lastUpdatedBy = adminName;
+    config[moduleKey].lastUpdatedDate = timestamp;
 
-    const config = await StatutoryConfig.findOneAndUpdate(
-      { companyId },
-      { $set: updatePayload },
-      { new: true, upsert: true, setDefaultsOnInsert: true }
-    );
+    config.markModified(moduleKey);
+    await config.save();
 
     return res.status(200).json({
       success: true,
@@ -288,45 +354,54 @@ export const toggleModuleStatus = async (req, res) => {
 };
 
 /**
- * @desc    Add or update PT Slab in MongoDB
+ * @desc    Add or update PT Slab in MongoDB Atlas
  * @route   POST /api/statutory/pt-slabs
  * @access  Private (Admin)
  */
 export const savePTSlab = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.body.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.body.companyId || user?.companyId || 'RRS8392014SEC';
     const slabData = req.body;
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
-    let config = await StatutoryConfig.findOne({ companyId });
+    let { config, primaryCompanyId } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
     if (!config) {
       config = await StatutoryConfig.create({
-        companyId,
-        adminEmail: user?.email || '',
+        companyId: primaryCompanyId,
+        adminEmail,
         ptSlabs: DEFAULT_PT_SLABS,
         lwfRules: DEFAULT_LWF_RULES,
       });
     }
 
-    const slabId = slabData.id || `pt-${Date.now()}`;
+    const slabId = String(
+      (slabData.id && String(slabData.id).trim()) ||
+      (slabData._id && String(slabData._id).trim()) ||
+      `pt-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+    );
+
     const formattedSlab = {
       id: slabId,
       state: String(slabData.state || 'Maharashtra').trim(),
-      minSalary: Number(slabData.minSalary) || 0,
-      maxSalary: Number(slabData.maxSalary) || 9999999,
-      taxAmount: Number(slabData.taxAmount) || 0,
-      februaryTaxAmount: Number(slabData.februaryTaxAmount) || 0,
+      minSalary: slabData.minSalary !== undefined && slabData.minSalary !== '' ? Number(slabData.minSalary) : 0,
+      maxSalary: slabData.maxSalary !== undefined && slabData.maxSalary !== '' ? Number(slabData.maxSalary) : 9999999,
+      taxAmount: slabData.taxAmount !== undefined && slabData.taxAmount !== '' ? Number(slabData.taxAmount) : 0,
+      februaryTaxAmount: slabData.februaryTaxAmount !== undefined && slabData.februaryTaxAmount !== '' ? Number(slabData.februaryTaxAmount) : 0,
       effectiveFrom: slabData.effectiveFrom || '2026-04-01',
       status: slabData.status || 'active',
     };
 
-    const existingIdx = config.ptSlabs.findIndex((s) => s.id === slabId);
+    const currentSlabs = Array.isArray(config.ptSlabs) ? [...config.ptSlabs] : [];
+    const existingIdx = currentSlabs.findIndex((s) => s.id === slabId || String(s._id) === slabId);
     if (existingIdx >= 0) {
-      config.ptSlabs[existingIdx] = formattedSlab;
+      currentSlabs[existingIdx] = formattedSlab;
     } else {
-      config.ptSlabs.unshift(formattedSlab);
+      currentSlabs.unshift(formattedSlab);
     }
 
+    config.ptSlabs = currentSlabs;
+    config.markModified('ptSlabs');
     await config.save();
 
     return res.status(200).json({
@@ -353,18 +428,20 @@ export const savePTSlab = async (req, res) => {
 export const deletePTSlab = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId || 'RRS8392014SEC';
     const { id } = req.params;
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
-    const config = await StatutoryConfig.findOneAndUpdate(
-      { companyId },
-      { $pull: { ptSlabs: { id } } },
-      { new: true }
-    );
+    let { config } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
 
     if (!config) {
       return res.status(404).json({ success: false, message: 'Statutory configuration not found.' });
     }
+
+    const cleanId = String(id || '').trim();
+    config.ptSlabs = (config.ptSlabs || []).filter((s) => s.id !== cleanId && String(s._id) !== cleanId);
+    config.markModified('ptSlabs');
+    await config.save();
 
     return res.status(200).json({
       success: true,
@@ -390,20 +467,26 @@ export const deletePTSlab = async (req, res) => {
 export const saveLWFRule = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.body.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.body.companyId || user?.companyId || 'RRS8392014SEC';
     const ruleData = req.body;
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
-    let config = await StatutoryConfig.findOne({ companyId });
+    let { config, primaryCompanyId } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
     if (!config) {
       config = await StatutoryConfig.create({
-        companyId,
-        adminEmail: user?.email || '',
+        companyId: primaryCompanyId,
+        adminEmail,
         ptSlabs: DEFAULT_PT_SLABS,
         lwfRules: DEFAULT_LWF_RULES,
       });
     }
 
-    const ruleId = ruleData.id || `lwf-${Date.now()}`;
+    const ruleId = String(
+      (ruleData.id && String(ruleData.id).trim()) ||
+      (ruleData._id && String(ruleData._id).trim()) ||
+      `lwf-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`
+    );
+
     const formattedRule = {
       id: ruleId,
       state: String(ruleData.state || 'Maharashtra').trim(),
@@ -415,13 +498,16 @@ export const saveLWFRule = async (req, res) => {
       effectiveDate: ruleData.effectiveDate || '2026-04-01',
     };
 
-    const existingIdx = config.lwfRules.findIndex((r) => r.id === ruleId);
+    const currentRules = Array.isArray(config.lwfRules) ? [...config.lwfRules] : [];
+    const existingIdx = currentRules.findIndex((r) => r.id === ruleId || String(r._id) === ruleId);
     if (existingIdx >= 0) {
-      config.lwfRules[existingIdx] = formattedRule;
+      currentRules[existingIdx] = formattedRule;
     } else {
-      config.lwfRules.unshift(formattedRule);
+      currentRules.unshift(formattedRule);
     }
 
+    config.lwfRules = currentRules;
+    config.markModified('lwfRules');
     await config.save();
 
     return res.status(200).json({
@@ -448,18 +534,20 @@ export const saveLWFRule = async (req, res) => {
 export const deleteLWFRule = async (req, res) => {
   try {
     const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user.companyId || 'RRS8392014SEC';
+    const rawCompanyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId || 'RRS8392014SEC';
     const { id } = req.params;
+    const adminEmail = user?.email || 'admin@rrsecurity.com';
 
-    const config = await StatutoryConfig.findOneAndUpdate(
-      { companyId },
-      { $pull: { lwfRules: { id } } },
-      { new: true }
-    );
+    let { config } = await resolveStatutoryConfig(rawCompanyId, adminEmail);
 
     if (!config) {
       return res.status(404).json({ success: false, message: 'Statutory configuration not found.' });
     }
+
+    const cleanId = String(id || '').trim();
+    config.lwfRules = (config.lwfRules || []).filter((r) => r.id !== cleanId && String(r._id) !== cleanId);
+    config.markModified('lwfRules');
+    await config.save();
 
     return res.status(200).json({
       success: true,
@@ -476,3 +564,4 @@ export const deleteLWFRule = async (req, res) => {
     });
   }
 };
+

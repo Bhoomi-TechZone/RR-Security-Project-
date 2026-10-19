@@ -213,6 +213,11 @@ const employeeSchema = new mongoose.Schema(
   }
 );
 
+// Compound Indexes for high-speed queries and sorting
+employeeSchema.index({ companyId: 1, adminEmail: 1, createdAt: -1 });
+employeeSchema.index({ adminEmail: 1, createdAt: -1 });
+employeeSchema.index({ clientId: 1, createdAt: -1 });
+
 // Auto-hash password before saving
 employeeSchema.pre('save', async function () {
   if (this.isModified('password') && this.password) {

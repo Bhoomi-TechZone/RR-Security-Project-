@@ -4,8 +4,17 @@ import Company from '../models/companyModel.js';
 import Client from '../models/clientModel.js';
 import InventoryItem from '../models/inventoryItemModel.js';
 import StatutoryConfig from '../models/statutoryModel.js';
+import { resolveStatutoryConfig } from './statutoryController.js';
 import { PayrollRun } from '../models/payrollModel.js';
 import Master from '../models/masterModel.js';
+import {
+  calculatePT,
+  calculateLWF,
+  calculateTDS,
+  calculatePF,
+  calculateESI,
+  calculateBonus,
+} from '../services/statutoryCalculationService.js';
 
 // Helper to get total days in a month string "YYYY-MM"
 const getDaysInMonthString = (monthStr) => {
@@ -20,25 +29,6 @@ const getMonthLabel = (monthStr) => {
   const [year, month] = monthStr.split('-').map(Number);
   const d = new Date(year, month - 1, 1);
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-};
-
-// Helper to calculate PT for an employee gross salary & state
-const calculatePT = (gross, state, ptSlabs = []) => {
-  if (!state || !Array.isArray(ptSlabs) || ptSlabs.length === 0) return 0;
-  const stateLower = String(state).trim().toLowerCase();
-  const stateSlabs = ptSlabs.filter(
-    (s) => s.status === 'active' && String(s.state || '').trim().toLowerCase() === stateLower
-  );
-  if (stateSlabs.length === 0) return 0;
-
-  for (const slab of stateSlabs) {
-    const min = Number(slab.minSalary || 0);
-    const max = Number(slab.maxSalary || 9999999);
-    if (gross >= min && gross <= max) {
-      return Number(slab.taxAmount) || 0;
-    }
-  }
-  return 0;
 };
 
 /**
@@ -228,8 +218,8 @@ export const getPayrollReport = async (req, res) => {
     // Fetch matching employees from DB
     const employees = await Employee.find(empQuery).sort({ employeeId: 1 }).lean();
 
-    // 3. Fetch Statutory Config from DB
-    const statutory = await StatutoryConfig.findOne(companyId ? { companyId } : {}).lean();
+    // 3. Fetch Statutory Config from MongoDB
+    const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
     const pfEnabled = statutory?.pf?.enabled !== false;
     const esiEnabled = statutory?.esi?.enabled !== false;
     const ptEnabled = statutory?.pt?.enabled !== false;
@@ -336,31 +326,45 @@ export const getPayrollReport = async (req, res) => {
 
       // Deductions
       let pf = 0;
-      const isPf = (emp.pfApplicable === true || String(emp.pfApplicable).toLowerCase() === 'yes') && (emp.uan || emp.pfNo || pfEnabled);
       if (saved?.deductions?.pfEmployee !== undefined) {
-        pf = isPf ? Number(saved.deductions.pfEmployee) || 0 : 0;
-      } else if (isPf) {
-        const pfWage = Math.min(earnedBasic + earnedDa, statutory?.pf?.wageCeiling || 15000);
-        pf = Math.round(pfWage * ((statutory?.pf?.employeeContribution || 12) / 100));
+        pf = Number(saved.deductions.pfEmployee) || 0;
+      } else {
+        const pfCalc = calculatePF(earnedBasic, earnedDa, emp, statutory?.pf);
+        pf = pfCalc.employee;
       }
 
       let esi = 0;
-      const isEsi = (emp.esiApplicable === true || String(emp.esiApplicable).toLowerCase() === 'yes') && grossSalary <= (statutory?.esi?.wageEligibilityLimit || 21000);
       if (saved?.deductions?.esiEmployee !== undefined) {
-        esi = isEsi ? Number(saved.deductions.esiEmployee) || 0 : 0;
-      } else if (isEsi) {
-        esi = Math.ceil(grossSalary * ((statutory?.esi?.employeeContribution || 0.75) / 100));
+        esi = Number(saved.deductions.esiEmployee) || 0;
+      } else {
+        const esiCalc = calculateESI(grossSalary, Number(emp.grossSalary) || grossSalary, pd, emp, statutory?.esi);
+        esi = esiCalc.employee;
       }
 
-      const isPt = ptEnabled && (emp.ptApplicable === true || String(emp.ptApplicable).toLowerCase() === 'yes');
-      const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || '';
+      const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
       let pt = 0;
-      if (isPt) {
-        pt = saved?.deductions?.pt !== undefined ? Number(saved.deductions.pt) || 0 : calculatePT(grossSalary, empState, ptSlabs);
+      if (saved?.deductions?.pt !== undefined) {
+        pt = Number(saved.deductions.pt) || 0;
+      } else {
+        pt = calculatePT(grossSalary, empState, ptSlabs, month, ptEnabled);
       }
-      const isTds = (emp.tdsApplicable === true || String(emp.tdsApplicable).toLowerCase() === 'yes');
-      const it = isTds ? (Number(saved?.deductions?.tds) || Math.round(grossSalary * 0.05)) : 0;
-      const lwf = saved?.deductions?.lwf || 0;
+
+      let it = 0;
+      if (saved?.deductions?.tds !== undefined) {
+        it = Number(saved.deductions.tds) || 0;
+      } else {
+        it = calculateTDS(grossSalary, emp, statutory?.tds);
+      }
+
+      let lwf = 0;
+      if (saved?.deductions?.lwf !== undefined) {
+        lwf = Number(saved.deductions.lwf) || 0;
+      } else {
+        const isLwfApplicable = emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no';
+        const lwfCalc = calculateLWF(grossSalary, empState, statutory?.lwfRules, month, isLwfApplicable, statutory?.lwf?.enabled !== false);
+        lwf = lwfCalc.employee;
+      }
+
       const advance = saved?.deductions?.advances || 0;
       const loan = saved?.deductions?.loanEmi || 0;
       const food = 0;

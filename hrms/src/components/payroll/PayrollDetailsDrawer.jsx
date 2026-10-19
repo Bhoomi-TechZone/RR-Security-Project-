@@ -25,7 +25,39 @@ export default function PayrollDetailsDrawer({
 
   if (!record) return null;
 
-  const monthLabel = record.payrollMonth === '2026-08' ? 'August 2026' : record.payrollMonth || 'August 2026';
+  const monthLabel = record.monthLabel || record.payrollMonth || 'Current Month';
+
+  // Earnings Resolution
+  const earnings = record.earnings || {};
+  const basic = earnings.basic ?? record.basicSalary ?? record.basic ?? 0;
+  const vda = earnings.vda ?? record.vda ?? 0;
+  const hra = earnings.hra ?? record.hra ?? 0;
+  const conveyance = earnings.conveyance ?? record.conveyance ?? record.transportAllowance ?? 0;
+  const specialAllowance = earnings.specialAllowance ?? record.specialAllowance ?? 0;
+  const otherAllowance = earnings.otherAllowance ?? record.otherAllowance ?? 0;
+  const bonus = earnings.bonus ?? record.bonus ?? 0;
+  const overtime = earnings.overtime ?? record.overtimeAmount ?? record.overtimePay ?? 0;
+  const arrears = earnings.arrears ?? record.arrears ?? 0;
+  const grossSalary = earnings.totalGross ?? record.grossSalary ?? (basic + vda + hra + conveyance + specialAllowance + otherAllowance + bonus + overtime + arrears);
+
+  // Deductions Resolution
+  const deductions = record.deductions || {};
+  const pf = deductions.pfEmployee ?? record.pf ?? 0;
+  const esi = deductions.esiEmployee ?? record.esi ?? 0;
+  const pt = deductions.pt ?? 0;
+  const tds = deductions.tds ?? 0;
+  const lwf = deductions.lwf ?? 0;
+  const advances = deductions.advances ?? record.advanceAdjustment ?? 0;
+  const loanEmi = deductions.loanEmi ?? 0;
+  const otherDeductions = deductions.otherDeductions ?? record.otherDeduction ?? 0;
+  const totalDeductions = deductions.totalDeductions ?? record.totalDeductions ?? (pf + esi + pt + tds + lwf + advances + loanEmi + otherDeductions);
+  const netSalary = record.netSalary ?? Math.max(0, grossSalary - totalDeductions);
+
+  const workingDays = record.totalDaysInMonth ?? record.workingDays ?? 30;
+  const presentDays = record.presentDays ?? (record.hasAttendance ? record.paidDays : 0);
+  const absentDays = record.lopDays ?? record.absentDays ?? (record.hasAttendance ? Math.max(0, workingDays - (record.paidDays ?? 0)) : workingDays);
+  const leaveDays = record.leaveDays ?? 0;
+  const paidDays = record.paidDays ?? 0;
 
   return (
     <>
@@ -85,23 +117,23 @@ export default function PayrollDetailsDrawer({
             <div className={styles.attGrid}>
               <div className={styles.attCard}>
                 <span className={styles.attLabel}>Working Days</span>
-                <strong className={styles.attValue}>{record.workingDays || 31}</strong>
+                <strong className={styles.attValue}>{workingDays}</strong>
               </div>
               <div className={`${styles.attCard} ${styles.attPresent}`}>
                 <span className={styles.attLabel}>Present</span>
-                <strong className={styles.attValue}>{record.presentDays || 26}</strong>
+                <strong className={styles.attValue}>{presentDays}</strong>
               </div>
               <div className={`${styles.attCard} ${styles.attAbsent}`}>
-                <span className={styles.attLabel}>Absent</span>
-                <strong className={styles.attValue}>{record.absentDays || 2}</strong>
+                <span className={styles.attLabel}>LOP / Absent</span>
+                <strong className={styles.attValue}>{absentDays}</strong>
               </div>
               <div className={`${styles.attCard} ${styles.attLeave}`}>
                 <span className={styles.attLabel}>Leave</span>
-                <strong className={styles.attValue}>{record.leaveDays || 3}</strong>
+                <strong className={styles.attValue}>{leaveDays}</strong>
               </div>
               <div className={`${styles.attCard} ${styles.attPaid}`}>
                 <span className={styles.attLabel}>Paid Days</span>
-                <strong className={styles.attValue}>{record.paidDays || 29}</strong>
+                <strong className={styles.attValue}>{paidDays}</strong>
               </div>
             </div>
           </section>
@@ -124,7 +156,7 @@ export default function PayrollDetailsDrawer({
                 <div className={styles.otCardLeft}>
                   <span>Overtime Amount</span>
                 </div>
-                <strong className={styles.otAmountText}>{formatRupee(record.overtimeAmount)}</strong>
+                <strong className={styles.otAmountText}>{formatRupee(overtime)}</strong>
               </div>
             </div>
           </section>
@@ -138,27 +170,59 @@ export default function PayrollDetailsDrawer({
             <div className={styles.ledger}>
               <div className={styles.ledgerRow}>
                 <span>Basic Salary</span>
-                <span>{formatRupee(record.basicSalary)}</span>
+                <span>{formatRupee(basic)}</span>
               </div>
-              <div className={styles.ledgerRow}>
-                <span>HRA</span>
-                <span>{formatRupee(record.hra)}</span>
-              </div>
-              <div className={styles.ledgerRow}>
-                <span>Transport Allowance</span>
-                <span>{formatRupee(record.transportAllowance)}</span>
-              </div>
-              <div className={styles.ledgerRow}>
-                <span>Other Allowance</span>
-                <span>{formatRupee(record.otherAllowance)}</span>
-              </div>
-              <div className={styles.ledgerRow}>
-                <span>Overtime</span>
-                <span>{formatRupee(record.overtimeAmount)}</span>
-              </div>
+              {vda > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Variable DA (VDA)</span>
+                  <span>{formatRupee(vda)}</span>
+                </div>
+              )}
+              {hra > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>HRA</span>
+                  <span>{formatRupee(hra)}</span>
+                </div>
+              )}
+              {conveyance > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Transport / Conveyance</span>
+                  <span>{formatRupee(conveyance)}</span>
+                </div>
+              )}
+              {specialAllowance > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Special Allowance</span>
+                  <span>{formatRupee(specialAllowance)}</span>
+                </div>
+              )}
+              {bonus > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Statutory Bonus</span>
+                  <span style={{ color: '#16a34a' }}>+{formatRupee(bonus)}</span>
+                </div>
+              )}
+              {arrears > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Arrears</span>
+                  <span style={{ color: '#16a34a' }}>+{formatRupee(arrears)}</span>
+                </div>
+              )}
+              {overtime > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Overtime Pay</span>
+                  <span>{formatRupee(overtime)}</span>
+                </div>
+              )}
+              {otherAllowance > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Other Allowance</span>
+                  <span>{formatRupee(otherAllowance)}</span>
+                </div>
+              )}
               <div className={`${styles.ledgerRow} ${styles.ledgerTotalRow}`}>
                 <strong>Gross Salary</strong>
-                <strong className={styles.grossText}>{formatRupee(record.grossSalary)}</strong>
+                <strong className={styles.grossText}>{formatRupee(grossSalary)}</strong>
               </div>
             </div>
           </section>
@@ -172,23 +236,51 @@ export default function PayrollDetailsDrawer({
             <div className={styles.ledger}>
               <div className={styles.ledgerRow}>
                 <span>PF (Provident Fund)</span>
-                <span className={styles.deductText}>-{formatRupee(record.pf)}</span>
+                <span className={styles.deductText}>-{formatRupee(pf)}</span>
               </div>
               <div className={styles.ledgerRow}>
                 <span>ESI (State Insurance)</span>
-                <span className={styles.deductText}>-{formatRupee(record.esi)}</span>
+                <span className={styles.deductText}>-{formatRupee(esi)}</span>
               </div>
-              <div className={styles.ledgerRow}>
-                <span>Advance Adjustment</span>
-                <span className={styles.deductText}>-{formatRupee(record.advanceAdjustment)}</span>
-              </div>
-              <div className={styles.ledgerRow}>
-                <span>Other Deduction</span>
-                <span className={styles.deductText}>-{formatRupee(record.otherDeduction)}</span>
-              </div>
+              {pt > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Professional Tax (PT)</span>
+                  <span className={styles.deductText}>-{formatRupee(pt)}</span>
+                </div>
+              )}
+              {tds > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Tax Deducted at Source (TDS)</span>
+                  <span className={styles.deductText}>-{formatRupee(tds)}</span>
+                </div>
+              )}
+              {lwf > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Labour Welfare Fund (LWF)</span>
+                  <span className={styles.deductText}>-{formatRupee(lwf)}</span>
+                </div>
+              )}
+              {advances > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Advance Adjustment</span>
+                  <span className={styles.deductText}>-{formatRupee(advances)}</span>
+                </div>
+              )}
+              {loanEmi > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Loan Recovery / EMI</span>
+                  <span className={styles.deductText}>-{formatRupee(loanEmi)}</span>
+                </div>
+              )}
+              {otherDeductions > 0 && (
+                <div className={styles.ledgerRow}>
+                  <span>Other Deduction</span>
+                  <span className={styles.deductText}>-{formatRupee(otherDeductions)}</span>
+                </div>
+              )}
               <div className={`${styles.ledgerRow} ${styles.ledgerTotalRow}`}>
                 <strong>Total Deductions</strong>
-                <strong className={styles.deductTotalText}>-{formatRupee(record.totalDeductions)}</strong>
+                <strong className={styles.deductTotalText}>-{formatRupee(totalDeductions)}</strong>
               </div>
             </div>
           </section>
@@ -197,18 +289,18 @@ export default function PayrollDetailsDrawer({
           <div className={styles.netSummaryBox}>
             <div className={styles.netSummaryRow}>
               <span>Gross Salary</span>
-              <strong>{formatRupee(record.grossSalary)}</strong>
+              <strong>{formatRupee(grossSalary)}</strong>
             </div>
             <div className={styles.netSummaryRow}>
               <span>Total Deductions</span>
-              <strong className={styles.deductText}>-{formatRupee(record.totalDeductions)}</strong>
+              <strong className={styles.deductText}>-{formatRupee(totalDeductions)}</strong>
             </div>
             <div className={`${styles.netSummaryRow} ${styles.netHighlightRow}`}>
               <div>
                 <span className={styles.netLabel}>Net Take-Home Pay</span>
                 <small className={styles.netSub}>Direct Bank Disbursement</small>
               </div>
-              <strong className={styles.netValue}>{formatRupee(record.netSalary)}</strong>
+              <strong className={styles.netValue}>{formatRupee(netSalary)}</strong>
             </div>
           </div>
 

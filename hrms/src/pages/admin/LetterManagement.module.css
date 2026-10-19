@@ -653,6 +653,53 @@
   max-width: 400px;
 }
 
+/* Loading State */
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-muted, #64748b);
+  font-size: 13px;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
+  color: var(--primary, #2563eb);
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  background: #ffffff;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 6px;
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.refreshBtn:hover {
+  background: #f8fafc;
+  color: var(--primary, #2563eb);
+  border-color: #94a3b8;
+}
+
 /* MODALS */
 .backdrop {
   position: fixed;
@@ -689,7 +736,14 @@
 }
 
 .previewModal {
-  max-width: 840px;
+  max-width: 880px;
+  width: 95vw;
+  height: 92vh;
+  max-height: 92vh;
+}
+
+.modalWide {
+  max-width: 980px;
 }
 
 @keyframes slideUp {
@@ -914,135 +968,111 @@
   color: #0f172a;
 }
 
-/* A4 Letterhead Document Preview */
-.documentSheet {
+/* Printable Document Preview Paper Sheet - Exact Match with Template Setup */
+.previewPaper {
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  padding: 40px 48px;
+  border: 1px solid #cbd5e1;
+  border-radius: var(--radius-sm, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  padding: 36px 42px 48px;
   font-family: 'Georgia', 'Times New Roman', serif;
   color: #1e293b;
-  line-height: 1.6;
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-.docLetterhead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 2px solid #0f172a;
-  padding-bottom: 18px;
-  margin-bottom: 24px;
-}
-
-.docCompanyDetails {
+  line-height: 1.65;
+  font-size: 13.5px;
+  min-height: auto;
+  height: auto;
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto 30px auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  position: relative;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
-.docCompanyName {
-  font-size: 18px;
-  font-weight: 800;
-  color: #0f172a;
-  font-family: inherit;
-  margin: 0;
-}
-
-.docCompanyMeta {
-  font-size: 11px;
-  color: #64748b;
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.docLogo {
-  max-height: 48px;
-  max-width: 140px;
-  object-fit: contain;
-}
-
-.docHeaderBanner {
-  text-align: center;
-  margin: 16px 0 24px;
-}
-
-.docHeaderTitle {
-  display: inline-block;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: #0f172a;
-  border-bottom: 1.5px solid #0f172a;
-  padding-bottom: 2px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.docMetaRow {
+.previewPaperHeader {
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 12px;
+  margin-bottom: 20px;
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  font-size: 12px;
-  color: #334155;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  margin-bottom: 20px;
+  gap: 16px;
 }
 
-.docSubject {
-  font-size: 13px;
+.previewDocTitle {
+  font-size: 15px;
   font-weight: 700;
+  letter-spacing: 0.05em;
   color: #0f172a;
-  margin: 16px 0 20px;
-  text-decoration: underline;
-}
-
-.docBodyContent {
-  font-size: 13px;
-  white-space: pre-wrap;
-  color: #1e293b;
-  line-height: 1.7;
-}
-
-.docSignatorySection {
-  margin-top: 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-
-.docSignatoryBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.docSealSim {
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  border: 2px dashed #94a3b8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #94a3b8;
-  font-size: 10px;
-  font-weight: 700;
   text-transform: uppercase;
-  margin-bottom: 8px;
 }
 
-.docFooterDisclaimer {
-  margin-top: 36px;
-  padding-top: 14px;
-  border-top: 1px solid #e2e8f0;
-  font-size: 10px;
-  color: #94a3b8;
-  text-align: center;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+.previewDocBody {
+  white-space: pre-wrap;
+  font-family: inherit;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.65;
+  margin-bottom: 24px;
+  word-break: break-word;
+}
+
+.previewWatermark {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  font-size: 48px;
+  font-weight: 900;
+  color: rgba(15, 23, 42, 0.035);
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  user-select: none;
+  z-index: 0;
+}
+
+/* Print Styles for Letterhead Document */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .previewPaper,
+  .previewPaper * {
+    visibility: visible !important;
+  }
+
+  .previewPaper {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    z-index: 999999 !important;
+  }
 }
 
 /* Toast message */
@@ -1122,3 +1152,17 @@
     padding: 0;
   }
 }
+
+@keyframes spinLoader {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinIcon {
+  animation: spinLoader 0.9s linear infinite;
+}
+
