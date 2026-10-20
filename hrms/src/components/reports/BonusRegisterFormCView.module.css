@@ -1,0 +1,350 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiIconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+/* Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badgeEmployees {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.accountingYearBadge {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btnExcel {
+  background: #107c41;
+  color: #ffffff;
+  border-color: #0c6b37;
+}
+
+.btnExcel:hover {
+  background: #0c6b37;
+}
+
+.btnPdf {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
+}
+
+.btnPdf:hover {
+  background: #b91c1c;
+}
+
+.btnPrint {
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btnPrint:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Sheet Paper View (Matching Image 1) */
+.paperCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.officialTitleBlock {
+  padding: 18px 20px 14px 20px;
+  text-align: center;
+  border-bottom: 2px solid #000000;
+  background: #ffffff;
+}
+
+.formCTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #000000;
+  letter-spacing: 1px;
+  margin: 0;
+  font-family: inherit;
+}
+
+.ruleSubtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333333;
+  margin: 3px 0 6px 0;
+}
+
+.yearHeading {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #000000;
+  margin: 0 0 12px 0;
+}
+
+.establishmentHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  text-align: left;
+  border-top: 1px solid #cbd5e1;
+  padding-top: 10px;
+  margin-top: 6px;
+}
+
+.metaRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.metaLabel {
+  font-weight: 700;
+  font-size: 12px;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.metaValue {
+  font-weight: 600;
+  font-size: 12px;
+  color: #1e293b;
+}
+
+/* Table container with horizontal scroll */
+.tableResponsive {
+  overflow-x: auto;
+  width: 100%;
+}
+
+.statutoryTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: #000000;
+  min-width: 1680px;
+}
+
+.statutoryTable th,
+.statutoryTable td {
+  border: 1px solid #000000;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.headerNamesRow th {
+  background: #ffffff;
+  font-weight: 600;
+  font-size: 10.5px;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.deductionsGroupHeader {
+  background: #f8fafc !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+}
+
+.headerSubRow th {
+  background: #ffffff;
+  font-weight: 600;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  padding: 4px 6px;
+}
+
+.headerNumbersRow th {
+  background: #f8fafc;
+  font-weight: 700;
+  font-size: 11px;
+  text-align: center;
+  color: #000000;
+  padding: 3px 6px;
+}
+
+.dataRow:hover {
+  background-color: #f8fafc;
+}
+
+.colCenter {
+  text-align: center;
+}
+
+.colLeft {
+  text-align: left;
+}
+
+.colRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.empNameCell {
+  font-weight: 600;
+  color: #000000;
+  white-space: nowrap;
+}
+
+.accNumberCell {
+  font-size: 10.5px;
+  color: #1e3a8a;
+  white-space: nowrap;
+}
+
+.grandTotalRow {
+  background: #ffffff;
+  font-weight: 700;
+  border-top: 2px solid #000000;
+}
+
+.grandTotalLabel {
+  font-weight: 800;
+  font-size: 12px;
+  text-align: center;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 20px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  margin: 8px 0 4px 0;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}

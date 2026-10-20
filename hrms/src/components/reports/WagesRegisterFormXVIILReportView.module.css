@@ -1,0 +1,510 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiIconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+/* Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badgeWorkforce {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid #bfdbfe;
+}
+
+.badgePeriod {
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btnAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btnExcel {
+  background: #047857;
+  color: #ffffff;
+}
+
+.btnExcel:hover {
+  background: #065f46;
+}
+
+.btnPdf {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btnPdf:hover {
+  background: #b91c1c;
+}
+
+.btnPrint {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btnPrint:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Statutory Paper Sheet Frame */
+.paperSheet {
+  background: #ffffff;
+  border: 2px solid #0f172a;
+  border-radius: 4px;
+  padding: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #0f172a;
+  overflow-x: auto;
+}
+
+/* Header Section matching Image 1 */
+.formHeader {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.formMainTitle {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #000000;
+  text-transform: uppercase;
+}
+
+.ruleSubtitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin-top: 3px;
+}
+
+/* Establishment Box matching Image 1 */
+.establishmentBox {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1.5px solid #000000;
+  margin-bottom: 16px;
+  font-size: 11.5px;
+}
+
+.boxColLeft {
+  border-right: 1.5px solid #000000;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.boxColRight {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metaRow {
+  display: flex;
+  line-height: 1.4;
+}
+
+.metaLabel {
+  width: 170px;
+  font-weight: 700;
+  color: #000000;
+  flex-shrink: 0;
+}
+
+.metaColon {
+  width: 14px;
+  font-weight: 700;
+}
+
+.metaValue {
+  flex: 1;
+  color: #111827;
+}
+
+/* Responsive Table */
+.tableResponsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.wagesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  border: 1.5px solid #000000;
+}
+
+.wagesTable th {
+  border: 1px solid #000000;
+  padding: 6px 4px;
+  background: #f8fafc;
+  color: #000000;
+  font-weight: 700;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.wagesTable td {
+  border: 1px solid #000000;
+  padding: 6px 6px;
+  color: #111827;
+  vertical-align: middle;
+}
+
+.dataRow:hover {
+  background-color: #f8fafc;
+}
+
+/* Cell Utilities */
+.textCenter {
+  text-align: center;
+}
+
+.textRight {
+  text-align: right;
+}
+
+.textLeft {
+  text-align: left;
+}
+
+/* Workman Details Cell */
+.workmanCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10.5px;
+}
+
+.workmanName {
+  font-weight: 800;
+  font-size: 11.5px;
+  color: #000000;
+}
+
+.fatherName {
+  font-weight: 600;
+  color: #334155;
+}
+
+.pfDojRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: #475569;
+  font-size: 9.5px;
+}
+
+.uanEsiRow {
+  color: #475569;
+  font-size: 9.5px;
+}
+
+/* Earnings 3-Col Micro Grid matching Image 1 */
+.earningsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+}
+
+.earnCol {
+  display: flex;
+  flex-direction: column;
+}
+
+.earnItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.earnLabel {
+  font-weight: 600;
+  color: #475569;
+}
+
+.earnVal {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.earnTotalRow {
+  grid-column: span 3;
+  border-top: 1px dashed #cbd5e1;
+  margin-top: 3px;
+  padding-top: 3px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  color: #000000;
+  font-size: 10.5px;
+}
+
+/* Deductions Cell */
+.deductionStack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 10px;
+}
+
+.dedItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.dedLabel {
+  font-weight: 600;
+  color: #475569;
+}
+
+.dedVal {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dedTotalRow {
+  border-top: 1px dashed #cbd5e1;
+  margin-top: 2px;
+  padding-top: 2px;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 800;
+  color: #dc2626;
+  font-size: 10.5px;
+}
+
+/* Net Pay Cell */
+.netAmountCell {
+  font-size: 12px;
+  font-weight: 800;
+  color: #047857;
+  text-align: right;
+}
+
+/* Bank Account Cell */
+.bankAccountCell {
+  font-size: 10px;
+  font-weight: 600;
+  color: #334155;
+  white-space: pre-line;
+}
+
+/* Grand Total Row matching Image 3 */
+.grandTotalRow {
+  background: #f1f5f9;
+  font-weight: 800;
+  border-top: 2px solid #000000;
+  border-bottom: 2px solid #000000;
+}
+
+.grandTotalRow td {
+  border: 1px solid #000000;
+  padding: 8px 6px;
+  vertical-align: top;
+}
+
+.grandTotalLeftBox {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+/* Statutory Reconciliation Summary Section matching Image 3 */
+.reconciliationSection {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: 1fr 1.6fr;
+  gap: 16px;
+  font-size: 11px;
+}
+
+.reconcileBox {
+  border: 1.5px solid #000000;
+  padding: 12px 14px;
+  background: #ffffff;
+}
+
+.reconcileTitle {
+  font-size: 12px;
+  font-weight: 800;
+  color: #000000;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.reconcileTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+}
+
+.reconcileTable th,
+.reconcileTable td {
+  border: 1px solid #94a3b8;
+  padding: 5px 6px;
+}
+
+.reconcileTable th {
+  background: #f8fafc;
+  font-weight: 700;
+  text-align: center;
+}
+
+.pfTotalPaymentRow {
+  font-weight: 800;
+  background: #f1f5f9;
+  color: #047857;
+}
+
+/* Empty State Card */
+.emptyState {
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 6px;
+  margin-top: 16px;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin-top: 12px;
+  margin-bottom: 4px;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 420px;
+}

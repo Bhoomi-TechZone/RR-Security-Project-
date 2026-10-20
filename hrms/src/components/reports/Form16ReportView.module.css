@@ -1,0 +1,225 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+  padding: 16px 0 40px;
+}
+
+.documentSheet {
+  width: 820px;
+  max-width: 100%;
+  background: #ffffff;
+  border: 1px solid #0f172a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 36px 40px;
+  box-sizing: border-box;
+  color: #000000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+/* Header */
+.titleMain {
+  text-align: center;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: #000000;
+}
+
+.subTitleRule {
+  text-align: center;
+  font-size: 11px;
+  color: #111827;
+  max-width: 660px;
+  margin: 0 auto 16px auto;
+  line-height: 1.4;
+}
+
+.dividerLine {
+  border-bottom: 2.5px solid #000000;
+  margin: 12px 0 16px 0;
+}
+
+.sectionTitleUnderline {
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-bottom: 18px;
+  letter-spacing: 0.02em;
+  color: #000000;
+}
+
+/* Top 4-Quadrant Information Table */
+.infoGridTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #000000;
+  margin-bottom: 16px;
+}
+
+.infoGridTable td {
+  border: 1.5px solid #000000;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  vertical-align: top;
+}
+
+.cellHeaderLeft {
+  width: 22%;
+  font-weight: 700;
+  color: #000000;
+}
+
+.cellDataLeft {
+  width: 38%;
+  color: #000000;
+  white-space: pre-line;
+}
+
+.cellHeaderRight {
+  width: 20%;
+  font-weight: 700;
+  color: #000000;
+}
+
+.cellDataRight {
+  width: 20%;
+  color: #000000;
+  white-space: pre-line;
+}
+
+.boldName {
+  font-weight: 700;
+  font-size: 12px;
+  color: #000000;
+  margin-bottom: 2px;
+}
+
+/* Particulars Table */
+.particularsTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #000000;
+  margin-bottom: 26px;
+}
+
+.particularsTable th {
+  border: 1.5px solid #000000;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  text-align: left;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.particularsTable th.amountHeader {
+  text-align: right;
+  width: 22%;
+}
+
+.particularsTable td {
+  border: 1.5px solid #000000;
+  padding: 6.5px 10px;
+  font-size: 11.5px;
+  color: #000000;
+}
+
+.particularsTable td.amountCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.boldRow td {
+  font-weight: 700;
+}
+
+/* Certification Text */
+.certificationBlock {
+  font-size: 11.5px;
+  line-height: 1.6;
+  margin: 24px 0 32px 0;
+  color: #000000;
+}
+
+.certificationBlock strong {
+  font-weight: 700;
+}
+
+/* Footer & Signature */
+.footerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 36px;
+  padding-bottom: 8px;
+}
+
+.footerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11.5px;
+  color: #000000;
+}
+
+.footerRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.signLine {
+  width: 260px;
+  border-top: 1.5px solid #000000;
+  margin-bottom: 6px;
+}
+
+.signTitle {
+  font-weight: 700;
+  font-size: 11.5px;
+  color: #000000;
+}
+
+.signSub {
+  font-size: 11px;
+  color: #262626;
+  margin-top: 3px;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 820px;
+  text-align: center;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  margin-bottom: 6px;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 460px;
+}

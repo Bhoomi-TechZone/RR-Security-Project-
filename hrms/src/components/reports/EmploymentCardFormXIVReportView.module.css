@@ -1,0 +1,303 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiIconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.workmanSelector {
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.badgeWorkmen {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btnPdf {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
+}
+
+.btnPdf:hover {
+  background: #b91c1c;
+}
+
+.btnExcel {
+  background: #107c41;
+  color: #ffffff;
+  border-color: #0c6b37;
+}
+
+.btnExcel:hover {
+  background: #0c6b37;
+}
+
+.btnPrint {
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btnPrint:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Document Paper / Card (Matching Image 1) */
+.cardOuterFrame {
+  background: #ffffff;
+  border: 2px solid #000000;
+  padding: 5px;
+  margin: 0 auto;
+  max-width: 820px;
+  width: 100%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.cardInnerFrame {
+  border: 1px solid #000000;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.cardHeaderBlock {
+  padding: 16px 12px 14px 12px;
+  text-align: center;
+  border-bottom: 1px solid #000000;
+}
+
+.titleFormXIV {
+  font-size: 18px;
+  font-weight: 800;
+  color: #000000;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.ruleSub {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #000000;
+  margin: 4px 0 3px 0;
+}
+
+.headingEmploymentCard {
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #000000;
+  margin: 0;
+}
+
+/* Table */
+.cardTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: inherit;
+  font-size: 12.5px;
+}
+
+.cardTable tr {
+  border-bottom: 1px solid #000000;
+}
+
+.cardTable tr:last-child {
+  border-bottom: none;
+}
+
+.labelCol {
+  width: 44%;
+  font-weight: 700;
+  color: #000000;
+  padding: 9px 12px;
+  border-right: 1px solid #000000;
+  vertical-align: middle;
+  line-height: 1.35;
+}
+
+.valueCol {
+  width: 56%;
+  font-weight: 500;
+  color: #000000;
+  padding: 9px 12px;
+  vertical-align: middle;
+  line-height: 1.35;
+}
+
+.boldValue {
+  font-weight: 800;
+  color: #000000;
+}
+
+/* Footer Signature */
+.signatureSection {
+  padding: 40px 24px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.sigScript {
+  font-family: 'Brush Script MT', 'Segoe Script', cursive;
+  font-size: 24px;
+  color: #113669;
+  margin-bottom: 4px;
+  padding-right: 20px;
+}
+
+.sigTitle {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #000000;
+}
+
+/* Multiple Cards spacing */
+.cardsListWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 20px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  margin: 8px 0 4px 0;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}

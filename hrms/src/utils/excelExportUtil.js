@@ -44,9 +44,9 @@ export const generateReportExcel = ({
       'Advance / Loans': (r.deductions?.advance || 0) + (r.deductions?.loan || 0),
       'Total Deductions': r.grossDeduct || 0,
       'Net Payable': r.netPayable || r.netPayableNumber || 0,
-      'Bank Name': r.bankName || 'HDFC Bank',
-      'Bank A/c No': r.bankAccountNo || '50100636547362',
-      'IFSC Code': r.ifscCode || 'HDFC0000128',
+      'Bank Name': r.bankName || '—',
+      'Bank A/c No': r.bankAccountNo || '—',
+      'IFSC Code': r.ifscCode || '—',
     }));
   } else if (reportType === 'attendance') {
     exportData = records.map((r, idx) => ({

@@ -1,0 +1,308 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiIconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+/* Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badgeWorkforce {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.badgePeriod {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+}
+
+.btnExcel {
+  background: #107c41;
+  color: #ffffff;
+  border-color: #0c6b37;
+}
+
+.btnExcel:hover {
+  background: #0c6b37;
+}
+
+.btnPdf {
+  background: #dc2626;
+  color: #ffffff;
+  border-color: #b91c1c;
+}
+
+.btnPdf:hover {
+  background: #b91c1c;
+}
+
+.btnPrint {
+  background: #ffffff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btnPrint:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Document Paper / Card (Matching Image 1) */
+.paperCard {
+  background: #ffffff;
+  border: 1.5px solid #000000;
+  padding: 8px;
+  width: 100%;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 1. Header Box */
+.headerBox {
+  border: 1px solid #000000;
+  padding: 12px 16px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.titleAdvancesRegister {
+  font-size: 16px;
+  font-weight: 800;
+  color: #000000;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.ruleSubtitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #000000;
+  margin-top: 3px;
+}
+
+/* 2. Establishment Info Box */
+.infoBox {
+  border: 1px solid #000000;
+  padding: 10px 14px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: #000000;
+}
+
+.infoRow {
+  display: grid;
+  grid-template-columns: 360px 20px 1fr;
+  align-items: baseline;
+  line-height: 1.4;
+}
+
+.infoLabel {
+  font-weight: 700;
+  color: #000000;
+}
+
+.infoColon {
+  font-weight: 700;
+  text-align: center;
+}
+
+.infoVal {
+  color: #000000;
+}
+
+/* 3. Table with Horizontal Scroll */
+.tableResponsive {
+  overflow-x: auto;
+  width: 100%;
+  border: 1px solid #000000;
+}
+
+.advancesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: inherit;
+  color: #000000;
+  min-width: 1200px;
+}
+
+.advancesTable th,
+.advancesTable td {
+  border: 1px solid #000000;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.thCenter {
+  text-align: center;
+}
+
+.thLeft {
+  text-align: left;
+}
+
+.headerRow1 th {
+  background: #ffffff;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+.headerRow2 th {
+  background: #f8fafc;
+  font-weight: 700;
+  font-size: 10.5px;
+  padding: 3px 2px;
+  text-align: center;
+}
+
+.dataRow:hover {
+  background-color: #f8fafc;
+}
+
+.empNameCell {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.emptyState {
+  text-align: center;
+  padding: 48px 20px;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px dashed #cbd5e1;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+  margin: 8px 0 4px 0;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}

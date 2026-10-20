@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadEmployeeProfile } from './employeeProfileExport';
 
 /**
  * Direct PDF Generation & Download Utility for HRMS Reports
@@ -15,6 +16,18 @@ export const generateReportPdf = ({
   statutoryRules = [],
   mode = 'download', // 'download' or 'print'
 }) => {
+  // If Employee Profile is requested, use the dedicated authentic layout
+  if (reportType === 'employee-profile') {
+    if (!records || !records.length) {
+      alert('No employee records available to export.');
+      return;
+    }
+    records.forEach((emp) => {
+      downloadEmployeeProfile(emp, companyInfo, { mode });
+    });
+    return;
+  }
+
   const companyName = companyInfo.name || 'RR Security & Facilities';
   const companyAddress = companyInfo.address || 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044';
   const pfNo = companyInfo.pfNo || 'DSNHP3718318000';
@@ -141,7 +154,7 @@ export const generateReportPdf = ({
       const ded3 = `${ded.advance ?? 0}\n${ded.loan ?? 0}\n${ded.food ?? 0}`;
       const ded4 = `${ded.othDed ?? 0}\n${ded.eMbill ?? 0}`;
 
-      const bankBlock = `Bank: ${r.bankName || 'HDFC Bank'}\nA/c: ${r.bankAccountNo || '50100636547362'}\n\nSign: _________`;
+      const bankBlock = `Bank: ${r.bankName || '—'}\nA/c: ${r.bankAccountNo || '—'}\n\nSign: _________`;
 
       return [
         r.srNo || idx + 1,

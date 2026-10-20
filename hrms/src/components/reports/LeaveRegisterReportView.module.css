@@ -1,0 +1,357 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiIconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kpiValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Action & Filter Toolbar */
+.toolbarCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filterSelect {
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  background-color: #ffffff;
+  min-width: 170px;
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.searchInput {
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  background-color: #ffffff;
+  min-width: 200px;
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Statutory Register Card (Matches Image 1) */
+.sheetCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.sheetHeader {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.sheetTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 4px 0;
+}
+
+.sheetSubtitle {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Top Establishment Box (Image 1 Header Box with 3 rows) */
+.establishmentBox {
+  border: 1.5px solid #0f172a;
+  margin-bottom: 20px;
+  background: #ffffff;
+}
+
+.establishmentRow {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1.5px solid #0f172a;
+  font-size: 13px;
+  min-height: 36px;
+}
+
+.establishmentRow:last-child {
+  border-bottom: none;
+}
+
+.fieldLabel {
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+
+.fieldValue {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+/* Statutory 5-Column Table */
+.tableWrapper {
+  overflow-x: auto;
+  margin-bottom: 20px;
+}
+
+.statutoryTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #0f172a;
+  background: #ffffff;
+  font-size: 12.5px;
+}
+
+.statutoryTable th,
+.statutoryTable td {
+  border: 1px solid #0f172a;
+  padding: 8px 10px;
+  vertical-align: middle;
+}
+
+.colHeaderMain {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: center;
+  font-size: 12px;
+  padding: 10px 8px;
+}
+
+.colHeaderNum {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: center;
+  font-size: 12px;
+  padding: 4px;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.daysBadge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+}
+
+.entitledBadge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+}
+
+.empSubLabel {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.typeBadgeCL {
+  display: inline-block;
+  font-size: 9.5px;
+  padding: 1px 6px;
+  background: #dbeafe;
+  color: #1e40af;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.typeBadgeSL {
+  display: inline-block;
+  font-size: 9.5px;
+  padding: 1px 6px;
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.typeBadgeEL {
+  display: inline-block;
+  font-size: 9.5px;
+  padding: 1px 6px;
+  background: #fef3c7;
+  color: #b45309;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.emptyRow {
+  height: 34px;
+}
+
+.tableTotalRow {
+  background: #f8fafc;
+  font-weight: 700;
+}
+
+/* Bottom Statutory Notes (Matching Image 1) */
+.notesSection {
+  margin-top: 20px;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.noteItem {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
