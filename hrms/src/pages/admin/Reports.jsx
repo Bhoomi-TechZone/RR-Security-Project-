@@ -25,6 +25,87 @@ import Toast from '../../components/common/Toast';
 import { reportService } from '../../services/reportService';
 import { generateReportPdf } from '../../utils/pdfExportUtil';
 import { generateReportExcel } from '../../utils/excelExportUtil';
+import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
+import { downloadFnfSettlementPdf } from '../../utils/fnfSettlementExport';
+import { downloadForm16Pdf } from '../../utils/form16Export';
+import { downloadFormFPdf } from '../../utils/formFExport';
+import { downloadSalaryCertificatePdf } from '../../utils/salaryCertificateExport';
+import { downloadEmployeeIdCardPdf } from '../../utils/idCardExport';
+import {
+  downloadBonusRegisterExcel,
+  downloadBonusRegisterPdf,
+} from '../../utils/bonusRegisterExport';
+import {
+  downloadEmploymentCardPdf,
+  downloadEmploymentCardExcel,
+} from '../../utils/employmentCardExport';
+import {
+  downloadMusterRollExcel,
+  downloadMusterRollPdf,
+} from '../../utils/musterRollExport';
+import {
+  downloadAdvancesRegisterExcel,
+  downloadAdvancesRegisterPdf,
+} from '../../utils/advancesRegisterExport';
+import {
+  downloadDeductionsDamageExcel,
+  downloadDeductionsDamagePdf,
+} from '../../utils/deductionsDamageExport';
+import {
+  downloadFinesRegisterExcel,
+  downloadFinesRegisterPdf,
+} from '../../utils/finesRegisterExport';
+import {
+  downloadOvertimeRegisterExcel,
+  downloadOvertimeRegisterPdf,
+} from '../../utils/overtimeRegisterExport';
+import {
+  downloadWagesRegisterExcel,
+  downloadWagesRegisterPdf,
+} from '../../utils/wagesRegisterExport';
+import {
+  downloadWorkmanRegisterExcel,
+  downloadWorkmanRegisterPdf,
+} from '../../utils/workmanRegisterExport';
+import {
+  downloadBankTransferLetterPdf,
+  downloadBankTransferLetterExcel,
+  downloadBankTransferLetterWord,
+} from '../../utils/bankTransferLetterExport';
+import {
+  downloadBankTransferReportExcel,
+  downloadBankTransferReportCsv,
+  downloadBankTransferReportPdf,
+} from '../../utils/bankTransferReportExport';
+import {
+  downloadLeaveRegisterExcel,
+  downloadLeaveRegisterCsv,
+  downloadLeaveRegisterPdf,
+} from '../../utils/leaveRegisterExport';
+import {
+  downloadFormILeaveExcel,
+  downloadFormILeaveCsv,
+  downloadFormILeavePdf,
+} from '../../utils/formILeaveExport';
+import EmployeeProfileReportView from '../../components/reports/EmployeeProfileReportView';
+import FnfSettlementReportView from '../../components/reports/FnfSettlementReportView';
+import Form16ReportView from '../../components/reports/Form16ReportView';
+import FormFReportView from '../../components/reports/FormFReportView';
+import SalaryCertificateReportView from '../../components/reports/SalaryCertificateReportView';
+import EmployeeIdCardReportView from '../../components/reports/EmployeeIdCardReportView';
+import BonusRegisterFormCView from '../../components/reports/BonusRegisterFormCView';
+import EmploymentCardFormXIVReportView from '../../components/reports/EmploymentCardFormXIVReportView';
+import MusterRollFormXVIReportView from '../../components/reports/MusterRollFormXVIReportView';
+import AdvancesRegisterFormXXIIReportView from '../../components/reports/AdvancesRegisterFormXXIIReportView';
+import DeductionsDamageFormXXReportView from '../../components/reports/DeductionsDamageFormXXReportView';
+import FinesRegisterFormXXIReportView from '../../components/reports/FinesRegisterFormXXIReportView';
+import OvertimeRegisterFormXXIIIReportView from '../../components/reports/OvertimeRegisterFormXXIIIReportView';
+import WagesRegisterFormXVIILReportView from '../../components/reports/WagesRegisterFormXVIILReportView';
+import WorkmanRegisterFormXIIIReportView from '../../components/reports/WorkmanRegisterFormXIIIReportView';
+import BankTransferLetterReportView from '../../components/reports/BankTransferLetterReportView';
+import BankTransferReportView from '../../components/reports/BankTransferReportView';
+import LeaveRegisterReportView from '../../components/reports/LeaveRegisterReportView';
+import FormILeaveReportView from '../../components/reports/FormILeaveReportView';
 import styles from './Reports.module.css';
 
 const PAGE_SIZE = 10;
@@ -139,6 +220,252 @@ const reportMeta = {
     description: 'Complete employee master register, statutory numbers and bank details.',
     filters: ['company', 'department', 'employee'],
     placeholder: 'Search employee, designation, department...'
+  },
+  'employee-profile': {
+    title: 'Employee Profile',
+    description: 'Complete individual employee profile and personal details.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'fnf-settlement': {
+    title: 'F&F Settlement Payslip',
+    description: 'Full and final salary settlement statement on exit, pay summary, earnings, deductions and clearance acknowledgment.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'fnf-settlement-payslip': {
+    title: 'F&F Settlement Payslip',
+    description: 'Full and final salary settlement statement on exit, pay summary, earnings, deductions and clearance acknowledgment.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'form-16': {
+    title: 'Form 16 (Part B)',
+    description: 'Certificate under section 203 of the Income-tax Act, 1961 for tax deducted at source from income chargeable under the head "Salaries".',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, PAN...'
+  },
+  'form-16-part-b': {
+    title: 'Form 16 (Part B)',
+    description: 'Certificate under section 203 of the Income-tax Act, 1961 for tax deducted at source from income chargeable under the head "Salaries".',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, PAN...'
+  },
+  'form-f-gratuity-nomination': {
+    title: "Form 'F' - Gratuity Nomination Form",
+    description: '[See sub-rule (1) of Rule 6] - Statutory nomination form under Payment of Gratuity Act, 1972.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'form-f': {
+    title: "Form 'F' - Gratuity Nomination Form",
+    description: '[See sub-rule (1) of Rule 6] - Statutory nomination form under Payment of Gratuity Act, 1972.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'salary-certificate': {
+    title: 'Salary Certificate',
+    description: 'Official employee salary certificate for banks, loans, visa and employment verification.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'salary-certificate-report': {
+    title: 'Salary Certificate',
+    description: 'Official employee salary certificate for banks, loans, visa and employment verification.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'employee-id-card': {
+    title: 'Employee ID Card',
+    description: 'Printable employee identity card with photo, guard badge, emergency contacts and verification QR code.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation, phone...'
+  },
+  'employee-id-card-report': {
+    title: 'Employee ID Card',
+    description: 'Printable employee identity card with photo, guard badge, emergency contacts and verification QR code.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation, phone...'
+  },
+  'bonus-register-form-c': {
+    title: 'Form C - Bonus Paid to Employees',
+    description: '[See Rule 4(C)] - Statutory Bonus paid to employees for the accounting year under Payment of Bonus Act, 1965.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'form-c-bonus-paid': {
+    title: 'Form C - Bonus Paid to Employees',
+    description: '[See Rule 4(C)] - Statutory Bonus paid to employees for the accounting year under Payment of Bonus Act, 1965.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'employment-card-form-xiv': {
+    title: 'Employment Card (Form XIV)',
+    description: '[See Rule 76] Statutory Employment Card issued to contract workmen under Contract Labour (Regulation & Abolition) Act.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'employment-card': {
+    title: 'Employment Card (Form XIV)',
+    description: '[See Rule 76] Statutory Employment Card issued to contract workmen under Contract Labour (Regulation & Abolition) Act.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'muster-roll-form-xvi': {
+    title: 'Muster Roll (Form XVI)',
+    description: '[See Rule 78(1)(a)(i)] Statutory Muster Roll and workman attendance register under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, father name...'
+  },
+  'form-xvi': {
+    title: 'Muster Roll (Form XVI)',
+    description: '[See Rule 78(1)(a)(i)] Statutory Muster Roll and workman attendance register under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, father name...'
+  },
+  'muster-roll': {
+    title: 'Muster Roll (Form XVI)',
+    description: '[See Rule 78(1)(a)(i)] Statutory Muster Roll and workman attendance register under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, father name...'
+  },
+  'register-advances-form-xxii': {
+    title: 'Register of Advances (Form XXII)',
+    description: '[See Rule 78(1)(a)(ii)] Statutory Register of Advances given to contract workmen and details of recovery/instalments under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, purpose...'
+  },
+  'form-xxii': {
+    title: 'Register of Advances (Form XXII)',
+    description: '[See Rule 78(1)(a)(ii)] Statutory Register of Advances given to contract workmen and details of recovery/instalments under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, purpose...'
+  },
+  'register-advances': {
+    title: 'Register of Advances (Form XXII)',
+    description: '[See Rule 78(1)(a)(ii)] Statutory Register of Advances given to contract workmen and details of recovery/instalments under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, purpose...'
+  },
+  'register-deduction-damage-form-xx': {
+    title: 'Register of Deductions for Damage or Loss (Form XX)',
+    description: '[FORM XX ,See Rule- 78 (1) (a) (ii)] Statutory Register of Deductions for Damage or Loss caused to employer under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, damage particulars...'
+  },
+  'form-xx': {
+    title: 'Register of Deductions for Damage or Loss (Form XX)',
+    description: '[FORM XX ,See Rule- 78 (1) (a) (ii)] Statutory Register of Deductions for Damage or Loss caused to employer under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, damage particulars...'
+  },
+  'register-deductions-damage': {
+    title: 'Register of Deductions for Damage or Loss (Form XX)',
+    description: '[FORM XX ,See Rule- 78 (1) (a) (ii)] Statutory Register of Deductions for Damage or Loss caused to employer under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, damage particulars...'
+  },
+  'register-fines-form-xxi': {
+    title: 'Register of Fines (Form XXI)',
+    description: '[FORM XXI,See Rule-78 (1) (a) (ii)] Statutory Register of Fines imposed on contract workmen under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, offence particulars...'
+  },
+  'form-xxi': {
+    title: 'Register of Fines (Form XXI)',
+    description: '[FORM XXI,See Rule-78 (1) (a) (ii)] Statutory Register of Fines imposed on contract workmen under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, offence particulars...'
+  },
+  'register-fines': {
+    title: 'Register of Fines (Form XXI)',
+    description: '[FORM XXI,See Rule-78 (1) (a) (ii)] Statutory Register of Fines imposed on contract workmen under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, offence particulars...'
+  },
+  'register-overtime-form-xxiii': {
+    title: 'Register of Overtime (Form XXIII)',
+    description: '[FORM XXIII, See Rule 78 (1) (a) (iii)] Statutory Register of Overtime duty hours and overtime wage calculations under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'form-xxiii': {
+    title: 'Register of Overtime (Form XXIII)',
+    description: '[FORM XXIII, See Rule 78 (1) (a) (iii)] Statutory Register of Overtime duty hours and overtime wage calculations under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'register-overtime': {
+    title: 'Register of Overtime (Form XXIII)',
+    description: '[FORM XXIII, See Rule 78 (1) (a) (iii)] Statutory Register of Overtime duty hours and overtime wage calculations under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'wages-register-form-xvii': {
+    title: 'Register of Wages (Form XVII)',
+    description: '[FORM XVII, See Rule 78 (1) (a) (i)] Statutory Register of Wages under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation, establishment...'
+  },
+  'form-xvii': {
+    title: 'Register of Wages (Form XVII)',
+    description: '[FORM XVII, See Rule 78 (1) (a) (i)] Statutory Register of Wages under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation, establishment...'
+  },
+  'wages-register': {
+    title: 'Register of Wages (Form XVII)',
+    description: '[FORM XVII, See Rule 78 (1) (a) (i)] Statutory Register of Wages under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation, establishment...'
+  },
+  'workman-register-form-xiii': {
+    title: 'Register of Workmen Employed by Contractor (Form XIII)',
+    description: '[FORM XIII, See Rule 75] Statutory Register of Workmen Employed by Contractor under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['company', 'department', 'employee', 'status'],
+    placeholder: 'Search workman by name, ID, designation, address...'
+  },
+  'form-xiii': {
+    title: 'Register of Workmen Employed by Contractor (Form XIII)',
+    description: '[FORM XIII, See Rule 75] Statutory Register of Workmen Employed by Contractor under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['company', 'department', 'employee', 'status'],
+    placeholder: 'Search workman by name, ID, designation, address...'
+  },
+  'workman-register': {
+    title: 'Register of Workmen Employed by Contractor (Form XIII)',
+    description: '[FORM XIII, See Rule 75] Statutory Register of Workmen Employed by Contractor under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
+    filters: ['company', 'department', 'employee', 'status'],
+    placeholder: 'Search workman by name, ID, designation, address...'
+  },
+  'bank-transfer-letter': {
+    title: 'Bank Transfer Letter',
+    description: 'Official bank advice letter for employee salary disbursement with attached beneficiary account list.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, bank account...'
+  },
+  'bank-transfer-report': {
+    title: 'Bank Transfer Report',
+    description: 'Corporate salary disbursement sheet matching CMS/NEFT bank upload format (Remitter A/c, IFSC, Amount, Beneficiary A/c & Name).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search beneficiary name, account number, IFSC...'
+  },
+  leave: {
+    title: 'Register of Leave',
+    description: 'Statutory Register of Leave under Delhi Shops & Establishments Act (Form I) / Factories Rules (Form XXV).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, leave type...'
+  },
+  'form-xxv-register-of-leave': {
+    title: 'Register of Leave (Form XXV)',
+    description: 'Statutory register of annual leave with wages.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, leave type...'
+  },
+  'register-of-leave-se-delhi': {
+    title: 'Register of Leave - Form I (Delhi S&E Act)',
+    description: '[FORM I, See Rule 14] Statutory Register of Leave (Casual or Sickness Leave & Privilege Leave) maintained under Delhi Shops and Establishments Act, 1954.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, leave type...'
   },
   inventory: {
     title: 'Inventory & Asset Report',
@@ -406,72 +733,72 @@ const ALL_REPORTS_CATALOG = [
     title: 'Bonus Register (Form C)',
     desc: 'Register of annual bonus paid to employees.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'bonus-register-form-c',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'employment-card-form-xiv',
     title: 'Employment Card (Form XIV)',
     desc: 'Statutory employment cards issued to workmen.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'employment-card-form-xiv',
+    formats: ['pdf', 'excel']
   },
   {
     id: 'muster-roll-form-xvi',
     title: 'Muster Roll (Form XVI)',
     desc: 'Daily muster roll and worker attendance register.',
     category: 'labour-laws',
-    targetTab: 'attendance',
-    formats: ['excel']
+    targetTab: 'muster-roll-form-xvi',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'register-advances-form-xxii',
     title: 'Register of Advances (Form XXII)',
     desc: 'Record of salary advances and repayments.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'register-advances-form-xxii',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'register-deduction-damage-form-xx',
     title: 'Register of Deductions for Damage or Loss (Form XX)',
     desc: 'Deductions recorded for damage or loss.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'register-deduction-damage-form-xx',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'register-fines-form-xxi',
     title: 'Register of Fines (Form XXI)',
     desc: 'Record of fines imposed on workmen.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'register-fines-form-xxi',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'register-overtime-form-xxiii',
     title: 'Register of Overtime (Form XXIII)',
     desc: 'Overtime duty hours and wage calculations.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'register-overtime-form-xxiii',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'wages-register',
     title: 'Wages Register',
     desc: 'Monthly employee wages, earnings, and deductions.',
     category: 'labour-laws',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'wages-register-form-xvii',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'workman-register-form-xiii',
     title: 'Workman Register (Form XIII)',
     desc: 'Contract workmen master records and details.',
     category: 'labour-laws',
-    targetTab: 'employee',
-    formats: ['excel']
+    targetTab: 'workman-register-form-xiii',
+    formats: ['excel', 'pdf']
   },
 
   // --- Salary Reports ---
@@ -480,48 +807,48 @@ const ALL_REPORTS_CATALOG = [
     title: 'Bank Transfer Letter',
     desc: 'Official bank advice letter for employee salary disbursement.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['word', 'pdf']
+    targetTab: 'bank-transfer-letter',
+    formats: ['pdf', 'word', 'excel']
   },
   {
     id: 'bank-transfer-report',
     title: 'Bank Transfer Report',
     desc: 'Account-wise net salary credit list for bank disbursement.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'bank-transfer-report',
+    formats: ['excel', 'csv', 'pdf']
   },
   {
     id: 'form-c-bonus-paid',
     title: 'Form C - Bonus Paid to Employees',
     desc: 'Statutory bonus paid return under Payment of Bonus Act.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'bonus-register-form-c',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'form-xxv-register-of-leave',
     title: 'Register of Leave (Form XXV)',
     desc: 'Statutory register of annual leave with wages.',
     category: 'salary',
-    targetTab: 'leave',
-    formats: ['pdf']
+    targetTab: 'form-xxv-register-of-leave',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'register-of-leave-se-delhi',
     title: 'Register of Leave - Form I (Delhi S&E Act)',
     desc: 'Leave register maintained under Delhi Shops & Establishment Act.',
     category: 'salary',
-    targetTab: 'leave',
-    formats: ['word', 'pdf']
+    targetTab: 'register-of-leave-se-delhi',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'overtime-register-salary',
     title: 'Overtime Register',
     desc: 'Employee overtime hours worked and wages payable statement.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'register-overtime-form-xxiii',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'employee-payslip',
@@ -536,16 +863,16 @@ const ALL_REPORTS_CATALOG = [
     title: 'Register of Deductions for Damage or Loss',
     desc: 'Record of deductions made from wages for damages or loss.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'register-deduction-damage-form-xx',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'register-fines-employer-salary',
     title: 'Register of Fines (Employer)',
     desc: 'Register of fines imposed and recovered by employer.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'register-fines-form-xxi',
+    formats: ['excel', 'pdf']
   },
   {
     id: 'salary-sheet-format-1',
@@ -570,7 +897,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'Employee Profile',
     desc: 'Complete individual employee profile and personal details.',
     category: 'employee',
-    targetTab: 'employee',
+    targetTab: 'employee-profile',
     formats: ['pdf']
   },
   {
@@ -578,7 +905,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'F&F Settlement Payslip',
     desc: 'Full and final salary settlement statement on exit.',
     category: 'employee',
-    targetTab: 'payroll',
+    targetTab: 'fnf-settlement',
     formats: ['pdf']
   },
   {
@@ -586,7 +913,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'Form 16 (Part B)',
     desc: 'TDS certificate with salary and tax deduction details.',
     category: 'employee',
-    targetTab: 'payroll',
+    targetTab: 'form-16',
     formats: ['pdf']
   },
   {
@@ -594,7 +921,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'Form F - Gratuity Nomination Form',
     desc: 'Statutory nomination form under Payment of Gratuity Act.',
     category: 'employee',
-    targetTab: 'payroll',
+    targetTab: 'form-f-gratuity-nomination',
     formats: ['pdf']
   },
   {
@@ -602,7 +929,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'Employee ID Card',
     desc: 'Printable employee identity card with photo and details.',
     category: 'employee',
-    targetTab: 'employee',
+    targetTab: 'employee-id-card',
     formats: ['pdf']
   },
   {
@@ -618,7 +945,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'Salary Certificate',
     desc: 'Official employee salary certificate for banks and verification.',
     category: 'employee',
-    targetTab: 'payroll',
+    targetTab: 'salary-certificate',
     formats: ['pdf']
   }
 ];
@@ -830,8 +1157,8 @@ function WageSalaryRegisterTable({ reportData }) {
                   {/* 17. Signature / Bank Details */}
                   <td className={styles.signatureCell}>
                     <div style={{ color: '#64748b', fontSize: '9px' }}>Bank</div>
-                    <div className={styles.signatureBank}>{row.bankName || 'HDFC Bank'}</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '9.5px' }}>{row.bankAccountNo || '50100636547362'}</div>
+                    <div className={styles.signatureBank}>{row.bankName || '—'}</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '9.5px' }}>{row.bankAccountNo || '—'}</div>
                     <div className={styles.signatureLine}>Sign / Thumb</div>
                   </td>
                 </tr>
@@ -1129,7 +1456,8 @@ function ReportFilters({
   filterOptions,
   setFilter,
   onGenerateReport,
-  onResetFilters
+  onResetFilters,
+  isLoading
 }) {
   const meta = reportMeta[selectedReport] || reportMeta.payroll;
   const showMonth = meta.filters.includes('month');
@@ -1260,10 +1588,22 @@ function ReportFilters({
       </div>
 
       <div className={styles.filterActions}>
-        <button type="button" className={styles.primaryButton} onClick={onGenerateReport}>
-          Generate Report
+        <button
+          type="button"
+          className={styles.primaryButton}
+          onClick={onGenerateReport}
+          disabled={isLoading}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+        >
+          <RefreshCw size={14} className={isLoading ? styles.spinIcon : ''} />
+          {isLoading ? 'Generating...' : 'Generate Report'}
         </button>
-        <button type="button" className={styles.secondaryButton} onClick={onResetFilters}>
+        <button
+          type="button"
+          className={styles.secondaryButton}
+          onClick={onResetFilters}
+          disabled={isLoading}
+        >
           Reset
         </button>
       </div>
@@ -1283,8 +1623,7 @@ function ReportBody({
   reportData,
   isLoading,
   onGenerateReport,
-  onResetFilters,
-  setExportOpen
+  onResetFilters
 }) {
   const meta = reportMeta[activeReport] || reportMeta.payroll;
   const summaryCards = reportData?.summaryCards || [];
@@ -1303,8 +1642,8 @@ function ReportBody({
   const [currentPage, setCurrentPage] = useState(1);
   const totalItems = filteredRows.length;
   const paginatedRows = useMemo(() => {
-    // For WageSalaryRegister, show all records or paginate as needed
-    if (activeReport === 'payroll') return filteredRows;
+    // For WageSalaryRegister, EmployeeProfile, and Full & Final Settlement, show all matching records
+    if (activeReport === 'payroll' || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') return filteredRows;
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredRows.slice(start, start + PAGE_SIZE);
   }, [filteredRows, currentPage, activeReport]);
@@ -1315,65 +1654,240 @@ function ReportBody({
     }
     if (activeReport === 'attendance') return <AttendanceTable rows={paginatedRows} />;
     if (activeReport === 'billing') return <BillingTable rows={paginatedRows} />;
-    if (activeReport === 'employee') return <EmployeeMasterTable rows={paginatedRows} />;
+    if (activeReport === 'employee-profile') {
+      return (
+        <EmployeeProfileReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          filters={filters}
+          onExportEmployeePdf={(emp, comp) => {
+            downloadEmployeeProfile(emp, comp || reportData?.companyInfo, { mode: 'download' });
+          }}
+          onPrintEmployeePdf={(emp, comp) => {
+            downloadEmployeeProfile(emp, comp || reportData?.companyInfo, { mode: 'print' });
+          }}
+          onExportAllPdfs={async (empList, comp) => {
+            for (const emp of empList) {
+              await downloadEmployeeProfile(emp, comp || reportData?.companyInfo, { mode: 'download' });
+            }
+          }}
+        />
+      );
+    }
+    if (activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') {
+      return (
+        <FnfSettlementReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          filters={filters}
+          onExportPdf={(rec, comp) => {
+            downloadFnfSettlementPdf(rec, comp || reportData?.companyInfo, { mode: 'download' });
+          }}
+          onPrintPdf={(rec, comp) => {
+            downloadFnfSettlementPdf(rec, comp || reportData?.companyInfo, { mode: 'print' });
+          }}
+        />
+      );
+    }
+    if (activeReport === 'form-16' || activeReport === 'form-16-part-b') {
+      return (
+        <Form16ReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'form-f-gratuity-nomination' || activeReport === 'form-f') {
+      return (
+        <FormFReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'salary-certificate' || activeReport === 'salary-certificate-report') {
+      return (
+        <SalaryCertificateReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report') {
+      return (
+        <EmployeeIdCardReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'bonus-register-form-c' || activeReport === 'form-c-bonus-paid') {
+      return (
+        <BonusRegisterFormCView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'employment-card-form-xiv' || activeReport === 'employment-card') {
+      return (
+        <EmploymentCardFormXIVReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'muster-roll-form-xvi' || activeReport === 'form-xvi' || activeReport === 'muster-roll') {
+      return (
+        <MusterRollFormXVIReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'register-advances-form-xxii' || activeReport === 'form-xxii' || activeReport === 'register-advances') {
+      return (
+        <AdvancesRegisterFormXXIIReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'register-deduction-damage-form-xx' || activeReport === 'form-xx' || activeReport === 'register-deductions-damage') {
+      return (
+        <DeductionsDamageFormXXReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines') {
+      return (
+        <FinesRegisterFormXXIReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime') {
+      return (
+        <OvertimeRegisterFormXXIIIReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register') {
+      return (
+        <WagesRegisterFormXVIILReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          establishmentInfo={reportData?.establishmentInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          pfSummary={reportData?.pfSummary}
+          esiSummary={reportData?.esiSummary}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register') {
+      return (
+        <WorkmanRegisterFormXIIIReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          establishmentInfo={reportData?.establishmentInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'bank-transfer-letter') {
+      return (
+        <BankTransferLetterReportView
+          records={filteredRows}
+          letterInfo={reportData?.letterInfo}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'bank-transfer-report') {
+      return (
+        <BankTransferReportView
+          records={filteredRows}
+          remitterInfo={reportData?.remitterInfo}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'register-of-leave-se-delhi') {
+      return (
+        <FormILeaveReportView
+          records={reportData?.records || filteredRows}
+          selectedEmployeeData={reportData?.selectedEmployeeData}
+          employees={reportData?.employees}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'leave' || activeReport === 'form-xxv-register-of-leave') {
+      return (
+        <LeaveRegisterReportView
+          records={filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          statutoryNotes={reportData?.statutoryNotes}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'employee') {
+      return <EmployeeMasterTable rows={paginatedRows} />;
+    }
     if (activeReport === 'inventory') return <InventoryTable rows={paginatedRows} />;
     return null;
   };
 
   return (
     <section className={styles.reportPanel}>
-      <div className={styles.reportIntroRow}>
-        <div>
-          <button
-            type="button"
-            className={styles.backLink}
-            onClick={() => setFilter('activeReport', null)}
-          >
-            <ArrowLeft size={16} /> Back to Reports
-          </button>
-        </div>
-        <div className={styles.reportToolbar}>
-          <button
-            type="button"
-            className={styles.primaryButtonSmall}
-            onClick={onGenerateReport}
-            disabled={isLoading}
-          >
-            <RefreshCw size={14} className={isLoading ? styles.spinIcon : ''} /> Generate Report
-          </button>
-          <button
-            type="button"
-            className={styles.primaryButtonSmall}
-            onClick={() => setExportOpen(true)}
-          >
-            <Download size={14} /> Export
-          </button>
-          <button
-            type="button"
-            className={styles.secondaryButton}
-            onClick={() => {
-              const records = reportData?.records || [];
-              if (!records.length) {
-                alert('No records available to print or export.');
-                return;
-              }
-              generateReportPdf({
-                reportType: activeReport,
-                title: reportMeta[activeReport]?.title,
-                period: reportData?.period || filters,
-                companyInfo: reportData?.companyInfo,
-                records: filteredRows,
-                totals: reportData?.totals,
-                statutoryRules: reportData?.statutoryRules,
-                mode: 'print',
-              });
-            }}
-          >
-            <Printer size={14} /> Print
-          </button>
-        </div>
-      </div>
-
       {/* Selected Period Preview Card */}
       <div className={styles.reportPreviewCard}>
         <div className={styles.previewGrid}>
@@ -1419,6 +1933,7 @@ function ReportBody({
         setFilter={setFilter}
         onGenerateReport={onGenerateReport}
         onResetFilters={onResetFilters}
+        isLoading={isLoading}
       />
 
       {/* Search Toolbar */}
@@ -1440,10 +1955,10 @@ function ReportBody({
           <div className={styles.loadingSpinner} />
           <p>Generating {meta.title} from MongoDB...</p>
         </div>
-      ) : filteredRows.length ? (
+      ) : (filteredRows.length > 0 || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip' || activeReport === 'form-16' || activeReport === 'form-16-part-b' || activeReport === 'form-f-gratuity-nomination' || activeReport === 'form-f' || activeReport === 'salary-certificate' || activeReport === 'salary-certificate-report' || activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report' || activeReport === 'bonus-register-form-c' || activeReport === 'form-c-bonus-paid' || activeReport === 'employment-card-form-xiv' || activeReport === 'employment-card' || activeReport === 'muster-roll-form-xvi' || activeReport === 'form-xvi' || activeReport === 'muster-roll' || activeReport === 'register-advances-form-xxii' || activeReport === 'form-xxii' || activeReport === 'register-advances' || activeReport === 'register-deduction-damage-form-xx' || activeReport === 'form-xx' || activeReport === 'register-deductions-damage' || activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines' || activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime' || activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register' || activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register' || activeReport === 'bank-transfer-letter' || activeReport === 'bank-transfer-report' || activeReport === 'leave' || activeReport === 'form-xxv-register-of-leave' || activeReport === 'register-of-leave-se-delhi') ? (
         <>
           {renderTable()}
-          {activeReport !== 'payroll' && totalItems > PAGE_SIZE && (
+          {activeReport !== 'payroll' && activeReport !== 'employee-profile' && activeReport !== 'fnf-settlement' && activeReport !== 'fnf-settlement-payslip' && activeReport !== 'form-16' && activeReport !== 'form-16-part-b' && activeReport !== 'form-f-gratuity-nomination' && activeReport !== 'form-f' && activeReport !== 'salary-certificate' && activeReport !== 'salary-certificate-report' && activeReport !== 'employee-id-card' && activeReport !== 'employee-id-card-report' && activeReport !== 'bonus-register-form-c' && activeReport !== 'form-c-bonus-paid' && activeReport !== 'employment-card-form-xiv' && activeReport !== 'employment-card' && activeReport !== 'muster-roll-form-xvi' && activeReport !== 'form-xvi' && activeReport !== 'muster-roll' && activeReport !== 'register-advances-form-xxii' && activeReport !== 'form-xxii' && activeReport !== 'register-advances' && activeReport !== 'register-deduction-damage-form-xx' && activeReport !== 'form-xx' && activeReport !== 'register-deductions-damage' && activeReport !== 'register-fines-form-xxi' && activeReport !== 'form-xxi' && activeReport !== 'register-fines' && activeReport !== 'register-overtime-form-xxiii' && activeReport !== 'form-xxiii' && activeReport !== 'register-overtime' && activeReport !== 'wages-register-form-xvii' && activeReport !== 'form-xvii' && activeReport !== 'wages-register' && activeReport !== 'workman-register-form-xiii' && activeReport !== 'form-xiii' && activeReport !== 'workman-register' && activeReport !== 'bank-transfer-letter' && activeReport !== 'bank-transfer-report' && activeReport !== 'leave' && activeReport !== 'form-xxv-register-of-leave' && activeReport !== 'register-of-leave-se-delhi' && totalItems > PAGE_SIZE && (
             <Pagination
               currentPage={currentPage}
               totalItems={totalItems}
@@ -1467,15 +1982,367 @@ function ReportBody({
    Export Report Modal (PDF & Excel download)
    ========================================================= */
 function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filters, onExportSuccess }) {
-  const [format, setFormat] = useState('PDF');
+  const [format, setFormat] = useState(
+    selectedReport === 'bonus-register-form-c' ||
+    selectedReport === 'form-c-bonus-paid' ||
+    selectedReport === 'register-deduction-damage-form-xx' ||
+    selectedReport === 'form-xx' ||
+    selectedReport === 'register-deductions-damage' ||
+    selectedReport === 'register-fines-form-xxi' ||
+    selectedReport === 'form-xxi' ||
+    selectedReport === 'register-fines' ||
+    selectedReport === 'register-overtime-form-xxiii' ||
+    selectedReport === 'form-xxiii' ||
+    selectedReport === 'register-overtime' ||
+    selectedReport === 'wages-register-form-xvii' ||
+    selectedReport === 'form-xvii' ||
+    selectedReport === 'wages-register' ||
+    selectedReport === 'workman-register-form-xiii' ||
+    selectedReport === 'form-xiii' ||
+    selectedReport === 'workman-register' ||
+    selectedReport === 'bank-transfer-report' ||
+    selectedReport === 'leave' ||
+    selectedReport === 'form-xxv-register-of-leave' ||
+    selectedReport === 'register-of-leave-se-delhi'
+      ? 'Excel'
+      : 'PDF'
+  );
+  const [profileScope, setProfileScope] = useState('single');
   if (!isOpen) return null;
 
   const reportName = reportMeta[selectedReport]?.title || 'HRMS Report';
+  const isProfileReport = selectedReport === 'employee-profile';
+  const isFnfReport = selectedReport === 'fnf-settlement' || selectedReport === 'fnf-settlement-payslip';
+  const isForm16Report = selectedReport === 'form-16' || selectedReport === 'form-16-part-b';
+  const isFormFReport = selectedReport === 'form-f-gratuity-nomination' || selectedReport === 'form-f';
+  const isSalaryCertReport = selectedReport === 'salary-certificate' || selectedReport === 'salary-certificate-report';
+  const isIdCardReport = selectedReport === 'employee-id-card' || selectedReport === 'employee-id-card-report';
+  const isBonusReport = selectedReport === 'bonus-register-form-c' || selectedReport === 'form-c-bonus-paid';
+  const isEmploymentCardReport = selectedReport === 'employment-card-form-xiv' || selectedReport === 'employment-card';
+  const isMusterRollReport = selectedReport === 'muster-roll-form-xvi' || selectedReport === 'form-xvi' || selectedReport === 'muster-roll';
+  const isAdvancesReport = selectedReport === 'register-advances-form-xxii' || selectedReport === 'form-xxii' || selectedReport === 'register-advances';
+  const isDeductionsDamageReport = selectedReport === 'register-deduction-damage-form-xx' || selectedReport === 'form-xx' || selectedReport === 'register-deductions-damage';
+  const isFinesReport = selectedReport === 'register-fines-form-xxi' || selectedReport === 'form-xxi' || selectedReport === 'register-fines';
+  const isOvertimeReport = selectedReport === 'register-overtime-form-xxiii' || selectedReport === 'form-xxiii' || selectedReport === 'register-overtime';
+  const isWagesReport = selectedReport === 'wages-register-form-xvii' || selectedReport === 'form-xvii' || selectedReport === 'wages-register';
+  const isWorkmanRegisterReport = selectedReport === 'workman-register-form-xiii' || selectedReport === 'form-xiii' || selectedReport === 'workman-register';
+  const isBankTransferLetterReport = selectedReport === 'bank-transfer-letter';
+  const isBankTransferReport = selectedReport === 'bank-transfer-report';
+  const isFormIReport = selectedReport === 'register-of-leave-se-delhi';
+  const isLeaveReport = selectedReport === 'leave' || selectedReport === 'form-xxv-register-of-leave';
+  const records = reportData?.records || [];
 
-  const handleExportSubmit = () => {
-    const records = reportData?.records || [];
+  const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+    ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+    : records[0];
+
+  const handleExportSubmit = async () => {
     if (!records.length) {
       onExportSuccess('No records available to export.');
+      onClose();
+      return;
+    }
+
+    // Special handling for Employee Profile report -> generates the exact official Employee Profile PDF
+    if (isProfileReport) {
+      if (profileScope === 'all' && records.length > 1) {
+        for (const emp of records) {
+          await downloadEmployeeProfile(emp, reportData?.companyInfo, { mode: 'download' });
+        }
+        onExportSuccess(`✓ Downloaded all ${records.length} Employee Profiles successfully.`);
+      } else {
+        await downloadEmployeeProfile(targetEmp, reportData?.companyInfo, { mode: 'download' });
+        onExportSuccess(`✓ Employee Profile PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Full & Final Settlement report -> generates the exact official F&F PDF
+    if (isFnfReport) {
+      if (profileScope === 'all' && records.length > 1) {
+        for (const emp of records) {
+          await downloadFnfSettlementPdf(emp, reportData?.companyInfo, { mode: 'download' });
+        }
+        onExportSuccess(`✓ Downloaded all ${records.length} Full & Final Settlement statements successfully.`);
+      } else {
+        await downloadFnfSettlementPdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
+        onExportSuccess(`✓ Full & Final Settlement PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Form 16 (Part B) report -> generates the exact official Form 16 PDF
+    if (isForm16Report) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadForm16Pdf(records, reportData?.companyInfo, reportData?.period, exportOptions);
+        onExportSuccess(`✓ Downloaded all ${records.length} Form 16 (Part B) certificates successfully.`);
+      } else {
+        await downloadForm16Pdf(targetEmp, reportData?.companyInfo, reportData?.period, exportOptions);
+        onExportSuccess(`✓ Form 16 (Part B) PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Form F Gratuity Nomination report -> generates the exact official Form F PDF
+    if (isFormFReport) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadFormFPdf(records, reportData?.companyInfo, exportOptions);
+        onExportSuccess(`✓ Downloaded all ${records.length} Form F Gratuity Nomination forms successfully.`);
+      } else {
+        await downloadFormFPdf(targetEmp, reportData?.companyInfo, exportOptions);
+        onExportSuccess(`✓ Form F Gratuity Nomination PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Salary Certificate report -> generates the exact official Salary Certificate PDF
+    if (isSalaryCertReport) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadSalaryCertificatePdf(records, reportData?.companyInfo, exportOptions);
+        onExportSuccess(`✓ Downloaded all ${records.length} Salary Certificates successfully.`);
+      } else {
+        await downloadSalaryCertificatePdf(targetEmp, reportData?.companyInfo, exportOptions);
+        onExportSuccess(`✓ Salary Certificate PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Employee ID Card report -> generates the exact official ID Card PDF
+    if (isIdCardReport) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadEmployeeIdCardPdf(records, reportData?.companyInfo, exportOptions);
+        onExportSuccess(`✓ Downloaded all ${records.length} Employee ID Cards successfully.`);
+      } else {
+        await downloadEmployeeIdCardPdf(targetEmp, reportData?.companyInfo, exportOptions);
+        onExportSuccess(`✓ Employee ID Card PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Bonus Register (Form C) -> generates the exact official Form C Excel / PDF
+    if (isBonusReport) {
+      if (format === 'PDF') {
+        downloadBonusRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Bonus Register (Form C) PDF downloaded successfully.`);
+      } else {
+        downloadBonusRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Bonus Register (Form C) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Employment Card (Form XIV)
+    if (isEmploymentCardReport) {
+      if (format === 'Excel') {
+        if (profileScope === 'all' && records.length > 1) {
+          downloadEmploymentCardExcel(records, reportData?.companyInfo);
+          onExportSuccess(`✓ Downloaded all ${records.length} Employment Cards (.xlsx) successfully.`);
+        } else {
+          downloadEmploymentCardExcel(targetEmp, reportData?.companyInfo);
+          onExportSuccess(`✓ Employment Card Excel (${targetEmp?.workmanName || targetEmp?.name || 'Workman'}) downloaded successfully.`);
+        }
+      } else {
+        if (profileScope === 'all' && records.length > 1) {
+          await downloadEmploymentCardPdf(records, reportData?.companyInfo, { mode: 'download' });
+          onExportSuccess(`✓ Downloaded all ${records.length} Employment Cards (Form XIV) successfully.`);
+        } else {
+          await downloadEmploymentCardPdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
+          onExportSuccess(`✓ Employment Card PDF (${targetEmp?.workmanName || targetEmp?.name || 'Workman'}) downloaded successfully.`);
+        }
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Muster Roll (Form XVI) -> generates the exact statutory Form XVI Excel / PDF
+    if (isMusterRollReport) {
+      if (format === 'PDF') {
+        downloadMusterRollPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Muster Roll (Form XVI) PDF downloaded successfully.`);
+      } else {
+        downloadMusterRollExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Muster Roll (Form XVI) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Advances (Form XXII) -> generates statutory Form XXII Excel / PDF
+    if (isAdvancesReport) {
+      if (format === 'PDF') {
+        downloadAdvancesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Advances (Form XXII) PDF downloaded successfully.`);
+      } else {
+        downloadAdvancesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Advances (Form XXII) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Deductions for Damage or Loss (Form XX) -> generates statutory Form XX Excel / PDF
+    if (isDeductionsDamageReport) {
+      if (format === 'PDF') {
+        downloadDeductionsDamagePdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form XX) PDF downloaded successfully.`);
+      } else {
+        downloadDeductionsDamageExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form XX) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Fines (Form XXI) -> generates statutory Form XXI Excel / PDF
+    if (isFinesReport) {
+      if (format === 'PDF') {
+        downloadFinesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Fines (Form XXI) PDF downloaded successfully.`);
+      } else {
+        downloadFinesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Fines (Form XXI) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Overtime (Form XXIII) -> generates statutory Form XXIII Excel / PDF
+    if (isOvertimeReport) {
+      if (format === 'PDF') {
+        downloadOvertimeRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Overtime (Form XXIII) PDF downloaded successfully.`);
+      } else {
+        downloadOvertimeRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Overtime (Form XXIII) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Wages (Form XVII) -> generates statutory Form XVII Excel / PDF
+    if (isWagesReport) {
+      if (format === 'PDF') {
+        downloadWagesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo);
+        onExportSuccess(`✓ Register of Wages (Form XVII) PDF downloaded successfully.`);
+      } else {
+        downloadWagesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Wages (Form XVII) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Workmen (Form XIII) -> generates statutory Form XIII Excel / PDF
+    if (isWorkmanRegisterReport) {
+      if (format === 'PDF') {
+        downloadWorkmanRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo);
+        onExportSuccess(`✓ Register of Workmen (Form XIII) PDF downloaded successfully.`);
+      } else {
+        downloadWorkmanRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Workmen (Form XIII) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Bank Transfer Letter -> generates official Advice Letter PDF / Word / Excel
+    if (isBankTransferLetterReport) {
+      if (format === 'Word') {
+        downloadBankTransferLetterWord(reportData?.letterInfo, records, reportData?.companyInfo);
+        onExportSuccess(`✓ Bank Transfer Letter Word document (.doc) downloaded successfully.`);
+      } else if (format === 'Excel') {
+        downloadBankTransferLetterExcel(reportData?.letterInfo, records, reportData?.companyInfo);
+        onExportSuccess(`✓ Bank Transfer Report Excel spreadsheet (.xlsx) downloaded successfully.`);
+      } else {
+        downloadBankTransferLetterPdf(reportData?.letterInfo, records, reportData?.companyInfo);
+        onExportSuccess(`✓ Bank Transfer Letter PDF downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Bank Transfer Report -> generates exact CMS Excel / CSV / PDF matching reference
+    if (isBankTransferReport) {
+      if (format === 'CSV') {
+        downloadBankTransferReportCsv(reportData?.remitterInfo, records, reportData?.period || filters);
+        onExportSuccess(`✓ Bank Transfer Report CSV (.csv) downloaded successfully.`);
+      } else if (format === 'PDF') {
+        downloadBankTransferReportPdf(reportData?.remitterInfo, records, reportData?.period || filters, reportData?.totals, reportData?.companyInfo, { mode: 'download' });
+        onExportSuccess(`✓ Bank Transfer Report PDF (.pdf) downloaded successfully.`);
+      } else {
+        downloadBankTransferReportExcel(reportData?.remitterInfo, records, reportData?.period || filters);
+        onExportSuccess(`✓ Bank Transfer Report Excel (.xlsx) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Leave - Form I (Delhi S&E Act) -> generates statutory Form I Excel / CSV / PDF
+    if (isFormIReport) {
+      const empData = reportData?.selectedEmployeeData || { rows: records, ...reportData?.companyInfo };
+      if (format === 'PDF') {
+        downloadFormILeavePdf(empData, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
+        onExportSuccess(`✓ Register of Leave - Form I (Delhi S&E Act) PDF downloaded successfully.`);
+      } else {
+        downloadFormILeaveExcel(empData, reportData?.companyInfo, reportData?.period || filters, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Leave - Form I ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Leave (Form XXV) -> generates statutory Excel / CSV / PDF
+    if (isLeaveReport) {
+      if (format === 'PDF') {
+        downloadLeaveRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, { mode: 'download' });
+        onExportSuccess(`✓ Register of Leave (Form XXV) PDF downloaded successfully.`);
+      } else {
+        downloadLeaveRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Register of Leave (Form XXV) ${format} spreadsheet downloaded successfully.`);
+      }
       onClose();
       return;
     }
@@ -1528,22 +2395,126 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
             <label>Report</label>
             <input type="text" value={reportName} readOnly />
           </div>
-          <div className={styles.fieldGroup}>
-            <label>Period</label>
-            <input type="text" value={reportData?.period?.monthLabel || filters.month || 'Current Month'} readOnly />
-          </div>
-          <div className={styles.fieldGroup}>
-            <label>Company / Site</label>
-            <input type="text" value={filters.company || 'All Companies'} readOnly />
-          </div>
-          <div className={styles.fieldGroup}>
-            <label>Format</label>
-            <select value={format} onChange={(e) => setFormat(e.target.value)}>
-              <option value="PDF">Printable PDF / Official Register (.pdf)</option>
-              <option value="Excel">Excel Spreadsheet (.xlsx)</option>
-              <option value="CSV">CSV Spreadsheet (.csv)</option>
-            </select>
-          </div>
+
+          {isProfileReport || isFnfReport || isForm16Report || isFormFReport || isSalaryCertReport || isIdCardReport || isEmploymentCardReport ? (
+            <>
+              <div className={styles.fieldGroup}>
+                <label>Active Workman / Employee</label>
+                <input
+                  type="text"
+                  value={targetEmp ? `${targetEmp.workmanName || targetEmp.name} (${targetEmp.employeeCode || targetEmp.employeeId})` : 'All Filtered'}
+                  readOnly
+                />
+              </div>
+
+              {records.length > 1 && (
+                <div className={styles.fieldGroup}>
+                  <label>Export Scope</label>
+                  <select value={profileScope} onChange={(e) => setProfileScope(e.target.value)}>
+                    <option value="single">Active Selected Workman ({targetEmp?.workmanName || targetEmp?.name || 'Current'})</option>
+                    <option value="all">All Filtered Workmen ({records.length} Cards)</option>
+                  </select>
+                </div>
+              )}
+
+              <div className={styles.fieldGroup}>
+                <label>Format</label>
+                <select value={format} onChange={(e) => setFormat(e.target.value)}>
+                  {isEmploymentCardReport ? (
+                    <>
+                      <option value="PDF">Official Employment Card Form XIV PDF (.pdf)</option>
+                      <option value="Excel">Employment Card Form XIV Excel (.xlsx)</option>
+                    </>
+                  ) : (
+                    <option value="PDF">{isIdCardReport ? 'Official Employee ID Card PDF (.pdf)' : isSalaryCertReport ? 'Official Salary Certificate PDF (.pdf)' : isFormFReport ? "Form 'F' Gratuity Nomination PDF (.pdf)" : isForm16Report ? 'Form 16 (Part B) Certificate PDF (.pdf)' : isFnfReport ? 'Full & Final Settlement Statement PDF (.pdf)' : 'Official Employee Profile PDF (.pdf)'}</option>
+                  )}
+                </select>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className={styles.fieldGroup}>
+                <label>Period / Accounting Year</label>
+                <input type="text" value={reportData?.period?.accountingYear || reportData?.period?.monthLabel || filters.month || 'Current Year'} readOnly />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label>Company / Site</label>
+                <input type="text" value={filters.company || 'All Companies'} readOnly />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label>Format</label>
+                <select value={format} onChange={(e) => setFormat(e.target.value)}>
+                  {isBonusReport ? (
+                    <>
+                      <option value="Excel">Statutory Form C Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form C Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form C CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isMusterRollReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XVI Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XVI Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XVI CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isAdvancesReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XXII Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XXII Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XXII CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isDeductionsDamageReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XX Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XX Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XX CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isFinesReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XXI Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XXI Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XXI CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isOvertimeReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XXIII Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XXIII Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XXIII CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isWagesReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XVII Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XVII Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XVII CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isWorkmanRegisterReport ? (
+                    <>
+                      <option value="Excel">Statutory Form XIII Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form XIII Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form XIII CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isBankTransferLetterReport ? (
+                    <>
+                      <option value="PDF">Official Bank Transfer Advice Letter PDF (.pdf)</option>
+                      <option value="Word">Official Bank Transfer Letter Word Document (.doc)</option>
+                      <option value="Excel">Beneficiary Account Disbursement Excel (.xlsx)</option>
+                    </>
+                  ) : isBankTransferReport ? (
+                    <>
+                      <option value="Excel">Bank Transfer CMS Excel Spreadsheet (.xlsx)</option>
+                      <option value="CSV">Bank Transfer CMS CSV Format (.csv)</option>
+                      <option value="PDF">Bank Transfer Report Printable PDF (.pdf)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="PDF">Printable PDF / Official Register (.pdf)</option>
+                      <option value="Excel">Excel Spreadsheet (.xlsx)</option>
+                      <option value="CSV">CSV Spreadsheet (.csv)</option>
+                    </>
+                  )}
+                </select>
+              </div>
+            </>
+          )}
         </div>
 
         <div className={styles.modalActions}>
@@ -1566,9 +2537,55 @@ function Reports() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') || searchParams.get('type');
-
-  const validReportTypes = ['payroll', 'attendance', 'billing', 'employee', 'inventory'];
-  const initialActive = tabParam && validReportTypes.includes(tabParam) ? tabParam : null;
+  const validReportTypes = [
+    'payroll',
+    'attendance',
+    'billing',
+    'employee',
+    'employee-profile',
+    'fnf-settlement',
+    'fnf-settlement-payslip',
+    'form-16',
+    'form-16-part-b',
+    'form-f-gratuity-nomination',
+    'form-f',
+    'salary-certificate',
+    'salary-certificate-report',
+    'employee-id-card',
+    'employee-id-card-report',
+    'bonus-register-form-c',
+    'form-c-bonus-paid',
+    'employment-card-form-xiv',
+    'employment-card',
+    'muster-roll-form-xvi',
+    'form-xvi',
+    'muster-roll',
+    'register-advances-form-xxii',
+    'form-xxii',
+    'register-advances',
+    'register-deduction-damage-form-xx',
+    'form-xx',
+    'register-deductions-damage',
+    'register-fines-form-xxi',
+    'form-xxi',
+    'register-fines',
+    'register-overtime-form-xxiii',
+    'form-xxiii',
+    'register-overtime',
+    'wages-register-form-xvii',
+    'form-xvii',
+    'wages-register',
+    'workman-register-form-xiii',
+    'form-xiii',
+    'workman-register',
+    'bank-transfer-letter',
+    'bank-transfer-report',
+    'leave',
+    'form-xxv-register-of-leave',
+    'register-of-leave-se-delhi',
+    'inventory'
+  ];
+  const initialActive = tabParam && (validReportTypes.includes(tabParam) || Boolean(reportMeta[tabParam])) ? tabParam : null;
 
   const [activeReport, setActiveReport] = useState(initialActive);
   const [searchTerm, setSearchTerm] = useState('');
@@ -1618,7 +2635,7 @@ function Reports() {
   // Sync activeReport state with URL
   useEffect(() => {
     const currentTab = searchParams.get('tab') || searchParams.get('type');
-    if (currentTab && validReportTypes.includes(currentTab)) {
+    if (currentTab && (validReportTypes.includes(currentTab) || Boolean(reportMeta[currentTab]))) {
       setActiveReport(currentTab);
     } else {
       setActiveReport(null);
@@ -1660,10 +2677,46 @@ function Reports() {
         data = await reportService.getAttendanceReport('', filters);
       } else if (activeReport === 'billing') {
         data = await reportService.getBillingReport('', filters);
-      } else if (activeReport === 'employee') {
+      } else if (activeReport === 'employee' || activeReport === 'employee-profile') {
         data = await reportService.getEmployeeMasterReport('', filters);
       } else if (activeReport === 'inventory') {
         data = await reportService.getInventoryReport('', filters);
+      } else if (activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') {
+        data = await reportService.getFnfSettlementReport('', filters);
+      } else if (activeReport === 'form-16' || activeReport === 'form-16-part-b') {
+        data = await reportService.getForm16Report('', filters);
+      } else if (activeReport === 'form-f-gratuity-nomination' || activeReport === 'form-f') {
+        data = await reportService.getFormFGratuityReport('', filters);
+      } else if (activeReport === 'salary-certificate' || activeReport === 'salary-certificate-report') {
+        data = await reportService.getSalaryCertificateReport('', filters);
+      } else if (activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report') {
+        data = await reportService.getEmployeeIdCardReport('', filters);
+      } else if (activeReport === 'bonus-register-form-c' || activeReport === 'form-c-bonus-paid') {
+        data = await reportService.getBonusRegisterReport('', filters);
+      } else if (activeReport === 'employment-card-form-xiv' || activeReport === 'employment-card') {
+        data = await reportService.getEmploymentCardReport('', filters);
+      } else if (activeReport === 'muster-roll-form-xvi' || activeReport === 'form-xvi' || activeReport === 'muster-roll') {
+        data = await reportService.getMusterRollReport('', filters);
+      } else if (activeReport === 'register-advances-form-xxii' || activeReport === 'form-xxii' || activeReport === 'register-advances') {
+        data = await reportService.getRegisterOfAdvancesReport('', filters);
+      } else if (activeReport === 'register-deduction-damage-form-xx' || activeReport === 'form-xx' || activeReport === 'register-deductions-damage') {
+        data = await reportService.getDeductionsDamageReport('', filters);
+      } else if (activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines') {
+        data = await reportService.getRegisterOfFinesReport('', filters);
+      } else if (activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime') {
+        data = await reportService.getRegisterOfOvertimeReport('', filters);
+      } else if (activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register') {
+        data = await reportService.getWagesRegisterReport('', filters);
+      } else if (activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register') {
+        data = await reportService.getWorkmanRegisterReport('', filters);
+      } else if (activeReport === 'bank-transfer-letter') {
+        data = await reportService.getBankTransferLetterReport('', filters);
+      } else if (activeReport === 'bank-transfer-report') {
+        data = await reportService.getBankTransferReport('', filters);
+      } else if (activeReport === 'register-of-leave-se-delhi') {
+        data = await reportService.getFormILeaveReport('', filters);
+      } else if (activeReport === 'leave' || activeReport === 'form-xxv-register-of-leave') {
+        data = await reportService.getRegisterOfLeaveReport('', filters);
       }
 
       if (data) {
@@ -1726,6 +2779,192 @@ function Reports() {
     });
     setSearchTerm('');
     setToastMessage('✓ Report filters reset.');
+  };
+
+  const handlePrintReport = () => {
+    const records = reportData?.records || [];
+    if (!records.length) {
+      alert('No records available to print.');
+      return;
+    }
+    if (activeReport === 'employee-profile') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+        : records[0];
+      if (!targetEmp) {
+        alert('No employee available to print profile.');
+        return;
+      }
+      downloadEmployeeProfile(targetEmp, reportData?.companyInfo, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+        : records[0];
+      if (!targetEmp) {
+        alert('No employee available to print Full & Final Settlement.');
+        return;
+      }
+      downloadFnfSettlementPdf(targetEmp, reportData?.companyInfo, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'form-16' || activeReport === 'form-16-part-b') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+        : records;
+      if (!targetEmp) {
+        alert('No employee available to print Form 16.');
+        return;
+      }
+      downloadForm16Pdf(targetEmp, reportData?.companyInfo, reportData?.period, {
+        mode: 'print',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      });
+      return;
+    }
+    if (activeReport === 'form-f-gratuity-nomination' || activeReport === 'form-f') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+        : records;
+      if (!targetEmp || (Array.isArray(targetEmp) && targetEmp.length === 0)) {
+        alert('No employee available to print Form F.');
+        return;
+      }
+      downloadFormFPdf(targetEmp, reportData?.companyInfo, {
+        mode: 'print',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      });
+      return;
+    }
+    if (activeReport === 'salary-certificate' || activeReport === 'salary-certificate-report') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+        : records;
+      if (!targetEmp || (Array.isArray(targetEmp) && targetEmp.length === 0)) {
+        alert('No employee available to print Salary Certificate.');
+        return;
+      }
+      downloadSalaryCertificatePdf(targetEmp, reportData?.companyInfo, {
+        mode: 'print',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      });
+      return;
+    }
+    if (activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+        : records;
+      if (!targetEmp || (Array.isArray(targetEmp) && targetEmp.length === 0)) {
+        alert('No employee available to print ID Card.');
+        return;
+      }
+      downloadEmployeeIdCardPdf(targetEmp, reportData?.companyInfo, {
+        mode: 'print',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      });
+      return;
+    }
+    if (activeReport === 'bonus-register-form-c' || activeReport === 'form-c-bonus-paid') {
+      downloadBonusRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'employment-card-form-xiv' || activeReport === 'employment-card') {
+      const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.name === filters.employee || r.workmanName === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.workmanName) || filters.employee.includes(r.employeeId)) || records[0])
+        : records;
+      if (!targetEmp || (Array.isArray(targetEmp) && targetEmp.length === 0)) {
+        alert('No workman available to print Employment Card.');
+        return;
+      }
+      downloadEmploymentCardPdf(targetEmp, reportData?.companyInfo, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'muster-roll-form-xvi' || activeReport === 'form-xvi' || activeReport === 'muster-roll') {
+      downloadMusterRollPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'register-advances-form-xxii' || activeReport === 'form-xxii' || activeReport === 'register-advances') {
+      downloadAdvancesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'register-deduction-damage-form-xx' || activeReport === 'form-xx' || activeReport === 'register-deductions-damage') {
+      downloadDeductionsDamagePdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines') {
+      downloadFinesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime') {
+      downloadOvertimeRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register') {
+      downloadWagesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register') {
+      downloadWorkmanRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'bank-transfer-letter') {
+      downloadBankTransferLetterPdf(reportData?.letterInfo, records, reportData?.companyInfo, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'bank-transfer-report') {
+      downloadBankTransferReportPdf(reportData?.remitterInfo, records, reportData?.period || filters, reportData?.totals, reportData?.companyInfo, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'register-of-leave-se-delhi') {
+      const empData = reportData?.selectedEmployeeData || { rows: records, ...reportData?.companyInfo };
+      downloadFormILeavePdf(empData, reportData?.companyInfo, reportData?.period || filters, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'leave' || activeReport === 'form-xxv-register-of-leave') {
+      downloadLeaveRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    const printRecords = searchTerm
+      ? records.filter((r) => JSON.stringify(r).toLowerCase().includes(searchTerm.toLowerCase()))
+      : records;
+
+    generateReportPdf({
+      reportType: activeReport,
+      title: reportMeta[activeReport]?.title,
+      period: reportData?.period || filters,
+      companyInfo: reportData?.companyInfo,
+      records: printRecords,
+      totals: reportData?.totals,
+      statutoryRules: reportData?.statutoryRules,
+      mode: 'print',
+    });
   };
 
   const getCategoryCount = (catId) => {
@@ -1929,13 +3168,24 @@ function Reports() {
                 </div>
                 <p className={styles.pageDescription} style={{ marginTop: '6px' }}>{reportMeta[activeReport]?.description}</p>
               </div>
-              <button
-                type="button"
-                className={styles.primaryButton}
-                onClick={() => setIsExportOpen(true)}
-              >
-                <Download size={16} /> Export Report
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={handlePrintReport}
+                  style={{ padding: '8px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Printer size={15} /> Print
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => setIsExportOpen(true)}
+                  style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Download size={15} /> Export Report
+                </button>
+              </div>
             </header>
 
             <ReportBody
@@ -1957,7 +3207,6 @@ function Reports() {
               isLoading={isLoading}
               onGenerateReport={handleGenerateReport}
               onResetFilters={handleResetFilters}
-              setExportOpen={setIsExportOpen}
             />
           </>
         )}

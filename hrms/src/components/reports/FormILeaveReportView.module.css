@@ -1,0 +1,343 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.kpiIconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpiLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.kpiValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Toolbar */
+.toolbarCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.filterSelect {
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  background-color: #ffffff;
+  min-width: 220px;
+  cursor: pointer;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.yearSelect {
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #1e293b;
+  background-color: #ffffff;
+  cursor: pointer;
+}
+
+.yearSelect:focus {
+  outline: none;
+  border-color: #2563eb;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: #2563eb;
+  border: 1px solid #2563eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+/* Statutory Form I Sheet matching Image 1 */
+.sheetCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.sheetTitleBlock {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.romanOne {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+}
+
+.formTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.5px;
+  margin: 0 0 2px 0;
+}
+
+.formRule {
+  font-size: 11px;
+  font-style: italic;
+  color: #475569;
+  margin: 0 0 4px 0;
+}
+
+.registerTitle {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+}
+
+/* Header Fields matching Image 1 */
+.headerFieldsBlock {
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.fieldLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.fieldLine:last-child {
+  margin-bottom: 0;
+}
+
+.fieldItem {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.fieldValue {
+  color: #0f172a;
+  font-weight: 700;
+  border-bottom: 1px dotted #94a3b8;
+  padding-bottom: 1px;
+  min-width: 140px;
+}
+
+/* 11-Column Dual-Section Table */
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.formITable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.5px solid #0f172a;
+  background: #ffffff;
+  font-size: 12px;
+}
+
+.formITable th,
+.formITable td {
+  border: 1px solid #0f172a;
+  padding: 6px 8px;
+  vertical-align: middle;
+}
+
+.superHeaderCasual {
+  background-color: #f1f5f9;
+  color: #0f172a;
+  font-weight: 800;
+  text-align: center;
+  font-size: 13px;
+  padding: 8px;
+}
+
+.superHeaderPrivilege {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  font-weight: 800;
+  text-align: center;
+  font-size: 13px;
+  padding: 8px;
+}
+
+.subHeaderCell {
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-weight: 700;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.boldBadgeCasual {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.boldBadgePrivilege {
+  display: inline-block;
+  padding: 2px 8px;
+  background: #faf5ff;
+  color: #7e22ce;
+  border: 1px solid #e9d5ff;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.statusApproved {
+  color: #15803d;
+  font-weight: 700;
+}
+
+.statusRejected {
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.emptyRow {
+  height: 32px;
+}
+
+.tableTotalRow {
+  background: #f8fafc;
+  font-weight: 800;
+}

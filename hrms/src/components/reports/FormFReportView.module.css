@@ -1,0 +1,258 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+  padding: 16px 0 40px;
+}
+
+.documentSheet {
+  width: 820px;
+  max-width: 100%;
+  background: #ffffff;
+  border: 1px solid #0f172a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 44px 52px;
+  box-sizing: border-box;
+  color: #000000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Header */
+.titleMain {
+  text-align: center;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: #000000;
+}
+
+.subTitleRule {
+  text-align: center;
+  font-size: 12px;
+  color: #000000;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin: 0 auto 28px auto;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+/* To Section */
+.toSection {
+  margin-bottom: 24px;
+  font-size: 13px;
+  color: #000000;
+}
+
+.toLabel {
+  margin-bottom: 4px;
+}
+
+.employerName {
+  font-size: 14px;
+  font-weight: 800;
+  color: #000000;
+  margin-bottom: 3px;
+}
+
+.employerAddress {
+  font-size: 13px;
+  color: #111827;
+  white-space: pre-line;
+}
+
+/* Nomination Statement */
+.nominationStatement {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #000000;
+  margin-bottom: 24px;
+}
+
+.nominationStatement strong {
+  font-weight: 800;
+}
+
+/* Section Headings */
+.sectionHeading {
+  font-size: 13px;
+  font-weight: 800;
+  color: #000000;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+
+/* Particulars Table (2-column) */
+.particularsTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.8px solid #000000;
+  margin-bottom: 26px;
+}
+
+.particularsTable td {
+  border: 1.2px solid #000000;
+  padding: 8px 12px;
+  font-size: 12.5px;
+  color: #000000;
+  vertical-align: middle;
+}
+
+.fieldLabelCell {
+  width: 38%;
+  font-weight: 700;
+}
+
+.fieldValueCell {
+  width: 62%;
+  color: #000000;
+}
+
+/* Nominee Table (4-column) */
+.nomineeTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1.8px solid #000000;
+  margin-bottom: 32px;
+}
+
+.nomineeTable th {
+  border: 1.2px solid #000000;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: left;
+  background-color: #ffffff;
+  color: #000000;
+}
+
+.nomineeTable td {
+  border: 1.2px solid #000000;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #000000;
+  vertical-align: middle;
+}
+
+/* Signature & Date Row */
+.signatureRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 32px;
+  padding-top: 8px;
+}
+
+.dateBlock {
+  font-size: 13px;
+  color: #000000;
+}
+
+.empSignBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.empSignLine {
+  width: 260px;
+  border-top: 1.2px solid #000000;
+  margin-bottom: 6px;
+}
+
+.empSignLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #000000;
+}
+
+/* Dashed Divider */
+.dashedDivider {
+  border: none;
+  border-top: 1.2px dashed #000000;
+  margin: 28px 0 20px 0;
+}
+
+/* Certificate by Employer */
+.certificateSection {
+  margin-top: 8px;
+}
+
+.certificateTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: #000000;
+  margin-bottom: 6px;
+}
+
+.certificateText {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #000000;
+  margin-bottom: 48px;
+}
+
+.employerSignBlock {
+  display: flex;
+  justify-content: flex-end;
+  text-align: right;
+  padding-bottom: 12px;
+}
+
+.employerSignLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #000000;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  text-align: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 30px auto;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 440px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Print Overrides */
+@media print {
+  .container {
+    padding: 0;
+    gap: 0;
+  }
+  .documentSheet {
+    border: none;
+    box-shadow: none;
+    padding: 24px 30px;
+    width: 100%;
+    page-break-after: always;
+  }
+}

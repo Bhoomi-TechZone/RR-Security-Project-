@@ -1,0 +1,226 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  width: 100%;
+  padding: 16px 0 40px;
+}
+
+.documentSheet {
+  width: 820px;
+  max-width: 100%;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.07);
+  padding: 48px 56px;
+  box-sizing: border-box;
+  color: #1e293b;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+/* 1. Header */
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.headerLeft {
+  flex: 1;
+}
+
+.companyName {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.companyAddress {
+  font-size: 13px;
+  color: #475569;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.headerRight {
+  flex-shrink: 0;
+}
+
+.companyLogo {
+  height: 48px;
+  max-width: 140px;
+  object-fit: contain;
+}
+
+.headerDivider {
+  border: none;
+  border-top: 1px solid #e2e8f0;
+  margin: 20px 0 28px 0;
+}
+
+/* 2. Title */
+.titleMain {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.02em;
+  margin: 0 0 24px 0;
+  text-align: left;
+}
+
+/* 3. Sub-bar */
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  color: #1e293b;
+  margin-bottom: 24px;
+}
+
+.metaRecipient {
+  font-weight: 500;
+}
+
+.metaDate {
+  font-weight: 500;
+}
+
+/* 4. Certification Body */
+.certParagraph {
+  font-size: 14px;
+  line-height: 1.65;
+  color: #1e293b;
+  margin: 0 0 26px 0;
+}
+
+.certParagraph strong {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* 5. Salary Break-up Table */
+.salaryTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 30px;
+}
+
+.salaryTable th {
+  padding: 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  text-align: left;
+}
+
+.salaryTable td {
+  padding: 9px 4px;
+  font-size: 13.5px;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.textRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalRow td {
+  font-weight: 700;
+  color: #0f172a;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  padding: 11px 4px;
+}
+
+/* 6. Confirmation Statement */
+.confirmParagraph {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #334155;
+  margin: 0 0 45px 0;
+}
+
+/* 7. Signatory Block */
+.signatoryBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+  margin-top: 30px;
+  padding-bottom: 10px;
+}
+
+.signatoryCompany {
+  font-size: 13.5px;
+  color: #1e293b;
+  margin-bottom: 38px;
+}
+
+.signatoryLine {
+  width: 190px;
+  border-top: 1px solid #64748b;
+  margin-bottom: 8px;
+}
+
+.signatoryTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  background: #ffffff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  text-align: center;
+  width: 100%;
+  max-width: 600px;
+  margin: 30px auto;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 6px;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 440px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Print Overrides */
+@media print {
+  .container {
+    padding: 0;
+    gap: 0;
+  }
+  .documentSheet {
+    border: none;
+    box-shadow: none;
+    padding: 24px 30px;
+    width: 100%;
+    page-break-after: always;
+  }
+}

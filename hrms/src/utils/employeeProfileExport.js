@@ -297,12 +297,12 @@ export async function downloadEmployeeProfile(employee, company = {}, options = 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(30, 58, 138); // #1e3a8a
-  doc.text(employee.designation || 'Security Guard', empInfoX, heroY + 34);
+  doc.text(employee.designation || 'Staff', empInfoX, heroY + 34);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8);
   doc.setTextColor(37, 99, 235); // #2563eb
-  doc.text(employee.gender || 'Male', empInfoX, heroY + 47);
+  doc.text(employee.gender || '—', empInfoX, heroY + 47);
 
   // Right Metadata: Code & Joining Date
   const rightEdge = pageWidth - marginX - 16;
@@ -462,7 +462,7 @@ export async function downloadEmployeeProfile(employee, company = {}, options = 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(51, 65, 85);
-  const declarationText = `I, ${(employee.name || 'EMPLOYEE').toUpperCase()}, hereby solemnly declare that all information and particulars furnished in this employee record are true, accurate, and complete to the best of my knowledge and belief. I agree to promptly notify the management of any change in my particulars, and undertake to abide by the service rules, company policies, and conditions of service of ${companyName}.`;
+  const declarationText = `I, ${(employee.name || employee.employeeName || '—').toUpperCase()}, hereby solemnly declare that all information and particulars furnished in this employee record are true, accurate, and complete to the best of my knowledge and belief. I agree to promptly notify the management of any change in my particulars, and undertake to abide by the service rules, company policies, and conditions of service of ${companyName}.`;
   doc.text(declarationText, marginX + 10, currentY + 12, { maxWidth: contentWidth - 20, lineHeightFactor: 1.45 });
 
   // --- SIGNATURES AREA ---

@@ -1,0 +1,459 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* 1. KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiIconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.kpiIconGreen {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.kpiIconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.kpiIconAmber {
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.kpiContent {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.kpiValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 2. Interactive Letter Config Bar */
+.configCard {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px 18px;
+}
+
+.configCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.configTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.configGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.configField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.configField label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.configField input {
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.configField input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* 3. Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.badgeInfo {
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+}
+
+.badgePeriod {
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btnAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  border: none;
+}
+
+.btnPdf {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btnPdf:hover {
+  background: #b91c1c;
+}
+
+.btnPrint {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btnPrint:hover {
+  background: #1d4ed8;
+}
+
+.btnWord {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.btnWord:hover {
+  background: #0369a1;
+}
+
+.btnExcel {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.btnExcel:hover {
+  background: #15803d;
+}
+
+.btnToggle {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btnToggle:hover {
+  background: #e2e8f0;
+}
+
+/* 4. Realistic Letter Paper Document matching Image 1 */
+.paperLetter {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 48px 56px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #111827;
+  line-height: 1.6;
+  max-width: 860px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.letterhead {
+  border-bottom: 2px solid #2563eb;
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+}
+
+.letterheadCompanyName {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.letterheadAddress {
+  font-size: 12px;
+  color: #64748b;
+  margin: 4px 0 0;
+}
+
+.letterDateRow {
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 22px;
+}
+
+.recipientBlock {
+  font-size: 14px;
+  color: #1f2937;
+  margin-bottom: 26px;
+  line-height: 1.45;
+}
+
+.recipientBank {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.subjectBlock {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 24px;
+  letter-spacing: 0.01em;
+}
+
+.salutation {
+  font-size: 14px;
+  margin-bottom: 16px;
+  color: #1f2937;
+}
+
+.letterBodyText {
+  font-size: 14px;
+  color: #1f2937;
+  margin-bottom: 14px;
+  line-height: 1.7;
+}
+
+.boldAmount {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.wordsBlock {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 12px 0 16px;
+}
+
+.salaryMonthBlock {
+  font-size: 14px;
+  margin-bottom: 14px;
+  color: #1f2937;
+}
+
+.enclosedWord {
+  font-size: 14px;
+  margin-bottom: 24px;
+  color: #1f2937;
+}
+
+.complimentaryBlock {
+  font-size: 14px;
+  margin-bottom: 44px;
+  color: #1f2937;
+  line-height: 1.5;
+}
+
+.signatoryCompany {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.signatoryTitle {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 28px;
+  letter-spacing: 0.04em;
+}
+
+.enclosuresBlock {
+  font-size: 13px;
+  color: #334155;
+  border-top: 1px dashed #e2e8f0;
+  padding-top: 16px;
+  line-height: 1.5;
+}
+
+/* 5. Attached Annexure Table */
+.annexureSection {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.annexureHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.annexureTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin: 0;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+}
+
+.scheduleTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.scheduleTable th {
+  background: #1e3a8a;
+  color: #ffffff;
+  font-weight: 700;
+  padding: 9px 10px;
+  text-align: left;
+  border: 1px solid #1e40af;
+  white-space: nowrap;
+}
+
+.scheduleTable td {
+  padding: 8px 10px;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+}
+
+.scheduleTable tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.scheduleTable tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.totalRow td {
+  background: #f1f5f9 !important;
+  font-weight: 700;
+  font-size: 13px;
+  border-top: 2px solid #cbd5e1;
+  color: #0f172a;
+}
+
+/* 6. Empty State */
+.emptyCard {
+  text-align: center;
+  padding: 48px 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #334155;
+  margin: 12px 0 4px;
+}
+
+.emptyDesc {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0;
+}

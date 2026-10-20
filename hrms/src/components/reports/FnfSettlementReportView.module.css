@@ -1,0 +1,322 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  width: 100%;
+  padding: 16px 0 40px;
+}
+
+.documentSheet {
+  width: 820px;
+  max-width: 100%;
+  background: #ffffff;
+  border: 1px solid #334155;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 24px 26px;
+  box-sizing: border-box;
+  color: #0f172a;
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+/* Header */
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding-bottom: 12px;
+}
+
+.companyInfoBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 540px;
+}
+
+.companyTitle {
+  font-size: 19px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.companyAddress {
+  font-size: 11.5px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.logoWrap {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: 120px;
+}
+
+.companyLogo {
+  max-height: 52px;
+  max-width: 150px;
+  object-fit: contain;
+}
+
+.companyLogoFallback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Centered Title Banner */
+.titleBanner {
+  border-top: 1px solid #334155;
+  border-bottom: 1px solid #334155;
+  padding: 7px 0;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  color: #0f172a;
+  margin: 4px 0 10px;
+}
+
+/* Section Header */
+.sectionHeader {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #0f172a;
+  letter-spacing: 0.04em;
+  margin: 8px 0 6px;
+  text-transform: uppercase;
+}
+
+/* Pay Summary 2-Column Grid */
+.paySummaryGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 32px;
+  row-gap: 5px;
+  margin-bottom: 10px;
+}
+
+.summaryRow {
+  display: flex;
+  align-items: baseline;
+  font-size: 11.5px;
+}
+
+.summaryLabel {
+  width: 155px;
+  flex-shrink: 0;
+  color: #1e293b;
+}
+
+.summaryColon {
+  width: 14px;
+  flex-shrink: 0;
+  color: #334155;
+}
+
+.summaryValue {
+  color: #0f172a;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+/* Main Earnings & Deductions Table */
+.statementTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #334155;
+  margin-top: 8px;
+}
+
+.statementTable th,
+.statementTable td {
+  border: 1px solid #94a3b8;
+  padding: 4.5px 8px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.statementTable th {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 750;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-top: 1px solid #334155;
+  border-bottom: 1px solid #334155;
+}
+
+.textLeft {
+  text-align: left;
+}
+
+.textRight {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.subText {
+  display: block;
+  font-size: 9.5px;
+  color: #64748b;
+  margin-top: 1px;
+}
+
+.totalRow td {
+  font-weight: 750;
+  color: #0f172a;
+  border-top: 1px solid #334155;
+  border-bottom: 1px solid #334155;
+}
+
+/* Net Pay Table */
+.netPayTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #334155;
+  border-top: none;
+}
+
+.netPayTable th,
+.netPayTable td {
+  border: 1px solid #94a3b8;
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.netPayTable th {
+  background: #ffffff;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-top: 1px solid #334155;
+}
+
+.netPayTotalRow td {
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+/* Amount In Words Banner */
+.wordsBanner {
+  border: 1px solid #334155;
+  border-top: none;
+  padding: 9px 12px;
+  text-align: center;
+  background: #ffffff;
+}
+
+.wordsPrimary {
+  font-size: 12px;
+  font-weight: 750;
+  color: #0f172a;
+}
+
+.wordsFormula {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 3px;
+}
+
+/* Notes & Signoff */
+.noteSection {
+  margin-top: 10px;
+  font-size: 11px;
+  color: #334155;
+}
+
+.signaturesRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-top: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.signColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.signPlaceholder {
+  height: 24px;
+}
+
+/* Declaration By Receiver */
+.declarationBlock {
+  margin-top: 14px;
+  padding-top: 8px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.declarationHeading {
+  font-size: 11.5px;
+  font-weight: 750;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.declarationText {
+  font-size: 10.5px;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.receiverSignRow {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 24px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #1e293b;
+}
+
+/* Empty State */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  text-align: center;
+  width: 100%;
+}
+
+.emptyTitle {
+  margin: 0 0 6px;
+  font-size: 16px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.emptyText {
+  margin: 0;
+  color: #64748b;
+  font-size: 13px;
+  max-width: 480px;
+}
