@@ -44,6 +44,8 @@ export const getCompanies = async (req, res) => {
           gstin: '09ABCDE1234F1Z5',
           pan: 'ABCDE1234F',
           tan: 'BLRA12345D',
+          employerPfCode: 'DLCPM0012345000',
+          employerEsiCode: '31000123450000101',
           adminEmail,
           isDefault: true,
           status: 'Active'
@@ -138,6 +140,8 @@ export const createCompany = async (req, res) => {
       gstin,
       pan,
       tan,
+      employerPfCode,
+      employerEsiCode,
       logo,
       dateFormat,
       timeZone,
@@ -188,6 +192,8 @@ export const createCompany = async (req, res) => {
       gstin: (gstin || '').toUpperCase(),
       pan: (pan || '').toUpperCase(),
       tan: (tan || '').toUpperCase(),
+      employerPfCode: (employerPfCode || '').toUpperCase(),
+      employerEsiCode: (employerEsiCode || '').toUpperCase(),
       logo: logo || null,
       dateFormat: dateFormat || 'DD/MM/YYYY',
       timeZone: timeZone || 'Asia/Kolkata (IST +05:30)',
@@ -252,13 +258,13 @@ export const updateCompany = async (req, res) => {
 
     const fields = [
       'name', 'code', 'industry', 'email', 'phone', 'alternatePhone', 'alternateContact',
-      'address', 'city', 'state', 'pinCode', 'gstin', 'pan', 'tan', 'logo', 'status',
+      'address', 'city', 'state', 'pinCode', 'gstin', 'pan', 'tan', 'employerPfCode', 'employerEsiCode', 'logo', 'status',
       'dateFormat', 'timeZone', 'currency', 'regionalSettings', 'employeeCodeSeries', 'pfCodeSeries'
     ];
 
     fields.forEach(field => {
       if (req.body[field] !== undefined) {
-        if (typeof req.body[field] === 'string' && ['code', 'gstin', 'pan', 'tan'].includes(field)) {
+        if (typeof req.body[field] === 'string' && ['code', 'gstin', 'pan', 'tan', 'employerPfCode', 'employerEsiCode'].includes(field)) {
           company[field] = req.body[field].trim().toUpperCase();
         } else if (typeof req.body[field] === 'string') {
           company[field] = req.body[field].trim();

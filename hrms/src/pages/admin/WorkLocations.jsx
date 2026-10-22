@@ -303,7 +303,7 @@ function WorkLocations() {
             onClick={() => navigate('/admin/company-setup')}
             style={{ cursor: 'pointer', color: 'var(--primary, #2563eb)', fontWeight: 500 }}
           >
-            Company Setup
+            Organization Setup
           </span>
           <span className={styles.separator}>/</span>
           <span 
@@ -353,7 +353,7 @@ function WorkLocations() {
                 width: 'fit-content'
               }}
             >
-              <ArrowLeft size={15} /> Back to Company Setup
+              <ArrowLeft size={15} /> Back to Organization Setup
             </button>
             <h1 className={styles.title}>Branch / Work Locations</h1>
             <p className={styles.description}>

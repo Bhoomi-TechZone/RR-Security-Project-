@@ -198,7 +198,7 @@ export const PERMISSION_MODULES = [
   // ==========================================
   {
     key: 'company_setup',
-    name: 'Company Setup',
+    name: 'Organization Setup',
     category: 'Settings',
     description: 'Company profile, branding logo, employee code numbering, registered address, statutory tax IDs (PAN/TAN/GST), and regional settings',
     actions: [

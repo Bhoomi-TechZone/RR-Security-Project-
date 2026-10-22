@@ -783,6 +783,8 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
                       {activeCompany?.phone && <span><strong>Phone:</strong> {activeCompany.phone}</span>}
                       {activeCompany?.gstin && <span><strong>GSTIN:</strong> {activeCompany.gstin}</span>}
                       {activeCompany?.pan && <span><strong>PAN:</strong> {activeCompany.pan}</span>}
+                      {activeCompany?.employerPfCode && <span><strong>PF Code:</strong> {activeCompany.employerPfCode}</span>}
+                      {activeCompany?.employerEsiCode && <span><strong>ESI Code:</strong> {activeCompany.employerEsiCode}</span>}
                     </div>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
+import rrLogo from '../../assets/rrlogo.png';
 
 // Navigation groups & items mapping with module keys
 const NAV_GROUPS = [
@@ -23,7 +24,7 @@ const NAV_GROUPS = [
     items: [
       {
         path: '/admin/company-setup',
-        name: 'Company Setup',
+        name: 'Organization Setup',
         icon: Building2,
         moduleKey: 'company_setup'
       },
@@ -272,7 +273,7 @@ const NAV_GROUPS = [
         moduleKey: 'notifications',
         hasDropdown: true,
         subItems: [
-          { path: '/admin/notifications', name: 'Announcements' },
+          { path: '/admin/notifications?tab=announcements', name: 'Announcements' },
           { path: '/admin/notifications?tab=notifications', name: 'Notifications' },
         ]
       },
@@ -403,25 +404,13 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       >
         {/* Branding header */}
         <div className={styles.brandHeader}>
-          <div className={styles.logoRow}>
-            {activeCompany?.logo ? (
-              <div className={styles.companyLogoWrap}>
-                <img src={activeCompany.logo} alt={activeCompany.name || 'Company'} className={styles.companyLogoImg} />
-              </div>
-            ) : (
-              <span className={styles.logoIcon}>
-                <Zap size={16} strokeWidth={2.5} color="#ffffff" fill="rgba(255,255,255,0.4)" />
-              </span>
-            )}
-            {!isCollapsed && (
-              <div className={styles.brandText}>
-                <span className={styles.appName} title={activeCompany.name}>
-                  {activeCompany.name || 'RR Security'}
-                </span>
-                <span className={styles.appSuffix}>HRMS</span>
-              </div>
-            )}
-          </div>
+          <NavLink to="/admin/dashboard" className={styles.brandLink} title="RR Security & Facilities">
+            <img 
+              src={rrLogo} 
+              alt="RR Security & Facilities" 
+              className={styles.brandLogoImg} 
+            />
+          </NavLink>
         </div>
 
         {/* Navigation list */}
@@ -516,10 +505,11 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                     if (subItem.path.includes('?')) {
                                       isSubActive = currentFullUrl === subItem.path ||
                                         (subItem.path.includes('tab=banks') && location.pathname === '/admin/masters' && !location.search) ||
-                                        (subItem.path.includes('section=company-profile') && location.pathname === '/admin/company-setup' && !location.search);
+                                        (subItem.path.includes('section=company-profile') && location.pathname === '/admin/company-setup' && !location.search) ||
+                                        (subItem.path.includes('tab=announcements') && location.pathname === '/admin/notifications' && (!location.search || location.search === '?tab=announcements'));
                                     } else {
                                       isSubActive = (location.pathname === subItem.path) &&
-                                        (!location.search || subItem.path !== '/admin/attendance' || !location.search.includes('tab=corrections'));
+                                        (!location.search || (subItem.path === '/admin/payroll' && location.search === '?tab=processing') || (subItem.path !== '/admin/attendance' && !location.search.startsWith('?tab=')));
                                     }
 
                                     return (

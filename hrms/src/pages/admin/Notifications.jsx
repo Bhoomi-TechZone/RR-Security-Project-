@@ -660,55 +660,87 @@ function NotificationsPage() {
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
         <div className={styles.breadcrumb}>
-          <span>Dashboard</span>
-          <span>/</span>
-          <span>Notifications &amp; Announcements</span>
+          <span
+            style={{ cursor: 'pointer', color: 'var(--text-secondary, #64748b)' }}
+            onClick={() => navigate('/admin/dashboard')}
+          >
+            Dashboard
+          </span>
           <span>/</span>
           <strong>{activeTab === 'announcements' ? 'Announcements' : 'Notifications'}</strong>
         </div>
 
         <header className={styles.header}>
           <div>
-            <h1>Notifications &amp; Announcements</h1>
-            <p>Manage announcements and view live system-generated notifications for employee requests, assets, and claims.</p>
+            <h1>{activeTab === 'announcements' ? 'Announcements' : 'Notifications'}</h1>
+            <p>
+              {activeTab === 'announcements'
+                ? 'Targeted notices and broadcasts for clients, employees, and operations teams.'
+                : 'Live system alerts for employee asset requisitions, uniform requests, claims, and approvals.'}
+            </p>
           </div>
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={loadData}
-              title="Refresh"
-            >
-              <RefreshCw size={15} /> Refresh
-            </button>
-            <button
-              type="button"
-              className={styles.primaryButton}
-              onClick={() => {
-                setEditingAnnouncement(null);
-                setAnnouncementFormOpen(true);
-              }}
-            >
-              <Plus size={16} /> Post Announcement
-            </button>
+            {activeTab === 'announcements' ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={loadData}
+                  title="Refresh"
+                >
+                  <RefreshCw size={15} /> Refresh
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryButton}
+                  onClick={() => {
+                    setEditingAnnouncement(null);
+                    setAnnouncementFormOpen(true);
+                  }}
+                >
+                  <Plus size={16} /> Post Announcement
+                </button>
+              </>
+            ) : (
+              <>
+                {unreadCount > 0 && (
+                  <div className={styles.unreadBadgeRow}>
+                    <span className={styles.notificationCountLabel}>Unread</span>
+                    <span className={styles.notificationCount}>{unreadCount}</span>
+                  </div>
+                )}
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={handleMarkAllAsRead}
+                    style={{ fontSize: '13px' }}
+                  >
+                    <CheckCircle2 size={15} /> Mark All Read
+                  </button>
+                )}
+                {notifications.some(n => n.status === 'read') && (
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={handleClearRead}
+                    style={{ fontSize: '13px' }}
+                  >
+                    <Trash2 size={15} /> Clear Read
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={loadData}
+                  title="Refresh"
+                >
+                  <RefreshCw size={15} /> Refresh
+                </button>
+              </>
+            )}
           </div>
         </header>
-
-        <div className={styles.tabNav}>
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === tab.id ? styles.tabActive : ''}`}
-              onClick={() => handleTabChange(tab.id)}
-            >
-              {tab.label}
-              {tab.id === 'notifications' && unreadCount > 0 && (
-                <span className={styles.tabBadge}>{unreadCount}</span>
-              )}
-            </button>
-          ))}
-        </div>
 
         {loading ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '240px', gap: '10px' }}>
@@ -842,25 +874,9 @@ function NotificationsPage() {
           <section className={styles.sectionCard}>
             <div className={styles.sectionHeader}>
               <div>
-                <p className={styles.sectionEyebrow}>Notifications</p>
+                <p className={styles.sectionEyebrow}>Alerts &amp; Requests</p>
                 <h2>Activity Notifications</h2>
                 <p className={styles.sectionDescription}>Live system alerts for employee asset requisitions, uniform requests, claims, and approvals.</p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div className={styles.unreadBadgeRow}>
-                  <span className={styles.notificationCountLabel}>Unread Notifications</span>
-                  <span className={styles.notificationCount}>{unreadCount}</span>
-                </div>
-                {unreadCount > 0 && (
-                  <button type="button" className={styles.secondaryButton} onClick={handleMarkAllAsRead} style={{ fontSize: '12px', padding: '6px 12px' }}>
-                    Mark All Read
-                  </button>
-                )}
-                {notifications.some(n => n.status === 'read') && (
-                  <button type="button" className={styles.secondaryButton} onClick={handleClearRead} style={{ fontSize: '12px', padding: '6px 12px' }}>
-                    Clear Read
-                  </button>
-                )}
               </div>
             </div>
 

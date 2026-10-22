@@ -12,7 +12,7 @@ import styles from './OrganizationSettingsModal.module.css';
 const SETTINGS_SECTIONS = [
   {
     id: 'company-setup',
-    title: 'Company Setup',
+    title: 'Organization Setup',
     icon: Building2,
     badgeTheme: styles.themeGreen,
     headerTheme: styles.themeGreenHeader,
@@ -26,7 +26,7 @@ const SETTINGS_SECTIONS = [
       { name: 'Logo', route: '/admin/company-setup?section=logo' },
       { name: 'Address', route: '/admin/company-setup?section=address' },
       { name: 'Contact Details', route: '/admin/company-setup?section=contact-details' },
-      { name: 'PAN / TAN / GST', route: '/admin/company-setup?section=pan-tan-gst' },
+      { name: 'PAN / TAN / GST / PF / ESI', route: '/admin/company-setup?section=pan-tan-gst' },
       { name: 'Regional Settings', route: '/admin/company-setup?section=regional-settings' }
     ]
   },

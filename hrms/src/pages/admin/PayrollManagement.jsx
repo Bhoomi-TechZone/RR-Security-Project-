@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   WalletCards, Play, History, Download, Plus, FileSpreadsheet,
   ChevronRight, RefreshCw, Printer, AlertCircle, FileText, Loader2
@@ -62,6 +62,7 @@ const PAGE_SIZE = 8;
 
 export default function PayrollManagement() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const { canAdd, canEdit, canDelete, canApprove, canExport } = usePermissions();
   const { activeCompanyId, companies } = useCompany();
 
@@ -718,71 +719,230 @@ export default function PayrollManagement() {
           />
         )}
 
-        {/* Breadcrumb */}
+        {/* Dynamic Breadcrumbs */}
         <div className={styles.breadcrumb}>
-          <span>Dashboard</span>
+          <span style={{ cursor: 'pointer' }} onClick={() => navigate('/admin/dashboard')}>Dashboard</span>
           <ChevronRight size={14} />
-          <strong>Payroll</strong>
+          <span
+            style={{ cursor: activeTab !== 'processing' ? 'pointer' : 'default', color: activeTab !== 'processing' ? 'var(--primary, #2563eb)' : 'inherit' }}
+            onClick={() => activeTab !== 'processing' && navigate('/admin/payroll')}
+          >
+            Payroll
+          </span>
+          {activeTab !== 'processing' && (
+            <>
+              <ChevronRight size={14} />
+              <strong>
+                {activeTab === 'structure' && 'Salary Structure'}
+                {activeTab === 'rate-revision' && 'Rate Revision'}
+                {activeTab === 'arrears' && 'Arrears'}
+                {activeTab === 'slips' && 'Salary Slips'}
+                {activeTab === 'statutory' && 'Statutory Reports'}
+              </strong>
+            </>
+          )}
+          {activeTab === 'processing' && (
+            <>
+              <ChevronRight size={14} />
+              <strong>Payroll Processing</strong>
+            </>
+          )}
         </div>
 
-        {/* Master Page Header */}
+        {/* Dynamic Tab-Specific Page Header */}
         <header className={styles.pageHeader}>
           <div className={styles.headerTitles}>
-            <h1 className={styles.title}>Payroll Management</h1>
+            <h1 className={styles.title}>
+              {activeTab === 'processing' && 'Payroll Management'}
+              {activeTab === 'structure' && 'Salary Structure'}
+              {activeTab === 'rate-revision' && 'Rate Revision Management'}
+              {activeTab === 'arrears' && 'Arrears Calculation & Processing'}
+              {activeTab === 'slips' && 'Salary Slips'}
+              {activeTab === 'statutory' && 'Statutory Reports'}
+            </h1>
             <p className={styles.subtitle}>
-              Process live monthly salaries, manage dynamic salary slips and statutory payroll reports.
+              {activeTab === 'processing' && 'Process live monthly salaries, manage dynamic salary slips and statutory payroll reports.'}
+              {activeTab === 'structure' && 'View and manage employee salary components, allowances, and structures used for payroll calculation.'}
+              {activeTab === 'rate-revision' && 'Track employee salary and wage revisions, component breakdowns, and multi-level approvals.'}
+              {activeTab === 'arrears' && 'Review retroactive salary adjustments calculated from approved rate revisions and include them in payroll.'}
+              {activeTab === 'slips' && 'Generate, preview and download monthly salary slips for workforce employees.'}
+              {activeTab === 'statutory' && 'Generate payroll compliance reports and monthly contribution returns for PF and ESI.'}
             </p>
           </div>
+
           <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={() => setIsHistoryOpen(true)}
-            >
-              <History size={16} />
-              <span>Payroll History</span>
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryBtn}
-              onClick={fetchAllPayrollData}
-              disabled={isLoading}
-              title="Refresh Payroll Records"
-            >
-              <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
-              <span>Refresh</span>
-            </button>
-            <button
-              type="button"
-              className={styles.primaryBtn}
-              onClick={() => setIsRunPayrollOpen(true)}
-            >
-              <Play size={16} />
-              <span>Run Payroll</span>
-            </button>
+            {activeTab === 'processing' && (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => setIsHistoryOpen(true)}
+                >
+                  <History size={16} />
+                  <span>Payroll History</span>
+                </button>
+                {canExport('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => setIsExportOpen(true)}
+                  >
+                    <Download size={16} />
+                    <span>Export Payroll</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={fetchAllPayrollData}
+                  disabled={isLoading}
+                  title="Refresh Payroll Records"
+                >
+                  <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
+                  <span>Refresh</span>
+                </button>
+                {canAdd('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    onClick={() => setIsRunPayrollOpen(true)}
+                  >
+                    <Play size={16} />
+                    <span>Run Payroll</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {activeTab === 'structure' && (
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={fetchAllPayrollData}
+                disabled={isLoading}
+                title="Refresh Salary Structures"
+              >
+                <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
+                <span>Refresh</span>
+              </button>
+            )}
+
+            {activeTab === 'rate-revision' && (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={fetchAllPayrollData}
+                  disabled={isLoading}
+                  title="Refresh Rate Revisions"
+                >
+                  <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
+                  <span>Refresh</span>
+                </button>
+                {canAdd('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    onClick={() => {
+                      setEditingRevision(null);
+                      setIsRevisionFormOpen(true);
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>New Rate Revision</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {activeTab === 'arrears' && (
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={fetchAllPayrollData}
+                disabled={isLoading}
+                title="Refresh Arrears"
+              >
+                <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
+                <span>Refresh</span>
+              </button>
+            )}
+
+            {activeTab === 'slips' && (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={fetchAllPayrollData}
+                  disabled={isLoading}
+                  title="Refresh Slips"
+                >
+                  <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
+                  <span>Refresh</span>
+                </button>
+                {canExport('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.secondaryBtn}
+                    onClick={() => setIsExportOpen(true)}
+                  >
+                    <Download size={16} />
+                    <span>Export</span>
+                  </button>
+                )}
+                {canAdd('payroll') && (
+                  <button
+                    type="button"
+                    className={styles.primaryBtn}
+                    onClick={() => setIsGenerateSlipsOpen(true)}
+                  >
+                    <Printer size={16} />
+                    <span>Generate Slips</span>
+                  </button>
+                )}
+              </>
+            )}
+
+            {activeTab === 'statutory' && (
+              <button
+                type="button"
+                className={styles.secondaryBtn}
+                onClick={fetchAllPayrollData}
+                disabled={isLoading}
+                title="Refresh Reports"
+              >
+                <RefreshCw size={16} className={isLoading ? styles.spinning : ''} />
+                <span>Refresh</span>
+              </button>
+            )}
           </div>
         </header>
 
-        {/* 1. Payroll Period Selector */}
-        <PayrollPeriodSelector
-          selectedMonth={selectedMonth}
-          onMonthChange={(newMonth) => {
-            setSelectedMonth(newMonth);
-            setPage(1);
-          }}
-        />
+        {/* Payroll Processing specific: Period Selector, Summary Cards, Status Banner */}
+        {activeTab === 'processing' && (
+          <>
+            {/* 1. Payroll Period Selector */}
+            <PayrollPeriodSelector
+              selectedMonth={selectedMonth}
+              onMonthChange={(newMonth) => {
+                setSelectedMonth(newMonth);
+                setPage(1);
+              }}
+            />
 
-        {/* 2. Payroll Summary KPI Cards */}
-        <PayrollSummaryCards summary={summaryKPI} />
+            {/* 2. Payroll Summary KPI Cards */}
+            <PayrollSummaryCards summary={summaryKPI} />
 
-        {/* 3. Payroll Status Banner */}
-        <PayrollStatusBanner
-          monthLabel={monthLabel}
-          status={cycleStatus}
-          processedCount={summaryKPI.processedEmployees}
-          totalCount={summaryKPI.totalEmployees}
-          onContinueProcessing={() => setIsRunPayrollOpen(true)}
-        />
+            {/* 3. Payroll Status Banner */}
+            <PayrollStatusBanner
+              monthLabel={monthLabel}
+              status={cycleStatus}
+              processedCount={summaryKPI.processedEmployees}
+              totalCount={summaryKPI.totalEmployees}
+              onContinueProcessing={() => setIsRunPayrollOpen(true)}
+            />
+          </>
+        )}
 
         {/* Loading Indicator */}
         {isLoading && records.length === 0 && (
@@ -803,36 +963,6 @@ export default function PayrollManagement() {
         {/* TAB 1: PAYROLL PROCESSING */}
         {(records.length > 0 || !isLoading) && activeTab === 'processing' && (
           <section className={styles.tabSection}>
-            <div className={styles.tabHeaderRow}>
-              <div>
-                <h2 className={styles.tabHeading}>Payroll Processing</h2>
-                <p className={styles.tabSubtext}>
-                  Review employee salary calculations before processing payroll.
-                </p>
-              </div>
-              <div className={styles.tabActions}>
-                {canExport('payroll') && (
-                  <button
-                    type="button"
-                    className={styles.outlineBtn}
-                    onClick={() => setIsExportOpen(true)}
-                  >
-                    <Download size={15} />
-                    <span>Export Payroll</span>
-                  </button>
-                )}
-                {canAdd('payroll') && (
-                  <button
-                    type="button"
-                    className={styles.tabPrimaryBtn}
-                    onClick={() => setIsRunPayrollOpen(true)}
-                  >
-                    <Play size={15} />
-                    <span>Run Payroll</span>
-                  </button>
-                )}
-              </div>
-            </div>
 
             {/* Filters */}
             <PayrollFilters
@@ -902,14 +1032,6 @@ export default function PayrollManagement() {
         {/* TAB 2: SALARY STRUCTURE */}
         {(records.length > 0 || !isLoading) && activeTab === 'structure' && (
           <section className={styles.tabSection}>
-            <div className={styles.tabHeaderRow}>
-              <div>
-                <h2 className={styles.tabHeading}>Salary Structure</h2>
-                <p className={styles.tabSubtext}>
-                  View employee salary components used for payroll calculation.
-                </p>
-              </div>
-            </div>
 
             {/* Filters */}
             <PayrollFilters
@@ -964,29 +1086,6 @@ export default function PayrollManagement() {
         {/* TAB 3: RATE REVISION */}
         {!isLoading && activeTab === 'rate-revision' && (
           <section className={styles.tabSection}>
-            <div className={styles.tabHeaderRow}>
-              <div>
-                <h2 className={styles.tabHeading}>Rate Revision Management</h2>
-                <p className={styles.tabSubtext}>
-                  Track employee salary and wage revisions, component breakdowns, and multi-level approvals.
-                </p>
-              </div>
-              <div className={styles.tabActions}>
-                {canAdd('payroll') && (
-                  <button
-                    type="button"
-                    className={styles.tabPrimaryBtn}
-                    onClick={() => {
-                      setEditingRevision(null);
-                      setIsRevisionFormOpen(true);
-                    }}
-                  >
-                    <Plus size={15} />
-                    <span>New Rate Revision</span>
-                  </button>
-                )}
-              </div>
-            </div>
 
             {/* Revision Summary Cards */}
             <RateRevisionSummaryCards metrics={rateRevMetrics} />
@@ -1041,14 +1140,6 @@ export default function PayrollManagement() {
         {/* TAB 4: ARREARS CALCULATION */}
         {!isLoading && activeTab === 'arrears' && (
           <section className={styles.tabSection}>
-            <div className={styles.tabHeaderRow}>
-              <div>
-                <h2 className={styles.tabHeading}>Arrears Calculation &amp; Processing</h2>
-                <p className={styles.tabSubtext}>
-                  Review retroactive salary adjustments calculated from approved rate revisions and include them in payroll.
-                </p>
-              </div>
-            </div>
 
             {/* Arrears Summary Cards */}
             <ArrearsSummaryCards metrics={arrearsMetrics} />
@@ -1100,36 +1191,6 @@ export default function PayrollManagement() {
         {/* TAB 5: SALARY SLIPS */}
         {!isLoading && activeTab === 'slips' && (
           <section className={styles.tabSection}>
-            <div className={styles.tabHeaderRow}>
-              <div>
-                <h2 className={styles.tabHeading}>Salary Slips</h2>
-                <p className={styles.tabSubtext}>
-                  Generate, preview and download monthly salary slips.
-                </p>
-              </div>
-              <div className={styles.tabActions}>
-                {canExport('payroll') && (
-                  <button
-                    type="button"
-                    className={styles.outlineBtn}
-                    onClick={() => setIsExportOpen(true)}
-                  >
-                    <Download size={15} />
-                    <span>Export</span>
-                  </button>
-                )}
-                {canAdd('payroll') && (
-                  <button
-                    type="button"
-                    className={styles.tabPrimaryBtn}
-                    onClick={() => setIsGenerateSlipsOpen(true)}
-                  >
-                    <Printer size={15} />
-                    <span>Generate Slips</span>
-                  </button>
-                )}
-              </div>
-            </div>
 
             {/* Slips Filters */}
             <PayrollFilters
@@ -1183,14 +1244,6 @@ export default function PayrollManagement() {
         {/* TAB 6: STATUTORY REPORTS */}
         {!isLoading && activeTab === 'statutory' && (
           <section className={styles.tabSection}>
-            <div className={styles.tabHeaderRow}>
-              <div>
-                <h2 className={styles.tabHeading}>Statutory Reports</h2>
-                <p className={styles.tabSubtext}>
-                  Generate payroll compliance reports for PF and ESI.
-                </p>
-              </div>
-            </div>
 
             <StatutoryReports
               pfRecords={dynamicPFRecords}
@@ -1208,12 +1261,14 @@ export default function PayrollManagement() {
           </section>
         )}
 
-        {/* Bottom Analytics Section */}
-        <PayrollAnalytics
-          records={records}
-          selectedMonth={selectedMonth}
-          monthLabel={monthLabel}
-        />
+        {/* Bottom Analytics Section - only for Payroll Processing */}
+        {activeTab === 'processing' && (
+          <PayrollAnalytics
+            records={records}
+            selectedMonth={selectedMonth}
+            monthLabel={monthLabel}
+          />
+        )}
 
         {/* MODALS & DRAWERS */}
         {/* 1. Payroll Details Drawer */}

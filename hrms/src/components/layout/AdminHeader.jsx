@@ -252,7 +252,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     const path = location.pathname;
     if (path.startsWith('/admin/dashboard')) return 'Dashboard';
     if (path.startsWith('/admin/settings') || path.startsWith('/admin/organization-settings')) return 'System / Organisation Settings';
-    if (path.startsWith('/admin/company-setup')) return 'System / Company Setup';
+    if (path.startsWith('/admin/company-setup')) return 'System / Organization Setup';
     if (path.startsWith('/admin/work-locations')) return 'System / Work Locations';
     if (path.startsWith('/admin/clients/')) return 'Workforce / Clients / Details';
     if (path.startsWith('/admin/clients')) return 'Workforce / Clients';
@@ -262,8 +262,17 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/admin/roles-permissions')) return 'System / Role & Permissions';
     if (path.startsWith('/admin/users')) return 'System / User Management';
     if (path.startsWith('/admin/masters')) return 'System / Masters';
-    if (path.startsWith('/admin/notifications')) return 'System / Notifications';
-    if (path.startsWith('/admin/payroll')) return 'Payroll / Payroll';
+    if (path.startsWith('/admin/notifications')) {
+      return location.search.includes('tab=notifications') ? 'System / Notifications' : 'System / Announcements';
+    }
+    if (path.startsWith('/admin/payroll')) {
+      if (location.search.includes('tab=structure')) return 'Payroll / Salary Structure';
+      if (location.search.includes('tab=rate-revision')) return 'Payroll / Rate Revision';
+      if (location.search.includes('tab=arrears')) return 'Payroll / Arrears';
+      if (location.search.includes('tab=slips')) return 'Payroll / Salary Slips';
+      if (location.search.includes('tab=statutory')) return 'Payroll / Statutory Reports';
+      return 'Payroll / Payroll Processing';
+    }
     if (path.startsWith('/admin/advances-loans')) return 'Payroll / Advances & Loans';
     if (path.startsWith('/admin/overtime')) return 'Payroll / Overtime';
     if (path.startsWith('/admin/leave')) return 'Management / Leave';

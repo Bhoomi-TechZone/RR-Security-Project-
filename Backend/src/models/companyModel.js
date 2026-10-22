@@ -97,6 +97,18 @@ const companySchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
+    employerPfCode: {
+      type: String,
+      default: '',
+      trim: true,
+      uppercase: true,
+    },
+    employerEsiCode: {
+      type: String,
+      default: '',
+      trim: true,
+      uppercase: true,
+    },
     logo: {
       type: String,
       default: null,

@@ -24,20 +24,14 @@ import {
 } from '../../data/numberSeriesData';
 
 const SETUP_CATEGORIES = [
-  { id: 'all', label: 'All Setup Modules' },
-  { id: 'company-profile', label: 'Company Profile' },
-  { id: 'branch', label: 'Branch' },
-  { id: 'departments', label: 'Departments' },
-  { id: 'designations', label: 'Designations' },
-  { id: 'employee-code', label: 'Employee Code' },
-  { id: 'pf-code', label: 'PF Code' }
+  { id: 'all', label: 'Master Setup' }
 ];
 
 const SETUP_MODULES = [
   {
     id: 'company-profile',
     title: 'Company Profile',
-    desc: 'Manage corporate identity, logo, addresses, contacts, PAN/GST and regional settings.',
+    desc: 'Manage corporate identity, logo, addresses, contacts, PAN/GST/PF/ESI and regional settings.',
     category: 'company-profile',
     icon: Building2,
     badge: 'Identity',
@@ -160,6 +154,8 @@ function CompanySetup() {
     pan: activeCompany?.pan || '',
     tan: activeCompany?.tan || '',
     gstin: activeCompany?.gstin || '',
+    employerPfCode: activeCompany?.employerPfCode || activeCompany?.pfCode || '',
+    employerEsiCode: activeCompany?.employerEsiCode || activeCompany?.esiCode || '',
     dateFormat: activeCompany?.dateFormat || 'DD/MM/YYYY',
     timeZone: activeCompany?.timeZone || 'Asia/Kolkata (IST +05:30)',
     currency: activeCompany?.currency || 'INR (₹)',
@@ -182,6 +178,8 @@ function CompanySetup() {
         pan: activeCompany.pan || '',
         tan: activeCompany.tan || '',
         gstin: activeCompany.gstin || '',
+        employerPfCode: activeCompany.employerPfCode || activeCompany.pfCode || '',
+        employerEsiCode: activeCompany.employerEsiCode || activeCompany.esiCode || '',
         dateFormat: activeCompany.dateFormat || 'DD/MM/YYYY',
         timeZone: activeCompany.timeZone || 'Asia/Kolkata (IST +05:30)',
         currency: activeCompany.currency || 'INR (₹)',
@@ -360,7 +358,11 @@ function CompanySetup() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const uppercaseFields = ['pan', 'tan', 'gstin', 'employerPfCode', 'employerEsiCode'];
+    setFormData(prev => ({ 
+      ...prev, 
+      [name]: uppercaseFields.includes(name) ? value.toUpperCase() : value 
+    }));
   };
 
   const handleEmpCodeSeriesChange = (field, value) => {
@@ -469,6 +471,10 @@ function CompanySetup() {
           pan: formData.pan,
           tan: formData.tan,
           gstin: formData.gstin,
+          employerPfCode: formData.employerPfCode,
+          employerEsiCode: formData.employerEsiCode,
+          pfCode: formData.employerPfCode,
+          esiCode: formData.employerEsiCode,
           logo: formData.logo || logoPreview || null,
           dateFormat: formData.dateFormat,
           timeZone: formData.timeZone,
@@ -522,7 +528,7 @@ function CompanySetup() {
     'pf-code': 'PF Code Configuration',
     'address': 'Address Details',
     'contact-details': 'Contact Details',
-    'pan-tan-gst': 'Statutory Information (PAN / TAN / GST)',
+    'pan-tan-gst': 'Statutory Information (PAN / TAN / GST / PF / ESI)',
     'regional-settings': 'Regional Settings & Date Format',
     'date-format': 'Regional Settings & Date Format'
   };
@@ -534,7 +540,7 @@ function CompanySetup() {
     'pf-code': 'Configure automatic Provident Fund (PF) member number / code series formatting and sequence rules.',
     'address': 'Manage company registered office and branch address details.',
     'contact-details': 'Official primary telephone, alternate contact numbers and corporate email.',
-    'pan-tan-gst': 'Statutory registration numbers for PAN, TAN, and Goods & Services Tax (GSTIN).',
+    'pan-tan-gst': 'Statutory registration numbers for PAN, TAN, Goods & Services Tax (GSTIN), Employer PF Code, and Employer ESI Code.',
     'regional-settings': 'Configure default system date format, time zone and currency.',
     'date-format': 'Configure default system date format, time zone and currency.'
   };
@@ -610,7 +616,7 @@ function CompanySetup() {
                 Dashboard
               </span>
               <span className={styles.separator}>/</span>
-              <span className={styles.crumbActive}>Company Setup</span>
+              <span className={styles.crumbActive}>Organization Setup</span>
             </div>
 
             {/* Page Header */}
@@ -618,7 +624,7 @@ function CompanySetup() {
               <div className={styles.titleArea}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <Building2 size={24} color="#2563eb" />
-                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Company Setup</h1>
+                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Organization Setup</h1>
                 </div>
                 <p className={styles.description} style={{ marginTop: '6px' }}>
                   Configure your organization profile, branch locations, departments, designations, employee code numbering, and PF code compliance.
@@ -685,7 +691,7 @@ function CompanySetup() {
                       className={styles.emptyResetBtn}
                       onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
                     >
-                      Show All Setup Modules
+                      Show Master Setup
                     </button>
                   </div>
                 ) : (
@@ -737,7 +743,7 @@ function CompanySetup() {
                 onClick={() => navigate('/admin/company-setup')}
                 style={{ cursor: 'pointer', color: 'var(--primary, #2563eb)', fontWeight: 500 }}
               >
-                Company Setup
+                Organization Setup
               </span>
               <span className={styles.separator}>/</span>
               <span className={styles.crumbActive}>
@@ -760,11 +766,11 @@ function CompanySetup() {
                     onClick={() => navigate('/admin/company-setup')}
                     className={styles.backBtn}
                   >
-                    <ArrowLeft size={15} /> Back to Company Setup
+                    <ArrowLeft size={15} /> Back to Organization Setup
                   </button>
                   <h1 className={styles.title} style={{ margin: 0, fontSize: '22px' }}>
                     {isSpecificSectionMode
-                      ? (SECTION_TITLES[activeSection] || 'Company Setup')
+                      ? (SECTION_TITLES[activeSection] || 'Organization Setup')
                       : (isEmployeeCodeSection
                           ? 'Employee Code Configuration'
                           : isPfCodeSection
@@ -779,7 +785,7 @@ function CompanySetup() {
                         ? 'Configure automatic employee code generation, prefix, sequence formatting and reset rules.'
                         : isPfCodeSection
                         ? 'Configure automatic Provident Fund (PF) member number / code series formatting and sequence rules.'
-                        : 'Manage your company profile, logo, address, contact details, statutory information (PAN / TAN / GST) and regional settings.')}
+                        : 'Manage your company profile, logo, address, contact details, statutory information (PAN / TAN / GST / PF / ESI) and regional settings.')}
                 </p>
               </div>
             </header>
@@ -1267,12 +1273,12 @@ function CompanySetup() {
             </section>
           )}
 
-          {/* 6. Statutory Information Section (PAN / TAN / GST) */}
+          {/* 6. Statutory Information Section (PAN / TAN / GST / PF / ESI) */}
           {shouldShow('pan-tan-gst') && (
             <section id="pan-tan-gst" className={styles.card}>
               <div className={styles.cardHeader}>
                 <FileText size={20} className={styles.cardIcon} />
-                <h2 className={styles.cardTitle}>Statutory Information (PAN / TAN / GST)</h2>
+                <h2 className={styles.cardTitle}>Statutory Information (PAN / TAN / GST / PF / ESI)</h2>
               </div>
               <div className={styles.cardBody}>
                 <div className={styles.formGrid}>
@@ -1312,6 +1318,32 @@ function CompanySetup() {
                     onChange={handleChange}
                     icon={FileText}
                     maxLength="15"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+
+                  <FormInput
+                    id="employerPfCode"
+                    name="employerPfCode"
+                    label="Employer PF Code"
+                    type="text"
+                    placeholder="DLCPM0012345000"
+                    value={formData.employerPfCode}
+                    onChange={handleChange}
+                    icon={FileText}
+                    maxLength="25"
+                    style={{ textTransform: 'uppercase' }}
+                  />
+
+                  <FormInput
+                    id="employerEsiCode"
+                    name="employerEsiCode"
+                    label="Employer ESI Code"
+                    type="text"
+                    placeholder="31000123450000101"
+                    value={formData.employerEsiCode}
+                    onChange={handleChange}
+                    icon={FileText}
+                    maxLength="25"
                     style={{ textTransform: 'uppercase' }}
                   />
                 </div>

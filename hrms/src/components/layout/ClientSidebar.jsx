@@ -14,6 +14,7 @@ import {
 import styles from './ClientSidebar.module.css';
 import Avatar from '../common/Avatar';
 import { useClientAuth } from '../../context/ClientAuthContext';
+import rrLogo from '../../assets/rrlogo.png';
 
 // Company-scoped Client Navigation Structure
 const CLIENT_NAV_GROUPS = [
@@ -87,17 +88,13 @@ function ClientSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout })
       >
         {/* Branding header */}
         <div className={styles.brandHeader}>
-          <div className={styles.logoRow}>
-            <span className={styles.logoIcon}>
-              <Zap size={16} strokeWidth={2.5} color="#ffffff" fill="rgba(255,255,255,0.4)" />
-            </span>
-            {!isCollapsed && (
-              <div className={styles.brandText}>
-                <span className={styles.appName}>RR Security</span>
-                <span className={styles.appSuffix}>CLIENT PORTAL</span>
-              </div>
-            )}
-          </div>
+          <NavLink to="/client/dashboard" className={styles.brandLink} title="RR Security & Facilities">
+            <img 
+              src={rrLogo} 
+              alt="RR Security & Facilities" 
+              className={styles.brandLogoImg} 
+            />
+          </NavLink>
         </div>
 
         {/* Navigation list */}
