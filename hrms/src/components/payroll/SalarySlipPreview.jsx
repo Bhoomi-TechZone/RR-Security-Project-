@@ -244,16 +244,26 @@ export default function SalarySlipPreview({
                       </div>
                     </>
                   )}
+                  {showUanPf && slip.uan && (
+                    <div className={styles.infoRow}>
+                      <span className={styles.infoLabel}>UAN:</span>
+                      <span className={styles.infoVal}>{slip.uan}</span>
+                    </div>
+                  )}
                   {showUanPf && (
                     <div className={styles.infoRow}>
-                      <span className={styles.infoLabel}>UAN / PF No:</span>
-                      <span className={styles.infoVal}>{slip.uan || slip.pfNo || slip.pfNumber || '—'}</span>
+                      <span className={styles.infoLabel}>PF Number:</span>
+                      <span className={styles.infoVal}>
+                        {slip.pfNo || slip.pfNumber || (slip.deductions?.pfEmployee > 0 ? (company?.employerPfCode ? `${company.employerPfCode}/001` : 'PF/001') : 'N/A')}
+                      </span>
                     </div>
                   )}
                   {showEsiNo && (
                     <div className={styles.infoRow}>
-                      <span className={styles.infoLabel}>ESIC No:</span>
-                      <span className={styles.infoVal}>{slip.esicNo || slip.esiNumber || '—'}</span>
+                      <span className={styles.infoLabel}>ESIC Number:</span>
+                      <span className={styles.infoVal}>
+                        {slip.esicNo || slip.esiNumber || (slip.deductions?.esiEmployee > 0 ? (company?.employerEsiCode ? `${company.employerEsiCode}/001` : 'ESI/001') : 'N/A')}
+                      </span>
                     </div>
                   )}
                 </div>

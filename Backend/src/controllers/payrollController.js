@@ -43,6 +43,105 @@ const getMonthLabel = (monthStr) => {
 };
 
 /**
+ * Sequentially assign company-configured PF and ESI codes:
+ * Format: <EMPLOYER_CODE>/<SEQUENCE> (e.g. 34934934939493/001, 9239292929292/001)
+ * Increments strictly only for employees who have PF / ESI applicable.
+ * If not applicable, marks as 'N/A'.
+ */
+export const applySequentialCompanyStatutoryCodes = (records, companyDoc, empMap = new Map()) => {
+  if (!Array.isArray(records) || records.length === 0) return records;
+
+  const rawPfCode = companyDoc?.employerPfCode || companyDoc?.pfCode || companyDoc?.pfNo || '';
+  const rawEsiCode = companyDoc?.employerEsiCode || companyDoc?.esiCode || companyDoc?.esicNo || '';
+  const companyPfCode = String(rawPfCode).trim();
+  const companyEsiCode = String(rawEsiCode).trim();
+
+  // Natural sort copy of records by employeeId to ensure deterministic, consistent ordering across runs
+  const sortedRecords = [...records].sort((a, b) => {
+    const idA = String(a.employeeId || a.id || '');
+    const idB = String(b.employeeId || b.id || '');
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+
+  let pfCounter = 1;
+  let esiCounter = 1;
+  const pfSeqMap = new Map();
+  const esiSeqMap = new Map();
+
+  sortedRecords.forEach((rec) => {
+    const empIdKey = String(rec.employeeId || rec.id || '').toLowerCase();
+    const empDoc = empMap.get(empIdKey);
+
+    // Determine PF applicability:
+    // 1. Explicit deduction > 0 in earnings/deductions
+    // 2. Or employee master pfApplicable is true / 'yes'
+    // 3. And not explicitly false / 'no'
+    const pfDeduction = Number(
+      rec.deductions?.pfEmployee ??
+      rec.deductionsBreakdown?.pfEmployee ??
+      rec.pf ??
+      0
+    );
+    const empPfSetting = empDoc?.pfApplicable ?? rec.pfApplicable;
+    const isPfExplicitlyDisabled = empPfSetting === false || String(empPfSetting).toLowerCase() === 'no';
+    const isPfExplicitlyEnabled = empPfSetting === true || String(empPfSetting).toLowerCase() === 'yes';
+    const isPfApplicable = !isPfExplicitlyDisabled && (pfDeduction > 0 || isPfExplicitlyEnabled);
+
+    if (isPfApplicable) {
+      const seqStr = String(pfCounter).padStart(3, '0');
+      const generatedPf = companyPfCode ? `${companyPfCode}/${seqStr}` : `PF/${seqStr}`;
+      pfSeqMap.set(empIdKey, generatedPf);
+      pfCounter++;
+    } else {
+      pfSeqMap.set(empIdKey, 'N/A');
+    }
+
+    // Determine ESI applicability:
+    // 1. Explicit deduction > 0 in earnings/deductions
+    // 2. Or employee master esiApplicable is true / 'yes'
+    // 3. And not explicitly false / 'no'
+    const esiDeduction = Number(
+      rec.deductions?.esiEmployee ??
+      rec.deductionsBreakdown?.esiEmployee ??
+      rec.esi ??
+      0
+    );
+    const empEsiSetting = empDoc?.esiApplicable ?? rec.esiApplicable;
+    const isEsiExplicitlyDisabled = empEsiSetting === false || String(empEsiSetting).toLowerCase() === 'no';
+    const isEsiExplicitlyEnabled = empEsiSetting === true || String(empEsiSetting).toLowerCase() === 'yes';
+    const isEsiApplicable = !isEsiExplicitlyDisabled && (esiDeduction > 0 || isEsiExplicitlyEnabled);
+
+    if (isEsiApplicable) {
+      const seqStr = String(esiCounter).padStart(3, '0');
+      const generatedEsi = companyEsiCode ? `${companyEsiCode}/${seqStr}` : `ESI/${seqStr}`;
+      esiSeqMap.set(empIdKey, generatedEsi);
+      esiCounter++;
+    } else {
+      esiSeqMap.set(empIdKey, 'N/A');
+    }
+  });
+
+  // Apply sequential codes back onto records
+  records.forEach((rec) => {
+    const empIdKey = String(rec.employeeId || rec.id || '').toLowerCase();
+    const assignedPf = pfSeqMap.get(empIdKey) || 'N/A';
+    const assignedEsi = esiSeqMap.get(empIdKey) || 'N/A';
+
+    rec.pfNo = assignedPf;
+    rec.pfNumber = assignedPf;
+    rec.esicNo = assignedEsi;
+    rec.esiNumber = assignedEsi;
+    rec.employerPfCode = companyPfCode;
+    rec.employerEsiCode = companyEsiCode;
+    rec.pfApplicable = assignedPf !== 'N/A';
+    rec.esiApplicable = assignedEsi !== 'N/A';
+  });
+
+  return records;
+};
+
+
+/**
  * @desc    Get dynamic payroll records for a month (calculates on-the-fly from MongoDB if not yet run)
  * @route   GET /api/payroll
  * @access  Private
@@ -89,6 +188,20 @@ export const getPayrollRecords = async (req, res) => {
         });
         records.push(record);
       }
+
+      // Resolve company details & apply sequential PF / ESI codes
+      const companyDoc =
+        (await Company.findOne({ companyId })) ||
+        (await Company.findOne({ isDefault: true })) ||
+        (await Company.findOne({}));
+
+      const liveEmpMap = new Map();
+      employees.forEach((e) => {
+        if (e.employeeId) liveEmpMap.set(String(e.employeeId).toLowerCase(), e);
+        if (e.employeeCode) liveEmpMap.set(String(e.employeeCode).toLowerCase(), e);
+      });
+
+      applySequentialCompanyStatutoryCodes(records, companyDoc, liveEmpMap);
 
       return res.status(200).json({
         success: true,
@@ -390,6 +503,13 @@ export const getPayrollRecords = async (req, res) => {
         netSalary: plain.netSalary || 0,
       };
     });
+
+    const companyDoc =
+      (await Company.findOne({ companyId })) ||
+      (await Company.findOne({ isDefault: true })) ||
+      (await Company.findOne({}));
+
+    applySequentialCompanyStatutoryCodes(enrichedRecords, companyDoc, empMap);
 
     return res.status(200).json({
       success: true,
@@ -723,6 +843,19 @@ export const runPayrollCalculation = async (req, res) => {
         overrides,
       });
     });
+
+    const companyDoc =
+      (await Company.findOne({ companyId })) ||
+      (await Company.findOne({ isDefault: true })) ||
+      (await Company.findOne({}));
+
+    const empMap = new Map();
+    employees.forEach((e) => {
+      if (e.employeeId) empMap.set(String(e.employeeId).toLowerCase(), e);
+      if (e.employeeCode) empMap.set(String(e.employeeCode).toLowerCase(), e);
+    });
+
+    applySequentialCompanyStatutoryCodes(calculatedRecords, companyDoc, empMap);
 
     const totalGross = calculatedRecords.reduce((sum, r) => sum + (r.earnings?.totalGross || 0), 0);
     const totalDeductions = calculatedRecords.reduce((sum, r) => sum + (r.deductions?.totalDeductions || 0), 0);
@@ -1081,8 +1214,6 @@ export const generateSalarySlips = async (req, res) => {
 
         if (!rec.pan && empDoc.pan) rec.pan = empDoc.pan;
         if (!rec.uan && empDoc.uan) rec.uan = empDoc.uan;
-        if (!rec.pfNo && empDoc.pfNo) rec.pfNo = empDoc.pfNo;
-        if (!rec.esicNo && empDoc.esicNo) rec.esicNo = empDoc.esicNo;
         if (!rec.bankName && empDoc.bankName) rec.bankName = empDoc.bankName;
         if (!rec.bankAccountNo && (empDoc.bankAccountNo || empDoc.accountNumber || empDoc.accountNo)) {
           rec.bankAccountNo = empDoc.bankAccountNo || empDoc.accountNumber || empDoc.accountNo;
@@ -1091,6 +1222,14 @@ export const generateSalarySlips = async (req, res) => {
           rec.ifscCode = empDoc.ifscCode || empDoc.ifsc;
         }
       }
+    }
+
+    // Sequentially assign company-configured PF (<companyPfCode>/001) & ESI (<companyEsiCode>/001) codes
+    applySequentialCompanyStatutoryCodes(eligibleRecords, companyDoc, empMap);
+
+    for (let i = 0; i < eligibleRecords.length; i++) {
+      const rec = eligibleRecords[i];
+      const empDoc = empMap.get(String(rec.employeeId).toLowerCase());
 
       const slipNumber = `SLIP-${month.replace('-', '')}-${String(rec.employeeId || i + 1).padStart(4, '0')}`;
 
@@ -1114,8 +1253,14 @@ export const generateSalarySlips = async (req, res) => {
             ifscCode: rec.ifscCode || empDoc?.ifscCode || empDoc?.ifsc || '',
             pan: rec.pan || empDoc?.pan || '',
             uan: rec.uan || empDoc?.uan || '',
-            pfNo: rec.pfNo || empDoc?.pfNo || '',
-            esicNo: rec.esicNo || empDoc?.esicNo || '',
+            pfNo: rec.pfNo,
+            pfNumber: rec.pfNumber || rec.pfNo,
+            esicNo: rec.esicNo,
+            esiNumber: rec.esiNumber || rec.esicNo,
+            employerPfCode: companyDoc?.employerPfCode || '',
+            employerEsiCode: companyDoc?.employerEsiCode || '',
+            pfApplicable: rec.pfApplicable,
+            esiApplicable: rec.esiApplicable,
             workingDays: rec.totalDaysInMonth,
             presentDays: rec.presentDays,
             paidDays: rec.paidDays,
@@ -1478,6 +1623,27 @@ export const getSalarySlips = async (req, res) => {
         earnings,
         deductions,
       };
+    });
+
+    // Sequentially assign company PF and ESI codes to all retrieved slips
+    applySequentialCompanyStatutoryCodes(enrichedSlips, companyDoc, empMap);
+
+    // Asynchronously synchronize sequential statutory codes back to MongoDB SalarySlip collection
+    enrichedSlips.forEach((s) => {
+      if (s._id && !String(s._id).startsWith('slip-run-')) {
+        SalarySlip.findByIdAndUpdate(s._id, {
+          $set: {
+            pfNo: s.pfNo,
+            pfNumber: s.pfNumber || s.pfNo,
+            esicNo: s.esicNo,
+            esiNumber: s.esiNumber || s.esicNo,
+            employerPfCode: s.employerPfCode,
+            employerEsiCode: s.employerEsiCode,
+            pfApplicable: s.pfApplicable,
+            esiApplicable: s.esiApplicable,
+          },
+        }).exec().catch(() => {});
+      }
     });
 
     return res.status(200).json({

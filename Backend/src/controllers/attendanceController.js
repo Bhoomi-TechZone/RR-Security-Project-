@@ -221,12 +221,74 @@ export const getAttendanceRecords = async (req, res) => {
       }
     }
 
+    // When querying by month (Monthly attendance view), consolidate by employeeId so each employee has ONLY ONE record
+    if (month && !date) {
+      const targetYear = Number(month.split('-')[0]) || new Date().getFullYear();
+      const targetMonthNum = Number(month.split('-')[1]) || (new Date().getMonth() + 1);
+      const daysInThisMonth = new Date(targetYear, targetMonthNum, 0).getDate();
+
+      const empMap = new Map();
+      const duplicateIdsToDelete = [];
+
+      for (const rec of records) {
+        const empKey = String(rec.employeeId || '').trim().toLowerCase();
+        if (!empKey) continue;
+
+        if (!empMap.has(empKey)) {
+          const rawRec = typeof rec.toJSON === 'function' ? rec.toJSON() : { ...rec };
+          if (!rawRec.workingDays || rawRec.workingDays <= 1) {
+            rawRec.workingDays = daysInThisMonth;
+          }
+          empMap.set(empKey, rawRec);
+        } else {
+          const existing = empMap.get(empKey);
+          const currentIsMonthly = (rec.workingDays && rec.workingDays > 1) || (rec.present && rec.present > 1);
+          const existingIsMonthly = (existing.workingDays && existing.workingDays > 1) || (existing.present && existing.present > 1);
+
+          if (currentIsMonthly && !existingIsMonthly) {
+            duplicateIdsToDelete.push(existing._id || existing.id);
+            const rawRec = typeof rec.toJSON === 'function' ? rec.toJSON() : { ...rec };
+            if (!rawRec.workingDays || rawRec.workingDays <= 1) {
+              rawRec.workingDays = daysInThisMonth;
+            }
+            empMap.set(empKey, rawRec);
+          } else if (!currentIsMonthly && existingIsMonthly) {
+            duplicateIdsToDelete.push(rec._id || rec.id);
+          } else {
+            // Pick the one with more complete data or most recently updated
+            if (
+              (rec.present || 0) > (existing.present || 0) ||
+              new Date(rec.updatedAt || rec.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)
+            ) {
+              duplicateIdsToDelete.push(existing._id || existing.id);
+              const rawRec = typeof rec.toJSON === 'function' ? rec.toJSON() : { ...rec };
+              if (!rawRec.workingDays || rawRec.workingDays <= 1) {
+                rawRec.workingDays = daysInThisMonth;
+              }
+              empMap.set(empKey, rawRec);
+            } else {
+              duplicateIdsToDelete.push(rec._id || rec.id);
+            }
+          }
+        }
+      }
+
+      // Automatically clean up duplicate database records in MongoDB
+      if (duplicateIdsToDelete.length > 0) {
+        Attendance.deleteMany({ _id: { $in: duplicateIdsToDelete } }).catch((delErr) => {
+          console.warn('Auto-cleanup of duplicate monthly attendance entries failed:', delErr.message);
+        });
+      }
+
+      records = Array.from(empMap.values());
+    }
+
     // Calculate dynamic summary metrics
     const total = records.length;
     const presentCount = records.filter((r) => r.status === 'present').length;
     const absentCount = records.filter((r) => r.status === 'absent').length;
-    const halfDayCount = records.filter((r) => r.status === 'half_day' || r.status === 'half-day').length;
-    const leaveCount = records.filter((r) => r.status === 'leave' || r.status === 'on_leave' || r.status === 'on-leave').length;
+    const halfDayCount = records.filter((r) => r.status === 'half_day' || r.status === 'half-day' || r.status === 'halfDay').length;
+    const leaveCount = records.filter((r) => r.status === 'leave' || r.status === 'on_leave' || r.status === 'on-leave' || r.status === 'onLeave').length;
     const lateCount = records.filter((r) => r.status === 'late' || Number(r.lateMinutes || 0) > 0).length;
 
     const summary = {
@@ -268,7 +330,7 @@ export const bulkImportAttendance = async (req, res) => {
   try {
     const adminEmail = req.user.email.toLowerCase();
     const companyId = req.headers['x-company-id'] || req.body.companyId || req.user.companyId || 'RRS8392014SEC';
-    const { records, defaultDate } = req.body;
+    const { records, defaultDate, month: reqMonth, isMonthly, year: reqYear } = req.body;
 
     if (!Array.isArray(records) || records.length === 0) {
       return res.status(400).json({
@@ -281,7 +343,6 @@ export const bulkImportAttendance = async (req, res) => {
 
     for (let i = 0; i < records.length; i++) {
       const rec = records[i];
-      const recordDate = rec.date || defaultDate || new Date().toISOString().split('T')[0];
       const rawEmpId = (rec.employeeId || `EMP${String(i + 1).padStart(3, '0')}`).trim();
       const rawEmpName = (rec.employeeName || 'Employee').trim();
       const rawFatherName = (rec.fatherName || '').trim();
@@ -323,59 +384,154 @@ export const bulkImportAttendance = async (req, res) => {
       const el = rec.el !== undefined ? Number(rec.el) : 0;
       const lwp = rec.lwp !== undefined ? Number(rec.lwp) : 0;
       const totalPaidDays = rec.totalPaidDays !== undefined ? Number(rec.totalPaidDays) : (present + weekOff + holidays + cl + sl + el);
-      const workingDays = rec.workingDays !== undefined ? Number(rec.workingDays) : totalPaidDays;
 
-      const month = String(rec.month || '').trim();
-      const year = rec.year ? Number(rec.year) : (recordDate ? Number(recordDate.split('-')[0]) : new Date().getFullYear());
+      // Determine month, year and standard format
+      let targetYear = rec.year ? Number(rec.year) : (reqYear ? Number(reqYear) : new Date().getFullYear());
+      let rawMonth = String(rec.month || reqMonth || defaultDate?.slice(0, 7) || '').trim();
+      let targetMonthNum = '01';
 
-      // Upsert directly into MongoDB by companyId, employeeId, and date
-      const updated = await Attendance.findOneAndUpdate(
-        {
+      if (/^\d{4}-\d{1,2}$/.test(rawMonth)) {
+        const [y, m] = rawMonth.split('-');
+        targetYear = Number(y);
+        targetMonthNum = String(m).padStart(2, '0');
+      } else if (/^\d{1,2}$/.test(rawMonth)) {
+        targetMonthNum = String(rawMonth).padStart(2, '0');
+      } else if (rawMonth) {
+        const monthsMap = {
+          january: '01', jan: '01',
+          february: '02', feb: '02',
+          march: '03', mar: '03',
+          april: '04', apr: '04',
+          may: '05',
+          june: '06', jun: '06',
+          july: '07', jul: '07',
+          august: '08', aug: '08',
+          september: '09', sept: '09', sep: '09',
+          october: '10', oct: '10',
+          november: '11', nov: '11',
+          december: '12', dec: '12'
+        };
+        targetMonthNum = monthsMap[rawMonth.toLowerCase()] || String(new Date().getMonth() + 1).padStart(2, '0');
+      } else {
+        targetMonthNum = String(new Date().getMonth() + 1).padStart(2, '0');
+      }
+
+      const monthKey = `${targetYear}-${targetMonthNum}`;
+      const monthDateKey = `${targetYear}-${targetMonthNum}-01`;
+      const recordDate = rec.date || defaultDate || monthDateKey;
+
+      const daysInThisMonth = new Date(targetYear, Number(targetMonthNum), 0).getDate();
+      const workingDays = (rec.workingDays !== undefined && Number(rec.workingDays) > 1)
+        ? Number(rec.workingDays)
+        : daysInThisMonth;
+
+      const isMonthlyRecord = isMonthly || Boolean(reqMonth) || Boolean(rec.month) || (rec.workingDays && rec.workingDays > 1) || (rec.present && rec.present > 1);
+
+      let updated;
+      if (isMonthlyRecord) {
+        // Upsert single whole-month attendance record for employee for this month
+        updated = await Attendance.findOneAndUpdate(
+          {
+            companyId: targetCompanyId,
+            employeeId: empId,
+            $or: [
+              { date: monthDateKey },
+              { month: monthKey },
+              { date: { $regex: new RegExp(`^${monthKey}`) } }
+            ]
+          },
+          {
+            $set: {
+              employeeName: empName,
+              fatherName,
+              initials,
+              clientId,
+              clientName: client,
+              companyName: client,
+              site,
+              department,
+              date: monthDateKey,
+              month: monthKey,
+              year: targetYear,
+              present,
+              weekOff,
+              holidays,
+              cl,
+              sl,
+              el,
+              lwp,
+              totalPaidDays,
+              workingDays,
+              checkIn: rec.checkIn || null,
+              checkOut: rec.checkOut || null,
+              workingHours: `${present} days`,
+              status: present > 0 ? 'present' : (lwp > 0 ? 'absent' : (cl + sl + el > 0 ? 'onLeave' : 'absent')),
+              lateMinutes: 0,
+              earlyOutMinutes: 0,
+              adminEmail,
+              companyId: targetCompanyId,
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+
+        // Delete any other records for this employee in this month so ONLY ONE record exists
+        await Attendance.deleteMany({
           companyId: targetCompanyId,
           employeeId: empId,
-          date: recordDate,
-        },
-        {
-          $set: {
-            employeeName: empName,
-            fatherName,
-            initials,
-            clientId,
-            clientName: client,
-            companyName: client,
-            site,
-            department,
-            date: recordDate,
-            month,
-            year,
-            present,
-            weekOff,
-            holidays,
-            cl,
-            sl,
-            el,
-            lwp,
-            totalPaidDays,
-            workingDays,
-            checkIn: rec.checkIn || null,
-            checkOut: rec.checkOut || null,
-            workingHours: rec.workingHours || (present > 0 ? `${present} days` : null),
-            status: rec.status || (present > 0 ? 'present' : 'present'),
-            lateMinutes: rec.lateMinutes || (rec.status === 'late' ? 15 : 0),
-            earlyOutMinutes: rec.earlyOutMinutes || 0,
-            adminEmail,
+          date: { $regex: new RegExp(`^${monthKey}`) },
+          _id: { $ne: updated._id }
+        });
+      } else {
+        // Daily attendance record import
+        updated = await Attendance.findOneAndUpdate(
+          {
             companyId: targetCompanyId,
+            employeeId: empId,
+            date: recordDate,
           },
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true }
-      );
+          {
+            $set: {
+              employeeName: empName,
+              fatherName,
+              initials,
+              clientId,
+              clientName: client,
+              companyName: client,
+              site,
+              department,
+              date: recordDate,
+              month: monthKey,
+              year: targetYear,
+              present,
+              weekOff,
+              holidays,
+              cl,
+              sl,
+              el,
+              lwp,
+              totalPaidDays,
+              workingDays,
+              checkIn: rec.checkIn || null,
+              checkOut: rec.checkOut || null,
+              workingHours: rec.workingHours || (present > 0 ? `${present} days` : null),
+              status: rec.status || (present > 0 ? 'present' : 'present'),
+              lateMinutes: rec.lateMinutes || (rec.status === 'late' ? 15 : 0),
+              earlyOutMinutes: rec.earlyOutMinutes || 0,
+              adminEmail,
+              companyId: targetCompanyId,
+            },
+          },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
+      }
 
       savedRecords.push(updated.toJSON());
     }
 
     return res.status(200).json({
       success: true,
-      message: `Successfully stored ${savedRecords.length} attendance records directly in MongoDB database!`,
+      message: `Successfully imported & consolidated ${savedRecords.length} attendance records directly in MongoDB Atlas!`,
       count: savedRecords.length,
       records: savedRecords,
     });

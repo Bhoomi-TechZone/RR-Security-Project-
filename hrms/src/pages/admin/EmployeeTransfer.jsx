@@ -30,6 +30,7 @@ import { usePermissions } from '../../context/PermissionContext';
 import { employeeService } from '../../services/employeeService';
 import { clientService } from '../../services/clientService';
 import { authService } from '../../services/authService';
+import { transferService } from '../../services/transferService';
 import styles from './EmployeeTransfer.module.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -85,69 +86,27 @@ function EmployeeTransfer() {
     setToast({ message, type });
   };
 
-  // Load Initial Transfer History from LocalStorage
+  // Clear any legacy localStorage seed data to ensure pure database persistence
   useEffect(() => {
-    const storageKey = `novaspark_transfers_${currentCompanyId}`;
     try {
-      const stored = localStorage.getItem(storageKey);
-      if (stored) {
-        setTransferHistory(JSON.parse(stored));
-      } else {
-        // Sample seed records for immediate visual demonstration
-        const initialSeeds = [
-          {
-            id: 'TRF-1001',
-            date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            employeeId: 'EMP-0012',
-            employeeName: 'Rajesh Kumar',
-            designation: 'Security Supervisor',
-            department: 'Security Operations',
-            fromClient: 'Apex Global Logistics',
-            fromSite: 'Warehouse Complex #4, Manesar',
-            toClient: 'TechCorp Towers',
-            toSite: 'Tower B, Cyber City, Gurugram',
-            reason: 'Client Request',
-            remarks: 'Transferred per client requirement for certified lead supervisor.',
-            transferredBy: 'Admin Team',
-            status: 'Completed'
-          },
-          {
-            id: 'TRF-1002',
-            date: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            employeeId: 'EMP-0045',
-            employeeName: 'Sunil Sharma',
-            designation: 'Facility Associate',
-            department: 'Housekeeping & Facility',
-            fromClient: 'Zenith Retail Hub',
-            fromSite: 'Retail Mall Floor 2, Noida',
-            toClient: 'Metro Business Park',
-            toSite: 'Block A, Sector 62, Noida',
-            reason: 'Operational Balancing',
-            remarks: 'Shift rebalancing to meet new facility coverage SLA.',
-            transferredBy: 'Operations Manager',
-            status: 'Completed'
-          }
-        ];
-        setTransferHistory(initialSeeds);
-        localStorage.setItem(storageKey, JSON.stringify(initialSeeds));
-      }
-    } catch (e) {
-      console.error('Error accessing transfer storage:', e);
-    }
+      localStorage.removeItem(`novaspark_transfers_${currentCompanyId}`);
+    } catch (_) {}
   }, [currentCompanyId]);
 
-  // Fetch Employees and Clients from APIs
+  // Fetch Employees, Clients, and Transfer History directly from MongoDB Atlas APIs
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [empList, clientList] = await Promise.all([
+      const [empList, clientList, transferList] = await Promise.all([
         employeeService.getEmployees(currentCompanyId),
-        clientService.getClients(currentCompanyId).catch(() => [])
+        clientService.getClients(currentCompanyId).catch(() => []),
+        transferService.getTransfers(currentCompanyId).catch(() => []),
       ]);
       setEmployees(Array.isArray(empList) ? empList : []);
       setClients(Array.isArray(clientList) ? clientList : []);
+      setTransferHistory(Array.isArray(transferList) ? transferList : []);
     } catch (err) {
-      console.error('Error loading transfer page data:', err);
+      console.error('Error loading transfer page data from database:', err);
       showToast('Could not fetch updated employee list', 'error');
     } finally {
       setLoading(false);
@@ -247,55 +206,24 @@ function EmployeeTransfer() {
     setIsSubmitting(true);
     setFormError('');
 
-    const token = authService.getToken();
-    const empId = selectedEmployee.id || selectedEmployee._id || selectedEmployee.employeeId;
+    const empId = selectedEmployee.employeeId || selectedEmployee.id || selectedEmployee._id;
 
     try {
-      // 1. Update Employee in Database via API
-      const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-          'x-company-id': currentCompanyId,
+      // Execute Transfer in Database via API (updates employee & creates transfer audit log in MongoDB Atlas)
+      const resData = await transferService.createTransfer(
+        {
+          employeeId: empId,
+          toClientId: finalClientId,
+          toClient: finalClientName,
+          toSite: targetSite.trim(),
+          effectiveDate,
+          reason,
+          remarks: remarks.trim() || 'Workforce deployment updated.',
         },
-        body: JSON.stringify({
-          clientId: finalClientId,
-          clientName: finalClientName,
-          companyName: finalClientName,
-          siteLocation: targetSite.trim(),
-          site: targetSite.trim(),
-        }),
-      });
+        currentCompanyId
+      );
 
-      const resData = await res.json();
-      if (!res.ok) {
-        throw new Error(resData.message || 'Failed to update employee transfer in database');
-      }
-
-      // 2. Create Audit Transfer Record
-      const newTransferRecord = {
-        id: `TRF-${Math.floor(1000 + Math.random() * 9000)}`,
-        date: effectiveDate,
-        employeeId: selectedEmployee.employeeId || selectedEmployee.id,
-        employeeName: selectedEmployee.name,
-        designation: selectedEmployee.designation || 'Staff',
-        department: selectedEmployee.department || 'General',
-        fromClient: selectedEmployee.clientName || selectedEmployee.companyName || 'Not Assigned',
-        fromSite: selectedEmployee.siteLocation || selectedEmployee.site || selectedEmployee.address || 'Headquarters',
-        toClient: finalClientName,
-        toSite: targetSite.trim(),
-        reason,
-        remarks: remarks.trim() || 'Workforce deployment updated.',
-        transferredBy: activeCompany?.name || 'Administrator',
-        status: 'Completed'
-      };
-
-      const updatedHistory = [newTransferRecord, ...transferHistory];
-      setTransferHistory(updatedHistory);
-      localStorage.setItem(`novaspark_transfers_${currentCompanyId}`, JSON.stringify(updatedHistory));
-
-      showToast(`✓ ${selectedEmployee.name} successfully transferred to ${finalClientName}!`, 'success');
+      showToast(resData.message || `✓ ${selectedEmployee.name} successfully transferred to ${finalClientName}!`, 'success');
 
       // Reset form
       setSelectedEmpId('');
@@ -304,7 +232,7 @@ function EmployeeTransfer() {
       setTargetSite('');
       setRemarks('');
 
-      // Refresh employee roster
+      // Refresh dynamic employees and transfer history directly from database
       await fetchData();
     } catch (err) {
       console.error('Transfer execution failed:', err);
@@ -314,6 +242,23 @@ function EmployeeTransfer() {
       setIsSubmitting(false);
     }
   };
+
+  // Unique Clients for dynamic filtering
+  const uniqueClients = useMemo(() => {
+    const set = new Set();
+    clients.forEach((c) => {
+      if (c.name) set.add(c.name);
+    });
+    employees.forEach((e) => {
+      if (e.clientName) set.add(e.clientName);
+      if (e.companyName) set.add(e.companyName);
+    });
+    transferHistory.forEach((t) => {
+      if (t.toClient) set.add(t.toClient);
+      if (t.fromClient && t.fromClient !== 'Not Assigned') set.add(t.fromClient);
+    });
+    return Array.from(set).sort();
+  }, [clients, employees, transferHistory]);
 
   // Filtered Transfer History
   const filteredHistory = useMemo(() => {
@@ -473,19 +418,6 @@ function EmployeeTransfer() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
     showToast(`Loaded ${emp.name} into transfer initiator`, 'success');
   };
-
-  // Unique client names for filter dropdown
-  const uniqueClients = useMemo(() => {
-    const set = new Set();
-    clients.forEach((c) => {
-      if (c.name) set.add(c.name);
-    });
-    employees.forEach((e) => {
-      if (e.clientName) set.add(e.clientName);
-      if (e.companyName) set.add(e.companyName);
-    });
-    return Array.from(set).sort();
-  }, [clients, employees]);
 
   return (
     <AdminLayout>

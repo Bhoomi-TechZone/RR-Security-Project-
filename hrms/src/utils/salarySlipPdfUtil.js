@@ -185,9 +185,9 @@ export async function generateSalarySlipPdf({
   const department = slip.department || 'Operations';
   const clientSite = slip.clientName || slip.site || 'Corporate';
   const bankName = slip.bankName || slip.bankDetails?.bank || '—';
-  const bankAccountNo = slip.bankAccountNo || slip.bankAccount || slip.accountNumber || slip.bankDetails?.accountNumber || '—';
-  const uan = slip.uan || slip.pfNo || slip.pfNumber || '—';
-  const esicNo = slip.esicNo || slip.esiNumber || '—';
+  const uan = slip.uan || '—';
+  const pfNo = slip.pfNo || slip.pfNumber || (slip.deductions?.pfEmployee > 0 ? (company?.employerPfCode ? `${company.employerPfCode}/001` : 'PF/001') : 'N/A');
+  const esicNo = slip.esicNo || slip.esiNumber || (slip.deductions?.esiEmployee > 0 ? (company?.employerEsiCode ? `${company.employerEsiCode}/001` : 'ESI/001') : 'N/A');
 
   const workingDays = slip.workingDays || slip.totalDaysInMonth || 30;
   const presentDays = slip.presentDays !== undefined ? slip.presentDays : (slip.paidDays ?? 0);
@@ -421,10 +421,14 @@ export async function generateSalarySlipPdf({
   if (showUanPf || showEsiNo) {
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text('UAN / ESIC:', col2X, rowY);
+    doc.text('PF / ESIC:', col2X, rowY);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(15, 23, 42);
-    const statutoryLine = [showUanPf ? `UAN: ${uan}` : null, showEsiNo ? `ESIC: ${esicNo}` : null]
+    const statutoryLine = [
+      showUanPf ? `PF: ${pfNo}` : null,
+      showEsiNo ? `ESIC: ${esicNo}` : null,
+      (showUanPf && uan && uan !== '—' && uan !== pfNo) ? `UAN: ${uan}` : null,
+    ]
       .filter(Boolean)
       .join('  |  ');
     doc.text(statutoryLine || '—', col2ValX, rowY);

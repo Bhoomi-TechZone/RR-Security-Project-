@@ -31,6 +31,7 @@ import reportRoutes from './routes/reportRoutes.js';
 import overtimeRoutes from './routes/overtimeRoutes.js';
 import complianceRoutes from './routes/complianceRoutes.js';
 import letterRoutes from './routes/letterRoutes.js';
+import transferRoutes from './routes/transferRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -178,8 +179,9 @@ app.use('/api/clients', clientRoutes);
 // Client Portal (Dynamic Client Dashboard, Assigned Employees, Attendance, Invoices, Profile)
 app.use('/api/client-portal', clientPortalRoutes);
 
-// Employees
+// Employees & Transfers
 app.use('/api/employees', employeeRoutes);
+app.use('/api/transfers', transferRoutes);
 
 // Work Locations
 app.use('/api/work-locations', workLocationRoutes);

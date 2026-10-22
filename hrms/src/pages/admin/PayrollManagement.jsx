@@ -304,7 +304,7 @@ export default function PayrollManagement() {
           clientName: r.clientName || 'Main Client',
           initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
           uan: r.uan || `101${(r.employeeId || '1').replace(/\D/g, '').padStart(9, '0')}`,
-          pfNumber: r.pfNumber || r.pfNo || `DL/CPM/${r.employeeId || '001'}`,
+          pfNumber: r.pfNumber || r.pfNo || (companies[0]?.employerPfCode ? `${companies[0].employerPfCode}/001` : 'PF/001'),
           eligibleSalary: basicWages > 0 ? basicWages : Math.min(r.basicSalary || r.basic || 15000, 15000),
           employeePF: empPF,
           employerPF: empyrPF,
@@ -312,7 +312,7 @@ export default function PayrollManagement() {
           status: 'Compliant'
         };
       });
-  }, [records]);
+  }, [records, companies]);
 
   // Dynamic Statutory ESI Records from live employee calculations
   const dynamicESIRecords = useMemo(() => {
@@ -329,7 +329,7 @@ export default function PayrollManagement() {
           department: r.department || 'General',
           clientName: r.clientName || 'Main Client',
           initials: r.initials || r.employeeName?.slice(0, 2)?.toUpperCase() || 'EM',
-          esiNumber: r.esiNumber || r.esicNo || `31000${(r.employeeId || '1').replace(/\D/g, '').padStart(6, '0')}`,
+          esiNumber: r.esiNumber || r.esicNo || (companies[0]?.employerEsiCode ? `${companies[0].employerEsiCode}/001` : 'ESI/001'),
           eligibleSalary: r.earnings?.totalGross || r.grossSalary || 0,
           employeeESI: empESI,
           employerESI: empyrESI,
@@ -337,7 +337,7 @@ export default function PayrollManagement() {
           status: 'Compliant'
         };
       });
-  }, [records]);
+  }, [records, companies]);
 
   // Statutory Summary
   const statutorySummary = useMemo(() => {
