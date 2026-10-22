@@ -158,7 +158,7 @@ function App() {
         <Route path="reports" element={<ModulePermissionRoute moduleKey="reports" moduleTitle="Reports"><Reports /></ModulePermissionRoute>} />
 
         {/* System & Settings Modules */}
-        <Route path="company-setup" element={<ModulePermissionRoute moduleKey="company_setup" moduleTitle="Company Setup"><CompanySetup /></ModulePermissionRoute>} />
+        <Route path="company-setup" element={<ModulePermissionRoute moduleKey="company_setup" moduleTitle="Organization Setup"><CompanySetup /></ModulePermissionRoute>} />
         <Route path="work-locations" element={<ModulePermissionRoute moduleKey="work_locations" moduleTitle="Work Locations"><WorkLocations /></ModulePermissionRoute>} />
         <Route path="masters" element={<ModulePermissionRoute moduleKey="masters" moduleTitle="Masters"><Masters /></ModulePermissionRoute>} />
         <Route path="roles-permissions" element={<ModulePermissionRoute moduleKey="roles_permissions" moduleTitle="Role & Permissions"><RolePermissions /></ModulePermissionRoute>} />

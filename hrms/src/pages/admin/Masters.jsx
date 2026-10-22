@@ -1011,7 +1011,7 @@ function Masters() {
                       className={styles.secondaryButton}
                       style={{ padding: '6px 12px', fontSize: '13px' }}
                     >
-                      <ArrowLeft size={15} /> Back to Company Setup
+                      <ArrowLeft size={15} /> Back to Organization Setup
                     </button>
                   )}
                   {activeTab === 'clients' && (

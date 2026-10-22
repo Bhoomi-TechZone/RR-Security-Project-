@@ -57,11 +57,18 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/advances-loans')) return 'Payroll Management / Advances & Loans';
     if (path.startsWith('/user/reimbursements')) return 'Payroll Management / Reimbursements';
     if (path.startsWith('/user/overtime')) return 'Payroll Management / Overtime';
-    if (path.startsWith('/user/payroll')) return 'Payroll Management / Payroll';
+    if (path.startsWith('/user/payroll')) {
+      if (location.search.includes('tab=structure')) return 'Payroll Management / Salary Structure';
+      if (location.search.includes('tab=rate-revision')) return 'Payroll Management / Rate Revision';
+      if (location.search.includes('tab=arrears')) return 'Payroll Management / Arrears';
+      if (location.search.includes('tab=slips')) return 'Payroll Management / Salary Slips';
+      if (location.search.includes('tab=statutory')) return 'Payroll Management / Statutory Reports';
+      return 'Payroll Management / Payroll Processing';
+    }
     if (path.startsWith('/user/leave')) return 'Management / Leave';
     if (path.startsWith('/user/inventory')) return 'Management / Inventory';
     if (path.startsWith('/user/reports')) return 'Management / Reports';
-    if (path.startsWith('/user/company-setup')) return 'System / Company Setup';
+    if (path.startsWith('/user/company-setup')) return 'System / Organization Setup';
     if (path.startsWith('/user/work-locations')) return 'System / Work Locations';
     if (path.startsWith('/user/masters')) return 'System / Masters';
     if (path.startsWith('/user/roles-permissions')) return 'System / Role & Permissions';

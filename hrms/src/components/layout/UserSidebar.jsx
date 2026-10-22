@@ -31,6 +31,7 @@ import styles from './UserSidebar.module.css';
 import Avatar from '../common/Avatar';
 import { usePermissions } from '../../context/PermissionContext';
 import { useCompany } from '../../context/CompanyContext';
+import rrLogo from '../../assets/rrlogo.png';
 
 // Navigation groups & module definitions mapping for User Panel
 const USER_NAV_GROUPS = [
@@ -242,7 +243,7 @@ const USER_NAV_GROUPS = [
     items: [
       { 
         path: '/user/company-setup', 
-        name: 'Company Setup', 
+        name: 'Organization Setup', 
         icon: Building2, 
         moduleKey: 'company_setup',
         hasDropdown: true,
@@ -386,25 +387,13 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
       >
         {/* Branding header */}
         <div className={styles.brandHeader}>
-          <div className={styles.logoRow}>
-            {activeCompany?.logo ? (
-              <div className={styles.companyLogoWrap}>
-                <img src={activeCompany.logo} alt={activeCompany.name || 'Company'} className={styles.companyLogoImg} />
-              </div>
-            ) : (
-              <span className={styles.logoIcon}>
-                <Zap size={16} strokeWidth={2.5} color="#ffffff" fill="rgba(255,255,255,0.4)" />
-              </span>
-            )}
-            {!isCollapsed && (
-              <div className={styles.brandText}>
-                <span className={styles.appName} title={activeCompany?.name}>
-                  {activeCompany?.name || 'RR Security'}
-                </span>
-                <span className={styles.appSuffix}>HRMS</span>
-              </div>
-            )}
-          </div>
+          <NavLink to="/user/dashboard" className={styles.brandLink} title="RR Security & Facilities">
+            <img 
+              src={rrLogo} 
+              alt="RR Security & Facilities" 
+              className={styles.brandLogoImg} 
+            />
+          </NavLink>
         </div>
 
         {/* Navigation list */}

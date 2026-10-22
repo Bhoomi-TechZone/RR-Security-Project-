@@ -15,6 +15,7 @@ import styles from './EmployeeSidebar.module.css';
 import { useCompany } from '../../context/CompanyContext';
 import preferenceService from '../../services/preferenceService';
 import authService from '../../services/authService';
+import rrLogo from '../../assets/rrlogo.png';
 
 const ALL_NAV_ITEMS = [
   { path: '/employee/dashboard', name: 'Dashboard', icon: LayoutDashboard, key: 'allowDashboard' },
@@ -120,25 +121,13 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
         aria-label="Employee sidebar navigation"
       >
         <div className={styles.brandHeader}>
-          <div className={styles.logoRow}>
-            {activeCompany?.logo ? (
-              <div className={styles.companyLogoWrap}>
-                <img src={activeCompany.logo} alt={activeCompany.name || 'Company'} className={styles.companyLogoImg} />
-              </div>
-            ) : (
-              <span className={styles.logoIcon}>
-                <Zap size={16} strokeWidth={2.5} color="#ffffff" fill="rgba(255,255,255,0.4)" />
-              </span>
-            )}
-            {!isCollapsed && (
-              <div className={styles.brandText}>
-                <span className={styles.appName} title={activeCompany?.name}>
-                  {activeCompany?.name || 'RR Security'}
-                </span>
-                <span className={styles.appSuffix}>HRMS</span>
-              </div>
-            )}
-          </div>
+          <NavLink to="/employee/dashboard" className={styles.brandLink} title="RR Security & Facilities">
+            <img 
+              src={rrLogo} 
+              alt="RR Security & Facilities" 
+              className={styles.brandLogoImg} 
+            />
+          </NavLink>
         </div>
 
         <nav className={styles.navContainer}>

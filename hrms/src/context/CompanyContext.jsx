@@ -34,6 +34,8 @@ export const DEFAULT_PRIMARY_COMPANY = {
   gstin: '09ABCDE1234F1Z5',
   pan: 'ABCDE1234F',
   tan: 'BLRA12345D',
+  employerPfCode: 'DLCPM0012345000',
+  employerEsiCode: '31000123450000101',
   isDefault: true,
   status: 'Active',
   employeesCount: 1250,
