@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   FileSpreadsheet,
   FileText,
@@ -8,6 +8,9 @@ import {
   CheckCircle2,
   Clock,
   ShieldCheck,
+  ChevronDown,
+  Info,
+  BarChart2,
 } from 'lucide-react';
 import {
   downloadFormILeaveExcel,
@@ -17,10 +20,11 @@ import {
 import styles from './FormILeaveReportView.module.css';
 
 /**
- * Statutory Register of Leave (Form I - Delhi Shops & Establishments Act) Interactive View
+ * Statutory Register of Leave — Form I (Delhi Shops & Establishments Act, 1954)
  * [FORM I, See Rule 14 of Delhi Shops and Establishments Rules, 1954]
- * Matches exact 11-column dual-section layout (Casual or Sickness Leave & Privilege Leave)
- * and header fields (Name & Establishment, Date of Employment, Name of Employee) shown in Image 1.
+ *
+ * Fully dynamic: integrated with MongoDB leave data per employee per year.
+ * Features: employee-wise ledger, entitlement summary bars, export PDF/Excel/CSV, print.
  */
 export default function FormILeaveReportView({
   records = [],
@@ -31,86 +35,138 @@ export default function FormILeaveReportView({
   employees = [],
   filters = {},
 }) {
-  // If employees list is provided, default to the selected employee or first employee
+  // Build the employee list from API response — only real dynamic data
   const employeeList = useMemo(() => {
     if (employees && employees.length > 0) return employees;
-    if (selectedEmployeeData) return [selectedEmployeeData];
-    return [
-      {
-        employeeId: 'RRS-001',
-        name: 'RAMESH KUMAR',
-        displayName: 'RAMESH KUMAR (RRS-001)',
-        dateOfEmployment: '15/03/2021',
-        rows: records,
-        balances: { remainingPrivilege: 11, remainingCasual: 7 },
-        totals: {
-          casualTotalAvailed: 5,
-          privilegeTotalAvailed: 4,
-          totalAvailed: 9,
+    if (selectedEmployeeData && (selectedEmployeeData.employeeId || selectedEmployeeData.name)) {
+      return [selectedEmployeeData];
+    }
+    if (records && records.length > 0) {
+      return [
+        {
+          employeeId: filters.employee || '',
+          name: filters.employee || 'Employee',
+          displayName: filters.employee || 'Employee',
+          dateOfEmployment: '—',
+          rows: records,
+          balances: {},
+          entitlements: { casualSickness: 12, privilege: 15 },
+          totals: totals || { casualTotalAvailed: 0, privilegeTotalAvailed: 0, totalAvailed: 0 },
         },
-      },
-    ];
-  }, [employees, selectedEmployeeData, records]);
+      ];
+    }
+    return [];
+  }, [employees, selectedEmployeeData, records, filters.employee, totals]);
 
   const [selectedEmpId, setSelectedEmpId] = useState(
-    selectedEmployeeData?.employeeId || employeeList[0]?.employeeId || 'RRS-001'
+    selectedEmployeeData?.employeeId || employeeList[0]?.employeeId || ''
   );
 
-  // Active employee data for Form I ledger
-  const activeEmployee = useMemo(() => {
-    return (
+  // Sync selection when data changes
+  useEffect(() => {
+    if (
+      selectedEmployeeData?.employeeId &&
+      selectedEmployeeData.employeeId !== selectedEmpId
+    ) {
+      setSelectedEmpId(selectedEmployeeData.employeeId);
+    } else if (employeeList.length > 0 && !employeeList.some((e) => e.employeeId === selectedEmpId)) {
+      setSelectedEmpId(employeeList[0].employeeId);
+    }
+  }, [selectedEmployeeData, employeeList, selectedEmpId]);
+
+  const activeEmployee = useMemo(
+    () =>
       employeeList.find((e) => e.employeeId === selectedEmpId) ||
       employeeList[0] ||
-      {}
-    );
-  }, [employeeList, selectedEmpId]);
+      null,
+    [employeeList, selectedEmpId]
+  );
 
-  const activeRows = activeEmployee.rows || [];
+  const activeRows = activeEmployee?.rows || [];
   const establishmentName =
-    activeEmployee.establishmentName ||
-    companyInfo?.name ||
-    'RR SECURITY & FACILITIES';
-  const employeeName = activeEmployee.displayName || activeEmployee.name || 'EMPLOYEE';
-  const dateOfEmployment = activeEmployee.dateOfEmployment || '15/03/2021';
+    activeEmployee?.establishmentName || companyInfo?.name || filters?.company || '—';
+  const employeeName =
+    activeEmployee?.displayName || activeEmployee?.name || '—';
+  const dateOfEmployment = activeEmployee?.dateOfEmployment || '—';
 
-  // KPI Calculations
+  // KPIs from live data
+  // KPIs from live data
   const totalEmployeesCount = employeeList.length;
-  const casualAvailed = activeRows.reduce(
-    (sum, r) => sum + (Number(r.casualTotalAvailed) || 0),
-    0
-  );
-  const privilegeAvailed = activeRows.reduce(
-    (sum, r) => sum + (Number(r.privilegeTotalAvailed) || 0),
-    0
-  );
+  const casualAvailed =
+    activeEmployee?.totals?.casualTotalAvailed ??
+    activeRows.reduce((sum, r) => sum + (Number(r.casualTotalAvailed) || 0), 0);
+  const privilegeAvailed =
+    activeEmployee?.totals?.privilegeTotalAvailed ??
+    activeRows.reduce((sum, r) => sum + (Number(r.privilegeTotalAvailed) || 0), 0);
+  const casualEntitled = activeEmployee?.entitlements?.casualSickness ?? 12;
+  const privilegeEntitled = activeEmployee?.entitlements?.privilege ?? 15;
   const privilegeBalance =
-    activeEmployee.balances?.remainingPrivilege ??
-    Math.max(0, 15 - privilegeAvailed);
+    activeEmployee?.balances?.remainingPrivilege ?? Math.max(0, privilegeEntitled - privilegeAvailed);
+  const casualBalance =
+    activeEmployee?.balances?.remainingCasual ?? Math.max(0, casualEntitled - casualAvailed);
+
+  const reportYear = period?.year || new Date().getFullYear();
 
   // Export handlers
-  const handleExportExcel = () => {
-    downloadFormILeaveExcel(activeEmployee, companyInfo, period, { format: 'xlsx' });
+  const handleExportExcel = () =>
+    activeEmployee && downloadFormILeaveExcel(activeEmployee, companyInfo, period, { format: 'xlsx' });
+  const handleExportCsv = () =>
+    activeEmployee && downloadFormILeaveCsv(activeEmployee, companyInfo, period, { format: 'csv' });
+  const handleDownloadPdf = () =>
+    activeEmployee && downloadFormILeavePdf(activeEmployee, companyInfo, period, { mode: 'download' });
+  const handlePrint = () =>
+    activeEmployee && downloadFormILeavePdf(activeEmployee, companyInfo, period, { mode: 'print' });
+
+  const classifyRow = (row) => {
+    if (row.leaveTypeBadge) return row.leaveTypeBadge;
+    if (row.privilegeTotalAvailed !== '—' && row.privilegeTotalAvailed !== undefined && row.privilegeTotalAvailed !== null)
+      return 'Privilege Leave';
+    if (row.casualTotalAvailed !== '—' && row.casualTotalAvailed !== undefined && row.casualTotalAvailed !== null)
+      return 'Casual Leave';
+    return null;
   };
 
-  const handleExportCsv = () => {
-    downloadFormILeaveCsv(activeEmployee, companyInfo, period, { format: 'csv' });
-  };
-
-  const handleDownloadPdf = () => {
-    downloadFormILeavePdf(activeEmployee, companyInfo, period, { mode: 'download' });
-  };
-
-  const handlePrint = () => {
-    downloadFormILeavePdf(activeEmployee, companyInfo, period, { mode: 'print' });
-  };
-
-  // Filler rows to match format appearance
-  const minRows = Math.max(8, activeRows.length);
-  const fillerCount = Math.max(0, minRows - activeRows.length);
+  if (employeeList.length === 0) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.actBanner}>
+          <Info size={14} />
+          <span>
+            <strong>FORM I</strong>&nbsp;(See Rule 14) — Statutory Register of Leave under{' '}
+            <strong>Delhi Shops &amp; Establishments Act, 1954</strong>. Report Year:{' '}
+            <strong>{reportYear}</strong>
+          </span>
+        </div>
+        <div className={styles.sheetCard} style={{ padding: '60px 24px', textAlign: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+            <Users size={36} style={{ color: '#94a3b8' }} />
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 600 }}>
+              No Leave Records Found
+            </h3>
+            <p style={{ margin: 0, fontSize: '13px', color: '#64748b', maxWidth: '440px', lineHeight: 1.5 }}>
+              No employee leave records found in the database for the selected filters in <strong>{reportYear}</strong>.
+              Please select a different company, department, or month above and click <strong>Generate Report</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
+
+      {/* Act Info Banner */}
+      <div className={styles.actBanner}>
+        <Info size={14} />
+        <span>
+          <strong>FORM I</strong>&nbsp;(See Rule 14) — Statutory Register of Leave under{' '}
+          <strong>Delhi Shops &amp; Establishments Act, 1954</strong>. Report Year:{' '}
+          <strong>{reportYear}</strong>
+        </span>
+      </div>
+
+      {/* KPI Cards */}
       <div className={styles.kpiGrid}>
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
@@ -121,27 +177,28 @@ export default function FormILeaveReportView({
             <span className={styles.kpiValue}>{totalEmployeesCount}</span>
           </div>
         </div>
-
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
             <Clock size={20} />
           </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiLabel}>Casual / Sick Availed</span>
-            <span className={styles.kpiValue}>{casualAvailed} Days</span>
+            <span className={styles.kpiValue}>
+              {casualAvailed} <small>/ {casualEntitled} Days</small>
+            </span>
           </div>
         </div>
-
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
             <Calendar size={20} />
           </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiLabel}>Privilege Leave Availed</span>
-            <span className={styles.kpiValue}>{privilegeAvailed} Days</span>
+            <span className={styles.kpiValue}>
+              {privilegeAvailed} <small>/ {privilegeEntitled} Days</small>
+            </span>
           </div>
         </div>
-
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
             <ShieldCheck size={20} />
@@ -153,68 +210,81 @@ export default function FormILeaveReportView({
         </div>
       </div>
 
-      {/* 2. Action & Filter Toolbar */}
+      {/* Entitlement Progress Bars */}
+      <div className={styles.entitlementBar}>
+        <div className={styles.entitlementItem}>
+          <span className={styles.entLabel}>
+            <BarChart2 size={12} /> Casual / Sick Leave
+          </span>
+          <div className={styles.progressWrap}>
+            <div
+              className={`${styles.progressFill} ${styles.progressCasual}`}
+              style={{ width: `${Math.min(100, (casualAvailed / casualEntitled) * 100)}%` }}
+            />
+          </div>
+          <span className={styles.entCount}>
+            {casualAvailed}/{casualEntitled}d used &nbsp;·&nbsp; {casualBalance}d remaining
+          </span>
+        </div>
+        <div className={styles.entitlementItem}>
+          <span className={styles.entLabel}>
+            <BarChart2 size={12} /> Privilege Leave
+          </span>
+          <div className={styles.progressWrap}>
+            <div
+              className={`${styles.progressFill} ${styles.progressPrivilege}`}
+              style={{ width: `${Math.min(100, (privilegeAvailed / privilegeEntitled) * 100)}%` }}
+            />
+          </div>
+          <span className={styles.entCount}>
+            {privilegeAvailed}/{privilegeEntitled}d used &nbsp;·&nbsp; {privilegeBalance}d remaining
+          </span>
+        </div>
+      </div>
+
+      {/* Toolbar */}
       <div className={styles.toolbarCard}>
         <div className={styles.toolbarLeft}>
-          <label style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
-            Select Employee Ledger:
-          </label>
-          <select
-            className={styles.filterSelect}
-            value={selectedEmpId}
-            onChange={(e) => setSelectedEmpId(e.target.value)}
-          >
-            {employeeList.map((emp) => (
-              <option key={emp.employeeId} value={emp.employeeId}>
-                {emp.displayName || `${emp.name} (${emp.employeeId})`}
-              </option>
-            ))}
-          </select>
+          <label className={styles.toolbarLabel}>Employee Ledger:</label>
+          <div className={styles.selectWrap}>
+            <select
+              className={styles.filterSelect}
+              value={selectedEmpId}
+              onChange={(e) => setSelectedEmpId(e.target.value)}
+            >
+              {employeeList.map((emp) => (
+                <option key={emp.employeeId} value={emp.employeeId}>
+                  {emp.displayName || `${emp.name} (${emp.employeeId})`}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className={styles.selectIcon} />
+          </div>
+          {activeEmployee.designation && (
+            <span className={styles.empDesigBadge}>{activeEmployee.designation}</span>
+          )}
+          {activeEmployee.department && (
+            <span className={styles.empDeptBadge}>{activeEmployee.department}</span>
+          )}
         </div>
-
         <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleExportExcel}
-            title="Download Form I as Excel (.xlsx)"
-          >
-            <FileSpreadsheet size={15} />
-            <span>Excel</span>
+          <button type="button" className={styles.btnSecondary} onClick={handleExportExcel} title="Excel">
+            <FileSpreadsheet size={14} /><span>Excel</span>
           </button>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleExportCsv}
-            title="Download Form I as CSV (.csv)"
-          >
-            <FileText size={15} />
-            <span>CSV</span>
+          <button type="button" className={styles.btnSecondary} onClick={handleExportCsv} title="CSV">
+            <FileText size={14} /><span>CSV</span>
           </button>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleDownloadPdf}
-            title="Download Form I as PDF"
-          >
-            <FileText size={15} />
-            <span>PDF</span>
+          <button type="button" className={styles.btnSecondary} onClick={handleDownloadPdf} title="PDF">
+            <FileText size={14} /><span>PDF</span>
           </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handlePrint}
-            title="Print Form I Register of Leave"
-          >
-            <Printer size={15} />
-            <span>Print</span>
+          <button type="button" className={styles.btnPrimary} onClick={handlePrint} title="Print">
+            <Printer size={14} /><span>Print</span>
           </button>
         </div>
       </div>
 
-      {/* 3. Statutory Form I Sheet matching Image 1 */}
+      {/* Statutory Form I Sheet */}
       <div className={styles.sheetCard}>
-        {/* Centered Heading */}
         <div className={styles.sheetTitleBlock}>
           <div className={styles.romanOne}>I</div>
           <div className={styles.formTitle}>FORM I</div>
@@ -222,31 +292,37 @@ export default function FormILeaveReportView({
           <div className={styles.registerTitle}>Register of Leave</div>
         </div>
 
-        {/* Header Fields matching Image 1 */}
         <div className={styles.headerFieldsBlock}>
           <div className={styles.fieldLine}>
             <div className={styles.fieldItem}>
               <span className={styles.fieldLabel}>Name and Establishment</span>
+              <span className={styles.fieldDots}>..........</span>
               <span className={styles.fieldValue}>{establishmentName}</span>
             </div>
             <div className={styles.fieldItem}>
               <span className={styles.fieldLabel}>Date of Employment</span>
+              <span className={styles.fieldDots}>..........</span>
               <span className={styles.fieldValue}>{dateOfEmployment}</span>
             </div>
           </div>
           <div className={styles.fieldLine}>
             <div className={styles.fieldItem}>
               <span className={styles.fieldLabel}>Name of Employee</span>
+              <span className={styles.fieldDots}>..........</span>
               <span className={styles.fieldValue}>{employeeName}</span>
+            </div>
+            <div className={styles.fieldItem}>
+              <span className={styles.fieldLabel}>Year</span>
+              <span className={styles.fieldDots}>..........</span>
+              <span className={styles.fieldValue}>{reportYear}</span>
             </div>
           </div>
         </div>
 
-        {/* 11-Column Dual-Section Table matching Image 1 */}
+        {/* 11-Column Dual-Section Leave Table */}
         <div className={styles.tableWrapper}>
           <table className={styles.formITable}>
             <thead>
-              {/* Level 1: Two Super Headers */}
               <tr>
                 <th colSpan={5} className={styles.superHeaderCasual}>
                   Casual or Sickness Leave
@@ -255,166 +331,157 @@ export default function FormILeaveReportView({
                   Privilege Leave
                 </th>
               </tr>
-              {/* Level 2: 11 Columns */}
               <tr>
-                {/* 1 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Amount of<br />Leave
-                </th>
-                {/* 2 */}
-                <th className={styles.subHeaderCell} style={{ width: '10%' }}>
-                  Date of<br />Application if<br />any
-                </th>
-                {/* 3 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Leave Availed<br />From
-                </th>
-                {/* 4 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Leave Availed<br />To
-                </th>
-                {/* 5 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Total Leave<br />Availed
-                </th>
-
-                {/* 6 */}
-                <th className={styles.subHeaderCell} style={{ width: '9%' }}>
-                  Date of<br />Application
-                </th>
-                {/* 7 */}
-                <th className={styles.subHeaderCell} style={{ width: '15%' }}>
-                  Whether<br />Application<br />Granted or<br />Refused<br />Fully or<br />Partly
-                </th>
-                {/* 8 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Leave Availed<br />From
-                </th>
-                {/* 9 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Leave Availed<br />To
-                </th>
-                {/* 10 */}
-                <th className={styles.subHeaderCell} style={{ width: '8%' }}>
-                  Total Availed
-                </th>
-                {/* 11 */}
-                <th className={styles.subHeaderCell} style={{ width: '10%' }}>
-                  Balance at<br />the end of<br />the year
-                </th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Amount of<br />Leave</th>
+                <th className={styles.subHeaderCell} style={{ width: '10%' }}>Date of<br />Application if<br />any</th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Leave Availed<br />From</th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Leave Availed<br />To</th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Total Leave<br />Availed</th>
+                <th className={styles.subHeaderCell} style={{ width: '9%' }}>Date of<br />Application</th>
+                <th className={styles.subHeaderCell} style={{ width: '15%' }}>Whether<br />Application<br />Granted or<br />Refused<br />Fully or<br />Partly</th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Leave Availed<br />From</th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Leave Availed<br />To</th>
+                <th className={styles.subHeaderCell} style={{ width: '8%' }}>Total Availed</th>
+                <th className={styles.subHeaderCell} style={{ width: '10%' }}>Balance at<br />the end of<br />the year</th>
               </tr>
             </thead>
             <tbody>
               {activeRows.length > 0 ? (
-                activeRows.map((row, idx) => (
-                  <tr key={row.rowId || `form-i-row-${idx}`}>
-                    {/* Casual or Sickness Leave */}
-                    <td className={styles.textCenter}>
-                      {row.casualAmountOfLeave !== undefined ? row.casualAmountOfLeave : '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.casualDateOfApplication || '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.casualFrom || '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.casualTo || '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.casualTotalAvailed !== '—' && row.casualTotalAvailed !== undefined ? (
-                        <span className={styles.boldBadgeCasual}>
-                          {row.casualTotalAvailed}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-
-                    {/* Privilege Leave */}
-                    <td className={styles.textCenter}>
-                      {row.privilegeDateOfApplication || '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.privilegeGrantedOrRefused && row.privilegeGrantedOrRefused !== '—' ? (
-                        <span
-                          className={
-                            row.privilegeGrantedOrRefused.toLowerCase().includes('refused')
-                              ? styles.statusRejected
-                              : styles.statusApproved
-                          }
-                        >
-                          {row.privilegeGrantedOrRefused}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.privilegeFrom || '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.privilegeTo || '—'}
-                    </td>
-                    <td className={styles.textCenter}>
-                      {row.privilegeTotalAvailed !== '—' && row.privilegeTotalAvailed !== undefined ? (
-                        <span className={styles.boldBadgePrivilege}>
-                          {row.privilegeTotalAvailed}
-                        </span>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className={styles.textCenter} style={{ fontWeight: 700 }}>
-                      {row.privilegeBalanceAtEnd !== undefined ? row.privilegeBalanceAtEnd : '—'}
-                    </td>
-                  </tr>
-                ))
+                activeRows.map((row, idx) => {
+                  const rowType = classifyRow(row);
+                  return (
+                    <tr
+                      key={row.rowId || `form-i-row-${idx}`}
+                      className={
+                        rowType === 'Privilege Leave'
+                          ? styles.rowPrivilege
+                          : rowType
+                          ? styles.rowCasual
+                          : ''
+                      }
+                    >
+                      <td className={styles.textCenter}>
+                        {row.casualAmountOfLeave !== undefined && row.casualAmountOfLeave !== '—'
+                          ? row.casualAmountOfLeave
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.casualDateOfApplication && row.casualDateOfApplication !== '—'
+                          ? row.casualDateOfApplication
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.casualFrom && row.casualFrom !== '—'
+                          ? row.casualFrom
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.casualTo && row.casualTo !== '—'
+                          ? row.casualTo
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.casualTotalAvailed !== '—' && row.casualTotalAvailed !== undefined && row.casualTotalAvailed !== null ? (
+                          <span className={styles.boldBadgeCasual}>{row.casualTotalAvailed}</span>
+                        ) : (
+                          <span className={styles.dash}>—</span>
+                        )}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.privilegeDateOfApplication && row.privilegeDateOfApplication !== '—'
+                          ? row.privilegeDateOfApplication
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.privilegeGrantedOrRefused && row.privilegeGrantedOrRefused !== '—' ? (
+                          <span
+                            className={
+                              row.privilegeGrantedOrRefused.toLowerCase().includes('refused')
+                                ? styles.statusRejected
+                                : styles.statusApproved
+                            }
+                          >
+                            {row.privilegeGrantedOrRefused}
+                          </span>
+                        ) : (
+                          <span className={styles.dash}>—</span>
+                        )}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.privilegeFrom && row.privilegeFrom !== '—'
+                          ? row.privilegeFrom
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.privilegeTo && row.privilegeTo !== '—'
+                          ? row.privilegeTo
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                      <td className={styles.textCenter}>
+                        {row.privilegeTotalAvailed !== '—' && row.privilegeTotalAvailed !== undefined && row.privilegeTotalAvailed !== null ? (
+                          <span className={styles.boldBadgePrivilege}>{row.privilegeTotalAvailed}</span>
+                        ) : (
+                          <span className={styles.dash}>—</span>
+                        )}
+                      </td>
+                      <td className={`${styles.textCenter} ${styles.balanceCell}`}>
+                        {row.privilegeBalanceAtEnd !== undefined && row.privilegeBalanceAtEnd !== '—'
+                          ? row.privilegeBalanceAtEnd
+                          : <span className={styles.dash}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
-                  <td colSpan={11} className={styles.textCenter} style={{ padding: '24px', color: '#64748b' }}>
-                    No leave ledger records found for this employee.
+                  <td
+                    colSpan={11}
+                    className={styles.textCenter}
+                    style={{ padding: '28px 16px', color: '#64748b', fontSize: '13px' }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                      <CheckCircle2 size={24} style={{ color: '#94a3b8' }} />
+                      <span>
+                        No leave records found for <strong>{employeeName}</strong> in{' '}
+                        <strong>{reportYear}</strong>.
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8' }}>
+                        Use filters above and click "Generate Report" to load live data.
+                      </span>
+                    </div>
                   </td>
                 </tr>
               )}
 
-              {/* Filler rows to match format appearance in Image 1 */}
-              {Array.from({ length: fillerCount }).map((_, fIdx) => (
-                <tr key={`filler-${fIdx}`} className={styles.emptyRow}>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                  <td>&nbsp;</td>
-                </tr>
-              ))}
             </tbody>
             <tfoot>
               <tr className={styles.tableTotalRow}>
-                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800 }}>
+                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800, fontSize: '12px' }}>
                   Total Casual/Sick Availed:
                 </td>
-                <td className={styles.textCenter} style={{ color: '#1d4ed8' }}>
+                <td className={styles.textCenter} style={{ color: '#1d4ed8', fontWeight: 800 }}>
                   {casualAvailed}
                 </td>
-                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800 }}>
+                <td colSpan={4} style={{ textAlign: 'right', fontWeight: 800, fontSize: '12px' }}>
                   Total Privilege Availed:
                 </td>
-                <td className={styles.textCenter} style={{ color: '#7e22ce' }}>
+                <td className={styles.textCenter} style={{ color: '#7e22ce', fontWeight: 800 }}>
                   {privilegeAvailed}
                 </td>
-                <td className={styles.textCenter} style={{ color: '#0f172a' }}>
+                <td className={styles.textCenter} style={{ color: '#0f172a', fontWeight: 800 }}>
                   Bal: {privilegeBalance}
                 </td>
               </tr>
             </tfoot>
           </table>
+        </div>
+
+        {/* Statutory Footer Note */}
+        <div className={styles.statutoryNote}>
+          <span>
+            * Per <strong>Delhi Shops &amp; Establishments Act, 1954</strong> — §22(1)(a): Privilege Leave
+            (1 day / 20 days worked); §22(1)(b): Casual Leave (12 days/year); §22(1)(c): Sick Leave (12 days/year).
+          </span>
         </div>
       </div>
     </div>

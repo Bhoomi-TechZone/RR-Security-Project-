@@ -1,0 +1,476 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Summary Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpiCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+}
+
+.kpiInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kpiIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.iconGreen {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.iconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.iconIndigo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+/* Action Bar */
+.actionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.actionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+}
+
+.btnSuccess {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnSuccess:hover {
+  background: #15803d;
+}
+
+.btnOutline {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnOutline:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
+/* Official Document Sheet */
+.paperCard {
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  padding: 36px 42px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  font-family: 'Times New Roman', Times, serif, Arial, sans-serif;
+  color: #000000;
+  line-height: 1.4;
+}
+
+.pageDivider {
+  margin: 36px 0;
+  border: none;
+  border-top: 2px dashed #94a3b8;
+  position: relative;
+  text-align: center;
+}
+
+.pageDivider::after {
+  content: 'PAGE 2: INSURED PERSONS CONTRIBUTION RETURN';
+  position: relative;
+  top: -10px;
+  background: #ffffff;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+/* Header */
+.formHeader {
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.formTitle {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+
+.formSubtitle {
+  font-size: 13.5px;
+  font-weight: 700;
+  margin-top: 3px;
+}
+
+.orgTitle {
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 3px;
+}
+
+.regulationTag {
+  font-size: 11.5px;
+  font-style: italic;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.headerMetaRight {
+  position: absolute;
+  top: 0;
+  right: 0;
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.metaRowLabel {
+  font-weight: 600;
+}
+
+.metaRowVal {
+  font-weight: 800;
+  min-width: 140px;
+  text-align: left;
+}
+
+/* Form Key-Value Details */
+.sectionBlock {
+  margin-bottom: 14px;
+  font-size: 12px;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  row-gap: 6px;
+  font-size: 12px;
+}
+
+.fieldLabel {
+  font-weight: 700;
+}
+
+.fieldVal {
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.declarationPara {
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: justify;
+  margin: 16px 0;
+}
+
+/* Contributions Bar */
+.contributionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #000000;
+  margin-bottom: 16px;
+}
+
+/* Tables */
+.challanTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+  margin-bottom: 14px;
+  border: 1px solid #000000;
+}
+
+.challanTable th,
+.challanTable td {
+  border: 1px solid #000000;
+  padding: 5px 8px;
+}
+
+.challanTable th {
+  background: #f1f5f9;
+  font-weight: 700;
+  text-align: center;
+}
+
+.totalPaidLine {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 14px;
+}
+
+/* Instructions */
+.instructionsBlock {
+  font-size: 10px;
+  line-height: 1.5;
+  margin-bottom: 14px;
+  color: #1e293b;
+}
+
+.instructionsTitle {
+  font-weight: 700;
+}
+
+/* Declarations List */
+.declarationsList {
+  font-size: 10.5px;
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+
+.declarationItem {
+  margin-bottom: 4px;
+}
+
+/* Wage Components */
+.wageComponentsBlock {
+  font-size: 11.5px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.componentList {
+  padding-left: 20px;
+  margin: 4px 0 10px 0;
+}
+
+.liabilityClause {
+  font-size: 10.5px;
+  line-height: 1.45;
+  text-align: justify;
+  margin-bottom: 16px;
+}
+
+/* Employer Sign-Off */
+.employerSignBlock {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+/* CA Certificate Box */
+.caCertBlock {
+  border: 1px solid #000000;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 11.5px;
+  text-align: center;
+}
+
+.caCertTitle {
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.caCertSub {
+  font-size: 10.5px;
+  margin-bottom: 8px;
+}
+
+.caSignLine {
+  text-align: right;
+  margin-top: 14px;
+  font-weight: 600;
+}
+
+/* 10-Column Statutory Table */
+.statutoryTableWrap {
+  width: 100%;
+  overflow-x: auto;
+  margin-bottom: 14px;
+}
+
+.statutoryTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10.5px;
+  border: 1px solid #000000;
+}
+
+.statutoryTable th,
+.statutoryTable td {
+  border: 1px solid #000000;
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.statutoryTable th {
+  background: #f8fafc;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.tableTotalRow {
+  font-weight: 800;
+  background: #f1f5f9;
+}
+
+/* Official Use Box */
+.officialUseBox {
+  border-top: 1px solid #000000;
+  padding-top: 12px;
+  margin-top: 24px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.officialTitle {
+  text-align: center;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.officialFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 40px;
+  font-weight: 700;
+  margin-top: 16px;
+}
+
+@media print {
+  .actionBar,
+  .kpiGrid {
+    display: none !important;
+  }
+  .paperCard {
+    box-shadow: none;
+    border: none;
+    padding: 0;
+  }
+  .pageDivider {
+    page-break-before: always;
+    border: none;
+  }
+}

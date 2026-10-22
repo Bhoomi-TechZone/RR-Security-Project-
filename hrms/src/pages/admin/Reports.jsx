@@ -106,6 +106,92 @@ import BankTransferLetterReportView from '../../components/reports/BankTransferL
 import BankTransferReportView from '../../components/reports/BankTransferReportView';
 import LeaveRegisterReportView from '../../components/reports/LeaveRegisterReportView';
 import FormILeaveReportView from '../../components/reports/FormILeaveReportView';
+import OvertimeRegisterFormIVReportView from '../../components/reports/OvertimeRegisterFormIVReportView';
+import EmployeePayslipReportView from '../../components/reports/EmployeePayslipReportView';
+import {
+  downloadFormIVOvertimeExcel,
+  downloadFormIVOvertimeCsv,
+  downloadFormIVOvertimePdf,
+} from '../../utils/formIVOvertimeExport';
+import { downloadEmployeePayslipPdf } from '../../utils/employeePayslipExport';
+import DeductionsDamageFormIIReportView from '../../components/reports/DeductionsDamageFormIIReportView';
+import {
+  downloadFormIIDeductionsDamageExcel,
+  downloadFormIIDeductionsDamageCsv,
+  downloadFormIIDeductionsDamagePdf,
+} from '../../utils/deductionsDamageFormIIExport';
+import FinesFormIReportView from '../../components/reports/FinesFormIReportView';
+import {
+  downloadFormIFinesExcel,
+  downloadFormIFinesCsv,
+  downloadFormIFinesPdf,
+} from '../../utils/finesFormIExport';
+import SalarySheetFormat1View from '../../components/reports/SalarySheetFormat1View';
+import {
+  downloadSalarySheetFormat1Excel,
+  downloadSalarySheetFormat1Csv,
+  downloadSalarySheetFormat1Pdf,
+} from '../../utils/salarySheetFormat1Export';
+import SalarySheetFormat2View from '../../components/reports/SalarySheetFormat2View';
+import {
+  downloadSalarySheetFormat2Excel,
+  downloadSalarySheetFormat2Csv,
+  downloadSalarySheetFormat2Pdf,
+} from '../../utils/salarySheetFormat2Export';
+import EsiForm7ReportView from '../../components/reports/EsiForm7ReportView';
+import {
+  downloadEsiForm7Excel,
+  downloadEsiForm7Csv,
+  downloadEsiForm7Pdf,
+} from '../../utils/esiForm7Export';
+import EsiForm7Option2ReportView from '../../components/reports/EsiForm7Option2ReportView';
+import {
+  downloadEsiForm7Option2Excel,
+  downloadEsiForm7Option2Csv,
+  downloadEsiForm7Option2Pdf,
+} from '../../utils/esiForm7Option2Export';
+import EsiChallanReportView from '../../components/reports/EsiChallanReportView';
+import {
+  downloadEsiChallanExcel,
+  downloadEsiChallanCsv,
+  downloadEsiChallanPdf,
+} from '../../utils/esiChallanExport';
+import EsiForm1ReportView from '../../components/reports/EsiForm1ReportView';
+import {
+  downloadEsiForm1Excel,
+  downloadEsiForm1Csv,
+  downloadEsiForm1Pdf,
+} from '../../utils/esiForm1Export';
+import EsiSummaryEmployeeReportView from '../../components/reports/EsiSummaryEmployeeReportView';
+import {
+  downloadEsiSummaryEmployeeExcel,
+  downloadEsiSummaryEmployeeCsv,
+  downloadEsiSummaryEmployeePdf,
+} from '../../utils/esiSummaryEmployeeExport';
+import EsiSummaryLocationReportView from '../../components/reports/EsiSummaryLocationReportView';
+import {
+  downloadEsiSummaryLocationExcel,
+  downloadEsiSummaryLocationCsv,
+  downloadEsiSummaryLocationPdf,
+} from '../../utils/esiSummaryLocationExport';
+import EsicForm3ReportView from '../../components/reports/EsicForm3ReportView';
+import {
+  downloadEsicForm3Excel,
+  downloadEsicForm3Csv,
+  downloadEsicForm3Pdf,
+} from '../../utils/esicForm3Export';
+import EsicForm5ReportView from '../../components/reports/EsicForm5ReportView';
+import {
+  downloadEsicForm5Excel,
+  downloadEsicForm5Csv,
+  downloadEsicForm5Pdf,
+} from '../../utils/esicForm5Export';
+import Form11AccidentBookReportView from '../../components/reports/Form11AccidentBookReportView';
+import {
+  downloadForm11AccidentBookExcel,
+  downloadForm11AccidentBookCsv,
+  downloadForm11AccidentBookPdf,
+} from '../../utils/form11AccidentBookExport';
 import styles from './Reports.module.css';
 
 const PAGE_SIZE = 10;
@@ -401,6 +487,222 @@ const reportMeta = {
     filters: ['month', 'company', 'department', 'employee'],
     placeholder: 'Search workman by name, ID, designation...'
   },
+  'overtime-register-salary': {
+    title: 'Overtime Register (Form IV)',
+    description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'overtime-register': {
+    title: 'Overtime Register (Form IV)',
+    description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'overtime-register-form-iv': {
+    title: 'Overtime Register (Form IV)',
+    description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'form-iv': {
+    title: 'Overtime Register (Form IV)',
+    description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'form-iv-overtime': {
+    title: 'Overtime Register (Form IV)',
+    description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'salary-overtime': {
+    title: 'Overtime Register (Form IV)',
+    description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search workman by name, ID, designation...'
+  },
+  'employee-payslip': {
+    title: 'Employee Payslip',
+    description: 'Monthly employee salary payslip with earnings breakdown, deductions, and net payable summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'payslip': {
+    title: 'Employee Payslip',
+    description: 'Monthly employee salary payslip with earnings breakdown, deductions, and net payable summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'register-deductions-damage-salary': {
+    title: 'Register of Deductions for Damage or Loss (Form II)',
+    description: '[FORM II, Rules 21 (4)] Register of deductions for damage or loss caused to the employer by the neglect or default of the employed persons.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, damage particulars...'
+  },
+  'form-ii-damage-loss': {
+    title: 'Register of Deductions for Damage or Loss (Form II)',
+    description: '[FORM II, Rules 21 (4)] Register of deductions for damage or loss caused to the employer by the neglect or default of the employed persons.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, damage particulars...'
+  },
+  'form-ii': {
+    title: 'Register of Deductions for Damage or Loss (Form II)',
+    description: '[FORM II, Rules 21 (4)] Register of deductions for damage or loss caused to the employer by the neglect or default of the employed persons.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, damage particulars...'
+  },
+  'register-fines-employer-salary': {
+    title: 'Register of Fines (Employer)',
+    description: '[FORM I, Rule 21(4)] Register of fines imposed and recovered by employer (Minimum Wages Rules).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, offence particulars...'
+  },
+  'form-i-fines': {
+    title: 'Register of Fines (Employer)',
+    description: '[FORM I, Rule 21(4)] Register of fines imposed and recovered by employer (Minimum Wages Rules).',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, offence particulars...'
+  },
+  'salary-sheet-format-1': {
+    title: 'Wage/Salary Register (Salary Sheet Format 1)',
+    description: 'Statutory Wage/Salary Register with attendance metrics, base wage rates, PF/ESI wages, and PF/ESI/PT summaries.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'salary-sheet-1': {
+    title: 'Wage/Salary Register (Salary Sheet Format 1)',
+    description: 'Statutory Wage/Salary Register with attendance metrics, base wage rates, PF/ESI wages, and PF/ESI/PT summaries.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'salary-sheet-format-2': {
+    title: 'Register of Payment of Wages (Salary Sheet Format 2)',
+    description: 'FORM - IV [Payment of Wages Rules, 1971] Statutory Register of Payment of Wages with full employee profile, attendance, wage rates, and PF/ESI/LWF summaries.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'salary-sheet-2': {
+    title: 'Register of Payment of Wages (Salary Sheet Format 2)',
+    description: 'FORM - IV [Payment of Wages Rules, 1971] Statutory Register of Payment of Wages with full employee profile, attendance, wage rates, and PF/ESI/LWF summaries.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
+  },
+  'esi-form-7-opt1': {
+    title: 'ESI - Form 7 - Half Yearly Report (Option 1)',
+    description: 'FORM 7 [REGULATION - 32, APPENDIX - F] Statutory Register of Employees & Half-Yearly Return of ESI Contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, insurance number, department, designation...'
+  },
+  'esi-form-7-opt2': {
+    title: 'ESI - Form 7 - Half Yearly Report (Option-2)',
+    description: 'FORM 7 [REGULATION 32] Branch-wise Statutory Register of Employees & Half-Yearly Return of ESI Contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, insurance number, department, designation...'
+  },
+  'esi-challan': {
+    title: 'ESI Challan',
+    description: "Monthly ESIC Pay-in-Slip & Bank Payment Challan for Employee's State Insurance Fund Account No. 1.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, insurance number...'
+  },
+  'esi-form-1': {
+    title: 'ESI Form 1 Declaration Form',
+    description: 'FORM - 1 [REGULATION 11 & 12, ESI REGULATIONS, 1950] Statutory Employee Declaration Form & Temporary Identity Card (TIC).',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, insurance number...'
+  },
+  'esi-summary-employee-pdf': {
+    title: 'ESI Summry Employee Wise',
+    description: 'Statutory Employee Wise Monthly ESI Report with working days, ESI wages, 0.75% deductions, exempted wages and contribution summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, code, ESI code...'
+  },
+  'esi-summary-employee-xls': {
+    title: 'ESI Summry Employee Wise (Excel)',
+    description: 'Statutory Employee Wise Monthly ESI calculation spreadsheet with wage breakdown and 4% contribution summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, code, ESI code...'
+  },
+  'esi-summary-employee': {
+    title: 'ESI Summry Employee Wise',
+    description: 'Statutory Employee Wise Monthly ESI Report with working days, ESI wages, 0.75% deductions, exempted wages and contribution summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, code, ESI code...'
+  },
+  'esi-summary-location': {
+    title: 'ESI Summry Location Wise',
+    description: 'Location-wise statutory ESI summary report with employee counts, working days, ESI wages and contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location / client / site name...'
+  },
+  'esi-summary-location-pdf': {
+    title: 'ESI Summry Location Wise',
+    description: 'Location-wise statutory ESI summary report with employee counts, working days, ESI wages and contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location / client / site name...'
+  },
+  'esi-summary-location-xls': {
+    title: 'ESI Summry Location Wise',
+    description: 'Location-wise statutory ESI summary report with employee counts, working days, ESI wages and contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location / client / site name...'
+  },
+  'esic-form-3': {
+    title: 'ESIC Form3 Return Declaration',
+    description: 'FORM 3 [REGULATION 14, ESI REGULATIONS, 1950] Return of Declaration Form for registering insured persons with ESIC in duplicate.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, insurance number...'
+  },
+  'form-3-esic': {
+    title: 'ESIC Form3 Return Declaration',
+    description: 'FORM 3 [REGULATION 14, ESI REGULATIONS, 1950] Return of Declaration Form for registering insured persons with ESIC in duplicate.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, insurance number...'
+  },
+  'esic-returns-form-5': {
+    title: 'ESIC-Returns-Form-5',
+    description: 'FORM 5 [REGULATION 26, ESI REGULATIONS, 1950] Statutory Return of Contributions for contribution period with Principal Employer particulars, 6-Month Challans and 10-column insured persons table.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, ID, insurance number, dispensary...'
+  },
+  'esic-form-5': {
+    title: 'ESIC-Returns-Form-5',
+    description: 'FORM 5 [REGULATION 26, ESI REGULATIONS, 1950] Statutory Return of Contributions for contribution period with Principal Employer particulars, 6-Month Challans and 10-column insured persons table.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, ID, insurance number, dispensary...'
+  },
+  'form-5-esic': {
+    title: 'ESIC-Returns-Form-5',
+    description: 'FORM 5 [REGULATION 26, ESI REGULATIONS, 1950] Statutory Return of Contributions for contribution period with Principal Employer particulars, 6-Month Challans and 10-column insured persons table.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, ID, insurance number, dispensary...'
+  },
+  'form-11-accident-book': {
+    title: 'Form 11 Accident Book',
+    description: 'FORM 11 ACCIDENT BOOK [REGULATION 66, EMPLOYEES\' STATE INSURANCE CORPORATION] Statutory Register of notices of accidents and workplace injury.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search by injured person name, insurance number, injury details...'
+  },
+  'accident-book-form-11': {
+    title: 'Form 11 Accident Book',
+    description: 'FORM 11 ACCIDENT BOOK [REGULATION 66, EMPLOYEES\' STATE INSURANCE CORPORATION] Statutory Register of notices of accidents and workplace injury.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search by injured person name, insurance number, injury details...'
+  },
+  'esi-form-7': {
+    title: 'ESI - Form 7 - Half Yearly Report (Option 1)',
+    description: 'FORM 7 [REGULATION - 32, APPENDIX - F] Statutory Register of Employees & Half-Yearly Return of ESI Contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, insurance number, department, designation...'
+  },
+  'form-7-esi': {
+    title: 'ESI - Form 7 - Half Yearly Report (Option 1)',
+    description: 'FORM 7 [REGULATION - 32, APPENDIX - F] Statutory Register of Employees & Half-Yearly Return of ESI Contributions.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search insured person by name, insurance number, department, designation...'
+  },
   'wages-register-form-xvii': {
     title: 'Register of Wages (Form XVII)',
     description: '[FORM XVII, See Rule 78 (1) (a) (i)] Statutory Register of Wages under Contract Labour (Regulation & Abolition) Central Rules, 1971.',
@@ -643,88 +945,72 @@ const ALL_REPORTS_CATALOG = [
     title: 'ESI - Form 7 - Half Yearly Report (option-1)',
     desc: 'Half-yearly return of ESI contributions (Option 1).',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esi-form-7-opt1',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'esi-form-7-opt2',
     title: 'ESI - Form 7 - Half Yearly Report(Option-2)',
     desc: 'Branch-wise half-yearly contribution statement (Option 2).',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esi-form-7-opt2',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'esi-challan',
     title: 'ESI Challan',
     desc: 'Monthly ESIC payment challan and bank receipt.',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esi-challan',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
     id: 'esi-form-1',
     title: 'ESI Form 1 Declaration Form',
-    desc: 'Declaration form for registering new insured employees.',
+    desc: 'Declaration form for registering new insured employees and Temporary Identity Card (TIC).',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esi-form-1',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
-    id: 'esi-summary-employee-pdf',
+    id: 'esi-summary-employee',
     title: 'ESI Summry Employee Wise',
-    desc: 'Employee-wise ESI gross wages and contributions (PDF).',
+    desc: 'Employee-wise statutory ESI gross wages, 0.75% deductions, exempted wages and contribution summary.',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esi-summary-employee-pdf',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
-    id: 'esi-summary-employee-xls',
-    title: 'ESI Summry Employee Wise',
-    desc: 'Employee-wise ESI calculation spreadsheet (Excel).',
-    category: 'esi',
-    targetTab: 'payroll',
-    formats: ['excel']
-  },
-  {
-    id: 'esi-summary-location-pdf',
+    id: 'esi-summary-location',
     title: 'ESI Summry Location Wise',
-    desc: 'Location-wise distribution of ESI contributions (PDF).',
+    desc: 'Location-wise distribution of ESI contributions and wages summary (PDF & Excel).',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
-  },
-  {
-    id: 'esi-summary-location-xls',
-    title: 'ESI Summry Location Wise',
-    desc: 'Location-wise total ESI wages spreadsheet (Excel).',
-    category: 'esi',
-    targetTab: 'payroll',
-    formats: ['excel']
+    targetTab: 'esi-summary-location',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
     id: 'esic-form-3',
     title: 'ESIC Form3 Return Declaration',
     desc: 'Return of declaration form for insured persons.',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esic-form-3',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
     id: 'esic-returns-form-5',
     title: 'ESIC-Returns-Form-5',
-    desc: 'Statutory half-yearly return of ESIC contributions.',
+    desc: 'Statutory half-yearly return of ESIC contributions (Regulation 26).',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'esic-returns-form-5',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
     id: 'form-11-accident-book',
     title: 'Form 11 Accident Book',
-    desc: 'Register of notices of accidents and workplace injury.',
+    desc: 'Register of notices of accidents and workplace injury (Regulation 66).',
     category: 'esi',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'form-11-accident-book',
+    formats: ['pdf', 'excel', 'csv']
   },
 
   // --- Labour Laws Reports ---
@@ -845,50 +1131,50 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'overtime-register-salary',
     title: 'Overtime Register',
-    desc: 'Employee overtime hours worked and wages payable statement.',
+    desc: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports).',
     category: 'salary',
-    targetTab: 'register-overtime-form-xxiii',
-    formats: ['excel', 'pdf']
+    targetTab: 'overtime-register-salary',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'employee-payslip',
     title: 'Employee Payslip',
     desc: 'Monthly salary payslip with earnings, deductions, and net pay.',
     category: 'salary',
-    targetTab: 'payroll',
+    targetTab: 'employee-payslip',
     formats: ['pdf']
   },
   {
     id: 'register-deductions-damage-salary',
     title: 'Register of Deductions for Damage or Loss',
-    desc: 'Record of deductions made from wages for damages or loss.',
+    desc: '[FORM II, Rules 21 (4)] Record of deductions made from wages for damages or loss.',
     category: 'salary',
-    targetTab: 'register-deduction-damage-form-xx',
-    formats: ['excel', 'pdf']
+    targetTab: 'register-deductions-damage-salary',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'register-fines-employer-salary',
     title: 'Register of Fines (Employer)',
-    desc: 'Register of fines imposed and recovered by employer.',
+    desc: '[FORM I, Rule 21(4)] Register of fines imposed and recovered by employer.',
     category: 'salary',
-    targetTab: 'register-fines-form-xxi',
-    formats: ['excel', 'pdf']
+    targetTab: 'register-fines-employer-salary',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'salary-sheet-format-1',
     title: 'Salary Sheet (Format 1)',
-    desc: 'Standard salary register statement with wage breakdown.',
+    desc: 'Statutory Wage/Salary Register with attendance, earnings, PF/ESI bases, and summary grids.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'salary-sheet-format-1',
+    formats: ['excel', 'pdf', 'csv']
   },
   {
     id: 'salary-sheet-format-2',
     title: 'Salary Sheet (Format 2)',
-    desc: 'Detailed monthly salary statement with statutory deductions.',
+    desc: 'FORM - IV [Payment of Wages Rules, 1971] Register of Payment of Wages with full wage breakdown.',
     category: 'salary',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'salary-sheet-format-2',
+    formats: ['excel', 'pdf', 'csv']
   },
 
   // --- Employee Reports ---
@@ -1498,12 +1784,25 @@ function ReportFilters({
               value={filters.company}
               onChange={(e) => setFilter('company', e.target.value)}
             >
-              <option value="All Companies">All Companies</option>
-              {filterOptions.companies?.map((c) => (
-                <option key={c.companyId || c.id || c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
+              <option value="All Companies">All Companies &amp; Clients</option>
+              {filterOptions.companies && filterOptions.companies.length > 0 && (
+                <optgroup label="Main Company">
+                  {filterOptions.companies.map((c) => (
+                    <option key={`comp-${c.companyId || c._id || c.name}`} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {filterOptions.clients && filterOptions.clients.length > 0 && (
+                <optgroup label="Associated Clients / Sites">
+                  {filterOptions.clients.map((cli) => (
+                    <option key={`cli-${cli.clientId || cli._id || cli.name}`} value={cli.name}>
+                      {cli.name} {cli.location || cli.address ? `(${cli.location || cli.address})` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
         )}
@@ -1642,8 +1941,8 @@ function ReportBody({
   const [currentPage, setCurrentPage] = useState(1);
   const totalItems = filteredRows.length;
   const paginatedRows = useMemo(() => {
-    // For WageSalaryRegister, EmployeeProfile, and Full & Final Settlement, show all matching records
-    if (activeReport === 'payroll' || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') return filteredRows;
+    // For WageSalaryRegister, EmployeeProfile, Full & Final Settlement, and ESI Form 7, show all matching records
+    if (activeReport === 'payroll' || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip' || activeReport === 'esi-form-7-opt1' || activeReport === 'esi-form-7' || activeReport === 'form-7-esi' || activeReport === 'form-7') return filteredRows;
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredRows.slice(start, start + PAGE_SIZE);
   }, [filteredRows, currentPage, activeReport]);
@@ -1804,6 +2103,215 @@ function ReportBody({
         />
       );
     }
+    if (
+      activeReport === 'overtime-register-salary' ||
+      activeReport === 'overtime-register-form-iv' ||
+      activeReport === 'overtime-register' ||
+      activeReport === 'form-iv' ||
+      activeReport === 'form-iv-overtime' ||
+      activeReport === 'salary-overtime'
+    ) {
+      return (
+        <OvertimeRegisterFormIVReportView
+          records={reportData?.records || filteredRows}
+          companyInfo={reportData?.contractor || reportData?.companyInfo}
+          establishmentInfo={reportData?.establishment || reportData?.establishmentInfo}
+          contractor={reportData?.contractor}
+          establishment={reportData?.establishment}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          emptyMessage={reportData?.emptyMessage}
+          hasOvertime={reportData?.hasOvertime}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+      return (
+        <EmployeePayslipReportView
+          records={reportData?.records || filteredRows}
+          companyInfo={reportData?.companyInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          selectedEmployeeData={reportData?.selectedEmployeeData}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'register-deductions-damage-salary' ||
+      activeReport === 'form-ii-damage-loss' ||
+      activeReport === 'form-ii'
+    ) {
+      return (
+        <DeductionsDamageFormIIReportView
+          records={reportData?.records || filteredRows}
+          employer={reportData?.employer}
+          employerInfo={reportData?.employerInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          hasDamage={reportData?.hasDamage}
+          emptyMessage={reportData?.emptyMessage}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'register-fines-employer-salary' ||
+      activeReport === 'form-i-fines'
+    ) {
+      return (
+        <FinesFormIReportView
+          records={reportData?.records || filteredRows}
+          employer={reportData?.employer}
+          employerInfo={reportData?.employerInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          hasFines={reportData?.hasFines}
+          emptyMessage={reportData?.emptyMessage}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1') {
+      return (
+        <SalarySheetFormat1View
+          records={reportData?.records || filteredRows}
+          companyInfo={reportData?.companyInfo}
+          clientInfo={reportData?.clientInfo}
+          establishmentInfo={reportData?.establishmentInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          pfSummary={reportData?.pfSummary}
+          esiSummary={reportData?.esiSummary}
+          ptSummary={reportData?.ptSummary}
+          earningSummary={reportData?.earningSummary}
+          deductionSummary={reportData?.deductionSummary}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2') {
+      return (
+        <SalarySheetFormat2View
+          records={reportData?.records || filteredRows}
+          companyInfo={reportData?.companyInfo}
+          clientInfo={reportData?.clientInfo}
+          establishmentInfo={reportData?.establishmentInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          pfSummary={reportData?.pfSummary}
+          esiSummary={reportData?.esiSummary}
+          lwfSummary={reportData?.lwfSummary}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'esi-summary-employee-pdf' ||
+      activeReport === 'esi-summary-employee-xls' ||
+      activeReport === 'esi-summary-employee'
+    ) {
+      return (
+        <EsiSummaryEmployeeReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'esi-summary-location' ||
+      activeReport === 'esi-summary-location-pdf' ||
+      activeReport === 'esi-summary-location-xls'
+    ) {
+      return (
+        <EsiSummaryLocationReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'esic-form-3' || activeReport === 'form-3-esic') {
+      return (
+        <EsicForm3ReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'esic-returns-form-5' ||
+      activeReport === 'esic-form-5' ||
+      activeReport === 'form-5-esic'
+    ) {
+      return (
+        <EsicForm5ReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'form-11-accident-book' ||
+      activeReport === 'accident-book-form-11'
+    ) {
+      return (
+        <Form11AccidentBookReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'esi-form-1') {
+      return (
+        <EsiForm1ReportView
+          reportData={reportData}
+          filters={filters}
+          onSelectEmployee={(empId) => setFilter('employee', empId)}
+        />
+      );
+    }
+    if (activeReport === 'esi-challan') {
+      return (
+        <EsiChallanReportView
+          reportData={reportData}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'esi-form-7-opt2') {
+      return (
+        <EsiForm7Option2ReportView
+          records={reportData?.records || filteredRows}
+          companyInfo={reportData?.companyInfo}
+          clientInfo={reportData?.clientInfo}
+          establishmentInfo={reportData?.establishmentInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          monthlySummaries={reportData?.monthlySummaries}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'esi-form-7-opt1' ||
+      activeReport === 'esi-form-7' ||
+      activeReport === 'form-7-esi' ||
+      activeReport === 'form-7'
+    ) {
+      return (
+        <EsiForm7ReportView
+          records={reportData?.records || filteredRows}
+          companyInfo={reportData?.companyInfo}
+          clientInfo={reportData?.clientInfo}
+          establishmentInfo={reportData?.establishmentInfo}
+          period={reportData?.period}
+          totals={reportData?.totals}
+          monthlySummaries={reportData?.monthlySummaries}
+          filters={filters}
+        />
+      );
+    }
     if (activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register') {
       return (
         <WagesRegisterFormXVIILReportView
@@ -1955,10 +2463,155 @@ function ReportBody({
           <div className={styles.loadingSpinner} />
           <p>Generating {meta.title} from MongoDB...</p>
         </div>
-      ) : (filteredRows.length > 0 || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip' || activeReport === 'form-16' || activeReport === 'form-16-part-b' || activeReport === 'form-f-gratuity-nomination' || activeReport === 'form-f' || activeReport === 'salary-certificate' || activeReport === 'salary-certificate-report' || activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report' || activeReport === 'bonus-register-form-c' || activeReport === 'form-c-bonus-paid' || activeReport === 'employment-card-form-xiv' || activeReport === 'employment-card' || activeReport === 'muster-roll-form-xvi' || activeReport === 'form-xvi' || activeReport === 'muster-roll' || activeReport === 'register-advances-form-xxii' || activeReport === 'form-xxii' || activeReport === 'register-advances' || activeReport === 'register-deduction-damage-form-xx' || activeReport === 'form-xx' || activeReport === 'register-deductions-damage' || activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines' || activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime' || activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register' || activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register' || activeReport === 'bank-transfer-letter' || activeReport === 'bank-transfer-report' || activeReport === 'leave' || activeReport === 'form-xxv-register-of-leave' || activeReport === 'register-of-leave-se-delhi') ? (
+      ) : (filteredRows.length > 0 ||
+          activeReport === 'form-11-accident-book' ||
+          activeReport === 'accident-book-form-11' ||
+          activeReport === 'esic-returns-form-5' ||
+          activeReport === 'esic-form-5' ||
+          activeReport === 'form-5-esic' ||
+          activeReport === 'esic-form-3' ||
+          activeReport === 'form-3-esic' ||
+          activeReport === 'esi-summary-location' ||
+          activeReport === 'esi-summary-location-pdf' ||
+          activeReport === 'esi-summary-location-xls' ||
+          activeReport === 'esi-summary-employee-pdf' ||
+          activeReport === 'esi-summary-employee-xls' ||
+          activeReport === 'esi-summary-employee' ||
+          activeReport === 'esi-form-1' ||
+          activeReport === 'esi-challan' ||
+          activeReport === 'esi-form-7-opt2' ||
+          activeReport === 'salary-sheet-format-1' ||
+          activeReport === 'salary-sheet-1' ||
+          activeReport === 'salary-sheet-format-2' ||
+          activeReport === 'salary-sheet-2' ||
+          activeReport === 'register-fines-employer-salary' ||
+          activeReport === 'form-i-fines' ||
+          activeReport === 'register-deductions-damage-salary' ||
+          activeReport === 'form-ii-damage-loss' ||
+          activeReport === 'form-ii' ||
+          activeReport === 'employee-profile' ||
+          activeReport === 'fnf-settlement' ||
+          activeReport === 'fnf-settlement-payslip' ||
+          activeReport === 'form-16' ||
+          activeReport === 'form-16-part-b' ||
+          activeReport === 'form-f-gratuity-nomination' ||
+          activeReport === 'form-f' ||
+          activeReport === 'salary-certificate' ||
+          activeReport === 'salary-certificate-report' ||
+          activeReport === 'employee-id-card' ||
+          activeReport === 'employee-id-card-report' ||
+          activeReport === 'bonus-register-form-c' ||
+          activeReport === 'form-c-bonus-paid' ||
+          activeReport === 'employment-card-form-xiv' ||
+          activeReport === 'employment-card' ||
+          activeReport === 'muster-roll-form-xvi' ||
+          activeReport === 'form-xvi' ||
+          activeReport === 'muster-roll' ||
+          activeReport === 'register-advances-form-xxii' ||
+          activeReport === 'form-xxii' ||
+          activeReport === 'register-advances' ||
+          activeReport === 'register-deduction-damage-form-xx' ||
+          activeReport === 'form-xx' ||
+          activeReport === 'register-deductions-damage' ||
+          activeReport === 'register-fines-form-xxi' ||
+          activeReport === 'form-xxi' ||
+          activeReport === 'register-fines' ||
+          activeReport === 'register-overtime-form-xxiii' ||
+          activeReport === 'form-xxiii' ||
+          activeReport === 'register-overtime' ||
+          activeReport === 'overtime-register-salary' ||
+          activeReport === 'overtime-register-form-iv' ||
+          activeReport === 'wages-register-form-xvii' ||
+          activeReport === 'form-xvii' ||
+          activeReport === 'wages-register' ||
+          activeReport === 'workman-register-form-xiii' ||
+          activeReport === 'form-xiii' ||
+          activeReport === 'workman-register' ||
+          activeReport === 'bank-transfer-letter' ||
+          activeReport === 'bank-transfer-report' ||
+          activeReport === 'leave' ||
+          activeReport === 'form-xxv-register-of-leave' ||
+          activeReport === 'register-of-leave-se-delhi' ||
+          activeReport === 'esi-form-7-opt1' ||
+          activeReport === 'esi-form-7' ||
+          activeReport === 'form-7-esi' ||
+          activeReport === 'form-7') ? (
         <>
           {renderTable()}
-          {activeReport !== 'payroll' && activeReport !== 'employee-profile' && activeReport !== 'fnf-settlement' && activeReport !== 'fnf-settlement-payslip' && activeReport !== 'form-16' && activeReport !== 'form-16-part-b' && activeReport !== 'form-f-gratuity-nomination' && activeReport !== 'form-f' && activeReport !== 'salary-certificate' && activeReport !== 'salary-certificate-report' && activeReport !== 'employee-id-card' && activeReport !== 'employee-id-card-report' && activeReport !== 'bonus-register-form-c' && activeReport !== 'form-c-bonus-paid' && activeReport !== 'employment-card-form-xiv' && activeReport !== 'employment-card' && activeReport !== 'muster-roll-form-xvi' && activeReport !== 'form-xvi' && activeReport !== 'muster-roll' && activeReport !== 'register-advances-form-xxii' && activeReport !== 'form-xxii' && activeReport !== 'register-advances' && activeReport !== 'register-deduction-damage-form-xx' && activeReport !== 'form-xx' && activeReport !== 'register-deductions-damage' && activeReport !== 'register-fines-form-xxi' && activeReport !== 'form-xxi' && activeReport !== 'register-fines' && activeReport !== 'register-overtime-form-xxiii' && activeReport !== 'form-xxiii' && activeReport !== 'register-overtime' && activeReport !== 'wages-register-form-xvii' && activeReport !== 'form-xvii' && activeReport !== 'wages-register' && activeReport !== 'workman-register-form-xiii' && activeReport !== 'form-xiii' && activeReport !== 'workman-register' && activeReport !== 'bank-transfer-letter' && activeReport !== 'bank-transfer-report' && activeReport !== 'leave' && activeReport !== 'form-xxv-register-of-leave' && activeReport !== 'register-of-leave-se-delhi' && totalItems > PAGE_SIZE && (
+          {activeReport !== 'payroll' &&
+            activeReport !== 'form-11-accident-book' &&
+            activeReport !== 'accident-book-form-11' &&
+            activeReport !== 'esic-returns-form-5' &&
+            activeReport !== 'esic-form-5' &&
+            activeReport !== 'form-5-esic' &&
+            activeReport !== 'esic-form-3' &&
+            activeReport !== 'form-3-esic' &&
+            activeReport !== 'esi-summary-location' &&
+            activeReport !== 'esi-summary-location-pdf' &&
+            activeReport !== 'esi-summary-location-xls' &&
+            activeReport !== 'esi-summary-employee-pdf' &&
+            activeReport !== 'esi-summary-employee-xls' &&
+            activeReport !== 'esi-summary-employee' &&
+            activeReport !== 'esi-form-1' &&
+            activeReport !== 'esi-challan' &&
+            activeReport !== 'esi-form-7-opt2' &&
+            activeReport !== 'salary-sheet-format-1' &&
+            activeReport !== 'salary-sheet-1' &&
+            activeReport !== 'salary-sheet-format-2' &&
+            activeReport !== 'salary-sheet-2' &&
+            activeReport !== 'register-fines-employer-salary' &&
+            activeReport !== 'form-i-fines' &&
+            activeReport !== 'register-deductions-damage-salary' &&
+            activeReport !== 'form-ii-damage-loss' &&
+            activeReport !== 'form-ii' &&
+            activeReport !== 'employee-profile' &&
+            activeReport !== 'fnf-settlement' &&
+            activeReport !== 'fnf-settlement-payslip' &&
+            activeReport !== 'form-16' &&
+            activeReport !== 'form-16-part-b' &&
+            activeReport !== 'form-f-gratuity-nomination' &&
+            activeReport !== 'form-f' &&
+            activeReport !== 'salary-certificate' &&
+            activeReport !== 'salary-certificate-report' &&
+            activeReport !== 'employee-id-card' &&
+            activeReport !== 'employee-id-card-report' &&
+            activeReport !== 'bonus-register-form-c' &&
+            activeReport !== 'form-c-bonus-paid' &&
+            activeReport !== 'employment-card-form-xiv' &&
+            activeReport !== 'employment-card' &&
+            activeReport !== 'muster-roll-form-xvi' &&
+            activeReport !== 'form-xvi' &&
+            activeReport !== 'muster-roll' &&
+            activeReport !== 'register-advances-form-xxii' &&
+            activeReport !== 'form-xxii' &&
+            activeReport !== 'register-advances' &&
+            activeReport !== 'register-deduction-damage-form-xx' &&
+            activeReport !== 'form-xx' &&
+            activeReport !== 'register-deductions-damage' &&
+            activeReport !== 'register-fines-form-xxi' &&
+            activeReport !== 'form-xxi' &&
+            activeReport !== 'register-fines' &&
+            activeReport !== 'register-overtime-form-xxiii' &&
+            activeReport !== 'form-xxiii' &&
+            activeReport !== 'register-overtime' &&
+            activeReport !== 'overtime-register-salary' &&
+            activeReport !== 'overtime-register-form-iv' &&
+            activeReport !== 'wages-register-form-xvii' &&
+            activeReport !== 'form-xvii' &&
+            activeReport !== 'wages-register' &&
+            activeReport !== 'workman-register-form-xiii' &&
+            activeReport !== 'form-xiii' &&
+            activeReport !== 'workman-register' &&
+            activeReport !== 'bank-transfer-letter' &&
+            activeReport !== 'bank-transfer-report' &&
+            activeReport !== 'leave' &&
+            activeReport !== 'form-xxv-register-of-leave' &&
+            activeReport !== 'register-of-leave-se-delhi' &&
+            activeReport !== 'esi-form-7-opt1' &&
+            activeReport !== 'esi-form-7' &&
+            activeReport !== 'form-7-esi' &&
+            activeReport !== 'form-7' &&
+            totalItems > PAGE_SIZE && (
             <Pagination
               currentPage={currentPage}
               totalItems={totalItems}
@@ -2003,7 +2656,16 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
     selectedReport === 'bank-transfer-report' ||
     selectedReport === 'leave' ||
     selectedReport === 'form-xxv-register-of-leave' ||
-    selectedReport === 'register-of-leave-se-delhi'
+    selectedReport === 'register-of-leave-se-delhi' ||
+    selectedReport === 'overtime-register-salary' ||
+    selectedReport === 'overtime-register-form-iv' ||
+    selectedReport === 'esi-form-7-opt1' ||
+    selectedReport === 'esi-form-7-opt2' ||
+    selectedReport === 'esi-challan' ||
+    selectedReport === 'esi-form-1' ||
+    selectedReport === 'esi-form-7' ||
+    selectedReport === 'form-7-esi' ||
+    selectedReport === 'form-7'
       ? 'Excel'
       : 'PDF'
   );
@@ -2024,20 +2686,67 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
   const isDeductionsDamageReport = selectedReport === 'register-deduction-damage-form-xx' || selectedReport === 'form-xx' || selectedReport === 'register-deductions-damage';
   const isFinesReport = selectedReport === 'register-fines-form-xxi' || selectedReport === 'form-xxi' || selectedReport === 'register-fines';
   const isOvertimeReport = selectedReport === 'register-overtime-form-xxiii' || selectedReport === 'form-xxiii' || selectedReport === 'register-overtime';
+  const isOvertimeFormIVReport =
+    selectedReport === 'overtime-register-salary' ||
+    selectedReport === 'overtime-register-form-iv' ||
+    selectedReport === 'overtime-register' ||
+    selectedReport === 'form-iv' ||
+    selectedReport === 'form-iv-overtime' ||
+    selectedReport === 'salary-overtime';
+  const isEmployeePayslipReport = selectedReport === 'employee-payslip' || selectedReport === 'payslip';
+  const isDamageFormIIReport =
+    selectedReport === 'register-deductions-damage-salary' ||
+    selectedReport === 'form-ii-damage-loss' ||
+    selectedReport === 'form-ii';
+  const isFinesFormIReport =
+    selectedReport === 'register-fines-employer-salary' ||
+    selectedReport === 'form-i-fines';
   const isWagesReport = selectedReport === 'wages-register-form-xvii' || selectedReport === 'form-xvii' || selectedReport === 'wages-register';
   const isWorkmanRegisterReport = selectedReport === 'workman-register-form-xiii' || selectedReport === 'form-xiii' || selectedReport === 'workman-register';
   const isBankTransferLetterReport = selectedReport === 'bank-transfer-letter';
   const isBankTransferReport = selectedReport === 'bank-transfer-report';
   const isFormIReport = selectedReport === 'register-of-leave-se-delhi';
   const isLeaveReport = selectedReport === 'leave' || selectedReport === 'form-xxv-register-of-leave';
+  const isSalarySheet1Report =
+    selectedReport === 'salary-sheet-format-1' ||
+    selectedReport === 'salary-sheet-1';
+  const isSalarySheet2Report =
+    selectedReport === 'salary-sheet-format-2' ||
+    selectedReport === 'salary-sheet-2';
+  const isEsiForm7Report =
+    selectedReport === 'esi-form-7-opt1' ||
+    selectedReport === 'esi-form-7' ||
+    selectedReport === 'form-7-esi' ||
+    selectedReport === 'form-7';
+  const isEsiForm7Opt2Report = selectedReport === 'esi-form-7-opt2';
+  const isEsiChallanReport = selectedReport === 'esi-challan';
+  const isEsiForm1Report = selectedReport === 'esi-form-1';
+  const isEsiSummaryEmployeeReport =
+    selectedReport === 'esi-summary-employee-pdf' ||
+    selectedReport === 'esi-summary-employee-xls' ||
+    selectedReport === 'esi-summary-employee';
+  const isEsiSummaryLocationReport =
+    selectedReport === 'esi-summary-location' ||
+    selectedReport === 'esi-summary-location-pdf' ||
+    selectedReport === 'esi-summary-location-xls';
+  const isEsicForm3Report =
+    selectedReport === 'esic-form-3' ||
+    selectedReport === 'form-3-esic';
+  const isEsicForm5Report =
+    selectedReport === 'esic-returns-form-5' ||
+    selectedReport === 'esic-form-5' ||
+    selectedReport === 'form-5-esic';
+  const isForm11AccidentBookReport =
+    selectedReport === 'form-11-accident-book' ||
+    selectedReport === 'accident-book-form-11';
   const records = reportData?.records || [];
 
   const targetEmp = filters?.employee && filters.employee !== 'All Employees'
-    ? (records.find(r => r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.name) || filters.employee.includes(r.employeeId)) || records[0])
+    ? (records.find(r => r.name === filters.employee || r.employeeName === filters.employee || r.employeeId === filters.employee || r.employeeCode === filters.employee || (r.name && filters.employee.includes(r.name)) || (r.employeeName && filters.employee.includes(r.employeeName)) || (r.employeeId && filters.employee.includes(r.employeeId))) || records[0])
     : records[0];
 
   const handleExportSubmit = async () => {
-    if (!records.length) {
+    if (!records.length && !isForm11AccidentBookReport) {
       onExportSuccess('No records available to export.');
       onClose();
       return;
@@ -2141,6 +2850,21 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
       return;
     }
 
+    // Special handling for Employee Payslip report -> generates the exact official Employee Payslip PDF
+    if (isEmployeePayslipReport) {
+      if (profileScope === 'all' && records.length > 1) {
+        for (const slip of records) {
+          downloadEmployeePayslipPdf(slip, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
+        }
+        onExportSuccess(`✓ Downloaded all ${records.length} Employee Payslips successfully.`);
+      } else {
+        downloadEmployeePayslipPdf(targetEmp, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
+        onExportSuccess(`✓ Employee Payslip PDF (${targetEmp?.employeeName || targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
     // Special handling for Bonus Register (Form C) -> generates the exact official Form C Excel / PDF
     if (isBonusReport) {
       if (format === 'PDF') {
@@ -2224,6 +2948,314 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
       return;
     }
 
+    // Special handling for Register of Deductions for Damage or Loss (Form II) -> generates statutory Form II Excel / PDF / CSV
+    if (isDamageFormIIReport) {
+      if (format === 'PDF') {
+        downloadFormIIDeductionsDamagePdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadFormIIDeductionsDamageCsv(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadFormIIDeductionsDamageExcel(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) Excel spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Register of Fines (Employer) Form I -> generates statutory Form I Excel / PDF / CSV
+    if (isFinesFormIReport) {
+      if (format === 'PDF') {
+        downloadFormIFinesPdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Fines (Form I) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadFormIFinesCsv(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Fines (Form I) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadFormIFinesExcel(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Register of Fines (Form I) Excel spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Salary Sheet (Format 1) -> generates statutory Wage/Salary Register Excel / PDF / CSV
+    if (isSalarySheet1Report) {
+      if (format === 'PDF') {
+        downloadSalarySheetFormat1Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.ptSummary,
+          reportData?.earningSummary,
+          reportData?.deductionSummary,
+          { mode: 'download', clientInfo: reportData?.clientInfo, filters }
+        );
+        onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadSalarySheetFormat1Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.ptSummary,
+          reportData?.earningSummary,
+          reportData?.deductionSummary,
+          { clientInfo: reportData?.clientInfo, filters }
+        );
+        onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadSalarySheetFormat1Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.ptSummary,
+          reportData?.earningSummary,
+          reportData?.deductionSummary,
+          { format: 'xlsx', clientInfo: reportData?.clientInfo, filters }
+        );
+        onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) Excel spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Salary Sheet (Format 2) -> generates statutory Form IV Register of Payment of Wages Excel / PDF / CSV
+    if (isSalarySheet2Report) {
+      if (format === 'PDF') {
+        downloadSalarySheetFormat2Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.lwfSummary,
+          { mode: 'download', clientInfo: reportData?.clientInfo, filters }
+        );
+        onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadSalarySheetFormat2Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.lwfSummary,
+          { clientInfo: reportData?.clientInfo, filters }
+        );
+        onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadSalarySheetFormat2Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.lwfSummary,
+          { format: 'xlsx', clientInfo: reportData?.clientInfo, filters }
+        );
+        onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) Excel spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESI Summry Employee Wise
+    if (isEsiSummaryEmployeeReport) {
+      if (format === 'PDF') {
+        downloadEsiSummaryEmployeePdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ ESI Summary Employee Wise PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiSummaryEmployeeCsv(reportData);
+        onExportSuccess('✓ ESI Summary Employee Wise CSV downloaded successfully.');
+      } else {
+        downloadEsiSummaryEmployeeExcel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ ESI Summary Employee Wise Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESI Summry Location Wise
+    if (isEsiSummaryLocationReport) {
+      if (format === 'PDF') {
+        downloadEsiSummaryLocationPdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ ESI Summary Location Wise PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiSummaryLocationCsv(reportData);
+        onExportSuccess('✓ ESI Summary Location Wise CSV downloaded successfully.');
+      } else {
+        downloadEsiSummaryLocationExcel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ ESI Summary Location Wise Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESIC Form 3 Return Declaration
+    if (isEsicForm3Report) {
+      if (format === 'PDF') {
+        await downloadEsicForm3Pdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ ESIC Form 3 Return Declaration PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsicForm3Csv(reportData);
+        onExportSuccess('✓ ESIC Form 3 Return Declaration CSV downloaded successfully.');
+      } else {
+        downloadEsicForm3Excel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ ESIC Form 3 Return Declaration Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESIC Form 5 Return of Contributions (Regulation 26)
+    if (isEsicForm5Report) {
+      if (format === 'PDF') {
+        await downloadEsicForm5Pdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ ESIC Form 5 Return of Contributions PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsicForm5Csv(reportData);
+        onExportSuccess('✓ ESIC Form 5 Return CSV downloaded successfully.');
+      } else {
+        downloadEsicForm5Excel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ ESIC Form 5 Return Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Form 11 Accident Book (Regulation 66)
+    if (isForm11AccidentBookReport) {
+      if (format === 'PDF') {
+        downloadForm11AccidentBookPdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ Form 11 Accident Book PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadForm11AccidentBookCsv(reportData);
+        onExportSuccess('✓ Form 11 Accident Book CSV downloaded successfully.');
+      } else {
+        downloadForm11AccidentBookExcel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ Form 11 Accident Book Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESI Form 1 Declaration Form
+    if (isEsiForm1Report) {
+      if (format === 'PDF') {
+        downloadEsiForm1Pdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ ESI Form 1 Declaration Form PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiForm1Csv(reportData);
+        onExportSuccess('✓ ESI Form 1 Declaration Form CSV spreadsheet downloaded successfully.');
+      } else {
+        downloadEsiForm1Excel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ ESI Form 1 Declaration Form Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESI Challan
+    if (isEsiChallanReport) {
+      if (format === 'PDF') {
+        downloadEsiChallanPdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ ESI Challan PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiChallanCsv(reportData);
+        onExportSuccess('✓ ESI Challan CSV spreadsheet downloaded successfully.');
+      } else {
+        downloadEsiChallanExcel(reportData, { format: 'xlsx' });
+        onExportSuccess('✓ ESI Challan Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESI Form 7 Half-Yearly Report (Option 2)
+    if (isEsiForm7Opt2Report) {
+      if (format === 'PDF') {
+        downloadEsiForm7Option2Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { mode: 'download' }
+        );
+        onExportSuccess(`✓ ESI Form 7 (Option-2) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadEsiForm7Option2Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries
+        );
+        onExportSuccess(`✓ ESI Form 7 (Option-2) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadEsiForm7Option2Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { format: 'xlsx' }
+        );
+        onExportSuccess(`✓ ESI Form 7 (Option-2) Excel spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for ESI Form 7 Half-Yearly Report (Option 1)
+    if (isEsiForm7Report) {
+      if (format === 'PDF') {
+        downloadEsiForm7Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { mode: 'download' }
+        );
+        onExportSuccess(`✓ ESI Form 7 Half-Yearly Report PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadEsiForm7Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries
+        );
+        onExportSuccess(`✓ ESI Form 7 Half-Yearly Report CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadEsiForm7Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { format: 'xlsx' }
+        );
+        onExportSuccess(`✓ ESI Form 7 Half-Yearly Report Excel spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
     // Special handling for Register of Fines (Form XXI) -> generates statutory Form XXI Excel / PDF
     if (isFinesReport) {
       if (format === 'PDF') {
@@ -2249,6 +3281,21 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
           format: format === 'CSV' ? 'csv' : 'xlsx'
         });
         onExportSuccess(`✓ Register of Overtime (Form XXIII) ${format} spreadsheet downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for Overtime Register for Workers (Form IV) -> generates statutory Form IV Excel / CSV / PDF
+    if (isOvertimeFormIVReport) {
+      if (format === 'PDF') {
+        downloadFormIVOvertimePdf(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals);
+        onExportSuccess(`✓ Overtime Register for Workers (Form IV) PDF downloaded successfully.`);
+      } else {
+        downloadFormIVOvertimeExcel(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        onExportSuccess(`✓ Overtime Register for Workers (Form IV) ${format} spreadsheet downloaded successfully.`);
       }
       onClose();
       return;
@@ -2396,13 +3443,13 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
             <input type="text" value={reportName} readOnly />
           </div>
 
-          {isProfileReport || isFnfReport || isForm16Report || isFormFReport || isSalaryCertReport || isIdCardReport || isEmploymentCardReport ? (
+          {isProfileReport || isFnfReport || isForm16Report || isFormFReport || isSalaryCertReport || isIdCardReport || isEmploymentCardReport || isEmployeePayslipReport ? (
             <>
               <div className={styles.fieldGroup}>
                 <label>Active Workman / Employee</label>
                 <input
                   type="text"
-                  value={targetEmp ? `${targetEmp.workmanName || targetEmp.name} (${targetEmp.employeeCode || targetEmp.employeeId})` : 'All Filtered'}
+                  value={targetEmp ? `${targetEmp.employeeName || targetEmp.workmanName || targetEmp.name} (${targetEmp.employeeCode || targetEmp.employeeId})` : 'All Filtered'}
                   readOnly
                 />
               </div>
@@ -2411,8 +3458,8 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
                 <div className={styles.fieldGroup}>
                   <label>Export Scope</label>
                   <select value={profileScope} onChange={(e) => setProfileScope(e.target.value)}>
-                    <option value="single">Active Selected Workman ({targetEmp?.workmanName || targetEmp?.name || 'Current'})</option>
-                    <option value="all">All Filtered Workmen ({records.length} Cards)</option>
+                    <option value="single">Active Selected Employee ({targetEmp?.employeeName || targetEmp?.workmanName || targetEmp?.name || 'Current'})</option>
+                    <option value="all">All Filtered Employees ({records.length} {isEmployeePayslipReport ? 'Payslips' : 'Cards/Forms'})</option>
                   </select>
                 </div>
               )}
@@ -2425,6 +3472,8 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
                       <option value="PDF">Official Employment Card Form XIV PDF (.pdf)</option>
                       <option value="Excel">Employment Card Form XIV Excel (.xlsx)</option>
                     </>
+                  ) : isEmployeePayslipReport ? (
+                    <option value="PDF">Official Employee Payslip PDF (.pdf)</option>
                   ) : (
                     <option value="PDF">{isIdCardReport ? 'Official Employee ID Card PDF (.pdf)' : isSalaryCertReport ? 'Official Salary Certificate PDF (.pdf)' : isFormFReport ? "Form 'F' Gratuity Nomination PDF (.pdf)" : isForm16Report ? 'Form 16 (Part B) Certificate PDF (.pdf)' : isFnfReport ? 'Full & Final Settlement Statement PDF (.pdf)' : 'Official Employee Profile PDF (.pdf)'}</option>
                   )}
@@ -2467,6 +3516,42 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
                       <option value="Excel">Statutory Form XX Excel Spreadsheet (.xlsx)</option>
                       <option value="PDF">Statutory Form XX Printable PDF (.pdf)</option>
                       <option value="CSV">Statutory Form XX CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isDamageFormIIReport ? (
+                    <>
+                      <option value="Excel">Statutory Form II Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form II Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form II CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isFinesFormIReport ? (
+                    <>
+                      <option value="Excel">Statutory Form I Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form I Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form I CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isSalarySheet1Report ? (
+                    <>
+                      <option value="Excel">Statutory Wage/Salary Register Excel (.xlsx)</option>
+                      <option value="PDF">Statutory Wage/Salary Register Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Wage/Salary Register CSV (.csv)</option>
+                    </>
+                  ) : isSalarySheet2Report ? (
+                    <>
+                      <option value="Excel">Statutory Form IV Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form IV Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form IV CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isEsicForm5Report ? (
+                    <>
+                      <option value="PDF">Statutory Form 5 Return Printable PDF (.pdf)</option>
+                      <option value="Excel">Statutory Form 5 Return Excel Spreadsheet (.xlsx)</option>
+                      <option value="CSV">Statutory Form 5 Return CSV Spreadsheet (.csv)</option>
+                    </>
+                  ) : isEsiForm7Report ? (
+                    <>
+                      <option value="Excel">Statutory Form 7 Excel Spreadsheet (.xlsx)</option>
+                      <option value="PDF">Statutory Form 7 Printable PDF (.pdf)</option>
+                      <option value="CSV">Statutory Form 7 CSV Spreadsheet (.csv)</option>
                     </>
                   ) : isFinesReport ? (
                     <>
@@ -2572,6 +3657,40 @@ function Reports() {
     'register-overtime-form-xxiii',
     'form-xxiii',
     'register-overtime',
+    'overtime-register-salary',
+    'overtime-register-form-iv',
+    'overtime-register',
+    'form-iv',
+    'form-iv-overtime',
+    'salary-overtime',
+    'employee-payslip',
+    'payslip',
+    'register-deductions-damage-salary',
+    'form-ii-damage-loss',
+    'form-ii',
+    'register-fines-employer-salary',
+    'form-i-fines',
+    'salary-sheet-format-1',
+    'salary-sheet-1',
+    'salary-sheet-format-2',
+    'salary-sheet-2',
+    'esi-form-7-opt1',
+    'esi-form-7',
+    'form-7-esi',
+    'form-7',
+    'esi-summary-employee-pdf',
+    'esi-summary-employee-xls',
+    'esi-summary-employee',
+    'esi-summary-location',
+    'esi-summary-location-pdf',
+    'esi-summary-location-xls',
+    'esic-form-3',
+    'form-3-esic',
+    'esic-returns-form-5',
+    'esic-form-5',
+    'form-5-esic',
+    'form-11-accident-book',
+    'accident-book-form-11',
     'wages-register-form-xvii',
     'form-xvii',
     'wages-register',
@@ -2614,6 +3733,7 @@ function Reports() {
 
   const [filterOptions, setFilterOptions] = useState({
     companies: [],
+    clients: [],
     departments: ['Security', 'Facility', 'Operations', 'Housekeeping', 'Administration', 'HR', 'Accounts'],
     employees: []
   });
@@ -2654,8 +3774,13 @@ function Reports() {
         if (overviewRes?.stats) {
           setOverviewStats(overviewRes);
         }
-        if (filterRes?.companies) {
-          setFilterOptions(filterRes);
+        if (filterRes) {
+          setFilterOptions({
+            companies: filterRes.companies || [],
+            clients: filterRes.clients || [],
+            departments: filterRes.departments || ['Security', 'Facility', 'Operations', 'Housekeeping', 'Administration', 'HR', 'Accounts'],
+            employees: filterRes.employees || []
+          });
         }
       } catch (err) {
         console.warn('Init fetch report error:', err);
@@ -2705,6 +3830,76 @@ function Reports() {
         data = await reportService.getRegisterOfFinesReport('', filters);
       } else if (activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime') {
         data = await reportService.getRegisterOfOvertimeReport('', filters);
+      } else if (
+        activeReport === 'overtime-register-salary' ||
+        activeReport === 'overtime-register-form-iv' ||
+        activeReport === 'overtime-register' ||
+        activeReport === 'form-iv' ||
+        activeReport === 'form-iv-overtime' ||
+        activeReport === 'salary-overtime'
+      ) {
+        data = await reportService.getFormIVOvertimeReport('', filters);
+      } else if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+        data = await reportService.getEmployeePayslipReport('', filters);
+      } else if (
+        activeReport === 'register-deductions-damage-salary' ||
+        activeReport === 'form-ii-damage-loss' ||
+        activeReport === 'form-ii'
+      ) {
+        data = await reportService.getFormIIDeductionsDamageReport('', filters);
+      } else if (
+        activeReport === 'register-fines-employer-salary' ||
+        activeReport === 'form-i-fines'
+      ) {
+        data = await reportService.getFormIFinesReport('', filters);
+      } else if (
+        activeReport === 'salary-sheet-format-1' ||
+        activeReport === 'salary-sheet-1'
+      ) {
+        data = await reportService.getSalarySheetFormat1Report('', filters);
+      } else if (
+        activeReport === 'salary-sheet-format-2' ||
+        activeReport === 'salary-sheet-2'
+      ) {
+        data = await reportService.getSalarySheetFormat2Report('', filters);
+      } else if (
+        activeReport === 'esi-summary-employee-pdf' ||
+        activeReport === 'esi-summary-employee-xls' ||
+        activeReport === 'esi-summary-employee'
+      ) {
+        data = await reportService.getEsiSummaryEmployeeReport('', filters);
+      } else if (
+        activeReport === 'esi-summary-location' ||
+        activeReport === 'esi-summary-location-pdf' ||
+        activeReport === 'esi-summary-location-xls'
+      ) {
+        data = await reportService.getEsiSummaryLocationReport('', filters);
+      } else if (activeReport === 'esic-form-3' || activeReport === 'form-3-esic') {
+        data = await reportService.getEsicForm3Report('', filters);
+      } else if (
+        activeReport === 'esic-returns-form-5' ||
+        activeReport === 'esic-form-5' ||
+        activeReport === 'form-5-esic'
+      ) {
+        data = await reportService.getEsicForm5Report('', filters);
+      } else if (
+        activeReport === 'form-11-accident-book' ||
+        activeReport === 'accident-book-form-11'
+      ) {
+        data = await reportService.getForm11AccidentBookReport('', filters);
+      } else if (activeReport === 'esi-form-1') {
+        data = await reportService.getEsiForm1Report('', filters);
+      } else if (activeReport === 'esi-challan') {
+        data = await reportService.getEsiChallanReport('', filters);
+      } else if (activeReport === 'esi-form-7-opt2') {
+        data = await reportService.getEsiForm7Option2Report('', filters);
+      } else if (
+        activeReport === 'esi-form-7-opt1' ||
+        activeReport === 'esi-form-7' ||
+        activeReport === 'form-7-esi' ||
+        activeReport === 'form-7'
+      ) {
+        data = await reportService.getEsiForm7Report('', filters);
       } else if (activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register') {
         data = await reportService.getWagesRegisterReport('', filters);
       } else if (activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register') {
@@ -2781,7 +3976,7 @@ function Reports() {
     setToastMessage('✓ Report filters reset.');
   };
 
-  const handlePrintReport = () => {
+  const handlePrintReport = async () => {
     const records = reportData?.records || [];
     if (!records.length) {
       alert('No records available to print.');
@@ -2902,6 +4097,129 @@ function Reports() {
       });
       return;
     }
+    if (
+      activeReport === 'register-deductions-damage-salary' ||
+      activeReport === 'form-ii-damage-loss' ||
+      activeReport === 'form-ii'
+    ) {
+      downloadFormIIDeductionsDamagePdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (
+      activeReport === 'register-fines-employer-salary' ||
+      activeReport === 'form-i-fines'
+    ) {
+      downloadFormIFinesPdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (
+      activeReport === 'salary-sheet-format-1' ||
+      activeReport === 'salary-sheet-1'
+    ) {
+      downloadSalarySheetFormat1Pdf(
+        records,
+        reportData?.companyInfo,
+        reportData?.period || filters,
+        reportData?.totals,
+        reportData?.pfSummary,
+        reportData?.esiSummary,
+        reportData?.ptSummary,
+        reportData?.earningSummary,
+        reportData?.deductionSummary,
+        { mode: 'print', clientInfo: reportData?.clientInfo, filters }
+      );
+      return;
+    }
+    if (
+      activeReport === 'salary-sheet-format-2' ||
+      activeReport === 'salary-sheet-2'
+    ) {
+      downloadSalarySheetFormat2Pdf(
+        records,
+        reportData?.companyInfo,
+        reportData?.period || filters,
+        reportData?.totals,
+        reportData?.pfSummary,
+        reportData?.esiSummary,
+        reportData?.lwfSummary,
+        { mode: 'print', clientInfo: reportData?.clientInfo, filters }
+      );
+      return;
+    }
+    if (
+      activeReport === 'esi-summary-employee-pdf' ||
+      activeReport === 'esi-summary-employee-xls' ||
+      activeReport === 'esi-summary-employee'
+    ) {
+      downloadEsiSummaryEmployeePdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (
+      activeReport === 'esi-summary-location' ||
+      activeReport === 'esi-summary-location-pdf' ||
+      activeReport === 'esi-summary-location-xls'
+    ) {
+      downloadEsiSummaryLocationPdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'esic-form-3' || activeReport === 'form-3-esic') {
+      await downloadEsicForm3Pdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (
+      activeReport === 'esic-returns-form-5' ||
+      activeReport === 'esic-form-5' ||
+      activeReport === 'form-5-esic'
+    ) {
+      await downloadEsicForm5Pdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (
+      activeReport === 'form-11-accident-book' ||
+      activeReport === 'accident-book-form-11'
+    ) {
+      downloadForm11AccidentBookPdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'esi-form-1') {
+      downloadEsiForm1Pdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'esi-challan') {
+      downloadEsiChallanPdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'esi-form-7-opt2') {
+      downloadEsiForm7Option2Pdf(
+        records,
+        reportData?.companyInfo,
+        reportData?.period || filters,
+        reportData?.totals,
+        reportData?.monthlySummaries,
+        { mode: 'print' }
+      );
+      return;
+    }
+    if (
+      activeReport === 'esi-form-7-opt1' ||
+      activeReport === 'esi-form-7' ||
+      activeReport === 'form-7-esi' ||
+      activeReport === 'form-7'
+    ) {
+      downloadEsiForm7Pdf(
+        records,
+        reportData?.companyInfo,
+        reportData?.period || filters,
+        reportData?.totals,
+        reportData?.monthlySummaries,
+        { mode: 'print' }
+      );
+      return;
+    }
     if (activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines') {
       downloadFinesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
         mode: 'print',
@@ -2910,6 +4228,28 @@ function Reports() {
     }
     if (activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime') {
       downloadOvertimeRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (
+      activeReport === 'overtime-register-salary' ||
+      activeReport === 'overtime-register-form-iv' ||
+      activeReport === 'overtime-register' ||
+      activeReport === 'form-iv' ||
+      activeReport === 'form-iv-overtime' ||
+      activeReport === 'salary-overtime'
+    ) {
+      downloadFormIVOvertimePdf(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals, {
+        mode: 'print',
+      });
+      return;
+    }
+    if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+      const activeSlip = (filters?.employee && filters.employee !== 'All Employees'
+        ? (records.find(r => r.employeeName === filters.employee || r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.employeeName || '') || filters.employee.includes(r.employeeId || '')) || records[0])
+        : records[0]) || reportData?.selectedEmployeeData;
+      downloadEmployeePayslipPdf(activeSlip, reportData?.companyInfo, reportData?.period || filters, {
         mode: 'print',
       });
       return;

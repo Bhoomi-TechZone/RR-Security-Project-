@@ -26,6 +26,20 @@ import {
   getBankTransferReport,
   getRegisterOfLeaveReport,
   getFormILeaveReport,
+  getFormIVOvertimeReport,
+  getEmployeePayslipReport,
+  getFormIIDeductionsDamageReport,
+  getFormIFinesReport,
+  getSalarySheetFormat1Report,
+  getSalarySheetFormat2Report,
+  getEsiForm7Report,
+  getEsiChallanReport,
+  getEsiForm1Report,
+  getEsiSummaryEmployeeReport,
+  getEsiSummaryLocationReport,
+  getEsicForm3Report,
+  getEsicForm5Report,
+  getForm11AccidentBookReport,
 } from '../controllers/reportController.js';
 
 const router = express.Router();
@@ -71,6 +85,45 @@ router.get('/form-xxv-leave', getRegisterOfLeaveReport);
 router.get('/form-i-leave', getFormILeaveReport);
 router.get('/register-of-leave-form-i', getFormILeaveReport);
 router.get('/register-of-leave-se-delhi', getFormILeaveReport);
+router.get('/overtime-register-form-iv', getFormIVOvertimeReport);
+router.get('/overtime-register-salary', getFormIVOvertimeReport);
+router.get('/overtime-register', getFormIVOvertimeReport);
+router.get('/form-iv-overtime', getFormIVOvertimeReport);
+router.get('/form-iv', getFormIVOvertimeReport);
+router.get('/employee-payslip', getEmployeePayslipReport);
+router.get('/payslip', getEmployeePayslipReport);
+router.get('/register-deductions-damage-salary', getFormIIDeductionsDamageReport);
+router.get('/form-ii-damage-loss', getFormIIDeductionsDamageReport);
+router.get('/form-ii', getFormIIDeductionsDamageReport);
+router.get('/register-fines-employer-salary', getFormIFinesReport);
+router.get('/form-i-fines', getFormIFinesReport);
+router.get('/salary-sheet-format-1', getSalarySheetFormat1Report);
+router.get('/salary-sheet-1', getSalarySheetFormat1Report);
+router.get('/wage-salary-register', getSalarySheetFormat1Report);
+router.get('/salary-sheet-format-2', getSalarySheetFormat2Report);
+router.get('/salary-sheet-2', getSalarySheetFormat2Report);
+router.get('/register-payment-wages', getSalarySheetFormat2Report);
+router.get('/esi-form-7-opt1', getEsiForm7Report);
+router.get('/esi-form-7-opt2', getEsiForm7Report);
+router.get('/esi-form-7', getEsiForm7Report);
+router.get('/form-7-esi', getEsiForm7Report);
+router.get('/form-7', getEsiForm7Report);
+router.get('/esi-challan', getEsiChallanReport);
+router.get('/esi-form-1', getEsiForm1Report);
+router.get('/esi-summary-employee', getEsiSummaryEmployeeReport);
+router.get('/esi-summary-employee-pdf', getEsiSummaryEmployeeReport);
+router.get('/esi-summary-employee-xls', getEsiSummaryEmployeeReport);
+router.get('/esi-summary-location', getEsiSummaryLocationReport);
+router.get('/esi-summary-location-pdf', getEsiSummaryLocationReport);
+router.get('/esi-summary-location-xls', getEsiSummaryLocationReport);
+router.get('/esic-form-3', getEsicForm3Report);
+router.get('/form-3-esic', getEsicForm3Report);
+router.get('/esic-returns-form-5', getEsicForm5Report);
+router.get('/esic-form-5', getEsicForm5Report);
+router.get('/form-5-esic', getEsicForm5Report);
+router.get('/form-11-accident-book', getForm11AccidentBookReport);
+router.get('/accident-book-form-11', getForm11AccidentBookReport);
 
 export default router;
+
 

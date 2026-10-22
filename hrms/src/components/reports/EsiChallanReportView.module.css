@@ -1,0 +1,526 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #006ed2;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.metaText {
+  font-size: 13px;
+  color: #475569;
+}
+
+.metaText strong {
+  color: #0f172a;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.copySelect {
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.actionBtn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+.btnPdf {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.btnPdf:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.btnExcel {
+  color: #15803d;
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.btnExcel:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+}
+
+.btnCsv {
+  color: #0284c7;
+  border-color: #7dd3fc;
+  background: #f0f9ff;
+}
+
+.btnCsv:hover {
+  background: #e0f2fe;
+  border-color: #0ea5e9;
+}
+
+.btnPrint {
+  color: #475569;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.btnPrint:hover {
+  background: #f1f5f9;
+}
+
+/* KPI Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpiCardBlue {
+  border-left: 4px solid #006ed2;
+}
+
+.kpiCardGreen {
+  border-left: 4px solid #10b981;
+}
+
+.kpiCardPurple {
+  border-left: 4px solid #8b5cf6;
+}
+
+.kpiCardOrange {
+  border-left: 4px solid #f97316;
+}
+
+.kpiCardRed {
+  border-left: 4px solid #dc2626;
+}
+
+.kpiLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.kpiValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Main Challan Paper Preview */
+.paperWrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.challanCard {
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 780px;
+  padding: 32px 36px;
+  font-family: 'Consolas', 'Courier New', Courier, monospace;
+  color: #0f172a;
+}
+
+.esicTitle {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 6px;
+  margin-bottom: 12px;
+  color: #1e293b;
+}
+
+.blueBanner {
+  background: #006ed2;
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  margin-bottom: 16px;
+}
+
+.copySub {
+  font-size: 12px;
+  color: #334155;
+  margin-bottom: 10px;
+}
+
+.bankHeaderBlock {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.fundAccountTitle {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.slipSubtitle {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 4px 0;
+}
+
+.bankNameText {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* Particulars Box matching Image 2 */
+.particularsBox {
+  border: 1px solid #475569;
+  display: grid;
+  grid-template-columns: 1.4fr 1.6fr;
+  margin-bottom: 16px;
+  font-size: 11px;
+}
+
+.boxLeftCol {
+  border-right: 1px solid #475569;
+  display: flex;
+  flex-direction: column;
+}
+
+.boxLeftHead {
+  display: flex;
+  border-bottom: 1px solid #475569;
+  padding: 6px 8px;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+.boxLeftBody {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 8px;
+  min-height: 40px;
+}
+
+.boxLeftFooter {
+  display: flex;
+  border-top: 1px solid #475569;
+  padding: 6px 8px;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+.boxRightCol {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 10px;
+  gap: 6px;
+}
+
+.boxRightRow {
+  display: flex;
+  justify-content: space-between;
+}
+
+.inWordsLine {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.statutoryNote {
+  font-size: 11px;
+  color: #334155;
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.monthAndDepositor {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.monthText {
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.depositorBlock {
+  text-align: right;
+  font-size: 11.5px;
+}
+
+.depositorBlock strong {
+  font-weight: 700;
+}
+
+.establishmentSection {
+  margin-bottom: 18px;
+  font-size: 11.5px;
+}
+
+.employerCodeLine {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.factoryLabel {
+  color: #475569;
+  margin-bottom: 4px;
+}
+
+.companyNameLine {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  font-size: 12.5px;
+  margin-bottom: 4px;
+}
+
+.addressLine {
+  max-width: 480px;
+  line-height: 1.4;
+  color: #334155;
+}
+
+/* Wage & Contribution Table */
+.statutorySummaryTable {
+  width: 100%;
+  max-width: 440px;
+  margin-bottom: 22px;
+  font-size: 12px;
+}
+
+.statutorySummaryTable td {
+  padding: 3px 0;
+  vertical-align: middle;
+}
+
+.labelCol {
+  width: 240px;
+}
+
+.currCol {
+  width: 40px;
+  text-align: right;
+  padding-right: 12px !important;
+}
+
+.valueCol {
+  text-align: right;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalRow td {
+  font-weight: 700;
+  padding-top: 6px;
+  border-top: 1px solid #cbd5e1;
+}
+
+/* Dashed Separator */
+.dashedDivider {
+  border-top: 1.5px dashed #475569;
+  margin: 18px 0;
+}
+
+/* Bank Acknowledgement Section */
+.ackSection {
+  font-size: 11.5px;
+  color: #1e293b;
+}
+
+.bankUseLabel {
+  font-size: 10.5px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.ackHeader {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.ackTitle {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  margin: 0 0 2px 0;
+}
+
+.ackSubtitle {
+  font-size: 10px;
+  color: #475569;
+  margin: 0;
+}
+
+.ackRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ackAmountLine {
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 10px;
+}
+
+.bankScrollLine {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+}
+
+/* Employee Breakdown Drawer / Accordion */
+.breakdownSection {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px 20px;
+}
+
+.breakdownHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  user-select: none;
+}
+
+.breakdownTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.breakdownTableWrapper {
+  overflow-x: auto;
+  margin-top: 14px;
+}
+
+.breakdownTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+.breakdownTable th,
+.breakdownTable td {
+  border: 1px solid #cbd5e1;
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.breakdownTable th {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #334155;
+}
+
+.breakdownTable tr:hover {
+  background: #f1f5f9;
+}
+
+/* Print Specific */
+@media print {
+  .toolbar,
+  .kpiGrid,
+  .breakdownSection {
+    display: none !important;
+  }
+
+  .paperWrapper {
+    width: 100% !important;
+    padding: 0 !important;
+  }
+
+  .challanCard {
+    border: none !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+}
