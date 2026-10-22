@@ -515,7 +515,31 @@ function Attendance() {
 
       return true;
     });
-  }, [records, filters, viewMode, selectedDate, selectedMonth, selectedYear, fromDate, toDate]);
+
+    // When viewing Monthly attendance tab, consolidate by employeeId so each employee has ONLY ONE record
+    if (activeTab === 'monthly') {
+      const empMap = new Map();
+      list.forEach((r) => {
+        const key = String(r.employeeId || '').trim().toLowerCase();
+        if (!key) return;
+        if (!empMap.has(key)) {
+          empMap.set(key, r);
+        } else {
+          const existing = empMap.get(key);
+          const currentIsMonthly = (r.workingDays && Number(r.workingDays) > 1) || (r.present && Number(r.present) > 1);
+          const existingIsMonthly = (existing.workingDays && Number(existing.workingDays) > 1) || (existing.present && Number(existing.present) > 1);
+          if (currentIsMonthly && !existingIsMonthly) {
+            empMap.set(key, r);
+          } else if ((r.present || 0) > (existing.present || 0)) {
+            empMap.set(key, r);
+          }
+        }
+      });
+      return Array.from(empMap.values());
+    }
+
+    return list;
+  }, [records, filters, viewMode, selectedDate, selectedMonth, selectedYear, fromDate, toDate, activeTab]);
 
   // Paginated records
   const totalPages = Math.ceil(filteredRecords.length / pageSize) || 1;
@@ -760,23 +784,26 @@ function Attendance() {
 
   // Import Handler
   const handleImportRecords = async (importPayload) => {
-    const { month, date, records: newRecords } = importPayload;
+    const { month, date, records: newRecords, isMonthly } = importPayload;
     if (!newRecords || newRecords.length === 0) return;
 
     try {
       setIsLoading(true);
-      const res = await attendanceService.bulkImportAttendance(compId, importPayload);
-      const targetDate = date || (res.records && res.records[0]?.date) || selectedDate;
+      const isMonthlyImport = activeTab === 'monthly' || Boolean(isMonthly);
+      const res = await attendanceService.bulkImportAttendance(compId, {
+        ...importPayload,
+        isMonthly: isMonthlyImport,
+        month: month || selectedMonth,
+      });
 
       setShowImportModal(false);
-      showToast(`✓ Successfully imported and updated ${res.count || newRecords.length} attendance records.`);
+      showToast(`✓ Successfully imported & consolidated ${res.count || newRecords.length} attendance records.`);
 
-      if (targetDate) {
-        handleDateChange(targetDate);
-        await fetchRecords();
-      } else {
-        await fetchRecords();
+      if (isMonthlyImport && month) {
+        setSelectedMonth(month);
       }
+
+      await fetchRecords();
     } catch (err) {
       console.error('Import to database failed:', err);
       showToast(`Failed to import to database: ${err.message}`, 'danger');
@@ -1001,6 +1028,8 @@ function Attendance() {
           onClose={() => setShowImportModal(false)}
           onImport={handleImportRecords}
           currentDate={selectedDate}
+          currentMonth={selectedMonth}
+          activeTab={activeTab}
         />
 
         <DeleteAttendanceConfirmModal

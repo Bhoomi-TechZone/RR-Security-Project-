@@ -11,10 +11,19 @@ import styles from './AttendanceImportModal.module.css';
  * EMPID, EMPLOYEE NAME, FATHER NAME, MONTH, YEAR, PRESENT, WEEK OFF, HOLIDAYS, CL, SL, EL
  * (CL = Casual Leave, SL = Sick Leave, EL = Earn Leave)
  */
-function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = '', activeCompanyId = '', currentDate }) {
+function AttendanceImportModal({
+  isOpen,
+  onClose,
+  onImport,
+  activeCompanyName = '',
+  activeCompanyId = '',
+  currentDate,
+  currentMonth,
+  activeTab = 'daily'
+}) {
   if (!isOpen) return null;
 
-  const defaultMonth = new Date().toISOString().slice(0, 7);
+  const defaultMonth = currentMonth || new Date().toISOString().slice(0, 7);
   const todayDate = new Date().toISOString().split('T')[0];
   const currentYear = new Date().getFullYear();
   const currentMonthName = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
@@ -251,8 +260,14 @@ function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = 
       const empName = (empNameKey ? row[empNameKey] : row[headers[1]]) || 'Employee';
       const fatherName = fatherNameKey && row[fatherNameKey] !== undefined ? String(row[fatherNameKey]).trim() : '';
       
-      const parsedMonthStr = monthKey && row[monthKey] !== undefined ? String(row[monthKey]).trim() : (targetMonth ? targetMonth.split('-')[1] : currentMonthName);
-      const parsedYearStr = yearKey && row[yearKey] !== undefined ? String(row[yearKey]).trim() : (targetMonth ? targetMonth.split('-')[0] : String(currentYear));
+      let parsedMonthStr = monthKey && row[monthKey] !== undefined ? String(row[monthKey]).trim() : (targetMonth ? targetMonth.split('-')[1] : currentMonthName);
+      let parsedYearStr = yearKey && row[yearKey] !== undefined ? String(row[yearKey]).trim() : (targetMonth ? targetMonth.split('-')[0] : String(currentYear));
+
+      if (parsedMonthStr && /^\d{4}-\d{1,2}$/.test(parsedMonthStr)) {
+        const parts = parsedMonthStr.split('-');
+        parsedYearStr = parts[0];
+        parsedMonthStr = parts[1];
+      }
 
       const present = parseNum(presentKey ? row[presentKey] : undefined, 0);
       const weekOff = parseNum(weekOffKey ? row[weekOffKey] : undefined, 0);
@@ -263,7 +278,9 @@ function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = 
       const lwp = parseNum(lwpKey ? row[lwpKey] : undefined, 0);
 
       const totalPaidDays = present + weekOff + holidays + cl + sl + el;
-      const workingDays = parsedMonthStr ? getDaysInMonth(parsedMonthStr, parsedYearStr) : totalPaidDays;
+      const mNum = getMonthNum(parsedMonthStr);
+      const daysInThisMonth = getDaysInMonth(mNum, parsedYearStr);
+      const workingDays = parsedMonthStr ? daysInThisMonth : totalPaidDays;
 
       const companyName = (companyKey ? row[companyKey] : '') || activeCompanyName || 'RR Security';
       const site = (siteKey ? row[siteKey] : '') || 'Main Site';
@@ -274,7 +291,6 @@ function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = 
       if (dateKey && row[dateKey]) {
         rowDate = normalizeDate(row[dateKey]);
       } else if (parsedYearStr && parsedMonthStr) {
-        const mNum = getMonthNum(parsedMonthStr);
         rowDate = `${parsedYearStr}-${mNum}-01`;
       }
 
@@ -305,7 +321,7 @@ function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = 
         employeeId: String(empId).trim(),
         employeeName: String(empName).trim(),
         fatherName: String(fatherName).trim(),
-        month: parsedMonthStr,
+        month: `${parsedYearStr}-${mNum}`,
         year: parsedYearStr ? Number(parsedYearStr) : currentYear,
         present,
         weekOff,
@@ -331,11 +347,19 @@ function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = 
       });
     });
 
-    if (formattedRows.length === 0) {
+    // Deduplicate by employeeId within the imported sheet itself so each employee is only 1 row
+    const empRowMap = new Map();
+    formattedRows.forEach((item) => {
+      const key = item.employeeId.toLowerCase();
+      empRowMap.set(key, item);
+    });
+    const uniqueRows = Array.from(empRowMap.values());
+
+    if (uniqueRows.length === 0) {
       setParseError('No valid employee attendance records could be extracted.');
     }
 
-    setParsedRows(formattedRows);
+    setParsedRows(uniqueRows);
   };
 
   // Read file as ArrayBuffer for XLSX (handles .xlsx, .xls, and .csv universally)
@@ -411,7 +435,8 @@ function AttendanceImportModal({ isOpen, onClose, onImport, activeCompanyName = 
     onImport({
       month: targetMonth,
       date: firstDate,
-      records: parsedRows
+      records: parsedRows,
+      isMonthly: activeTab === 'monthly' || Boolean(targetMonth)
     });
   };
 

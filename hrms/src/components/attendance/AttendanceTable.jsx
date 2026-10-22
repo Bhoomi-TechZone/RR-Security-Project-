@@ -14,23 +14,56 @@ function getInitialsBg(initials) {
   return colors[idx];
 }
 
+const MONTH_FULL_NAMES = {
+  jan: 'January', january: 'January', '01': 'January', '1': 'January',
+  feb: 'February', february: 'February', '02': 'February', '2': 'February',
+  mar: 'March', march: 'March', '03': 'March', '3': 'March',
+  apr: 'April', april: 'April', '04': 'April', '4': 'April',
+  may: 'May', '05': 'May', '5': 'May',
+  jun: 'June', june: 'June', '06': 'June', '6': 'June',
+  jul: 'July', july: 'July', '07': 'July', '7': 'July',
+  aug: 'August', august: 'August', '08': 'August', '8': 'August',
+  sep: 'September', sept: 'September', september: 'September', '09': 'September', '9': 'September',
+  oct: 'October', october: 'October', '10': 'October',
+  nov: 'November', november: 'November', '11': 'November',
+  dec: 'December', december: 'December', '12': 'December',
+};
+
 const formatMonthYearDisplay = (rec) => {
-  if (rec.month && rec.year) {
-    return `${rec.month} ${rec.year}`;
+  const mStr = String(rec.month || '').trim();
+  const yStr = rec.year ? String(rec.year) : '';
+
+  // 1. If month is in YYYY-MM format (e.g. 2026-10)
+  if (/^\d{4}-\d{1,2}$/.test(mStr)) {
+    const [y, m] = mStr.split('-').map(Number);
+    const d = new Date(y, m - 1, 1);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   }
-  if (rec.month) {
-    if (/^\d{4}-\d{2}$/.test(rec.month)) {
-      const [y, m] = rec.month.split('-').map(Number);
-      const d = new Date(y, m - 1, 1);
-      return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+
+  // 2. If month is a number like 1-12
+  const mNum = parseInt(mStr, 10);
+  if (!isNaN(mNum) && mNum >= 1 && mNum <= 12) {
+    const y = Number(yStr) || new Date().getFullYear();
+    const d = new Date(y, mNum - 1, 1);
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  }
+
+  // 3. If month is a name or abbreviation like "Oct", "October", "Sep"
+  if (mStr) {
+    const clean = mStr.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const fullName = MONTH_FULL_NAMES[clean] || (mStr.charAt(0).toUpperCase() + mStr.slice(1));
+    if (yStr && !fullName.includes(yStr)) {
+      return `${fullName} ${yStr}`;
     }
-    return rec.month;
+    return fullName;
   }
+
+  // 4. Fallback to date
   if (rec.date) {
     const d = new Date(rec.date.includes('T') ? rec.date : `${rec.date}T00:00:00`);
     if (!isNaN(d.getTime())) {
-      return new Intl.DateTimeFormat('en-GB', {
-        month: 'short',
+      return new Intl.DateTimeFormat('en-US', {
+        month: 'long',
         year: 'numeric'
       }).format(d);
     }
@@ -93,12 +126,11 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
               const el = rec.el !== undefined ? rec.el : 0;
               const lwp = rec.lwp !== undefined ? rec.lwp : 0;
               const workingDays =
-                rec.workingDays ||
-                (rec.month && rec.year
-                  ? getDaysInMonth(rec.month, rec.year)
-                  : rec.totalPaidDays !== undefined
-                  ? rec.totalPaidDays
-                  : present + weekOff + holidays + cl + sl + el);
+                (rec.workingDays && Number(rec.workingDays) > 1)
+                  ? rec.workingDays
+                  : (rec.month || rec.date
+                    ? getDaysInMonth(rec.month || rec.date.slice(0, 7), rec.year || rec.date?.slice(0, 4))
+                    : 30);
 
               return (
                 <tr key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.row} onClick={() => onView(rec)}>

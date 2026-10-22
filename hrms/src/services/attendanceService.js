@@ -54,6 +54,9 @@ class AttendanceService {
         companyId,
         records: payload.records,
         defaultDate: payload.date || payload.defaultDate,
+        month: payload.month,
+        isMonthly: payload.isMonthly,
+        year: payload.year,
       }),
     });
 

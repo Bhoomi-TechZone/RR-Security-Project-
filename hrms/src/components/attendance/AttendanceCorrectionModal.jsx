@@ -12,22 +12,31 @@ const MONTH_OPTIONS = [
  */
 export const getDaysInMonth = (monthName, year) => {
   const months = {
-    january: 0, jan: 0,
-    february: 1, feb: 1,
-    march: 2, mar: 2,
-    april: 3, apr: 3,
-    may: 4,
-    june: 5, jun: 5,
-    july: 6, jul: 6,
-    august: 7, aug: 7,
-    september: 8, sept: 8, sep: 8,
-    october: 9, oct: 9,
-    november: 10, nov: 10,
-    december: 11, dec: 11
+    january: 0, jan: 0, '01': 0, '1': 0,
+    february: 1, feb: 1, '02': 1, '2': 1,
+    march: 2, mar: 2, '03': 2, '3': 2,
+    april: 3, apr: 3, '04': 3, '4': 3,
+    may: 4, '05': 4, '5': 4,
+    june: 5, jun: 5, '06': 5, '6': 5,
+    july: 6, jul: 6, '07': 6, '7': 6,
+    august: 7, aug: 7, '08': 7, '8': 7,
+    september: 8, sept: 8, sep: 8, '09': 8, '9': 8,
+    october: 9, oct: 9, '10': 9,
+    november: 10, nov: 10, '11': 10,
+    december: 11, dec: 11, '12': 11
   };
   const mLower = String(monthName || '').trim().toLowerCase();
-  const mIdx = months[mLower] !== undefined ? months[mLower] : new Date().getMonth();
-  const y = Number(year) || new Date().getFullYear();
+  let mIdx = new Date().getMonth();
+  let y = Number(year) || new Date().getFullYear();
+
+  if (/^\d{4}-\d{1,2}$/.test(mLower)) {
+    const [yPart, mPart] = mLower.split('-');
+    y = Number(yPart) || y;
+    mIdx = months[mPart] !== undefined ? months[mPart] : (Number(mPart) - 1);
+  } else if (months[mLower] !== undefined) {
+    mIdx = months[mLower];
+  }
+
   return new Date(y, mIdx + 1, 0).getDate();
 };
 

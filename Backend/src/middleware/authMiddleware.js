@@ -11,6 +11,7 @@ const ROUTE_MODULE_MAP = {
   clients: 'clients',
   companies: 'clients',
   employees: 'employees',
+  transfers: 'employees',
   attendance: 'attendance',
   shifts: 'shifts',
   payroll: 'payroll',

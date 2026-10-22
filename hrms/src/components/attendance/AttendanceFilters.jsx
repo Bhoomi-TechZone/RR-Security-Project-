@@ -39,7 +39,7 @@ const formatDisplayMonth = (monthStr) => {
   if (!monthStr) return '—';
   const [y, m] = monthStr.split('-').map(Number);
   const d = new Date(y, (m || 1) - 1, 1);
-  return d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 };
 
 const formatDisplayDate = (dateStr) => {
