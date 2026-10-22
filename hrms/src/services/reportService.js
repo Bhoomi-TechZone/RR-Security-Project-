@@ -2271,39 +2271,26 @@ class ReportService {
       // Fallback handled below
     }
 
-    const defaultEstablishment = {
-      name: 'RR SECURITY & FACILITIES',
-      address: 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044',
-      registrationNo: 'DL-SHOPS/110044/2016',
-    };
-
     return {
       success: true,
       reportType: 'register-of-leave-se-delhi',
       title: 'Register of Leave (Form I)',
       act: 'Delhi Shops and Establishments Act, 1954',
       rule: '(See Rule 14)',
-      companyInfo: defaultEstablishment,
+      companyInfo: {
+        name: params.company && params.company !== 'All Companies' ? params.company : '',
+        address: '',
+        registrationNo: '',
+      },
       period: {
-        year: params.year || 2026,
-        month: params.month || '2026-10',
-        monthLabel: '2026',
+        year: params.year || new Date().getFullYear(),
+        month: params.month || '',
+        monthLabel: `${params.year || new Date().getFullYear()}`,
       },
-      selectedEmployeeData: {
-        employeeId: 'RRS-001',
-        name: 'RAMESH KUMAR',
-        displayName: 'RAMESH KUMAR (RRS-001)',
-        dateOfEmployment: '15/03/2021',
-        rows: [],
-      },
+      selectedEmployeeData: null,
       records: [],
       employees: [],
-      summaryCards: [
-        { label: 'Total Registered Employees', value: '0', tone: 'cardBlue' },
-        { label: 'Casual/Sick Leaves Availed', value: '0 Days', tone: 'cardGreen' },
-        { label: 'Privilege Leaves Availed', value: '0 Days', tone: 'cardOrange' },
-        { label: 'Privilege Leave Balance', value: '15 Days', tone: 'cardPurple' },
-      ],
+      summaryCards: [],
       totals: {
         totalEmployees: 0,
         casualTotalAvailed: 0,
@@ -2312,10 +2299,512 @@ class ReportService {
       },
     };
   }
+
+  /**
+   * Overtime Register for Workers — Form IV [Rules 25 (2)] (Salary Reports module)
+   */
+  async getFormIVOvertimeReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.year) query.append('year', params.year);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      let res = await fetch(`${API_BASE_URL}/reports/overtime-register-form-iv?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/reports/overtime-register-salary?${query.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(companyId),
+        });
+      }
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Return dynamic empty response on network failure
+    }
+
+    const monthStr = params.month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    const [y, m] = monthStr.split('-').map(Number);
+    const d = new Date(y, (m || 1) - 1, 1);
+    const monthNameUpper = d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+    const monthLabel = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+    return {
+      success: true,
+      reportType: 'overtime-register-form-iv',
+      title: 'Overtime register for workers',
+      form: 'FORM IV',
+      rule: '[Rules 25 (2)]',
+      contractor: {
+        name: params.company && params.company !== 'All Companies' ? params.company : '',
+        address: '',
+        regdOffice: '',
+        full: '',
+      },
+      establishment: {
+        name: '',
+        address: '',
+        principalEmployer: '',
+        principalEmployerAddress: '',
+        natureAndLocationOfWork: '',
+      },
+      period: {
+        month: monthStr,
+        monthLabel,
+        monthNameUpper,
+        year: y || new Date().getFullYear(),
+      },
+      records: [],
+      hasOvertime: false,
+      emptyMessage: `NO OVERTIME IN THE MONTH OF ${monthNameUpper} ${y || new Date().getFullYear()}`,
+      totals: {
+        totalWorkmen: 0,
+        totalOvertimeHours: 0,
+        totalOvertimeEarnings: 0,
+      },
+      summaryCards: [],
+    };
+  }
+
+  /**
+   * Get Dynamic Employee Payslip Report (Salary Reports module)
+   */
+  async getEmployeePayslipReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.year) query.append('year', params.year);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      let res = await fetch(`${API_BASE_URL}/reports/employee-payslip?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/reports/payslip?${query.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(companyId),
+        });
+      }
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Handle fallback below
+    }
+
+    return {
+      success: true,
+      reportType: 'employee-payslip',
+      title: 'Employee Payslip',
+      companyInfo: {},
+      period: { month: params.month || 'Current Month' },
+      records: [],
+      selectedEmployeeData: null,
+      summaryCards: [],
+    };
+  }
+
+  async getFormIIDeductionsDamageReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.year) query.append('year', params.year);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      let res = await fetch(`${API_BASE_URL}/reports/register-deductions-damage-salary?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/reports/form-ii-damage-loss?${query.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(companyId),
+        });
+      }
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Fallback
+    }
+
+    return {
+      success: true,
+      reportType: 'register-deductions-damage-salary',
+      form: 'FORM-II',
+      rule: 'Rules 21 (4)',
+      title: 'Register of Deductions for Damage or Loss',
+      statutoryTitle: 'REGISTER OF DEDUCTIONS FOR DAMAGE OR LOSS CAUSED TO THE EMPLOYER BY THE NEGLECT OR DEFAULT OF THE EMPLOYED PERSONS',
+      employer: params.company && params.company !== 'All Companies' ? params.company : 'RR SECURITY & FACILITIES',
+      employerInfo: { name: params.company || 'RR SECURITY & FACILITIES' },
+      period: { month: params.month || 'Current Month' },
+      records: [],
+      hasDamage: false,
+      emptyMessage: 'No damage or loss deduction records found.',
+      totals: { totalRecords: 0, totalDeductionsImposed: 0, totalFinesImposed: 0, totalRealised: 0, totalPending: 0 },
+      summaryCards: [],
+    };
+  }
+
+  async getFormIFinesReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.year) query.append('year', params.year);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      let res = await fetch(`${API_BASE_URL}/reports/register-fines-employer-salary?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/reports/form-i-fines?${query.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(companyId),
+        });
+      }
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Fallback
+    }
+
+    return {
+      success: true,
+      reportType: 'register-fines-employer-salary',
+      form: 'FORM-I',
+      rule: 'Rule-21(4)',
+      title: 'Register of Fines',
+      statutoryTitle: 'Register of Fines',
+      employer: params.company && params.company !== 'All Companies' ? params.company : 'RR SECURITY & FACILITIES',
+      employerInfo: { name: params.company || 'RR SECURITY & FACILITIES' },
+      period: { month: params.month || 'Current Month' },
+      records: [],
+      hasFines: false,
+      emptyMessage: 'No fines recorded.',
+      totals: { totalRecords: 0, totalFinesImposed: 0, totalRealised: 0, totalPending: 0 },
+      summaryCards: [],
+    };
+  }
+
+  /**
+   * Get Dynamic Statutory Wage/Salary Register (Salary Sheet Format 1)
+   */
+  async getSalarySheetFormat1Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.fromDate) query.append('fromDate', params.fromDate);
+    if (params.toDate) query.append('toDate', params.toDate);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      let res = await fetch(`${API_BASE_URL}/reports/salary-sheet-format-1?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/reports/payroll?${query.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(companyId),
+        });
+      }
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Fallback
+    }
+
+    // Default fallback
+    return await this.getPayrollReport(companyId, params);
+  }
+
+  /**
+   * Get Dynamic Register of Payment of Wages (Salary Sheet Format 2)
+   * FORM - IV [Payment of Wages Rules, 1971]
+   */
+  async getSalarySheetFormat2Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.fromDate) query.append('fromDate', params.fromDate);
+    if (params.toDate) query.append('toDate', params.toDate);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      let res = await fetch(`${API_BASE_URL}/reports/salary-sheet-format-2?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (!res.ok) {
+        res = await fetch(`${API_BASE_URL}/reports/payroll?${query.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(companyId),
+        });
+      }
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // Fallback
+    }
+
+    // Default fallback
+    return await this.getPayrollReport(companyId, params);
+  }
+
+  /**
+   * Get ESI - Form 7 - Half Yearly Report (Option 1)
+   */
+  async getEsiForm7Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.fromDate) query.append('fromDate', params.fromDate);
+    if (params.toDate) query.append('toDate', params.toDate);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (params.form6SubmittedDate) query.append('form6SubmittedDate', params.form6SubmittedDate);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esi-form-7-opt1?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESI Form 7 Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get ESI - Form 7 - Half Yearly Report (Option 2)
+   */
+  async getEsiForm7Option2Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.fromDate) query.append('fromDate', params.fromDate);
+    if (params.toDate) query.append('toDate', params.toDate);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esi-form-7-opt2?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESI Form 7 Option-2 Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic Monthly ESI Challan Report
+   */
+  async getEsiChallanReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.fromDate) query.append('fromDate', params.fromDate);
+    if (params.toDate) query.append('toDate', params.toDate);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (params.challanNo) query.append('challanNo', params.challanNo);
+    if (params.chequeNo) query.append('chequeNo', params.chequeNo);
+    if (params.date) query.append('date', params.date);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esi-challan?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESI Challan Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic ESI Form 1 Declaration Form & Temporary Identity Card
+   */
+  async getEsiForm1Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esi-form-1?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESI Form 1 Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic Employee Wise Monthly ESI Summary Report
+   */
+  async getEsiSummaryEmployeeReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esi-summary-employee?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESI Summary Employee Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic Location Wise ESI Summary Report
+   */
+  async getEsiSummaryLocationReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.fromMonth) query.append('fromMonth', params.fromMonth);
+    if (params.toMonth) query.append('toMonth', params.toMonth);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esi-summary-location?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESI Summary Location Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic ESIC Form 3 Return of Declaration Form
+   */
+  async getEsicForm3Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esic-form-3?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESIC Form 3 Return Declaration Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic ESIC Form 5 Return of Contributions (Regulation 26)
+   */
+  async getEsicForm5Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/esic-returns-form-5?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch ESIC Form 5 Return of Contributions Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic Form 11 Accident Book Report (Regulation 66)
+   */
+  async getForm11AccidentBookReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/form-11-accident-book?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch Form 11 Accident Book Report');
+    }
+    return data;
+  }
 }
 
 export const reportService = new ReportService();
 export default reportService;
+
 
 
 

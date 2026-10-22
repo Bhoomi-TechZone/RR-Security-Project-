@@ -1,0 +1,341 @@
+/* =========================================================================
+   EMPLOYEE WISE MONTHLY ESI REPORT STYLES
+   Matches Image 1 statutory template
+   ========================================================================= */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.container * {
+  box-sizing: border-box;
+}
+
+/* Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #0284c7;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.monthTag {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #f1f5f9;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.btnPdf {
+  color: #b91c1c;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.btnPdf:hover {
+  background: #fee2e2;
+  border-color: #ef4444;
+}
+
+.btnExcel {
+  color: #15803d;
+  border-color: #86efac;
+  background: #f0fdf4;
+}
+
+.btnExcel:hover {
+  background: #dcfce7;
+  border-color: #22c55e;
+}
+
+.btnCsv {
+  color: #0284c7;
+  border-color: #7dd3fc;
+  background: #f0f9ff;
+}
+
+.btnCsv:hover {
+  background: #e0f2fe;
+  border-color: #0ea5e9;
+}
+
+.btnPrint {
+  color: #475569;
+  border-color: #cbd5e1;
+  background: #f8fafc;
+}
+
+.btnPrint:hover {
+  background: #f1f5f9;
+}
+
+/* KPI Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpiCardBlue {
+  border-left: 4px solid #0284c7;
+}
+
+.kpiCardPurple {
+  border-left: 4px solid #8b5cf6;
+}
+
+.kpiCardGreen {
+  border-left: 4px solid #10b981;
+}
+
+.kpiCardOrange {
+  border-left: 4px solid #f97316;
+}
+
+.kpiCardIndigo {
+  border-left: 4px solid #4f46e5;
+}
+
+.kpiLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.kpiValue {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================================================
+   STATUTORY PAPER SHEET
+   ========================================================================= */
+
+.paperWrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.paperSheet {
+  background: #ffffff;
+  border: 1.5px solid #000000;
+  border-radius: 2px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+  width: 100%;
+  max-width: 960px;
+  padding: 24px 28px;
+  color: #000000;
+  font-family: Arial, 'Helvetica Neue', Helvetica, sans-serif;
+  font-size: 11.5px;
+  box-sizing: border-box;
+  overflow-x: auto;
+}
+
+/* Header Box with 3 Lines */
+.headerBox {
+  border: 1.5px solid #000000;
+  width: 100%;
+  margin-bottom: 0;
+  text-align: center;
+}
+
+.headerRow {
+  padding: 6px 10px;
+  border-bottom: 1.5px solid #000000;
+  font-weight: 800;
+}
+
+.headerRow:last-child {
+  border-bottom: none;
+}
+
+.companyTitle {
+  font-size: 13.5px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.reportSubTitle {
+  font-size: 11.5px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.monthTitle {
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Main Statutory Table */
+.reportTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  border-left: 1.5px solid #000000;
+  border-right: 1.5px solid #000000;
+  border-bottom: 1.5px solid #000000;
+  table-layout: fixed;
+}
+
+.reportTable th,
+.reportTable td {
+  border: 1px solid #000000;
+  padding: 4px 6px;
+  word-break: break-word;
+}
+
+.reportTable th {
+  background: #ffffff;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  color: #000000;
+  vertical-align: middle;
+}
+
+.reportTable td {
+  font-size: 11px;
+  vertical-align: middle;
+}
+
+.textCenter {
+  text-align: center;
+}
+
+.textRight {
+  text-align: right;
+}
+
+.textLeft {
+  text-align: left;
+}
+
+.totalRow td {
+  font-weight: 800;
+  background: #ffffff;
+  border-top: 1.5px solid #000000;
+  border-bottom: 1.5px solid #000000;
+}
+
+/* Summary Block */
+.summaryRow td {
+  font-weight: 700;
+  font-size: 11px;
+  border: 1px solid #000000;
+}
+
+.summaryLabelCell {
+  text-align: left;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding-left: 12px !important;
+}
+
+.summaryValCell {
+  text-align: right;
+  font-weight: 800;
+  padding-right: 12px !important;
+}
+
+.emptyCell {
+  border: none !important;
+  background: transparent !important;
+}
+
+/* Print Styles */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 8mm;
+  }
+
+  body {
+    background: #ffffff !important;
+  }
+
+  .toolbar,
+  .kpiGrid {
+    display: none !important;
+  }
+
+  .paperSheet {
+    border: 1.5px solid #000000 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}

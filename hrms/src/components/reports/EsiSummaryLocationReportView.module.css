@@ -1,0 +1,273 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
+/* KPI Cards */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.kpiCard:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.07);
+}
+
+.kpiInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpiLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.kpiIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.iconBlue {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.iconPurple {
+  background: #faf5ff;
+  color: #9333ea;
+}
+
+.iconIndigo {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.iconGreen {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.iconOrange {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+/* Action Bar */
+.actionBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #ffffff;
+  padding: 12px 18px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+}
+
+.actionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+}
+
+.btnSuccess {
+  background: #16a34a;
+  color: #ffffff;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnSuccess:hover {
+  background: #15803d;
+}
+
+.btnOutline {
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  padding: 8px 14px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnOutline:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #94a3b8;
+}
+
+/* Paper Container */
+.paperCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 24px 28px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  font-family: 'Courier New', Courier, monospace;
+  color: #000000;
+  overflow-x: auto;
+}
+
+/* Monospace Official Header */
+.docHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.docTitleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.companyName {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.reportSubTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.pageNumber {
+  font-size: 11.5px;
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Table Style matching ASCII / Print layout */
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 6px;
+}
+
+.statutoryTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.statutoryTable thead th {
+  padding: 6px 8px;
+  font-weight: 700;
+  color: #000000;
+  border-top: 1px dashed #4b5563;
+  border-bottom: 1px dashed #4b5563;
+  white-space: nowrap;
+}
+
+.statutoryTable tbody td {
+  padding: 5px 8px;
+  white-space: nowrap;
+  color: #000000;
+}
+
+.grandTotalRow td {
+  font-weight: 700;
+  border-top: 1px dashed #4b5563;
+  border-bottom: 1px dashed #4b5563;
+  padding: 7px 8px;
+}
+
+/* Alignment utilities */
+.textCenter {
+  text-align: center;
+}
+
+.textLeft {
+  text-align: left;
+}
+
+.textRight {
+  text-align: right;
+}
+
+.emptyState {
+  padding: 40px 20px;
+  text-align: center;
+  color: #64748b;
+  font-family: inherit;
+}

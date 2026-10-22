@@ -17,9 +17,9 @@ export const downloadFormILeaveExcel = (
   const establishmentName =
     emp.establishmentName ||
     companyInfo?.name ||
-    'RR SECURITY & FACILITIES';
-  const employeeName = emp.displayName || emp.name || 'RAMESH KUMAR (RRS-001)';
-  const dateOfEmployment = emp.dateOfEmployment || '15/03/2021';
+    '—';
+  const employeeName = emp.displayName || emp.name || '—';
+  const dateOfEmployment = emp.dateOfEmployment || '—';
   const records = emp.rows || [];
 
   const aoa = [
@@ -169,9 +169,9 @@ export const downloadFormILeavePdf = (
   const establishmentName =
     emp.establishmentName ||
     companyInfo?.name ||
-    'RR SECURITY & FACILITIES';
-  const employeeName = emp.displayName || emp.name || 'RAMESH KUMAR (RRS-001)';
-  const dateOfEmployment = emp.dateOfEmployment || '15/03/2021';
+    '—';
+  const employeeName = emp.displayName || emp.name || '—';
+  const dateOfEmployment = emp.dateOfEmployment || '—';
   const records = emp.rows || [];
 
   const marginX = 12;
@@ -245,21 +245,13 @@ export const downloadFormILeavePdf = (
     { content: String(r.privilegeBalanceAtEnd ?? '—'), styles: { halign: 'center', fontStyle: 'bold' } },
   ]);
 
-  // Minimum rows to visually match statutory ledger sheet
-  const minRows = Math.max(8, bodyRows.length);
-  for (let i = bodyRows.length; i < minRows; i++) {
+  if (bodyRows.length === 0) {
     bodyRows.push([
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
-      { content: '', styles: { minCellHeight: 7 } },
+      {
+        content: `No leave transactions recorded for this employee in ${period?.year || new Date().getFullYear()}.`,
+        colSpan: 11,
+        styles: { halign: 'center', fontStyle: 'italic', textColor: [120, 120, 120], minCellHeight: 8 },
+      },
     ]);
   }
 
