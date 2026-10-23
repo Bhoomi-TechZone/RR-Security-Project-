@@ -2800,10 +2800,294 @@ class ReportService {
     }
     return data;
   }
+
+  /**
+   * Get Dynamic EPF Form 11 - Declaration Form Report
+   */
+  async getEpfForm11Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/epf-form-11?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch EPF Form 11 Declaration Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Dynamic Monthly PF Challan Report (Provisional Challan for Wage Month)
+   */
+  async getPfChallanReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-challan?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Challan Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory PF Form 3A (Revised) Report - Annual Contribution Card
+   */
+  async getPfForm3AReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.financialYear) query.append('financialYear', params.financialYear);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-form-3a?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Form 3A Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory PF Form 5 - Return of Employees qualifying for EPF/EPS membership
+   */
+  async getPfForm5Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (params.qualifyScope) query.append('qualifyScope', params.qualifyScope);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-form-5?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Form 5 Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory PF Form 6A (Revised) - Consolidated Annual Statement of Contribution
+   */
+  async getPfForm6AReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.financialYear) query.append('financialYear', params.financialYear);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-form-6a?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Form 6A Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory PF Form 10 - Return of members leaving service during the month
+   */
+  async getPfForm10Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (params.leavingScope) query.append('leavingScope', params.leavingScope);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-form-10?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Form 10 Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory PF Form 12A (Revised) - Monthly statement of EPF, EPS, and EDLI payments & subscribers movement
+   */
+  async getPfForm12AReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-form-12a?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Form 12A Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory PF ECR (Electronic Challan cum Return) - 11 Column Excel format
+   */
+  async getPfEcrReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-ecr?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF ECR Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory Employee-Wise Monthly PF Report
+   */
+  async getPfReportEmployeeWise(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-report-employee-wise?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch Employee Wise PF Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Statutory Location-Wise Monthly PF Summary Report
+   */
+  async getPfReportLocationWise(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-report-location-wise?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch Location Wise PF Report');
+    }
+    return data;
+  }
+
+  /**
+   * Get Consolidated PF Summary Report (PDF only)
+   */
+  async getPfSummaryReport(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.month) query.append('month', params.month);
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/reports/pf-summary-report?${query.toString()}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return this.getPfReportLocationWise(companyId, params);
+      }
+      return data;
+    } catch {
+      return this.getPfReportLocationWise(companyId, params);
+    }
+  }
+
+  /**
+   * Get Statutory PF Form 2 (Revised) - Nomination & Declaration Form
+   */
+  async getPfForm2Report(companyId, params = {}) {
+    const query = new URLSearchParams();
+    if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
+    if (params.search) query.append('search', params.search);
+    if (companyId) query.append('companyId', companyId);
+
+    const res = await fetch(`${API_BASE_URL}/reports/pf-form-2-revised?${query.toString()}`, {
+      method: 'GET',
+      headers: this.getHeaders(companyId),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to fetch PF Form 2 (Revised)');
+    }
+    return data;
+  }
 }
 
 export const reportService = new ReportService();
 export default reportService;
+
 
 
 

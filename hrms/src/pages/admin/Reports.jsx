@@ -192,6 +192,38 @@ import {
   downloadForm11AccidentBookCsv,
   downloadForm11AccidentBookPdf,
 } from '../../utils/form11AccidentBookExport';
+import EpfForm11ReportView from '../../components/reports/EpfForm11ReportView';
+import { downloadEpfForm11Pdf } from '../../utils/epfForm11Export';
+import PfChallanReportView from '../../components/reports/PfChallanReportView';
+import { downloadPfChallanPdf, downloadPfChallanExcel } from '../../utils/pfChallanExport';
+import PfForm3AReportView from '../../components/reports/PfForm3AReportView';
+import { downloadPfForm3APdf, downloadPfForm3AExcel } from '../../utils/pfForm3AExport';
+import PfForm5ReportView from '../../components/reports/PfForm5ReportView';
+import {
+  downloadPfForm5Pdf,
+  downloadPfForm5Excel,
+  downloadPfForm5Csv,
+} from '../../utils/pfForm5Export';
+import PfForm6AReportView from '../../components/reports/PfForm6AReportView';
+import {
+  downloadPfForm6APdf,
+  downloadPfForm6AExcel,
+  downloadPfForm6ACsv,
+} from '../../utils/pfForm6AExport';
+import PfForm10ReportView from '../../components/reports/PfForm10ReportView';
+import { downloadPfForm10Pdf } from '../../utils/pfForm10Export';
+import PfForm12AReportView from '../../components/reports/PfForm12AReportView';
+import { downloadPfForm12APdf } from '../../utils/pfForm12AExport';
+import PfEcrReportView from '../../components/reports/PfEcrReportView';
+import { downloadPfEcrExcel } from '../../utils/pfEcrExport';
+import PfEmployeeWiseReportView from '../../components/reports/PfEmployeeWiseReportView';
+import { downloadPfEmployeeWiseExcel } from '../../utils/pfEmployeeWiseExport';
+import PfLocationWiseReportView from '../../components/reports/PfLocationWiseReportView';
+import { downloadPfLocationWiseExcel } from '../../utils/pfLocationWiseExport';
+import PfSummaryReportView from '../../components/reports/PfSummaryReportView';
+import { downloadPfSummaryReportPdf } from '../../utils/pfSummaryReportExport';
+import PfForm2ReportView from '../../components/reports/PfForm2ReportView';
+import { downloadPfForm2Pdf } from '../../utils/pfForm2Export';
 import styles from './Reports.module.css';
 
 const PAGE_SIZE = 10;
@@ -691,6 +723,156 @@ const reportMeta = {
     filters: ['month', 'company', 'department', 'employee'],
     placeholder: 'Search by injured person name, insurance number, injury details...'
   },
+  'epf-form-11': {
+    title: 'EPF Form 11 - Declaration Form',
+    description: 'New Form : 11 - Declaration Form [Paragraphs 34 & 57 of EPF Scheme, 1952 and Paragraph 24 of EPS, 1995]. Statutory declaration by a person taking up employment in establishment.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN, PF number, designation...'
+  },
+  'epf-form-11-declaration': {
+    title: 'EPF Form 11 - Declaration Form',
+    description: 'New Form : 11 - Declaration Form [Paragraphs 34 & 57 of EPF Scheme, 1952 and Paragraph 24 of EPS, 1995]. Statutory declaration by a person taking up employment in establishment.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN, PF number, designation...'
+  },
+  'pf-challan': {
+    title: 'PF Challan',
+    description: 'PROVISIONAL CHALLAN FOR WAGE MONTH [EMPLOYEES\' PROVIDENT FUND ORGANISATION] Monthly statutory PF contribution, EPS, EDLI and admin charges challan.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search subscriber by name, employee ID, UAN, PF number...',
+  },
+  'epf-challan': {
+    title: 'PF Challan',
+    description: 'PROVISIONAL CHALLAN FOR WAGE MONTH [EMPLOYEES\' PROVIDENT FUND ORGANISATION] Monthly statutory PF contribution, EPS, EDLI and admin charges challan.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search subscriber by name, employee ID, UAN, PF number...',
+  },
+  'pf-form-3a': {
+    title: 'PF - Form 3A',
+    description: 'FORM - 3A (REVISED) [EMPLOYEES\' PROVIDENT FUND ORGANISATION, PARAS 35 & 42 OF EPF SCHEME, 1952 AND PARA 19 OF EPS, 1995] Annual Member Contribution Card with EPF & EPS monthly deductions breakdown.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search member by name, employee ID, account number, father name...'
+  },
+  'form-3a': {
+    title: 'PF - Form 3A',
+    description: 'FORM - 3A (REVISED) [EMPLOYEES\' PROVIDENT FUND ORGANISATION, PARAS 35 & 42 OF EPF SCHEME, 1952 AND PARA 19 OF EPS, 1995] Annual Member Contribution Card with EPF & EPS monthly deductions breakdown.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search member by name, employee ID, account number, father name...'
+  },
+  'pf-form-5': {
+    title: 'PF - Form 5',
+    description: "FORM 5 [Paragraph 36(2)(a) of EPF Scheme, 1952 & Paragraph 20(4) of EPS, 1995] Return of Employees qualifying for membership of the Employees' Provident Fund, Pension Fund & EDLI for the first time during the month.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, Account No, UAN...'
+  },
+  'form-5-epf': {
+    title: 'PF - Form 5',
+    description: "FORM 5 [Paragraph 36(2)(a) of EPF Scheme, 1952 & Paragraph 20(4) of EPS, 1995] Return of Employees qualifying for membership of the Employees' Provident Fund, Pension Fund & EDLI for the first time during the month.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, Account No, UAN...'
+  },
+  'pf-form-6a': {
+    title: 'PF - Form 6A (Revised)',
+    description: "FORM 6A (REVISED) [Paragraph 43 of EPF Scheme, 1952 & Paragraph 20(4) of EPS, 1995] Consolidated Annual Statement of Contribution and Reconciliation of Remittances.",
+    filters: ['financialYear', 'month', 'company', 'department', 'employee'],
+    placeholder: 'Search member by name, ID, Account No, UAN...'
+  },
+  'form-6a-epf': {
+    title: 'PF - Form 6A (Revised)',
+    description: "FORM 6A (REVISED) [Paragraph 43 of EPF Scheme, 1952 & Paragraph 20(4) of EPS, 1995] Consolidated Annual Statement of Contribution and Reconciliation of Remittances.",
+    filters: ['financialYear', 'month', 'company', 'department', 'employee'],
+    placeholder: 'Search member by name, ID, Account No, UAN...'
+  },
+  'pf-form-10': {
+    title: 'PF - Form 10',
+    description: "FORM 10 [Paragraph 36(2)(a) & (b) of EPF Scheme, 1952 & Paragraph 20(2) of EPS, 1995] Return of the members leaving service during the month.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search leaving member by name, ID, Account No, UAN...'
+  },
+  'form-10-epf': {
+    title: 'PF - Form 10',
+    description: "FORM 10 [Paragraph 36(2)(a) & (b) of EPF Scheme, 1952 & Paragraph 20(2) of EPS, 1995] Return of the members leaving service during the month.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search leaving member by name, ID, Account No, UAN...'
+  },
+  'pf-form-12a': {
+    title: 'PF - Form 12A (Revised)',
+    description: "FORM 12-A (REVISED) [EMPLOYEES' PROVIDENT FUND AND MISC. PRO. ACT 1952 - EMPLOYEES' PENSION SCHEME 1995, PARA 20(4)] Monthly statement of EPF, EPS, and EDLI payments & subscribers movement.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN, PF number...'
+  },
+  'form-12a-epf': {
+    title: 'PF - Form 12A (Revised)',
+    description: "FORM 12-A (REVISED) [EMPLOYEES' PROVIDENT FUND AND MISC. PRO. ACT 1952 - EMPLOYEES' PENSION SCHEME 1995, PARA 20(4)] Monthly statement of EPF, EPS, and EDLI payments & subscribers movement.",
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN, PF number...'
+  },
+  'pf-ecr': {
+    title: 'PF ECR',
+    description: 'Statutory 11-column Electronic Challan cum Return (ECR) Excel format with employee UAN and statutory wage breakdown.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, UAN, ID...'
+  },
+  'pf-ecr-excel': {
+    title: 'PF ECR',
+    description: 'Statutory 11-column Electronic Challan cum Return (ECR) Excel format with employee UAN and statutory wage breakdown.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, UAN, ID...'
+  },
+  'pf-report-employee-wise': {
+    title: 'PF Peport Employee Wise',
+    description: 'Employee-wise monthly statutory PF gross wages, employee 12% deduction, employer EPF 3.67%, EPS 8.33%, EDLI 0.5%, Admin charges 0.5%, and account reconciliation statement.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, code, UAN, ID...'
+  },
+  'pf-employee-wise': {
+    title: 'PF Peport Employee Wise',
+    description: 'Employee-wise monthly statutory PF gross wages, employee 12% deduction, employer EPF 3.67%, EPS 8.33%, EDLI 0.5%, Admin charges 0.5%, and account reconciliation statement.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, code, UAN, ID...'
+  },
+  'pf-report-location-wise': {
+    title: 'PF Report Loction Wise',
+    description: 'Branch and site-wise statutory PF liability summary with employee count, attendance, wages, and contribution breakdown.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location by name...'
+  },
+  'pf-location-wise': {
+    title: 'PF Report Loction Wise',
+    description: 'Branch and site-wise statutory PF liability summary with employee count, attendance, wages, and contribution breakdown.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location by name...'
+  },
+  'pf-summary-report': {
+    title: 'PF Summry Report',
+    description: 'Consolidated monthly PF statutory liability summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location by name...'
+  },
+  'pf-summary': {
+    title: 'PF Summry Report',
+    description: 'Consolidated monthly PF statutory liability summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search location by name...'
+  },
+  'pf-form-2-revised': {
+    title: 'PF-Form-2_Revised_',
+    description: 'Nomination and declaration form for EPF & EPS schemes under Paragraph 33, 61(1) of EPF Scheme, 1952 & Paragraph 18 of EPS, 1995.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN...'
+  },
+  'form-2-revised': {
+    title: 'PF-Form-2_Revised_',
+    description: 'Nomination and declaration form for EPF & EPS schemes under Paragraph 33, 61(1) of EPF Scheme, 1952 & Paragraph 18 of EPS, 1995.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN...'
+  },
+  'pf-form-2': {
+    title: 'PF-Form-2_Revised_',
+    description: 'Nomination and declaration form for EPF & EPS schemes under Paragraph 33, 61(1) of EPF Scheme, 1952 & Paragraph 18 of EPS, 1995.',
+    filters: ['company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, UAN...'
+  },
   'esi-form-7': {
     title: 'ESI - Form 7 - Half Yearly Report (Option 1)',
     description: 'FORM 7 [REGULATION - 32, APPENDIX - F] Statutory Register of Employees & Half-Yearly Return of ESI Contributions.',
@@ -839,47 +1021,47 @@ const ALL_REPORTS_CATALOG = [
     title: 'EPF Form 11 - Declaration Form',
     desc: 'Declaration form submitted by employees on joining.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'epf-form-11',
     formats: ['pdf']
   },
   {
     id: 'pf-challan',
-    title: 'PF  challan',
+    title: 'PF challan',
     desc: 'Monthly EPFO payment challan and payment receipt.',
     category: 'pf',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'pf-challan',
+    formats: ['pdf', 'excel']
   },
   {
     id: 'pf-form-3a',
     title: 'PF - Form 3A',
     desc: 'Annual contribution card with EPF & EPS deductions.',
     category: 'pf',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'pf-form-3a',
+    formats: ['pdf', 'excel']
   },
   {
     id: 'pf-form-5',
     title: 'PF - Form 5',
     desc: 'Return of employees qualifying for EPF membership.',
     category: 'pf',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'pf-form-5',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
     id: 'pf-form-6a',
     title: 'PF - Form 6A -',
     desc: 'Consolidated annual member contribution statement.',
     category: 'pf',
-    targetTab: 'payroll',
-    formats: ['pdf']
+    targetTab: 'pf-form-6a',
+    formats: ['pdf', 'excel', 'csv']
   },
   {
     id: 'pf-form-10',
     title: 'PF - Form 10 -',
     desc: 'Return of employees leaving service during the month.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-form-10',
     formats: ['pdf']
   },
   {
@@ -887,7 +1069,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'PF - Form 12A -',
     desc: 'Monthly statement of EPF, EPS, and EDLI payments.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-form-12a',
     formats: ['pdf']
   },
   {
@@ -895,15 +1077,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'PF ECR',
     desc: 'ECR Excel format with employee wage breakdown.',
     category: 'pf',
-    targetTab: 'payroll',
-    formats: ['excel']
-  },
-  {
-    id: 'pf-ecr-text',
-    title: 'PF ECR (Text Format)',
-    desc: 'Raw text ECR file for EPFO portal bulk upload.',
-    category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-ecr-excel',
     formats: ['excel']
   },
   {
@@ -911,7 +1085,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'PF Peport Employee Wise',
     desc: 'Employee-wise PF gross wages and contribution sheet.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-report-employee-wise',
     formats: ['excel']
   },
   {
@@ -919,7 +1093,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'PF Report Loction Wise',
     desc: 'Branch and site-wise statutory PF liability summary.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-report-location-wise',
     formats: ['excel']
   },
   {
@@ -927,7 +1101,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'PF Summry Report',
     desc: 'Consolidated monthly PF statutory liability summary.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-summary-report',
     formats: ['pdf']
   },
   {
@@ -935,7 +1109,7 @@ const ALL_REPORTS_CATALOG = [
     title: 'PF-Form-2_Revised_',
     desc: 'Nomination and declaration form for EPF & EPS schemes.',
     category: 'pf',
-    targetTab: 'payroll',
+    targetTab: 'pf-form-2-revised',
     formats: ['pdf']
   },
 
@@ -2262,6 +2436,111 @@ function ReportBody({
         />
       );
     }
+    if (activeReport === 'epf-form-11' || activeReport === 'epf-form-11-declaration') {
+      return (
+        <EpfForm11ReportView
+          reportData={reportData || {}}
+          filters={filters}
+          onSelectEmployee={(empId) => setFilter('employee', empId)}
+        />
+      );
+    }
+    if (activeReport === 'pf-challan' || activeReport === 'epf-challan') {
+      return (
+        <PfChallanReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'pf-form-3a' || activeReport === 'form-3a') {
+      return (
+        <PfForm3AReportView
+          reportData={reportData || {}}
+          filters={filters}
+          onSelectEmployee={(empId) => setFilter('employee', empId)}
+        />
+      );
+    }
+    if (activeReport === 'pf-form-5' || activeReport === 'form-5-epf') {
+      return (
+        <PfForm5ReportView
+          reportData={reportData || {}}
+          filters={filters}
+          onScopeChange={() => fetchActiveReportData()}
+        />
+      );
+    }
+    if (activeReport === 'pf-form-6a' || activeReport === 'form-6a-epf') {
+      return (
+        <PfForm6AReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'pf-form-10' || activeReport === 'form-10-epf') {
+      return (
+        <PfForm10ReportView
+          reportData={reportData || {}}
+          filters={filters}
+          onScopeChange={() => fetchActiveReportData()}
+        />
+      );
+    }
+    if (activeReport === 'pf-form-12a' || activeReport === 'form-12a-epf') {
+      return (
+        <PfForm12AReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'pf-ecr-excel' || activeReport === 'pf-ecr') {
+      return (
+        <PfEcrReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'pf-report-employee-wise' || activeReport === 'pf-employee-wise') {
+      return (
+        <PfEmployeeWiseReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'pf-report-location-wise' || activeReport === 'pf-location-wise') {
+      return (
+        <PfLocationWiseReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (activeReport === 'pf-summary-report' || activeReport === 'pf-summary') {
+      return (
+        <PfSummaryReportView
+          reportData={reportData || {}}
+          filters={filters}
+        />
+      );
+    }
+    if (
+      activeReport === 'pf-form-2-revised' ||
+      activeReport === 'form-2-revised' ||
+      activeReport === 'pf-form-2'
+    ) {
+      return (
+        <PfForm2ReportView
+          reportData={reportData || {}}
+          filters={filters}
+          onSelectEmployee={(empId) => setFilter('employee', empId)}
+        />
+      );
+    }
     if (activeReport === 'esi-form-1') {
       return (
         <EsiForm1ReportView
@@ -2466,6 +2745,18 @@ function ReportBody({
       ) : (filteredRows.length > 0 ||
           activeReport === 'form-11-accident-book' ||
           activeReport === 'accident-book-form-11' ||
+          activeReport === 'epf-form-11' ||
+          activeReport === 'epf-form-11-declaration' ||
+          activeReport === 'pf-challan' ||
+          activeReport === 'epf-challan' ||
+          activeReport === 'pf-form-3a' ||
+          activeReport === 'form-3a' ||
+          activeReport === 'pf-form-5' ||
+          activeReport === 'form-5-epf' ||
+          activeReport === 'pf-form-6a' ||
+          activeReport === 'form-6a-epf' ||
+          activeReport === 'pf-form-10' ||
+          activeReport === 'form-10-epf' ||
           activeReport === 'esic-returns-form-5' ||
           activeReport === 'esic-form-5' ||
           activeReport === 'form-5-esic' ||
@@ -2541,6 +2832,31 @@ function ReportBody({
           {activeReport !== 'payroll' &&
             activeReport !== 'form-11-accident-book' &&
             activeReport !== 'accident-book-form-11' &&
+            activeReport !== 'epf-form-11' &&
+            activeReport !== 'epf-form-11-declaration' &&
+            activeReport !== 'pf-challan' &&
+            activeReport !== 'epf-challan' &&
+            activeReport !== 'pf-form-3a' &&
+            activeReport !== 'form-3a' &&
+            activeReport !== 'pf-form-5' &&
+            activeReport !== 'form-5-epf' &&
+            activeReport !== 'pf-form-6a' &&
+            activeReport !== 'form-6a-epf' &&
+            activeReport !== 'pf-form-10' &&
+            activeReport !== 'form-10-epf' &&
+            activeReport !== 'pf-form-12a' &&
+            activeReport !== 'form-12a-epf' &&
+            activeReport !== 'pf-ecr-excel' &&
+            activeReport !== 'pf-ecr' &&
+            activeReport !== 'pf-report-employee-wise' &&
+            activeReport !== 'pf-employee-wise' &&
+            activeReport !== 'pf-report-location-wise' &&
+            activeReport !== 'pf-location-wise' &&
+            activeReport !== 'pf-summary-report' &&
+            activeReport !== 'pf-summary' &&
+            activeReport !== 'pf-form-2-revised' &&
+            activeReport !== 'form-2-revised' &&
+            activeReport !== 'pf-form-2' &&
             activeReport !== 'esic-returns-form-5' &&
             activeReport !== 'esic-form-5' &&
             activeReport !== 'form-5-esic' &&
@@ -2665,7 +2981,13 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
     selectedReport === 'esi-form-1' ||
     selectedReport === 'esi-form-7' ||
     selectedReport === 'form-7-esi' ||
-    selectedReport === 'form-7'
+    selectedReport === 'form-7' ||
+    selectedReport === 'pf-ecr-excel' ||
+    selectedReport === 'pf-ecr' ||
+    selectedReport === 'pf-report-employee-wise' ||
+    selectedReport === 'pf-employee-wise' ||
+    selectedReport === 'pf-report-location-wise' ||
+    selectedReport === 'pf-location-wise'
       ? 'Excel'
       : 'PDF'
   );
@@ -2739,14 +3061,51 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
   const isForm11AccidentBookReport =
     selectedReport === 'form-11-accident-book' ||
     selectedReport === 'accident-book-form-11';
-  const records = reportData?.records || [];
+  const isEpfForm11Report =
+    selectedReport === 'epf-form-11' ||
+    selectedReport === 'epf-form-11-declaration';
+  const isPfChallanReport =
+    selectedReport === 'pf-challan' ||
+    selectedReport === 'epf-challan';
+  const isPfForm3AReport =
+    selectedReport === 'pf-form-3a' ||
+    selectedReport === 'form-3a';
+  const isPfForm5Report =
+    selectedReport === 'pf-form-5' ||
+    selectedReport === 'form-5-epf';
+  const isPfForm6AReport =
+    selectedReport === 'pf-form-6a' ||
+    selectedReport === 'form-6a-epf';
+  const isPfForm10Report =
+    selectedReport === 'pf-form-10' ||
+    selectedReport === 'form-10-epf';
+  const isPfForm12AReport =
+    selectedReport === 'pf-form-12a' ||
+    selectedReport === 'form-12a-epf';
+  const isPfEcrReport =
+    selectedReport === 'pf-ecr-excel' ||
+    selectedReport === 'pf-ecr';
+  const isPfEmployeeWiseReport =
+    selectedReport === 'pf-report-employee-wise' ||
+    selectedReport === 'pf-employee-wise';
+  const isPfLocationWiseReport =
+    selectedReport === 'pf-report-location-wise' ||
+    selectedReport === 'pf-location-wise';
+  const isPfSummaryReport =
+    selectedReport === 'pf-summary-report' ||
+    selectedReport === 'pf-summary';
+  const isPfForm2Report =
+    selectedReport === 'pf-form-2-revised' ||
+    selectedReport === 'form-2-revised' ||
+    selectedReport === 'pf-form-2';
+  const records = reportData?.records || reportData?.cards || [];
 
   const targetEmp = filters?.employee && filters.employee !== 'All Employees'
     ? (records.find(r => r.name === filters.employee || r.employeeName === filters.employee || r.employeeId === filters.employee || r.employeeCode === filters.employee || (r.name && filters.employee.includes(r.name)) || (r.employeeName && filters.employee.includes(r.employeeName)) || (r.employeeId && filters.employee.includes(r.employeeId))) || records[0])
     : records[0];
 
   const handleExportSubmit = async () => {
-    if (!records.length && !isForm11AccidentBookReport) {
+    if (!records.length && !isForm11AccidentBookReport && !isPfChallanReport && !isPfForm3AReport && !isPfForm5Report && !isPfForm6AReport && !isPfForm10Report && !isPfForm12AReport && !isPfEcrReport && !isPfEmployeeWiseReport && !isPfLocationWiseReport && !isPfSummaryReport && !isPfForm2Report) {
       onExportSuccess('No records available to export.');
       onClose();
       return;
@@ -3152,6 +3511,40 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
       return;
     }
 
+    // Special handling for EPF Form 11 - Declaration Form (PDF only, NO LOGO)
+    if (isEpfForm11Report) {
+      await downloadEpfForm11Pdf(records, reportData?.companyInfo, { mode: 'download' });
+      onExportSuccess('✓ EPF Form 11 - Declaration Form PDF downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Challan (Provisional Challan for Wage Month - NO LOGO)
+    if (isPfChallanReport) {
+      if (format === 'PDF') {
+        await downloadPfChallanPdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ Provisional PF Challan PDF downloaded successfully.');
+      } else {
+        downloadPfChallanExcel(reportData);
+        onExportSuccess('✓ Provisional PF Challan Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Form 3A (Revised) Contribution Card (NO LOGO)
+    if (isPfForm3AReport) {
+      if (format === 'PDF') {
+        await downloadPfForm3APdf(reportData, { mode: 'download', scope: profileScope });
+        onExportSuccess('✓ PF Form 3A (Revised) Contribution Card PDF downloaded successfully.');
+      } else {
+        downloadPfForm3AExcel(reportData);
+        onExportSuccess('✓ PF Form 3A Excel workbook downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
     // Special handling for ESI Form 1 Declaration Form
     if (isEsiForm1Report) {
       if (format === 'PDF') {
@@ -3394,6 +3787,99 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
       return;
     }
 
+    // Special handling for PF Form 5 -> generates exact official Form 5 PDF / Excel / CSV
+    if (isPfForm5Report) {
+      if (format === 'PDF') {
+        downloadPfForm5Pdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ PF Form 5 PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadPfForm5Csv(reportData);
+        onExportSuccess('✓ PF Form 5 CSV downloaded successfully.');
+      } else {
+        downloadPfForm5Excel(reportData);
+        onExportSuccess('✓ PF Form 5 Excel spreadsheet downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Form 6A -> generates exact official Form 6A PDF / Excel / CSV
+    if (isPfForm6AReport) {
+      if (format === 'PDF') {
+        downloadPfForm6APdf(reportData, { mode: 'download' });
+        onExportSuccess('✓ PF Form 6A (Revised) PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadPfForm6ACsv(reportData);
+        onExportSuccess('✓ PF Form 6A CSV downloaded successfully.');
+      } else {
+        downloadPfForm6AExcel(reportData);
+        onExportSuccess('✓ PF Form 6A Excel spreadsheet downloaded successfully.');
+      }
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Form 10 -> PDF ONLY per explicit user specification
+    if (isPfForm10Report) {
+      downloadPfForm10Pdf(reportData, { mode: 'download' });
+      onExportSuccess('✓ PF Form 10 PDF downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Form 12A -> PDF ONLY per explicit user specification
+    if (isPfForm12AReport) {
+      downloadPfForm12APdf(reportData, { mode: 'download' });
+      onExportSuccess('✓ PF Form 12A (Revised) PDF downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF ECR -> Excel ONLY per explicit user specification
+    if (isPfEcrReport) {
+      downloadPfEcrExcel(reportData);
+      onExportSuccess('✓ PF ECR Excel workbook downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Report Employee Wise -> Excel ONLY per explicit user specification
+    if (isPfEmployeeWiseReport) {
+      downloadPfEmployeeWiseExcel(reportData);
+      onExportSuccess('✓ Employee Wise Monthly PF Report Excel workbook downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Report Location Wise -> Excel ONLY per explicit user specification
+    if (isPfLocationWiseReport) {
+      downloadPfLocationWiseExcel(reportData);
+      onExportSuccess('✓ Location Wise Monthly PF Report Excel workbook downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Summry Report -> PDF ONLY per explicit user specification
+    if (isPfSummaryReport) {
+      downloadPfSummaryReportPdf(reportData, { mode: 'download' });
+      onExportSuccess('✓ PF Summary Report PDF downloaded successfully.');
+      onClose();
+      return;
+    }
+
+    // Special handling for PF Form 2 (Revised) -> PDF ONLY per explicit user specification
+    if (isPfForm2Report) {
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadPfForm2Pdf(records, reportData?.companyInfo, { mode: 'download' });
+        onExportSuccess(`✓ Downloaded all ${records.length} PF Form 2 (Revised) PDFs successfully.`);
+      } else {
+        await downloadPfForm2Pdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
+        onExportSuccess(`✓ PF Form 2 (Revised) PDF (${targetEmp?.name || 'Member'}) downloaded successfully.`);
+      }
+      onClose();
+      return;
+    }
+
     if (format === 'PDF') {
       generateReportPdf({
         reportType: selectedReport,
@@ -3589,6 +4075,30 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
                       <option value="CSV">Bank Transfer CMS CSV Format (.csv)</option>
                       <option value="PDF">Bank Transfer Report Printable PDF (.pdf)</option>
                     </>
+                  ) : isPfChallanReport ? (
+                    <>
+                      <option value="PDF">Statutory Provisional Challan PDF (.pdf)</option>
+                      <option value="Excel">Statutory PF Challan & Subscribers Breakdown (.xlsx)</option>
+                    </>
+                  ) : isPfForm3AReport ? (
+                    <>
+                      <option value="PDF">Statutory Form 3A (Revised) PDF (.pdf)</option>
+                      <option value="Excel">Statutory Form 3A Excel Workbook (.xlsx)</option>
+                    </>
+                  ) : isPfForm10Report ? (
+                    <option value="PDF">Statutory Form 10 PDF Document (.pdf)</option>
+                  ) : isPfForm12AReport ? (
+                    <option value="PDF">Statutory Form 12A (Revised) PDF Document (.pdf)</option>
+                  ) : isPfEcrReport ? (
+                    <option value="Excel">Statutory EPFO ECR Excel Workbook (.xlsx)</option>
+                  ) : isPfEmployeeWiseReport ? (
+                    <option value="Excel">Employee Wise Monthly PF Report (.xlsx)</option>
+                  ) : isPfLocationWiseReport ? (
+                    <option value="Excel">Location Wise Monthly PF Report (.xlsx)</option>
+                  ) : isPfSummaryReport ? (
+                    <option value="PDF">Consolidated PF Summary Report PDF (.pdf)</option>
+                  ) : isPfForm2Report ? (
+                    <option value="PDF">Statutory PF Form 2 (Revised) PDF Document (.pdf)</option>
                   ) : (
                     <>
                       <option value="PDF">Printable PDF / Official Register (.pdf)</option>
@@ -3691,6 +4201,31 @@ function Reports() {
     'form-5-esic',
     'form-11-accident-book',
     'accident-book-form-11',
+    'epf-form-11',
+    'epf-form-11-declaration',
+    'pf-challan',
+    'epf-challan',
+    'pf-form-3a',
+    'form-3a',
+    'pf-form-5',
+    'form-5-epf',
+    'pf-form-6a',
+    'form-6a-epf',
+    'pf-form-10',
+    'form-10-epf',
+    'pf-form-12a',
+    'form-12a-epf',
+    'pf-ecr',
+    'pf-ecr-excel',
+    'pf-report-employee-wise',
+    'pf-employee-wise',
+    'pf-report-location-wise',
+    'pf-location-wise',
+    'pf-summary-report',
+    'pf-summary',
+    'pf-form-2-revised',
+    'form-2-revised',
+    'pf-form-2',
     'wages-register-form-xvii',
     'form-xvii',
     'wages-register',
@@ -3887,6 +4422,67 @@ function Reports() {
         activeReport === 'accident-book-form-11'
       ) {
         data = await reportService.getForm11AccidentBookReport('', filters);
+      } else if (
+        activeReport === 'epf-form-11' ||
+        activeReport === 'epf-form-11-declaration'
+      ) {
+        data = await reportService.getEpfForm11Report('', filters);
+      } else if (
+        activeReport === 'pf-challan' ||
+        activeReport === 'epf-challan'
+      ) {
+        data = await reportService.getPfChallanReport('', filters);
+      } else if (
+        activeReport === 'pf-form-3a' ||
+        activeReport === 'form-3a'
+      ) {
+        data = await reportService.getPfForm3AReport('', filters);
+      } else if (
+        activeReport === 'pf-form-5' ||
+        activeReport === 'form-5-epf'
+      ) {
+        data = await reportService.getPfForm5Report('', filters);
+      } else if (
+        activeReport === 'pf-form-6a' ||
+        activeReport === 'form-6a-epf'
+      ) {
+        data = await reportService.getPfForm6AReport('', filters);
+      } else if (
+        activeReport === 'pf-form-10' ||
+        activeReport === 'form-10-epf'
+      ) {
+        data = await reportService.getPfForm10Report('', filters);
+      } else if (
+        activeReport === 'pf-form-12a' ||
+        activeReport === 'form-12a-epf'
+      ) {
+        data = await reportService.getPfForm12AReport('', filters);
+      } else if (
+        activeReport === 'pf-ecr-excel' ||
+        activeReport === 'pf-ecr'
+      ) {
+        data = await reportService.getPfEcrReport('', filters);
+      } else if (
+        activeReport === 'pf-report-employee-wise' ||
+        activeReport === 'pf-employee-wise'
+      ) {
+        data = await reportService.getPfReportEmployeeWise('', filters);
+      } else if (
+        activeReport === 'pf-report-location-wise' ||
+        activeReport === 'pf-location-wise'
+      ) {
+        data = await reportService.getPfReportLocationWise('', filters);
+      } else if (
+        activeReport === 'pf-summary-report' ||
+        activeReport === 'pf-summary'
+      ) {
+        data = await reportService.getPfSummaryReport('', filters);
+      } else if (
+        activeReport === 'pf-form-2-revised' ||
+        activeReport === 'form-2-revised' ||
+        activeReport === 'pf-form-2'
+      ) {
+        data = await reportService.getPfForm2Report('', filters);
       } else if (activeReport === 'esi-form-1') {
         data = await reportService.getEsiForm1Report('', filters);
       } else if (activeReport === 'esi-challan') {
@@ -4183,6 +4779,26 @@ function Reports() {
       activeReport === 'accident-book-form-11'
     ) {
       downloadForm11AccidentBookPdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'epf-form-11' || activeReport === 'epf-form-11-declaration') {
+      downloadEpfForm11Pdf(records, reportData?.companyInfo, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'pf-challan' || activeReport === 'epf-challan') {
+      downloadPfChallanPdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'pf-form-3a' || activeReport === 'form-3a') {
+      downloadPfForm3APdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'pf-form-10' || activeReport === 'form-10-epf') {
+      downloadPfForm10Pdf(reportData, { mode: 'print' });
+      return;
+    }
+    if (activeReport === 'pf-form-12a' || activeReport === 'form-12a-epf') {
+      downloadPfForm12APdf(reportData, { mode: 'print' });
       return;
     }
     if (activeReport === 'esi-form-1') {

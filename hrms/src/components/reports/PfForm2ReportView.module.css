@@ -1,0 +1,480 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* 1. Header Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #ffffff;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.titleBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.iconRed {
+  color: #dc2626;
+}
+
+.reportTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.reportSubtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.employeeSelectorWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 0.35rem 0.65rem;
+}
+
+.selectIcon {
+  color: #64748b;
+}
+
+.employeeSelect {
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+  max-width: 280px;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btnPrimary {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btnPrimary:hover {
+  background: #b91c1c;
+}
+
+.btnSecondary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btnSecondary:hover {
+  background: #1d4ed8;
+}
+
+.btnOutline {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btnOutline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* 2. KPI Summary Grid */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: #ffffff;
+  padding: 1rem 1.15rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 3. View Switcher Tabs */
+.viewTabContainer {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 0.25rem;
+}
+
+.viewTab {
+  background: transparent;
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #64748b;
+  padding: 0.5rem 1rem;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.viewTab:hover {
+  color: #0f172a;
+}
+
+.viewTabActive {
+  color: #dc2626;
+  border-bottom: 2px solid #dc2626;
+  margin-bottom: -0.25rem;
+  background: #fff;
+}
+
+/* 4. Document Preview Sheets (A4 Paper emulation) */
+.previewContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.paperSheet {
+  position: relative;
+  width: 100%;
+  max-width: 820px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+  padding: 2.25rem 2rem;
+  font-family: 'Times New Roman', Times, serif, 'Noto Serif', serif;
+  color: #000000;
+  font-size: 0.88rem;
+  line-height: 1.35;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.pageBadge {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  font-size: 0.75rem;
+  font-family: sans-serif;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Page 1 Header Box */
+.boxTitleWrapper {
+  text-align: center;
+  margin-bottom: 1.25rem;
+}
+
+.formNoBox {
+  display: inline-block;
+  border: 3px double #000;
+  padding: 0.25rem 1.15rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.5px;
+}
+
+.formMainTitle {
+  display: inline-block;
+  border: 3px double #000;
+  margin-top: 0.45rem;
+  padding: 0.25rem 1.35rem;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 0.5px;
+}
+
+.formSubHead {
+  font-size: 0.84rem;
+  margin-top: 0.95rem;
+  margin-bottom: 0.45rem;
+  font-weight: 500;
+}
+
+.formDesc {
+  font-size: 0.82rem;
+  margin-top: 0.25rem;
+}
+
+.formSchemePara {
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+  font-style: normal;
+}
+
+/* Details Section */
+.detailsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.15rem;
+}
+
+.fieldLine {
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.fieldLabel {
+  font-weight: 500;
+  white-space: nowrap;
+  padding-right: 0.5rem;
+}
+
+.fieldValueUnderline {
+  flex: 1;
+  border-bottom: 1px solid #000;
+  font-weight: 700;
+  padding-left: 0.4rem;
+  padding-bottom: 1px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.capitalSubtext {
+  text-align: center;
+  font-size: 0.75rem;
+  font-style: normal;
+  color: #1e293b;
+  margin-top: 0.15rem;
+  margin-bottom: 0.45rem;
+}
+
+.fieldRow3 {
+  display: flex;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+.fieldRow2 {
+  display: flex;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.fieldLineFlex {
+  display: flex;
+  align-items: flex-end;
+  flex: 1;
+  min-width: 0;
+}
+
+.underlineBlankLine {
+  width: 100%;
+  border-bottom: 1px solid #000;
+  height: 0.6rem;
+}
+
+/* Sections */
+.sectionHeader {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: 0.45rem;
+  margin-top: 0.65rem;
+}
+
+.paraStatement {
+  font-size: 0.82rem;
+  margin-bottom: 0.6rem;
+  line-height: 1.4;
+}
+
+/* Properly Aligned Tables (STRICT 100% WIDTH, NO OVERFLOW) */
+.statutoryTable {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.76rem;
+  border: 1px solid #000;
+  table-layout: fixed; /* CRITICAL: Fixed layout prevents columns from breaking past 100% */
+  box-sizing: border-box;
+}
+
+.statutoryTable th {
+  border: 1px solid #000;
+  padding: 0.4rem 0.25rem;
+  font-weight: 600;
+  text-align: center;
+  background: #ffffff;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+
+.colNumberRow th {
+  font-weight: 600;
+  padding: 0.2rem;
+  border: 1px solid #000;
+  background: #fdfdfd;
+}
+
+.statutoryTable td {
+  border: 1px solid #000;
+  padding: 0.35rem 0.35rem;
+  vertical-align: middle;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  line-height: 1.25;
+  box-sizing: border-box;
+}
+
+.cellBold {
+  font-weight: 700;
+}
+
+.cellCenter {
+  text-align: center;
+}
+
+.cellCenterBold {
+  text-align: center;
+  font-weight: 700;
+}
+
+.blankRow td {
+  height: 22px;
+}
+
+/* Declarations */
+.declarationList {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  margin-top: 0.85rem;
+  margin-bottom: 2rem;
+}
+
+/* Signature row */
+.signatureFooterRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font-size: 0.8rem;
+  border-top: 1px solid #000;
+  padding-top: 0.4rem;
+  margin-top: 1.5rem;
+}
+
+/* Certificate by Employer */
+.certificateEmployerBox {
+  margin-top: 1.25rem;
+  font-size: 0.82rem;
+}
+
+.certEmployerTitle {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.certEmployerText {
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.certGrid {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  font-size: 0.8rem;
+}
+
+.certGridLeft {
+  flex: 1;
+}
+
+.certGridRight {
+  flex: 1.4;
+  line-height: 1.45;
+}
+
+.certCompanyBold {
+  font-weight: 700;
+  margin-top: 0.25rem;
+}
+
+.certAddressText {
+  color: #333333;
+}
