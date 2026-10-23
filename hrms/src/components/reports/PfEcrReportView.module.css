@@ -1,0 +1,307 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Action Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+.badgeSuccess {
+  color: #15803d;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.badgeInfo {
+  color: #0369a1;
+  background: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.searchInputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.searchInput {
+  padding: 7px 12px 7px 32px;
+  font-size: 13px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  width: 220px;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+}
+
+.searchInput:focus {
+  border-color: #16a34a;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.excelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  border: 1px solid #15803d;
+  background: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 2px 4px rgba(22, 163, 74, 0.25);
+}
+
+.excelBtn:hover {
+  background: #15803d;
+  border-color: #166534;
+  box-shadow: 0 4px 8px rgba(22, 163, 74, 0.35);
+  transform: translateY(-1px);
+}
+
+/* Metric / KPI Cards */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+}
+
+.summaryCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 18px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.cardBlue {
+  border-left: 4px solid #3b82f6;
+}
+
+.cardIndigo {
+  border-left: 4px solid #6366f1;
+}
+
+.cardGreen {
+  border-left: 4px solid #16a34a;
+}
+
+.cardOrange {
+  border-left: 4px solid #f59e0b;
+}
+
+.cardLabel {
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.cardValue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Excel Spreadsheet Preview Container */
+.spreadsheetCard {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+}
+
+.spreadsheetTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 8px 16px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.excelTabBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-bottom: 2px solid #16a34a;
+  padding: 4px 12px;
+  border-radius: 6px 6px 0 0;
+  font-weight: 600;
+  color: #15803d;
+}
+
+.spreadsheetWrap {
+  width: 100%;
+  overflow-x: auto;
+  max-height: 620px;
+}
+
+.excelTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: Calibri, 'Segoe UI', Arial, sans-serif;
+  font-size: 12.5px;
+  color: #000000;
+  background: #ffffff;
+}
+
+/* Excel Letter Header Row (A, B, C...) */
+.letterRow th {
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 600;
+  text-align: center;
+  padding: 3px 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+}
+
+.rowNumberCol {
+  width: 38px;
+  min-width: 38px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 600;
+  text-align: center;
+  border: 1px solid #cbd5e1;
+  user-select: none;
+  font-size: 11px;
+  padding: 4px;
+}
+
+/* Row 1 Header (UAN, MEMBAR_NAME...) */
+.headerRow th {
+  background: #f8fafc;
+  color: #000000;
+  font-weight: 700;
+  text-align: left;
+  padding: 6px 10px;
+  border: 1px solid #cbd5e1;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.headerRight {
+  text-align: right !important;
+}
+
+.headerCenter {
+  text-align: center !important;
+}
+
+/* Data Cells */
+.excelTable td {
+  border: 1px solid #e2e8f0;
+  padding: 5px 10px;
+  white-space: nowrap;
+}
+
+.excelTable tbody tr:hover td {
+  background-color: #f1f8f3;
+}
+
+.uanCell {
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.nameCell {
+  font-weight: 600;
+  color: #000000;
+  text-transform: uppercase;
+}
+
+.numCell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.centerCell {
+  text-align: center;
+}
+
+/* Total Row */
+.totalRow td {
+  background: #f8fafc;
+  font-weight: 700;
+  border-top: 2px solid #000000;
+  border-bottom: 2px solid #000000;
+}

@@ -1,0 +1,347 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  width: 100%;
+}
+
+/* 1. Header Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #ffffff;
+  padding: 1rem 1.25rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+.titleBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.iconRed {
+  color: #dc2626;
+}
+
+.reportTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.reportSubtitle {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.filterBadges {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.metaBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #334155;
+  background: #f1f5f9;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+}
+
+.btnPrimary {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btnPrimary:hover {
+  background: #b91c1c;
+}
+
+.btnOutline {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.btnOutline:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+}
+
+/* 2. KPI Summary Grid */
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+}
+
+.kpiCard {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: #ffffff;
+  padding: 1rem 1.15rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.kpiIconBox {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.kpiLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.kpiValue {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin-top: 2px;
+}
+
+/* 3. Search Section */
+.searchSection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.searchBox {
+  position: relative;
+  width: 100%;
+  max-width: 380px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 0.5rem 2rem 0.5rem 2.25rem;
+  font-size: 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  outline: none;
+  background: #ffffff;
+  color: #1e293b;
+  transition: border-color 0.15s ease;
+}
+
+.searchInput:focus {
+  border-color: #dc2626;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+}
+
+.clearSearchBtn {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.1rem;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.clearSearchBtn:hover {
+  color: #475569;
+}
+
+.showingText {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+/* 4. Document Printout Preview */
+.paperPreview {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+  padding: 1.75rem 1.5rem;
+  font-family: 'Courier New', Courier, monospace;
+  overflow: hidden;
+}
+
+.paperHeader {
+  margin-bottom: 1.25rem;
+}
+
+.companyTitle {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.35rem;
+}
+
+.subTitleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+  color: #374151;
+  border-bottom: 1px dashed transparent;
+  padding-bottom: 0.25rem;
+}
+
+.subTitleText {
+  font-weight: 600;
+}
+
+.pageNumber {
+  font-weight: 600;
+}
+
+.tableScroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.statementTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #111827;
+}
+
+/* Dashed borders around headers and totals */
+.dashedTopRow th {
+  border-top: 1.5px dashed #4b5563;
+  padding-top: 0.5rem;
+  padding-bottom: 0.15rem;
+}
+
+.dashedBottomRow th {
+  border-bottom: 1.5px dashed #4b5563;
+  padding-top: 0.15rem;
+  padding-bottom: 0.5rem;
+}
+
+.statementTable th {
+  font-weight: 600;
+  padding: 0.25rem 0.45rem;
+  color: #1f2937;
+  white-space: nowrap;
+}
+
+.statementTable td {
+  padding: 0.45rem 0.45rem;
+  white-space: nowrap;
+}
+
+.dataRow:hover {
+  background: #f8fafc;
+}
+
+.thLeft, .tdLeft {
+  text-align: left;
+}
+
+.tdLeftBold {
+  text-align: left;
+  font-weight: 600;
+}
+
+.thCenter, .tdCenter {
+  text-align: center;
+}
+
+.tdCenterBold {
+  text-align: center;
+  font-weight: 700;
+}
+
+.thRight, .tdRight {
+  text-align: right;
+}
+
+.tdRightBold {
+  text-align: right;
+  font-weight: 700;
+}
+
+/* Grand Total Row */
+.grandTotalRow td {
+  border-top: 1.5px dashed #4b5563;
+  border-bottom: 1.5px dashed #4b5563;
+  padding: 0.55rem 0.45rem;
+  font-weight: 700;
+  background: #fafafa;
+}
+
+.grandTotalLabel {
+  font-weight: 700;
+  text-align: left;
+}
+
+.emptyCell {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #94a3b8;
+  font-style: italic;
+}

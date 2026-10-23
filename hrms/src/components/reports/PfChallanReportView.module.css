@@ -1,0 +1,369 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+  background: #ffffff;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toolbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  border: 1px solid #bfdbfe;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.btnPrimary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.btnSecondary {
+  background: #f8fafc;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.btnSecondary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Stats Row */
+.statsRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  background: #ffffff;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.statLabel {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.statValue {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* Tabs */
+.viewTabs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tabBtn {
+  padding: 0.45rem 1rem;
+  font-size: 0.825rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tabBtnActive {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+/* Challan Sheet Canvas */
+.sheetContainer {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.challanSheet {
+  background: #ffffff;
+  width: 100%;
+  max-width: 960px;
+  padding: 40px 48px 44px 48px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #000000;
+}
+
+/* Header Section */
+.challanHeader {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.provisionalTitle {
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: #000000;
+  margin-bottom: 0.4rem;
+}
+
+.epfoTitle {
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #000000;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  letter-spacing: 0.02em;
+}
+
+/* Establishment Metadata */
+.estInfoGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  font-size: 0.9rem;
+  margin-bottom: 1.75rem;
+}
+
+.infoRow {
+  display: flex;
+  align-items: baseline;
+}
+
+.infoLabel {
+  width: 220px;
+  color: #000000;
+  font-weight: 500;
+}
+
+.infoCode {
+  font-family: monospace;
+  font-weight: 700;
+  font-size: 1rem;
+  margin-right: 2rem;
+  color: #000000;
+}
+
+.infoCompany {
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #000000;
+}
+
+.infoValue {
+  font-weight: 600;
+  color: #000000;
+}
+
+/* Statutory 8-Column Challan Table */
+.challanTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.challanTable th {
+  padding: 0.65rem 0.5rem;
+  border-top: 1.5px solid #000000;
+  border-bottom: 1.5px solid #000000;
+  font-weight: 700;
+  text-align: right;
+  color: #000000;
+}
+
+.challanTable th:nth-child(1) {
+  text-align: left;
+  width: 44px;
+}
+
+.challanTable th:nth-child(2) {
+  text-align: left;
+  width: 280px;
+}
+
+.challanTable td {
+  padding: 0.6rem 0.5rem;
+  text-align: right;
+  color: #000000;
+}
+
+.challanTable td:nth-child(1) {
+  text-align: left;
+}
+
+.challanTable td:nth-child(2) {
+  text-align: left;
+  font-weight: 500;
+}
+
+.grandTotalRow td {
+  font-weight: 800;
+  border-top: 1.5px solid #000000;
+  border-bottom: 2px solid #000000;
+  padding: 0.65rem 0.5rem;
+}
+
+.grandTotalRow td:first-child {
+  text-align: left;
+  font-size: 0.95rem;
+}
+
+/* Footnotes & Red Notes */
+.footerArea {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-top: 1rem;
+  gap: 1.5rem;
+}
+
+.notesBlock {
+  flex: 1;
+}
+
+.disclaimerText {
+  font-size: 0.8rem;
+  font-style: italic;
+  color: #334155;
+  margin-bottom: 1.25rem;
+}
+
+.redNoteTitle {
+  color: #dc2626;
+  font-weight: 800;
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.redNoteLine {
+  color: #dc2626;
+  font-weight: 700;
+  font-style: italic;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+/* QR Code SVG Box */
+.qrCodeBox {
+  width: 80px;
+  height: 80px;
+  background: #ffffff;
+  border: 1px solid #000000;
+  padding: 4px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Audit / Subscriber Breakdown Table */
+.breakdownCard {
+  background: #ffffff;
+  padding: 1.5rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.breakdownTableWrapper {
+  overflow-x: auto;
+  margin-top: 1rem;
+}
+
+.breakdownTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.breakdownTable th {
+  background: #f8fafc;
+  padding: 0.65rem 0.75rem;
+  border-bottom: 2px solid #cbd5e1;
+  font-weight: 600;
+  color: #334155;
+  text-align: left;
+}
+
+.breakdownTable td {
+  padding: 0.65rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  color: #0f172a;
+}
+
+@media print {
+  .toolbar,
+  .statsRow,
+  .viewTabs {
+    display: none !important;
+  }
+  .challanSheet {
+    box-shadow: none;
+    border: none;
+    padding: 0;
+    max-width: 100%;
+  }
+}
