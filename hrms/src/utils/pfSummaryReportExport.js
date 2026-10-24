@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * =========================================================================
@@ -15,7 +16,22 @@ import autoTable from 'jspdf-autotable';
  * =========================================================================
  */
 
-export const downloadPfSummaryReportPdf = (reportData = {}, options = {}) => {
+export const downloadPfSummaryReportPdf = async (reportData = {}, options = {}) => {
+  // Live DOM preview capture for exact layout/styling match
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="PfSummaryReportView_container"]');
+    if (previewEl) {
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename: `PF_Summary_Report_${reportData?.monthName || 'Current'}_${reportData?.year || ''}.pdf`,
+        title: 'PF Summary Report',
+        mode: options.mode || 'download',
+        orientation: 'landscape',
+        format: 'a4',
+      });
+      if (ok) return;
+    }
+  }
+
   const safeData = reportData || {};
   const locations = safeData.locations || safeData.records || [];
   const grandTotal = safeData.grandTotal || {};

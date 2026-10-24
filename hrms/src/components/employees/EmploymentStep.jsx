@@ -31,14 +31,32 @@ function EmploymentStep({
     const selectedClient = (clients || []).find(
       c => (c.clientId === selectedClientId || c.id === selectedClientId || c._id === selectedClientId)
     );
+    const clientName = selectedClient ? (selectedClient.name || selectedClient.clientName || '') : '';
     const clientAddress = selectedClient ? (selectedClient.address || '') : '';
+
+    // Check if there are sites belonging to this selected client
+    const matchingSites = (sites || []).filter(s => {
+      if (typeof s === 'string') return false;
+      const cId = String(s.clientId || s.client || '').trim();
+      const cName = String(s.clientName || '').trim().toLowerCase();
+      const selName = clientName.trim().toLowerCase();
+      return (selectedClientId && cId === String(selectedClientId)) ||
+             (selName && (cName === selName || cName.includes(selName) || selName.includes(cName)));
+    });
+
+    const defaultSite = matchingSites.length === 1 ? (matchingSites[0].name || matchingSites[0].siteName || '') : '';
+    const defaultSiteAddress = matchingSites.length === 1 && (matchingSites[0].address || matchingSites[0].city)
+      ? [matchingSites[0].address, matchingSites[0].city, matchingSites[0].state].filter(Boolean).join(', ')
+      : clientAddress;
+
     onChange({
       ...data,
       clientId: selectedClientId,
-      clientName: selectedClient ? selectedClient.name : '',
-      companyName: selectedClient ? selectedClient.name : '',
-      siteLocation: clientAddress,
-      clientAddress: clientAddress
+      clientName: clientName,
+      companyName: clientName,
+      site: defaultSite,
+      siteLocation: defaultSite,
+      clientAddress: defaultSiteAddress
     });
   };
 
@@ -114,20 +132,35 @@ function EmploymentStep({
     return [];
   }, [posts, data.dutyPost]);
 
-  // Filter or list sites strictly from dynamic master records
+  // Filter or list sites strictly from dynamic master records for the selected client
   const siteList = useMemo(() => {
     if (!sites || sites.length === 0) return [];
-    const activeSites = sites.filter(s => typeof s === 'string' || !s.status || s.status === 'active' || (s.name || s.siteName) === data.siteLocation);
-    if (selectedClientId) {
+
+    const activeSites = sites.filter(s => {
+      if (typeof s === 'string') return true;
+      const sName = s.name || s.siteName || '';
+      return !s.status || s.status === 'active' || s.status === 'Active' || sName === data.site || sName === data.siteLocation;
+    });
+
+    if (selectedClientId || data.clientName || data.companyName) {
+      const selName = String(data.clientName || data.companyName || '').trim().toLowerCase();
+      const selId = String(selectedClientId || data.clientId || '').trim();
+
       const filtered = activeSites.filter(s => {
-        const cId = s.clientId || s.client || '';
-        const cName = s.clientName || '';
-        return cId === selectedClientId || (data.clientName && cName === data.clientName);
+        if (typeof s === 'string') return true;
+        const cId = String(s.clientId || s.client || '').trim();
+        const cName = String(s.clientName || '').trim().toLowerCase();
+
+        const matchesId = selId && cId && (cId === selId);
+        const matchesName = selName && cName && (cName === selName || cName.includes(selName) || selName.includes(cName));
+        return matchesId || matchesName;
       });
-      return filtered.length > 0 ? filtered : activeSites;
+
+      return filtered;
     }
+
     return activeSites;
-  }, [sites, selectedClientId, data.clientName, data.siteLocation]);
+  }, [sites, selectedClientId, data.clientId, data.clientName, data.companyName, data.siteLocation, data.site]);
 
   // Work locations list strictly from dynamic records
   const locList = useMemo(() => {
@@ -229,23 +262,54 @@ function EmploymentStep({
           </select>
         </div>
 
-        {/* Client Address */}
+        {/* Client Site */}
         <div className={styles.fieldGroup}>
-          <label htmlFor="emp-client-address" className={styles.label}>Client Address</label>
-          <input
-            id="emp-client-address"
-            type="text"
-            className={styles.input}
-            placeholder={selectedClientId ? 'Client address' : 'Select client to auto-fill address'}
-            value={data.clientAddress !== undefined ? data.clientAddress : (data.siteLocation || '')}
+          <label htmlFor="emp-client-site" className={styles.label}>Client Site</label>
+          <select
+            id="emp-client-site"
+            className={styles.select}
+            value={data.site || data.siteLocation || ''}
             onChange={(e) => {
+              const selectedVal = e.target.value;
+              const matchedSite = siteList.find(s => (typeof s === 'string' ? s : s.name || s.siteName) === selectedVal);
+              const siteName = matchedSite ? (typeof matchedSite === 'string' ? matchedSite : matchedSite.name || matchedSite.siteName) : selectedVal;
+              const siteAddress = (matchedSite && typeof matchedSite === 'object' && (matchedSite.address || matchedSite.city))
+                ? [matchedSite.address, matchedSite.city, matchedSite.state].filter(Boolean).join(', ')
+                : '';
               onChange({
                 ...data,
-                clientAddress: e.target.value,
-                siteLocation: e.target.value
+                site: siteName,
+                siteLocation: siteName,
+                clientAddress: siteAddress || data.clientAddress || ''
               });
             }}
-          />
+          >
+            <option value="">
+              {!selectedClientId
+                ? 'Select Client Company first'
+                : siteList.length > 0
+                  ? 'Select Client Site'
+                  : 'No sites found for this client'}
+            </option>
+            {siteList.map((site) => {
+              const siteName = typeof site === 'string' ? site : site.name || site.siteName || '';
+              const siteCode = typeof site === 'object' && site.code ? ` (${site.code})` : '';
+              const siteBranch = typeof site === 'object' && (site.workLocationName || site.city)
+                ? ` - ${site.workLocationName || site.city}`
+                : '';
+              return (
+                <option key={typeof site === 'object' ? (site._id || site.id || site.code || siteName) : site} value={siteName}>
+                  {siteName}{siteCode}{siteBranch}
+                </option>
+              );
+            })}
+            {(data.site || data.siteLocation) &&
+              !siteList.some(s => (typeof s === 'string' ? s : s.name || s.siteName) === (data.site || data.siteLocation)) && (
+                <option value={data.site || data.siteLocation}>
+                  {data.site || data.siteLocation}
+                </option>
+            )}
+          </select>
         </div>
 
         {/* Duty Post */}

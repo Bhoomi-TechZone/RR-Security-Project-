@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * Statutory Register of Payment of Wages (Salary Sheet Format 2) Exporter
@@ -205,7 +206,7 @@ export const downloadSalarySheetFormat2Csv = (records, companyInfo, period, tota
   downloadSalarySheetFormat2Excel(records, companyInfo, period, totals, pfSummary, esiSummary, lwfSummary, { format: 'csv' });
 };
 
-export const downloadSalarySheetFormat2Pdf = (
+export const downloadSalarySheetFormat2Pdf = async (
   records = [],
   companyInfo = {},
   period = {},
@@ -215,6 +216,22 @@ export const downloadSalarySheetFormat2Pdf = (
   lwfSummary = {},
   options = {}
 ) => {
+  // Live preview capture for exact styling/layout parity
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="SalarySheetFormat2View_paperSheet"]');
+    if (previewEl) {
+      const cleanMonth = (period?.monthLabel || period?.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename: `Form_IV_Payment_of_Wages_${cleanMonth}.pdf`,
+        title: 'Form IV Register of Payment of Wages',
+        mode: options.mode || 'download',
+        orientation: 'landscape',
+        format: 'a3',
+      });
+      if (ok) return;
+    }
+  }
+
   if (options.mode === 'print') {
     window.print();
     return;

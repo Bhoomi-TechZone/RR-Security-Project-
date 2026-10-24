@@ -15,6 +15,7 @@ import {
   downloadSalarySheetFormat1Excel,
   downloadSalarySheetFormat1Csv,
 } from '../../utils/salarySheetFormat1Export';
+import { numberToIndianWords } from '../../utils/payrollUtils';
 import styles from './SalarySheetFormat1View.module.css';
 
 /**
@@ -36,10 +37,56 @@ export default function SalarySheetFormat1View({
   deductionSummary = {},
   filters = {},
 }) {
-  const companyName = companyInfo?.name || companyInfo?.companyName || 'RR Security & Facilities';
-  const companyAddress = companyInfo?.address || '—';
-  const pfNo = companyInfo?.pfNo || '—';
-  const esiNo = companyInfo?.esiNo || companyInfo?.esicNo || '—';
+  // Resolve configured company statutory codes strictly from Company Setup
+  let savedSetup = {};
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
+    if (raw) savedSetup = JSON.parse(raw);
+  } catch (e) {}
+
+  let adminCompanies = [];
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
+    if (raw) adminCompanies = JSON.parse(raw);
+  } catch (e) {}
+  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+
+  const companyName =
+    companyInfo?.name ||
+    companyInfo?.companyName ||
+    savedSetup?.companyName ||
+    localDefaultComp?.name ||
+    'RR Security & Facilities';
+
+  const companyAddress =
+    (companyInfo?.address && companyInfo.address !== '—' ? companyInfo.address : null) ||
+    (savedSetup?.address && savedSetup.address !== '—' ? savedSetup.address : null) ||
+    (localDefaultComp?.address && localDefaultComp.address !== '—' ? localDefaultComp.address : null) ||
+    'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
+
+  const cleanPf = [
+    companyInfo?.employerPfCode,
+    companyInfo?.pfCode,
+    companyInfo?.pfNo,
+    companyInfo?.epfNo,
+    savedSetup?.employerPfCode,
+    savedSetup?.pfCode,
+    localDefaultComp?.employerPfCode,
+    localDefaultComp?.pfCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const pfNo = cleanPf || '—';
+
+  const cleanEsi = [
+    companyInfo?.employerEsiCode,
+    companyInfo?.esiCode,
+    companyInfo?.esicNo,
+    companyInfo?.esiNo,
+    savedSetup?.employerEsiCode,
+    savedSetup?.esiCode,
+    localDefaultComp?.employerEsiCode,
+    localDefaultComp?.esiCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const esiNo = cleanEsi || '—';
   const monthLabel = period?.monthLabel || period?.month || filters?.month || '';
   const toDate = period?.toDate || new Date().toISOString().slice(0, 10);
 
@@ -120,8 +167,8 @@ export default function SalarySheetFormat1View({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
+      {/* Top Action Toolbar (Web UI only - excluded from document print/download) */}
+      <div className={`${styles.toolbar} no-print`} data-no-print="true" data-html2canvas-ignore="true">
         <div className={styles.toolbarLeft}>
           <span className={styles.badge}>
             <ShieldCheck size={15} />
@@ -179,8 +226,8 @@ export default function SalarySheetFormat1View({
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className={styles.kpiBar}>
+      {/* KPI Summary Cards (Web UI only - excluded from official report document) */}
+      <div className={`${styles.kpiBar} no-print`} data-no-print="true" data-html2canvas-ignore="true">
         <div className={styles.kpiCard}>
           <span className={styles.kpiLabel}>Total Employees</span>
           <span className={`${styles.kpiValue} ${styles.kpiBlue}`}>{records.length}</span>
@@ -199,10 +246,12 @@ export default function SalarySheetFormat1View({
         </div>
       </div>
 
-      {/* Document Sheet Layout */}
-      <div className={styles.paper}>
-        {/* Document Header matching Image 2 */}
-        <div className={styles.docHeader}>
+      {/* Official Statutory Document Sheet Layout (Multi-page Container) */}
+      <div className={styles.printableReportContainer} data-report-sheet="true">
+        {/* Page 1: Detailed Employee Register Sheet */}
+        <div className={styles.paper} data-page="1">
+          {/* Document Header matching Image 2 */}
+          <div className={styles.docHeader}>
           <div className={styles.docCompanyInfo}>
             <h1 className={styles.docCompanyName}>{companyName}</h1>
             <p className={styles.docCompanyAddress}>{companyAddress}</p>
@@ -275,8 +324,8 @@ export default function SalarySheetFormat1View({
 
                 {/* Deductions Sub-columns */}
                 <th className={styles.subHeader}>P.F<br />ESI</th>
-                <th className={styles.subHeader}>P.T.<br />I.T.<br />LWF</th>
-                <th className={styles.subHeader}>Advance<br />LOAN<br />Food</th>
+                <th className={styles.subHeader}>P.T.<br />I.T. / LWF</th>
+                <th className={styles.subHeader}>Advance<br />Loan / Food</th>
                 <th className={styles.subHeader}>Oth.Ded<br />E/Mbill</th>
               </tr>
             </thead>
@@ -503,215 +552,294 @@ export default function SalarySheetFormat1View({
             </tbody>
           </table>
         </div>
+      </div>
 
-        {/* Bottom Section matching Image 3 */}
-        <div className={styles.bottomSection}>
-          {/* Left Column: PF SUMMARY, ESI Summary, PT Summary */}
-          <div className={styles.summaryColLeft}>
-            {/* 1. PF SUMMARY */}
-            <div>
-              <div className={styles.summaryTitle}>PF SUMMARY</div>
-              <table className={styles.summaryTable}>
-                <thead>
-                  <tr>
-                    <th>PF Wages</th>
-                    <th>Strn.</th>
-                    <th>EE</th>
-                    <th>ER (Diff)</th>
-                    <th>A/C - 1</th>
-                    <th>A/C 10</th>
-                    <th>A/C 2</th>
-                    <th>A/C - 21</th>
-                    <th>A/C - 22</th>
-                    <th>Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>{pfSummary.pfWages || 0}</td>
-                    <td>{pfSummary.strn || 0}</td>
-                    <td>{pfSummary.ee || 0}</td>
-                    <td>{pfSummary.erDiff || 0}</td>
-                    <td>{pfSummary.ac1 || 0}</td>
-                    <td>{pfSummary.ac10 || 0}</td>
-                    <td>{pfSummary.ac2 || 0}</td>
-                    <td>{pfSummary.ac21 || 0}</td>
-                    <td>{pfSummary.ac22 || 0}</td>
-                    <td style={{ fontWeight: 800 }}>{pfSummary.total || 0}</td>
-                  </tr>
-                  <tr>
-                    <td>{pfSummary.pfWages || 0}</td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td></td>
-                    <td>{pfSummary.pfWages || 0}</td>
-                    <td></td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* 2. ESI Summary & 3. PT Summary */}
-            <div className={styles.ptSummaryWrap}>
-              {/* ESI Summary */}
-              <div style={{ flex: 1 }}>
-                <div className={styles.summaryTitle}>ESI Summary</div>
-                <table className={styles.summaryTable}>
-                  <thead>
-                    <tr>
-                      <th>ESI Wages</th>
-                      <th>Strn</th>
-                      <th>EE Share</th>
-                      <th>ER.Share</th>
-                      <th>Total ESI</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>{esiSummary.esiWages || 0}</td>
-                      <td>{esiSummary.strn || 0}</td>
-                      <td>{esiSummary.eeShare || 0}</td>
-                      <td>{esiSummary.erShare || 0}</td>
-                      <td style={{ fontWeight: 800 }}>{esiSummary.totalEsi || 0}</td>
-                    </tr>
-                  </tbody>
-                </table>
+      {/* Page 2: Dedicated Statutory Summary & Reconciliation Sheet (Separate Document Sheet) */}
+      <div className={`${styles.paper} ${styles.summaryPageSheet}`} data-page="2">
+        {/* Summary Page Document Header */}
+        <div className={styles.summaryDocHeader}>
+            <div className={styles.summaryDocHeaderLeft}>
+              <h2 className={styles.summaryDocCompanyName}>{companyName}</h2>
+              <p className={styles.summaryDocCompanyAddress}>{companyAddress}</p>
+              <div className={styles.summaryDocMetaRow}>
+                <span><strong>PF No:</strong> {pfNo}</span>
+                <span><strong>ESI No:</strong> {esiNo}</span>
+                <span><strong>Date of Payment:</strong> {toDate}</span>
               </div>
+            </div>
+            <div className={styles.summaryDocHeaderRight}>
+              <div className={styles.summaryDocTitle}>WAGE / SALARY REGISTER</div>
+              <div className={styles.summaryDocBadge}>STATUTORY RECONCILIATION &amp; SUMMARY STATEMENT</div>
+              <div className={styles.summaryDocMonth}>
+                For The Month Of: <strong>{monthLabel}</strong>
+              </div>
+              {clientName && (
+                <div className={styles.summaryDocClient}>
+                  Client / Site: <strong>{clientName}</strong>
+                </div>
+              )}
+            </div>
+          </div>
 
-              {/* PT Summary */}
-              <div style={{ minWidth: '150px' }}>
-                <div className={styles.summaryTitle} style={{ visibility: 'hidden' }}>PT</div>
+          {/* Spacious 2-Column Summary Grid */}
+          <div className={styles.summaryGridWrap}>
+            {/* Left Column: PF, ESI, PT Summaries & Strength */}
+            <div className={styles.summaryColLeft}>
+              {/* 1. PF SUMMARY */}
+              <div className={styles.summaryBox}>
+                <div className={styles.summaryBoxHeader}>
+                  <span className={styles.summaryTitle}>PF SUMMARY STATEMENT</span>
+                  <span className={styles.summarySubtitle}>Employees' Provident Fund Act, 1952</span>
+                </div>
                 <table className={styles.summaryTable}>
                   <thead>
                     <tr>
-                      <th>P.T. Summary</th>
-                      <th>0</th>
+                      <th>PF Wages</th>
+                      <th>Strn.</th>
+                      <th>EE (12%)</th>
+                      <th>ER (Diff)</th>
+                      <th>A/C - 1</th>
+                      <th>A/C 10</th>
+                      <th>A/C 2</th>
+                      <th>A/C - 21</th>
+                      <th>A/C - 22</th>
                       <th>Total</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
-                      <td style={{ textAlign: 'left' }}>PT Amount</td>
-                      <td>{ptSummary.ptAmount || 0}</td>
-                      <td>{ptSummary.ptAmount || 0}</td>
+                      <td>{(pfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ textAlign: 'center' }}>{pfSummary.strn || 0}</td>
+                      <td>{(pfSummary.ee || 0).toLocaleString('en-IN')}</td>
+                      <td>{(pfSummary.erDiff || 0).toLocaleString('en-IN')}</td>
+                      <td>{(pfSummary.ac1 || 0).toLocaleString('en-IN')}</td>
+                      <td>{(pfSummary.ac10 || 0).toLocaleString('en-IN')}</td>
+                      <td>{(pfSummary.ac2 || 0).toLocaleString('en-IN')}</td>
+                      <td>{(pfSummary.ac21 || 0).toLocaleString('en-IN')}</td>
+                      <td>{(pfSummary.ac22 || 0).toLocaleString('en-IN')}</td>
+                      <td style={{ fontWeight: 800, background: '#f8fafc' }}>
+                        {(pfSummary.total || 0).toLocaleString('en-IN')}
+                      </td>
                     </tr>
-                    <tr>
-                      <td style={{ textAlign: 'left' }}>PT Count</td>
-                      <td>{ptSummary.ptCount || 0}</td>
-                      <td>{ptSummary.ptCount || 0}</td>
+                    <tr className={styles.reconciliationRow}>
+                      <td>{(pfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td>{(pfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
+                      <td></td>
+                      <td></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
+
+              {/* 2. ESI & PT Summary */}
+              <div className={styles.ptSummaryWrap}>
+                {/* ESI Summary */}
+                <div className={styles.summaryBox} style={{ flex: 1.4 }}>
+                  <div className={styles.summaryBoxHeader}>
+                    <span className={styles.summaryTitle}>ESI SUMMARY</span>
+                    <span className={styles.summarySubtitle}>ESIC Act, 1948</span>
+                  </div>
+                  <table className={styles.summaryTable}>
+                    <thead>
+                      <tr>
+                        <th>ESI Wages</th>
+                        <th>Strn</th>
+                        <th>EE Share (0.75%)</th>
+                        <th>ER.Share (3.25%)</th>
+                        <th>Total ESI (4%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>{(esiSummary.esiWages || 0).toLocaleString('en-IN')}</td>
+                        <td style={{ textAlign: 'center' }}>{esiSummary.strn || 0}</td>
+                        <td>{(esiSummary.eeShare || 0).toLocaleString('en-IN')}</td>
+                        <td>{(esiSummary.erShare || 0).toLocaleString('en-IN')}</td>
+                        <td style={{ fontWeight: 800, background: '#f8fafc' }}>
+                          {(esiSummary.totalEsi || 0).toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* PT Summary */}
+                <div className={styles.summaryBox} style={{ flex: 0.9 }}>
+                  <div className={styles.summaryBoxHeader}>
+                    <span className={styles.summaryTitle}>P.T. SUMMARY</span>
+                    <span className={styles.summarySubtitle}>Professional Tax</span>
+                  </div>
+                  <table className={styles.summaryTable}>
+                    <thead>
+                      <tr>
+                        <th>P.T. Head</th>
+                        <th>Count</th>
+                        <th>Total Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={{ textAlign: 'left', fontWeight: 600 }}>PT Deducted</td>
+                        <td style={{ textAlign: 'center' }}>{ptSummary.ptCount || 0}</td>
+                        <td style={{ fontWeight: 700 }}>₹{(ptSummary.ptAmount || 0).toLocaleString('en-IN')}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ textAlign: 'left', fontWeight: 600 }}>PT Total</td>
+                        <td style={{ textAlign: 'center' }}>{ptSummary.ptCount || 0}</td>
+                        <td style={{ fontWeight: 800, background: '#f8fafc' }}>
+                          ₹{(ptSummary.ptAmount || 0).toLocaleString('en-IN')}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Workforce Strength Indicators */}
+              <div className={styles.emplStrengthCard}>
+                <div className={styles.strengthItem}>
+                  <span className={styles.strengthLabel}>Total Strength:</span>
+                  <strong className={styles.strengthValue}>{records.length} Employees</strong>
+                </div>
+                <div className={styles.strengthItem}>
+                  <span className={styles.strengthLabel}>Active Workforce:</span>
+                  <span className={styles.strengthValue}>
+                    {records.filter((r) => r.status !== 'Inactive').length || records.length}
+                  </span>
+                </div>
+                <div className={styles.strengthItem}>
+                  <span className={styles.strengthLabel}>Excluded Strength:</span>
+                  <span className={styles.strengthValue}>0</span>
+                </div>
+              </div>
             </div>
 
-            {/* Employee Strength Indicators */}
-            <div className={styles.emplStrengthBox}>
-              <div>Total Empl.Stm: <strong>{records.length}</strong></div>
-              <div>Excl.Empl Strn: 0</div>
-              <div>Excl.Empl Strn: 0</div>
+            {/* Right Column: Earning & Deduction Summary + Net Pay Card */}
+            <div className={styles.summaryColRight}>
+              <div className={styles.summaryBox}>
+                <div className={styles.summaryBoxHeader}>
+                  <span className={styles.summaryTitle}>EARNING &amp; DEDUCTION STATEMENT</span>
+                  <span className={styles.summarySubtitle}>Consolidated Monthly Breakup</span>
+                </div>
+                <table className={styles.sideBySideTable}>
+                  <thead>
+                    <tr>
+                      <th colSpan="2" className={styles.earningColHeader}>EARNING SUMMARY (₹)</th>
+                      <th colSpan="2" className={styles.deductionColHeader}>DEDUCTION SUMMARY (₹)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className={styles.headLabel}>BASIC</td>
+                      <td className={styles.right}>{(earningSummary.basic ?? totals.grandBasic ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>P.F</td>
+                      <td className={styles.right}>{(deductionSummary.pf ?? totals.grandPf ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>DA</td>
+                      <td className={styles.right}>{(earningSummary.da ?? totals.grandDa ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>ESI</td>
+                      <td className={styles.right}>{(deductionSummary.esi ?? totals.grandEsi ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>HRA</td>
+                      <td className={styles.right}>{(earningSummary.hra ?? totals.grandHra ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>P.T.</td>
+                      <td className={styles.right}>{(deductionSummary.pt ?? totals.grandPt ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>CONV</td>
+                      <td className={styles.right}>{(earningSummary.conv ?? totals.grandConv ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>I.T. (TDS)</td>
+                      <td className={styles.right}>{(deductionSummary.it ?? totals.grandIt ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>SP.All</td>
+                      <td className={styles.right}>{(earningSummary.spAll ?? totals.grandSpAll ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>LOAN</td>
+                      <td className={styles.right}>{(deductionSummary.loan ?? totals.grandLoan ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>OTH.All</td>
+                      <td className={styles.right}>{(earningSummary.othAll ?? totals.grandOthAll ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>Advance</td>
+                      <td className={styles.right}>{(deductionSummary.advance ?? totals.grandAdvance ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>OT/PIB</td>
+                      <td className={styles.right}>{(earningSummary.otPib ?? totals.grandOtPib ?? 0).toLocaleString('en-IN')}</td>
+                      <td className={styles.headLabel}>LWF</td>
+                      <td className={styles.right}>{(deductionSummary.lwf ?? totals.grandLwf ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>—</td>
+                      <td className={styles.right}>—</td>
+                      <td className={styles.headLabel}>Oth.Ded</td>
+                      <td className={styles.right}>{(deductionSummary.othDed ?? totals.grandOthDed ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>—</td>
+                      <td className={styles.right}>—</td>
+                      <td className={styles.headLabel}>Food</td>
+                      <td className={styles.right}>{(deductionSummary.food ?? totals.grandFood ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr>
+                      <td className={styles.headLabel}>—</td>
+                      <td className={styles.right}>—</td>
+                      <td className={styles.headLabel}>E/Mbill</td>
+                      <td className={styles.right}>{(deductionSummary.eMbill ?? totals.grandEMbill ?? 0).toLocaleString('en-IN')}</td>
+                    </tr>
+                    <tr className={styles.subTotalRow}>
+                      <td><strong>Gross Salary</strong></td>
+                      <td className={styles.right}>
+                        <strong>₹{(earningSummary.grossSalary ?? totals.grandGross ?? 0).toLocaleString('en-IN')}</strong>
+                      </td>
+                      <td><strong>Gross Ded.</strong></td>
+                      <td className={styles.right}>
+                        <strong>₹{(deductionSummary.grossDed ?? totals.grandDeductions ?? 0).toLocaleString('en-IN')}</strong>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Net Pay Highlight Box */}
+              <div className={styles.netPayHighlightBox}>
+                <div className={styles.netPayHighlightText}>
+                  <span className={styles.netPayHighlightLabel}>TOTAL NET SALARY DISBURSED</span>
+                  <div className={styles.netPayWords}>
+                    ({numberToIndianWords(totals.grandNet ?? grandNet ?? 0)})
+                  </div>
+                </div>
+                <div className={styles.netPayHighlightValue}>
+                  ₹{(totals.grandNet ?? grandNet ?? 0).toLocaleString('en-IN')}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right Column: Earning Summary & Deduction Summary Side-by-Side + Net Pay Box */}
-          <div className={styles.summaryColRight}>
-            <table className={styles.sideBySideTable}>
-              <thead>
-                <tr>
-                  <th colSpan="2">Earning Summary</th>
-                  <th colSpan="2">Deduction Summary</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>BASIC</td>
-                  <td className={styles.right}>{earningSummary.basic ?? totals.grandBasic ?? 0}</td>
-                  <td>P.F</td>
-                  <td className={styles.right}>{deductionSummary.pf ?? totals.grandPf ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>DA</td>
-                  <td className={styles.right}>{earningSummary.da ?? totals.grandDa ?? 0}</td>
-                  <td>ESI</td>
-                  <td className={styles.right}>{deductionSummary.esi ?? totals.grandEsi ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>HRA</td>
-                  <td className={styles.right}>{earningSummary.hra ?? totals.grandHra ?? 0}</td>
-                  <td>P.T.</td>
-                  <td className={styles.right}>{deductionSummary.pt ?? totals.grandPt ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>CONV</td>
-                  <td className={styles.right}>{earningSummary.conv ?? totals.grandConv ?? 0}</td>
-                  <td>I.T.</td>
-                  <td className={styles.right}>{deductionSummary.it ?? totals.grandIt ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>SP.All</td>
-                  <td className={styles.right}>{earningSummary.spAll ?? totals.grandSpAll ?? 0}</td>
-                  <td>LOAN</td>
-                  <td className={styles.right}>{deductionSummary.loan ?? totals.grandLoan ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>OTH.All</td>
-                  <td className={styles.right}>{earningSummary.othAll ?? totals.grandOthAll ?? 0}</td>
-                  <td>Advance</td>
-                  <td className={styles.right}>{deductionSummary.advance ?? totals.grandAdvance ?? 0}</td>
-                </tr>
-                <tr>
-                  <td>OT/PIB</td>
-                  <td className={styles.right}>{earningSummary.otPib ?? totals.grandOtPib ?? 0}</td>
-                  <td>LWF</td>
-                  <td className={styles.right}>{deductionSummary.lwf ?? totals.grandLwf ?? 0}</td>
-                </tr>
-                <tr>
-                  <td></td>
-                  <td></td>
-                  <td>Oth.Ded</td>
-                  <td className={styles.right}>{deductionSummary.othDed ?? totals.grandOthDed ?? 0}</td>
-                </tr>
-                <tr>
-                  <td></td>
-                  <td></td>
-                  <td>Food</td>
-                  <td className={styles.right}>{deductionSummary.food ?? totals.grandFood ?? 0}</td>
-                </tr>
-                <tr>
-                  <td></td>
-                  <td></td>
-                  <td>E/Mbill</td>
-                  <td className={styles.right}>{deductionSummary.eMbill ?? totals.grandEMbill ?? 0}</td>
-                </tr>
-                <tr className={styles.subTotalRow}>
-                  <td>Gross Salary</td>
-                  <td className={styles.right}>{(earningSummary.grossSalary ?? totals.grandGross ?? 0).toLocaleString('en-IN')}</td>
-                  <td>Gross Ded.</td>
-                  <td className={styles.right}>{(deductionSummary.grossDed ?? totals.grandDeductions ?? 0).toLocaleString('en-IN')}</td>
-                </tr>
-              </tbody>
-            </table>
-
-            {/* Net Pay Highlight Box */}
-            <div className={styles.netPayHighlightBox}>
-              <span className={styles.netPayHighlightLabel}>Net Pay</span>
-              <span className={styles.netPayHighlightValue}>
-                {(totals.grandNet ?? grandNet ?? 0).toLocaleString('en-IN')}
-              </span>
+          {/* Three-Column Statutory Signatory Verification Block */}
+          <div className={styles.summarySignSection}>
+            <div className={styles.signatoryCard}>
+              <div className={styles.signatoryRole}>PREPARED BY</div>
+              <div className={styles.signatoryPlaceholder}></div>
+              <div className={styles.signatoryTitle}>HR / Payroll Executive</div>
             </div>
-          </div>
-        </div>
-
-        {/* Signatory line */}
-        <div className={styles.signatoryLine}>
-          <div>
-            <div>For {companyName}</div>
-            <div style={{ marginTop: '2.5rem', borderTop: '1px solid #000', paddingTop: '3px', textAlign: 'center' }}>
-              Authorised Signatory
+            <div className={styles.signatoryCard}>
+              <div className={styles.signatoryRole}>CHECKED &amp; VERIFIED BY</div>
+              <div className={styles.signatoryPlaceholder}></div>
+              <div className={styles.signatoryTitle}>Finance &amp; Accounts Officer</div>
+            </div>
+            <div className={styles.signatoryCard}>
+              <div className={styles.signatoryRole}>FOR {companyName.toUpperCase()}</div>
+              <div className={styles.signatoryPlaceholder}></div>
+              <div className={styles.signatoryTitle}>Authorised Signatory</div>
             </div>
           </div>
         </div>

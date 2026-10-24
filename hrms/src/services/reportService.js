@@ -52,6 +52,7 @@ class ReportService {
     if (params.toDate) query.append('toDate', params.toDate);
     if (params.company && params.company !== 'All Companies') query.append('company', params.company);
     if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.site && params.site !== 'All Sites') query.append('site', params.site);
     if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
     if (params.search) query.append('search', params.search);
     if (companyId) query.append('companyId', companyId);
@@ -77,6 +78,7 @@ class ReportService {
     if (params.toDate) query.append('toDate', params.toDate);
     if (params.company && params.company !== 'All Companies') query.append('company', params.company);
     if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.site && params.site !== 'All Sites') query.append('site', params.site);
     if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
     if (params.search) query.append('search', params.search);
     if (companyId) query.append('companyId', companyId);
@@ -101,6 +103,7 @@ class ReportService {
     if (params.fromDate) query.append('fromDate', params.fromDate);
     if (params.toDate) query.append('toDate', params.toDate);
     if (params.company && params.company !== 'All Companies') query.append('company', params.company);
+    if (params.site && params.site !== 'All Sites') query.append('site', params.site);
     if (params.search) query.append('search', params.search);
     if (companyId) query.append('companyId', companyId);
 
@@ -122,6 +125,7 @@ class ReportService {
     const query = new URLSearchParams();
     if (params.company && params.company !== 'All Companies') query.append('company', params.company);
     if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.site && params.site !== 'All Sites') query.append('site', params.site);
     if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
     if (params.search) query.append('search', params.search);
     if (companyId) query.append('companyId', companyId);
@@ -2519,6 +2523,7 @@ class ReportService {
     if (params.toDate) query.append('toDate', params.toDate);
     if (params.company && params.company !== 'All Companies') query.append('company', params.company);
     if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.site && params.site !== 'All Sites') query.append('site', params.site);
     if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
     if (params.search) query.append('search', params.search);
     if (companyId) query.append('companyId', companyId);
@@ -2556,6 +2561,7 @@ class ReportService {
     if (params.toDate) query.append('toDate', params.toDate);
     if (params.company && params.company !== 'All Companies') query.append('company', params.company);
     if (params.department && params.department !== 'All Departments') query.append('department', params.department);
+    if (params.site && params.site !== 'All Sites') query.append('site', params.site);
     if (params.employee && params.employee !== 'All Employees') query.append('employee', params.employee);
     if (params.search) query.append('search', params.search);
     if (companyId) query.append('companyId', companyId);

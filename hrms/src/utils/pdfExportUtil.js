@@ -1,12 +1,13 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { downloadEmployeeProfile } from './employeeProfileExport';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * Direct PDF Generation & Download Utility for HRMS Reports
- * Downloads a real .pdf file directly to the user's browser.
+ * Downloads a real .pdf file directly to the user's browser matching exact preview layout.
  */
-export const generateReportPdf = ({
+export const generateReportPdf = async ({
   reportType = 'payroll',
   title = 'Wage & Salary Register',
   period = {},
@@ -16,6 +17,20 @@ export const generateReportPdf = ({
   statutoryRules = [],
   mode = 'download', // 'download' or 'print'
 }) => {
+  // If the live report preview element is present in the DOM, capture it directly for 100% exact styling
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('.printableReportContainer');
+    if (previewEl) {
+      const cleanMonth = (period.monthLabel || period.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${cleanMonth}.pdf`;
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename,
+        title,
+        mode,
+      });
+      if (ok) return;
+    }
+  }
   // If Employee Profile is requested, use the dedicated authentic layout
   if (reportType === 'employee-profile') {
     if (!records || !records.length) {

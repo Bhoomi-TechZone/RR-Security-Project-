@@ -754,7 +754,7 @@ function EmployeeDetails() {
                   <InfoRow icon={<Layers size={15} />} label="Department" value={employee.department} />
                   <InfoRow icon={<Briefcase size={15} />} label="Designation" value={employee.designation} />
                   <InfoRow label="Employee Type" value={employee.employeeType || 'N/A'} />
-                  <InfoRow icon={<MapPin size={15} />} label="Client Address" value={employee.clientAddress || employee.siteLocation || employee.site || employee.address || 'N/A'} />
+                  <InfoRow icon={<MapPin size={15} />} label="Client Site" value={employee.site || employee.siteLocation || employee.clientAddress || employee.address || 'N/A'} />
                   <InfoRow label="Duty Post" value={employee.dutyPost || 'N/A'} />
                 </div>
               </div>

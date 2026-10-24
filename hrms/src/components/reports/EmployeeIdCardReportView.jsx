@@ -1,300 +1,204 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   FileText,
-  Phone,
-  MapPin,
-  Mail,
-  Globe,
   User,
-  ShieldCheck,
   CreditCard,
-  Layers,
-  Sparkles
 } from 'lucide-react';
 import styles from './EmployeeIdCardReportView.module.css';
 
 /**
- * Custom SVG Security Guard Outline Icon (matching Image 1 Header)
+ * Custom SVG Security Officer Outline Emblem (Matching Image 1 Circular Badge)
  */
-function SecurityOfficerIcon() {
+export function SecurityOfficerEmblem() {
   return (
     <svg
       viewBox="0 0 64 64"
-      width="38"
-      height="38"
+      width="44"
+      height="44"
       fill="none"
-      stroke="currentColor"
+      stroke="#3b629b"
       strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
     >
       {/* Officer Cap */}
-      <path d="M12 24 C14 17, 30 17, 32 24 L12 24 Z" fill="rgba(255,255,255,0.2)" />
-      <path d="M10 24 L34 24" />
-      <path d="M14 24 Q22 28 30 24" fill="currentColor" />
-      {/* Head & Face */}
-      <circle cx="22" cy="27" r="4.5" />
+      <path d="M14 23 C16 16, 32 16, 34 23 L14 23 Z" fill="rgba(74, 111, 165, 0.12)" />
+      <path d="M12 23 L36 23" />
+      <path d="M16 23 Q24 27 32 23" fill="#3b629b" />
+      {/* Head */}
+      <circle cx="24" cy="27" r="4.5" />
       {/* Saluting Hand & Arm */}
-      <path d="M8 38 L14 30 L22 25" />
+      <path d="M10 38 L16 30 L24 25" />
       {/* Shoulders & Torso */}
-      <path d="M12 48 L12 40 Q22 36 32 40 L32 48" />
+      <path d="M14 48 L14 40 Q24 36 34 40 L34 48" />
       {/* Rifle Silhouette on right */}
-      <line x1="39" y1="12" x2="39" y2="52" strokeWidth="2.5" />
-      <line x1="36" y1="16" x2="39" y2="12" strokeWidth="2" />
-      <rect x="37.5" y="22" width="3" height="14" rx="1.5" fill="currentColor" />
-      <path d="M37.5 44 L40.5 44 L40.5 52 L37.5 52 Z" fill="currentColor" />
+      <line x1="42" y1="12" x2="42" y2="52" strokeWidth="2.5" />
+      <line x1="39" y1="16" x2="42" y2="12" strokeWidth="2" />
+      <rect x="40.5" y="22" width="3" height="14" rx="1.5" fill="#3b629b" />
+      <path d="M40.5 44 L43.5 44 L43.5 52 L40.5 52 Z" fill="#3b629b" />
     </svg>
   );
 }
 
 /**
- * Official Stamp / Seal (matching Image 1 Back)
+ * Single Professional Employee ID Card (Matching Image 1)
  */
-function OfficialStampSeal() {
-  return (
-    <svg viewBox="0 0 100 100" className={styles.stampSvg}>
-      <circle cx="50" cy="50" r="46" fill="none" stroke="#113669" strokeWidth="2" />
-      <circle
-        cx="50"
-        cy="50"
-        r="42.5"
-        fill="none"
-        stroke="#113669"
-        strokeWidth="1"
-        strokeDasharray="2.5,2.5"
-      />
-      <circle cx="50" cy="50" r="29" fill="none" stroke="#113669" strokeWidth="1.8" />
-      <text
-        x="50"
-        y="47"
-        textAnchor="middle"
-        fill="#113669"
-        fontSize="12.5"
-        fontWeight="900"
-        fontFamily="sans-serif"
-      >
-        RRSF
-      </text>
-      <text
-        x="50"
-        y="58"
-        textAnchor="middle"
-        fill="#113669"
-        fontSize="7.5"
-        fontWeight="bold"
-        fontFamily="sans-serif"
-      >
-        ★★
-      </text>
-      <path id="sealPathTop" d="M 17,50 A 33,33 0 0,1 83,50" fill="none" />
-      <text fontSize="6.4" fontWeight="bold" fill="#113669" letterSpacing="0.6">
-        <textPath href="#sealPathTop" startOffset="50%" textAnchor="middle">
-          RR SECURITY &amp; FACILITIES
-        </textPath>
-      </text>
-      <path id="sealPathBottom" d="M 83,50 A 33,33 0 0,1 17,50" fill="none" />
-      <text fontSize="6.8" fontWeight="bold" fill="#113669" letterSpacing="0.8">
-        <textPath href="#sealPathBottom" startOffset="50%" textAnchor="middle">
-          NEW DELHI
-        </textPath>
-      </text>
-    </svg>
-  );
-}
+export function SingleIdCardItem({ record = {}, companyInfo = {} }) {
+  // Resolve configured company details dynamically
+  let savedSetup = {};
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
+    if (raw) savedSetup = JSON.parse(raw);
+  } catch (e) {}
 
-/**
- * Single Employee ID Card - FRONT
- */
-export function IdCardFrontItem({ record }) {
+  let adminCompanies = [];
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
+    if (raw) adminCompanies = JSON.parse(raw);
+  } catch (e) {}
+  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+
+  const recComp = record.companyInfo || {};
+
+  const companyName = (
+    recComp.name ||
+    recComp.companyName ||
+    record.companyName ||
+    companyInfo?.name ||
+    companyInfo?.companyName ||
+    savedSetup?.companyName ||
+    localDefaultComp?.name ||
+    'RR SECURITY & FACILITIES'
+  ).toUpperCase();
+
+  const companyAddress =
+    recComp.address ||
+    record.companyAddress ||
+    (companyInfo?.address && companyInfo.address !== '—' ? companyInfo.address : null) ||
+    savedSetup?.address ||
+    localDefaultComp?.address ||
+    'G-75/A, New Delhi, Badarpur,Block-G, M.B.Extn,Badarpur,NEW DELHI,110044';
+
+  const companyContactPhone =
+    recComp.phone ||
+    record.companyPhone ||
+    (companyInfo?.phone && companyInfo.phone !== '—' ? companyInfo.phone : null) ||
+    savedSetup?.phone ||
+    savedSetup?.contactNumber ||
+    localDefaultComp?.phone ||
+    '9891325151';
+
+  const companyContactEmail =
+    recComp.email ||
+    record.companyEmail ||
+    (companyInfo?.email && companyInfo.email !== '—' ? companyInfo.email : null) ||
+    savedSetup?.email ||
+    localDefaultComp?.email ||
+    'office.rrsf@gmail.com';
+
+  const logo =
+    recComp.logo ||
+    record.companyLogo ||
+    companyInfo?.logo ||
+    companyInfo?.logoUrl ||
+    savedSetup?.logo ||
+    localDefaultComp?.logo ||
+    '';
+
+  const name = record.name || record.employeeName || '—';
   const empCode = record.employeeCode || record.employeeId || '—';
-  const name = (record.name || record.employeeName || '—').toUpperCase();
-  const desigBadge = record.designationBadge || record.designation || 'Staff';
-  const phone = record.phone || record.mobile || '—';
+  const gender = record.gender || 'Female';
+  const bloodGroup = record.bloodGroup || record.blood || 'B+ve';
+  const designation = record.designation || 'Office Assistant';
+  const contactNo = record.contact || record.phone || record.mobile || '9891325151';
+  const email = record.email || (name && name !== '—' ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@gmail.com` : '—');
   const photo = record.photo || record.employeePhoto || '';
 
-  const qrData = `BEGIN:VCARD\nVERSION:3.0\nN:${name}\nFN:${name}\nORG:RR SECURITY & FACILITIES\nTITLE:${record.designation || 'Staff'}\nTEL:${phone}\nNOTE:EmpCode:${empCode}\nEND:VCARD`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=4&data=${encodeURIComponent(qrData)}`;
-
   return (
-    <div className={`${styles.idCard} ${styles.frontCard}`}>
-      {/* 1. Header with deep blue wave */}
-      <div className={styles.frontHeaderWrap}>
-        <div className={styles.frontHeaderContent}>
-          <div className={styles.guardIconWrap}>
-            <SecurityOfficerIcon />
-          </div>
-          <div className={styles.headerDividerLine} />
-          <div className={styles.companyTitleText}>
-            <span>RR SECURITY</span>
-            <span>&amp; FACILITIES</span>
-          </div>
-        </div>
-
-        {/* Curved Wave SVG */}
-        <svg
-          className={styles.headerWaveSvg}
-          viewBox="0 0 324 28"
-          preserveAspectRatio="none"
-          fill="none"
-        >
-          <path
-            d="M0,0 Q80,24 162,14 T324,20 L324,28 L0,28 Z"
-            fill="#3b82f6"
-            opacity="0.4"
-          />
-          <path
-            d="M0,0 Q100,26 180,12 T324,24 L324,28 L0,28 Z"
-            fill="#ffffff"
-          />
-        </svg>
-      </div>
-
-      {/* 2. Employee Photo */}
-      <div className={styles.photoContainer}>
-        <div className={styles.photoFrame}>
-          {photo ? (
-            <img src={photo} alt={name} className={styles.employeeImg} />
+    <div className={styles.singleCard} data-id-card="true">
+      {/* Top Section */}
+      <div className={styles.cardTopSection}>
+        {/* Emblem Badge */}
+        <div className={styles.emblemCircle}>
+          {logo ? (
+            <img src={logo} alt={companyName} className={styles.emblemLogoImg} />
           ) : (
-            <div className={styles.photoPlaceholder}>
-              <User size={64} color="#94a3b8" />
-            </div>
+            <SecurityOfficerEmblem />
           )}
         </div>
+
+        {/* Company Title */}
+        <div className={styles.companyTitle}>{companyName}</div>
+
+        {/* Employee Photo */}
+        {photo ? (
+          <img src={photo} alt={name} className={styles.photoCircle} />
+        ) : (
+          <div className={styles.photoPlaceholder}>
+            <User size={56} color="#94a3b8" />
+          </div>
+        )}
+
+        {/* Employee Name */}
+        <div className={styles.empName}>{name}</div>
+
+        {/* Employee Code */}
+        <div className={styles.empCode}>{empCode}</div>
       </div>
 
-      {/* 3. Details */}
-      <div className={styles.empCode}>Emp. Code : {empCode}</div>
-      <h3 className={styles.empName}>{name}</h3>
+      {/* Two-Column Details Grid */}
+      <div className={styles.detailsGrid}>
+        {/* Left Column */}
+        <div className={styles.leftCol}>
+          <div className={styles.metricBlock}>
+            <span className={styles.metricLabel}>Gender</span>
+            <span className={styles.metricValue}>{gender}</span>
+          </div>
 
-      <div>
-        <span className={styles.designationBadge}>{desigBadge}</span>
-      </div>
+          <div className={styles.metricBlock}>
+            <span className={styles.metricLabel}>Designation</span>
+            <span className={styles.metricValue}>{designation}</span>
+          </div>
 
-      <div className={styles.phoneRow}>
-        <span className={styles.phoneIcon}>
-          <Phone size={14} fill="#991b1b" strokeWidth={1} />
-        </span>
-        <span>{phone}</span>
-      </div>
+          <div className={styles.metricBlock}>
+            <span className={styles.metricLabel}>Email</span>
+            <span className={styles.metricValueSmall}>{email}</span>
+          </div>
+        </div>
 
-      {/* 4. QR Code with Google Badge Accent */}
-      <div className={styles.qrWrapper}>
-        <div className={styles.qrContainer}>
-          <img src={qrUrl} alt="Employee QR Code" className={styles.qrImg} />
-          <span className={styles.qrGoogleG}>G</span>
+        {/* Right Column */}
+        <div className={styles.rightCol}>
+          <div className={styles.metricBlock}>
+            <span className={styles.metricLabel}>Blood Group</span>
+            <span className={styles.metricValue}>{bloodGroup}</span>
+          </div>
+
+          <div className={styles.metricBlock}>
+            <span className={styles.metricLabel}>Contact No</span>
+            <span className={styles.metricValue}>{contactNo}</span>
+          </div>
         </div>
       </div>
 
-      {/* 5. Footer Blue Wave */}
-      <div className={styles.frontFooterWave} />
+      {/* Bottom Footer */}
+      <div className={styles.cardFooter}>
+        <div className={styles.footerAddress}>{companyAddress}</div>
+        <div className={styles.footerContact}>
+          {companyContactPhone} | Email: {companyContactEmail}
+        </div>
+      </div>
     </div>
   );
 }
 
 /**
- * Single Employee ID Card - BACK
- */
-export function IdCardBackItem({ record }) {
-  const emergencyPhone = record.emergencyPhone || '—';
-  const dateOfIssue = record.dateOfIssue || '—';
-  const dob = record.dob || '—';
-  const aadhaar = record.aadhaar || '—';
-  const companyAddress =
-    record.companyAddress ||
-    'Office: G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
-  const companyPhone = record.companyPhone || '9891325151, 9891325252';
-  const companyEmail = record.companyEmail || 'Office.rrsf@gmail.com';
-  const companyWebsite = record.companyWebsite || 'www.rrsfindia.com';
-
-  return (
-    <div className={`${styles.idCard} ${styles.backCard}`}>
-      {/* Top Wave */}
-      <div className={styles.backWaveTop} />
-
-      {/* Emergency Contact */}
-      <div className={styles.emergencyHeader}>EMERGENCY CONTACT</div>
-      <div className={styles.emergencyPhoneRow}>
-        <Phone size={17} fill="#991b1b" strokeWidth={1} />
-        <span>{emergencyPhone}</span>
-      </div>
-
-      {/* Details Table */}
-      <div className={styles.detailsTableWrap}>
-        <table className={styles.detailsTable}>
-          <tbody>
-            <tr>
-              <td className={styles.detailLabelCol}>Date Of Issue</td>
-              <td className={styles.detailColonCol}>:</td>
-              <td className={styles.detailValCol}>{dateOfIssue}</td>
-            </tr>
-            <tr>
-              <td className={styles.detailLabelCol}>D.O.B</td>
-              <td className={styles.detailColonCol}>:</td>
-              <td className={styles.detailValCol}>{dob}</td>
-            </tr>
-            <tr>
-              <td className={styles.detailLabelCol}>Addhar No.</td>
-              <td className={styles.detailColonCol}>:</td>
-              <td className={styles.detailValCol}>{aadhaar}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      {/* Authorised Signature & Stamp Seal */}
-      <div className={styles.sigSealRow}>
-        <div className={styles.sigBlock}>
-          <span className={styles.signatureScript}>Kashish</span>
-          <span className={styles.sigTitle}>Authorised Signature</span>
-        </div>
-        <div className={styles.stampSealWrap}>
-          <OfficialStampSeal />
-        </div>
-      </div>
-
-      {/* Emergency Communication Address */}
-      <div className={styles.addressSection}>
-        <div className={styles.addressHeader}>
-          ADDRESS FOR COMMUNICATION IN CASE OF EMERGENCY
-        </div>
-        <div className={styles.companyNameSlab}>RR SECURITY &amp; FACILITIES</div>
-
-        <div className={styles.addressItemsList}>
-          <div className={styles.addressRow}>
-            <MapPin size={13} className={styles.addrIcon} />
-            <span>{companyAddress}</span>
-          </div>
-          <div className={styles.addressRow}>
-            <Phone size={13} className={styles.addrIcon} />
-            <span>{companyPhone}</span>
-          </div>
-          <div className={styles.addressRow}>
-            <Mail size={13} className={styles.addrIcon} />
-            <span>{companyEmail}</span>
-          </div>
-          <div className={styles.addressRow}>
-            <Globe size={13} className={styles.addrIcon} />
-            <span>{companyWebsite}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom Wave */}
-      <div className={styles.backWaveBottom} />
-    </div>
-  );
-}
-
-/**
- * Main Dynamic Employee ID Card Report View
+ * Main Employee ID Card Report View
  */
 export default function EmployeeIdCardReportView({
   records = [],
   companyInfo = {},
   filters = {},
 }) {
-  const [viewMode, setViewMode] = useState('both'); // 'both' | 'front' | 'back'
-
   const selectedEmpFilter = filters?.employee;
   const isAllEmployees = !selectedEmpFilter || selectedEmpFilter === 'All Employees';
 
@@ -344,53 +248,29 @@ export default function EmployeeIdCardReportView({
   }
 
   return (
-    <div className={styles.container}>
-      {/* Controls Bar for Front/Back preview */}
+    <div className={styles.container} id="report-preview-capture-area">
+      {/* Controls Bar */}
       <div className={styles.controlsBar}>
         <div className={styles.controlsLeft}>
-          <CreditCard size={16} color="#2563eb" />
-          <span>
-            Displaying {employeesToRender.length}{' '}
-            {employeesToRender.length === 1 ? 'ID Card' : 'ID Cards'}
+          <CreditCard size={18} color="#2563eb" />
+          <span>Employee Identity Cards</span>
+          <span className={styles.cardCountBadge}>
+            {employeesToRender.length}{' '}
+            {employeesToRender.length === 1 ? 'Card' : 'Cards'}
           </span>
-        </div>
-
-        <div className={styles.viewModeGroup}>
-          <button
-            type="button"
-            className={`${styles.modeBtn} ${viewMode === 'both' ? styles.modeBtnActive : ''}`}
-            onClick={() => setViewMode('both')}
-          >
-            Front &amp; Back
-          </button>
-          <button
-            type="button"
-            className={`${styles.modeBtn} ${viewMode === 'front' ? styles.modeBtnActive : ''}`}
-            onClick={() => setViewMode('front')}
-          >
-            Front Side
-          </button>
-          <button
-            type="button"
-            className={`${styles.modeBtn} ${viewMode === 'back' ? styles.modeBtnActive : ''}`}
-            onClick={() => setViewMode('back')}
-          >
-            Back Side
-          </button>
         </div>
       </div>
 
       {/* Cards Display Grid */}
-      {employeesToRender.map((emp, idx) => (
-        <div key={emp.employeeId || emp.employeeCode || idx} className={styles.cardsPairWrapper}>
-          {(viewMode === 'both' || viewMode === 'front') && (
-            <IdCardFrontItem record={emp} />
-          )}
-          {(viewMode === 'both' || viewMode === 'back') && (
-            <IdCardBackItem record={emp} />
-          )}
-        </div>
-      ))}
+      <div className={styles.cardsGrid}>
+        {employeesToRender.map((emp, idx) => (
+          <SingleIdCardItem
+            key={emp.employeeId || emp.employeeCode || idx}
+            record={emp}
+            companyInfo={companyInfo}
+          />
+        ))}
+      </div>
     </div>
   );
 }
