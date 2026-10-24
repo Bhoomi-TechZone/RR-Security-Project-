@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Employee from '../models/employeeModel.js';
 import Attendance from '../models/attendanceModel.js';
 import Company from '../models/companyModel.js';
@@ -40,35 +41,83 @@ const getMonthLabel = (monthStr) => {
   return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 };
 
+const isValidStatutoryCode = (val) => {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  return (
+    trimmed !== '' &&
+    trimmed !== '—' &&
+    trimmed !== '-' &&
+    trimmed !== 'null' &&
+    trimmed !== 'undefined' &&
+    trimmed !== 'N/A' &&
+    trimmed !== 'NA'
+  );
+};
+
 // Dynamic Company Branding Resolver (Strictly from MongoDB)
 const resolveCompanyBranding = async (companyId) => {
   let compDoc = null;
-  if (companyId) {
+  if (companyId && companyId !== 'undefined' && companyId !== 'null' && companyId !== 'All Companies') {
+    const isObjId = (typeof mongoose !== 'undefined' && mongoose?.isValidObjectId)
+      ? mongoose.isValidObjectId(companyId)
+      : (typeof companyId === 'string' && /^[0-9a-fA-F]{24}$/.test(companyId));
     compDoc = await Company.findOne({
-      $or: [{ _id: companyId }, { companyId }],
+      $or: [
+        ...(isObjId ? [{ _id: companyId }] : []),
+        { companyId },
+        { code: companyId },
+      ],
     }).lean().catch(() => null);
   }
   if (!compDoc) {
-    compDoc = await Company.findOne({}).lean().catch(() => null);
+    compDoc = await Company.findOne({ isDefault: true }).lean().catch(() => null);
   }
-  const name = compDoc?.name || compDoc?.companyName || '—';
+  if (!compDoc) {
+    compDoc = await Company.findOne({}).sort({ updatedAt: -1 }).lean().catch(() => null);
+  }
+
+  const name = compDoc?.name || compDoc?.companyName || 'RR Security & Facilities';
   const fullAddress = [
     compDoc?.address || compDoc?.registeredAddress,
     compDoc?.city,
     compDoc?.state,
     compDoc?.pinCode,
   ].filter(Boolean).join(', ');
-  const address = fullAddress || compDoc?.address || compDoc?.registeredAddress || '—';
+  const address = fullAddress || compDoc?.address || compDoc?.registeredAddress || 'G-75/A, Ground Floor, Block-G, M.B. Extn., Badarpur, New Delhi-110044';
+  
+  const pfCandidates = [
+    compDoc?.employerPfCode,
+    compDoc?.pfCode,
+    compDoc?.pfNo,
+    compDoc?.epfNo,
+    compDoc?.compliance?.employerPfCode,
+    compDoc?.compliance?.pfNo,
+  ];
+  const validPf = pfCandidates.find(isValidStatutoryCode) || compDoc?.employerPfCode || compDoc?.pfCode || '';
+
+  const esiCandidates = [
+    compDoc?.employerEsiCode,
+    compDoc?.esiCode,
+    compDoc?.esicNo,
+    compDoc?.esiNo,
+    compDoc?.compliance?.employerEsiCode,
+    compDoc?.compliance?.esiNo,
+  ];
+  const validEsi = esiCandidates.find(isValidStatutoryCode) || compDoc?.employerEsiCode || compDoc?.esiCode || '';
+
   return {
     doc: compDoc,
     name,
     address,
     regdOffice: compDoc?.registeredAddress || address,
-    phone: compDoc?.phone || '—',
+    phone: compDoc?.phone || compDoc?.contactNumber || '—',
     email: compDoc?.email || '—',
     website: compDoc?.website || '—',
-    pfNo: compDoc?.pfNo || '—',
-    esiNo: compDoc?.esicNo || compDoc?.esiNo || '—',
+    pfNo: validPf,
+    esiNo: validEsi,
+    employerPfCode: validPf,
+    employerEsiCode: validEsi,
     pan: compDoc?.pan || '—',
     gstin: compDoc?.gstin || '—',
     bankName: compDoc?.bankName || '—',
@@ -83,7 +132,7 @@ const resolveCompanyBranding = async (companyId) => {
 // Dynamic Establishment / Principal Employer Resolver (Strictly from MongoDB Client & Employee)
 const resolveEstablishmentInfo = async (companyParam, employeeList = [], companyId = null) => {
   let clientDoc = null;
-  if (companyParam && companyParam !== 'All Companies') {
+  if (companyParam && companyParam !== 'All Companies' && companyParam !== 'All Clients' && companyParam !== 'All Companies & Clients') {
     clientDoc = await Client.findOne({
       ...(companyId ? { companyId } : {}),
       $or: [
@@ -191,38 +240,65 @@ export const getFilterOptions = async (req, res) => {
   try {
     const user = req.user;
     const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
-    const query = companyId ? { companyId } : {};
-
     const adminEmail = user?.email?.toLowerCase();
-    const clientQuery = {};
-    if (companyId) {
-      clientQuery.$or = [{ companyId }, { adminEmail }];
-    } else if (adminEmail) {
-      clientQuery.adminEmail = adminEmail;
+
+    // 1. Resolve company IDs for this company admin
+    let companyIds = companyId ? [companyId] : [];
+    try {
+      const comp = await Company.findOne({
+        $or: [
+          ...(companyId ? [
+            { companyId },
+            ...(mongoose.Types.ObjectId.isValid(companyId) ? [{ _id: companyId }] : [])
+          ] : []),
+          ...(adminEmail ? [{ adminEmail }] : [])
+        ]
+      }).lean();
+      if (comp) {
+        companyIds = Array.from(new Set([...companyIds, comp.companyId, comp._id?.toString(), comp.code])).filter(Boolean);
+      }
+    } catch {}
+
+    // 2. Client query strictly scoped to logged in admin and active company
+    const clientQueryConditions = [];
+    if (adminEmail) {
+      clientQueryConditions.push({ adminEmail });
     }
+    if (companyIds.length > 0) {
+      clientQueryConditions.push({ companyId: { $in: companyIds } });
+    }
+    const clientQuery = clientQueryConditions.length > 0 ? { $or: clientQueryConditions } : {};
+
+    // 3. Employee query strictly scoped to logged in admin / active company
+    const empQueryConditions = [];
+    if (companyIds.length > 0) {
+      empQueryConditions.push({ companyId: { $in: companyIds } });
+    }
+    if (adminEmail) {
+      empQueryConditions.push({ adminEmail });
+    }
+    const employeeQuery = empQueryConditions.length > 0 ? { $or: empQueryConditions } : (companyId ? { companyId } : {});
 
     const [companies, employees, rawClients, masters, invCategories, invTypes] = await Promise.all([
-      Company.find({}).select('companyId name code address gstin pan pfNo esicNo phone email').lean(),
-      Employee.find(query).select('employeeId employeeCode name department designation companyId companyName clientName site siteLocation status grossSalary basic hra').sort({ name: 1 }).lean(),
-      Client.find(clientQuery).select('clientId name companyId address location contactPerson').sort({ name: 1 }).lean(),
-      Master.find({ type: { $in: ['department', 'designation'] } }).lean(),
-      InventoryItem.distinct('category', query).catch(() => []),
-      InventoryItem.distinct('itemType', query).catch(() => []),
+      Company.find(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, ...(adminEmail ? [{ adminEmail }] : [])] } : {}).select('companyId name code address gstin pan pfNo esicNo phone email').lean(),
+      Employee.find(employeeQuery).select('employeeId employeeCode name department designation companyId companyName clientId clientName site siteLocation status grossSalary basic hra').sort({ name: 1 }).lean(),
+      Client.find(clientQuery).select('clientId name companyId adminEmail address location contactPerson').sort({ name: 1 }).lean(),
+      Master.find({ type: { $in: ['department', 'departments', 'designation', 'designations', 'sites', 'site'] } }).lean(),
+      InventoryItem.distinct('category', companyIds.length > 0 ? { companyId: { $in: companyIds } } : {}).catch(() => []),
+      InventoryItem.distinct('itemType', companyIds.length > 0 ? { companyId: { $in: companyIds } } : {}).catch(() => []),
     ]);
 
-    // Ensure fallback to all clients if empty for this companyId/adminEmail
-    let clientsList = rawClients && rawClients.length > 0
-      ? rawClients
-      : await Client.find({}).select('clientId name companyId address location contactPerson').sort({ name: 1 }).lean();
+    // Strictly clients of this company admin (NO fallback to global Client.find({}))
+    let clientsList = rawClients && rawClients.length > 0 ? rawClients : [];
 
-    // Also include any distinct clientName / site from active employees
+    // Also include any distinct clientName / site from active employees belonging to this company/admin
     const clientNameSet = new Set(clientsList.map((c) => (c.name || '').trim().toLowerCase()));
     employees.forEach((emp) => {
       const cName = (emp.clientName || emp.site || '').trim();
       if (cName && !clientNameSet.has(cName.toLowerCase())) {
         clientNameSet.add(cName.toLowerCase());
         clientsList.push({
-          clientId: `CLI-${cName.substring(0, 3).toUpperCase()}`,
+          clientId: emp.clientId || `CLI-${cName.substring(0, 3).toUpperCase()}`,
           name: cName,
           address: emp.siteLocation || emp.site || '',
           companyId: emp.companyId || companyId || '',
@@ -232,13 +308,32 @@ export const getFilterOptions = async (req, res) => {
 
     // Extract distinct departments from DB
     const empDepts = employees.map((e) => e.department).filter(Boolean);
-    const masterDepts = masters.filter((m) => m.type === 'department').map((m) => m.name);
+    const masterDepts = masters.filter((m) => m.type === 'department' || m.type === 'departments').map((m) => m.name);
     const departments = Array.from(new Set([...empDepts, ...masterDepts])).filter(Boolean);
 
     // Extract distinct designations from DB
     const empDesigs = employees.map((e) => e.designation).filter(Boolean);
-    const masterDesigs = masters.filter((m) => m.type === 'designation').map((m) => m.name);
+    const masterDesigs = masters.filter((m) => m.type === 'designation' || m.type === 'designations').map((m) => m.name);
     const designations = Array.from(new Set([...empDesigs, ...masterDesigs])).filter(Boolean);
+
+    // Extract structured master sites
+    const masterSitesList = masters
+      .filter((m) => m.type === 'sites' || m.type === 'site')
+      .map((m) => ({
+        name: (m.name || '').trim(),
+        code: (m.code || '').trim(),
+        clientId: (m.clientId || '').trim(),
+        clientName: (m.clientName || '').trim(),
+        city: (m.city || '').trim(),
+        address: (m.address || '').trim(),
+        workLocationName: (m.workLocationName || '').trim(),
+      }))
+      .filter((s) => s.name);
+
+    // Extract distinct sites from DB (strict master sites + employee site names, no street addresses)
+    const empSites = employees.map((e) => (e.site || '').trim()).filter(Boolean);
+    const masterSiteNames = masterSitesList.map((m) => m.name);
+    const sites = Array.from(new Set([...masterSiteNames, ...empSites])).filter(Boolean);
 
     // Extract categories
     const categories = Array.from(new Set([...invCategories, 'Uniform', 'Asset', 'Equipment', 'Security Gear', 'Accessories'])).filter(Boolean);
@@ -250,16 +345,24 @@ export const getFilterOptions = async (req, res) => {
       clients: clientsList,
       departments,
       designations,
+      sites,
+      siteRecords: masterSitesList,
       inventoryCategories: categories,
       inventoryTypes: itemTypes,
       employees: employees.map((emp) => ({
         id: emp.employeeId,
         employeeId: emp.employeeId,
+        employeeCode: emp.employeeCode,
         name: emp.name,
         label: `${emp.name} — ${emp.employeeId || emp.employeeCode}`,
         department: emp.department,
         designation: emp.designation,
-        companyName: emp.companyName || emp.clientName,
+        companyId: emp.companyId,
+        companyName: emp.companyName || '',
+        clientId: emp.clientId || '',
+        clientName: emp.clientName || '',
+        site: emp.site || '',
+        siteLocation: emp.siteLocation || '',
       })),
     });
   } catch (error) {
@@ -278,7 +381,7 @@ export const getPayrollReport = async (req, res) => {
     const user = req.user;
     const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
     const month = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
-    const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
+    const { department, employee: selectedEmployee, company: selectedCompany, site: selectedSite, search } = req.query;
 
     // 1. Fetch Company details dynamically from DB
     const branding = await resolveCompanyBranding(companyId);
@@ -292,23 +395,70 @@ export const getPayrollReport = async (req, res) => {
         ],
       }).lean().catch(() => null);
       if (specificComp) {
+        const compPf = [
+          specificComp.employerPfCode,
+          specificComp.pfNo,
+          specificComp.pfCode,
+          specificComp.epfNo,
+        ].find(isValidStatutoryCode);
+        const compEsi = [
+          specificComp.employerEsiCode,
+          specificComp.esicNo,
+          specificComp.esiNo,
+          specificComp.esiCode,
+        ].find(isValidStatutoryCode);
         activeCompanyBranding = {
           ...branding,
           name: specificComp.name || specificComp.companyName || branding.name,
           address: specificComp.address || specificComp.registeredAddress || branding.address,
-          pfNo: specificComp.pfNo || branding.pfNo,
-          esiNo: specificComp.esicNo || specificComp.esiNo || branding.esiNo,
+          pfNo: compPf || branding.pfNo,
+          esiNo: compEsi || branding.esiNo,
+          employerPfCode: compPf || branding.employerPfCode,
+          employerEsiCode: compEsi || branding.employerEsiCode,
           pan: specificComp.pan || branding.pan,
           gstin: specificComp.gstin || branding.gstin,
         };
+      } else {
+        const specificClient = await Client.findOne({
+          $or: [
+            { name: selectedCompany },
+            { clientName: selectedCompany },
+            { clientId: selectedCompany },
+          ],
+        }).lean().catch(() => null);
+        if (specificClient) {
+          const clientPf = [
+            specificClient.compliance?.pfNo,
+            specificClient.compliance?.pfCode,
+            specificClient.compliance?.employerPfCode,
+            specificClient.pfNo,
+          ].find(isValidStatutoryCode);
+          const clientEsi = [
+            specificClient.compliance?.esiNo,
+            specificClient.compliance?.esicNo,
+            specificClient.compliance?.employerEsiCode,
+            specificClient.esiNo,
+          ].find(isValidStatutoryCode);
+          if (clientPf || clientEsi) {
+            activeCompanyBranding = {
+              ...branding,
+              pfNo: clientPf || branding.pfNo,
+              esiNo: clientEsi || branding.esiNo,
+              employerPfCode: clientPf || branding.employerPfCode,
+              employerEsiCode: clientEsi || branding.employerEsiCode,
+            };
+          }
+        }
       }
     }
 
     const companyInfo = {
       name: activeCompanyBranding.name,
       address: activeCompanyBranding.address,
-      pfNo: activeCompanyBranding.pfNo,
-      esiNo: activeCompanyBranding.esiNo,
+      pfNo: activeCompanyBranding.pfNo || activeCompanyBranding.employerPfCode || '',
+      esiNo: activeCompanyBranding.esiNo || activeCompanyBranding.employerEsiCode || '',
+      employerPfCode: activeCompanyBranding.employerPfCode || activeCompanyBranding.pfNo || '',
+      employerEsiCode: activeCompanyBranding.employerEsiCode || activeCompanyBranding.esiNo || '',
       pan: activeCompanyBranding.pan,
       gstin: activeCompanyBranding.gstin,
     };
@@ -319,6 +469,18 @@ export const getPayrollReport = async (req, res) => {
 
     if (department && department !== 'All Departments') {
       andList.push({ department });
+    }
+
+    if (selectedSite && selectedSite !== 'All Sites') {
+      const safeSite = selectedSite.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      andList.push({
+        $or: [
+          { site: selectedSite },
+          { siteLocation: selectedSite },
+          { site: { $regex: new RegExp(safeSite, 'i') } },
+          { siteLocation: { $regex: new RegExp(safeSite, 'i') } },
+        ],
+      });
     }
 
     if (selectedEmployee && selectedEmployee !== 'All Employees') {
@@ -2483,29 +2645,24 @@ export const getEmployeeIdCardReport = async (req, res) => {
     const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
-    // 1. Resolve Company Info
+    // 1. Resolve Company Info strictly dynamically from MongoDB
+    const branding = await resolveCompanyBranding(companyId);
     const [allCompanies, allClients] = await Promise.all([
       Company.find({}).lean(),
       Client.find(companyId ? { companyId } : {}).lean(),
     ]);
 
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies[0] ||
-      null;
-
     const defaultCompanyInfo = {
-      name: primaryCompany?.name || 'RR SECURITY & FACILITIES',
-      address:
-        primaryCompany?.address ||
-        'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044',
-      phone: '9891325151, 9891325252',
-      emergencyPhone: '8750512625',
-      email: 'Office.rrsf@gmail.com',
-      website: 'www.rrsfindia.com',
-      city: primaryCompany?.city || 'New Delhi',
-      state: primaryCompany?.state || 'Delhi',
-      pinCode: primaryCompany?.pinCode || '110044',
+      name: branding.name,
+      address: branding.address,
+      phone: branding.phone,
+      emergencyPhone: branding.doc?.emergencyPhone || branding.phone,
+      email: branding.email,
+      website: branding.website,
+      logo: branding.logo,
+      city: branding.doc?.city || '',
+      state: branding.doc?.state || '',
+      pinCode: branding.doc?.pinCode || '',
     };
 
     // 2. Build Employee Filter
@@ -2560,20 +2717,28 @@ export const getEmployeeIdCardReport = async (req, res) => {
       const empCompName = emp.companyName || emp.clientName || '';
       const matchedComp =
         allCompanies.find(
-          (c) => c.name?.toLowerCase() === empCompName.toLowerCase() || c.companyId === emp.companyId
+          (c) => (c.name && empCompName && c.name.toLowerCase() === empCompName.toLowerCase()) || (c.companyId && emp.companyId && c.companyId === emp.companyId)
         ) ||
         allClients.find(
-          (cl) => cl.name?.toLowerCase() === empCompName.toLowerCase() || cl.clientId === emp.clientId
+          (cl) => (cl.name && empCompName && cl.name.toLowerCase() === empCompName.toLowerCase()) || (cl.clientId && emp.clientId && cl.clientId === emp.clientId)
         ) ||
-        primaryCompany;
+        branding.doc ||
+        null;
+
+      const compFullAddress = [
+        matchedComp?.address || matchedComp?.registeredAddress,
+        matchedComp?.city,
+        matchedComp?.state,
+        matchedComp?.pinCode,
+      ].filter(Boolean).join(', ') || defaultCompanyInfo.address;
 
       const empCompanyInfo = {
-        name: (matchedComp?.name || defaultCompanyInfo.name).toUpperCase(),
-        address: defaultCompanyInfo.address,
-        phone: defaultCompanyInfo.phone,
-        emergencyPhone: defaultCompanyInfo.emergencyPhone,
-        email: defaultCompanyInfo.email,
-        website: defaultCompanyInfo.website,
+        name: (matchedComp?.name || matchedComp?.companyName || matchedComp?.clientName || defaultCompanyInfo.name).toUpperCase(),
+        address: compFullAddress,
+        phone: matchedComp?.phone || matchedComp?.contactNumber || matchedComp?.mobile || defaultCompanyInfo.phone,
+        email: matchedComp?.email || defaultCompanyInfo.email,
+        website: matchedComp?.website || defaultCompanyInfo.website,
+        logo: matchedComp?.logo || matchedComp?.logoUrl || defaultCompanyInfo.logo,
       };
 
       // Format Date of Issue
@@ -2651,11 +2816,16 @@ export const getEmployeeIdCardReport = async (req, res) => {
         dob,
         aadhaar,
         photo,
+        gender: emp.gender || '—',
+        bloodGroup: emp.bloodGroup || '—',
+        email: emp.email || '—',
+        contact: phone,
         companyName: empCompanyInfo.name,
         companyAddress: empCompanyInfo.address,
         companyPhone: empCompanyInfo.phone,
         companyEmail: empCompanyInfo.email,
         companyWebsite: empCompanyInfo.website,
+        companyLogo: empCompanyInfo.logo,
         companyInfo: empCompanyInfo,
       };
     });

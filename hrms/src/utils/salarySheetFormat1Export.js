@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * Statutory Wage / Salary Register (Salary Sheet Format 1) Exporter
@@ -24,10 +25,47 @@ export const downloadSalarySheetFormat1Excel = (
   deductionSummary = {},
   options = {}
 ) => {
-  const companyName = companyInfo?.name || companyInfo?.companyName || '—';
-  const companyAddress = companyInfo?.address || '—';
-  const pfNo = companyInfo?.pfNo || '—';
-  const esiNo = companyInfo?.esiNo || companyInfo?.esicNo || '—';
+  const companyName = companyInfo?.name || companyInfo?.companyName || 'RR Security & Facilities';
+  const companyAddress =
+    companyInfo?.address && companyInfo.address !== '—'
+      ? companyInfo.address
+      : 'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
+  let savedSetup = {};
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
+    if (raw) savedSetup = JSON.parse(raw);
+  } catch (e) {}
+
+  let adminCompanies = [];
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
+    if (raw) adminCompanies = JSON.parse(raw);
+  } catch (e) {}
+  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+
+  const cleanPf = [
+    companyInfo?.employerPfCode,
+    companyInfo?.pfCode,
+    companyInfo?.pfNo,
+    companyInfo?.epfNo,
+    savedSetup?.employerPfCode,
+    savedSetup?.pfCode,
+    localDefaultComp?.employerPfCode,
+    localDefaultComp?.pfCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const pfNo = cleanPf || '—';
+
+  const cleanEsi = [
+    companyInfo?.employerEsiCode,
+    companyInfo?.esiCode,
+    companyInfo?.esicNo,
+    companyInfo?.esiNo,
+    savedSetup?.employerEsiCode,
+    savedSetup?.esiCode,
+    localDefaultComp?.employerEsiCode,
+    localDefaultComp?.esiCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const esiNo = cleanEsi || '—';
   const monthLabel = period?.monthLabel || period?.month || 'Current Month';
   const toDate = period?.toDate || new Date().toISOString().slice(0, 10);
 
@@ -235,7 +273,7 @@ export const downloadSalarySheetFormat1Csv = (records, companyInfo, period, tota
   downloadSalarySheetFormat1Excel(records, companyInfo, period, totals, pfSummary, esiSummary, ptSummary, earningSummary, deductionSummary, { format: 'csv' });
 };
 
-export const downloadSalarySheetFormat1Pdf = (
+export const downloadSalarySheetFormat1Pdf = async (
   records = [],
   companyInfo = {},
   period = {},
@@ -247,10 +285,63 @@ export const downloadSalarySheetFormat1Pdf = (
   deductionSummary = {},
   options = {}
 ) => {
-  const companyName = companyInfo?.name || companyInfo?.companyName || '—';
-  const companyAddress = companyInfo?.address || '—';
-  const pfNo = companyInfo?.pfNo || '—';
-  const esiNo = companyInfo?.esiNo || companyInfo?.esicNo || '—';
+  // Live preview capture for exact styling/layout parity
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="SalarySheetFormat1View_paperSheet"]');
+    if (previewEl) {
+      const cleanMonth = (period?.monthLabel || period?.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename: `Wage_Salary_Register_${cleanMonth}.pdf`,
+        title: 'Wage/Salary Register',
+        mode: options.mode || 'download',
+        orientation: 'landscape',
+        format: 'a3',
+      });
+      if (ok) return;
+    }
+  }
+
+  const companyName = companyInfo?.name || companyInfo?.companyName || 'RR Security & Facilities';
+  const companyAddress =
+    companyInfo?.address && companyInfo.address !== '—'
+      ? companyInfo.address
+      : 'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
+  let savedSetup = {};
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
+    if (raw) savedSetup = JSON.parse(raw);
+  } catch (e) {}
+
+  let adminCompanies = [];
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
+    if (raw) adminCompanies = JSON.parse(raw);
+  } catch (e) {}
+  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+
+  const cleanPf = [
+    companyInfo?.employerPfCode,
+    companyInfo?.pfCode,
+    companyInfo?.pfNo,
+    companyInfo?.epfNo,
+    savedSetup?.employerPfCode,
+    savedSetup?.pfCode,
+    localDefaultComp?.employerPfCode,
+    localDefaultComp?.pfCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const pfNo = cleanPf || '—';
+
+  const cleanEsi = [
+    companyInfo?.employerEsiCode,
+    companyInfo?.esiCode,
+    companyInfo?.esicNo,
+    companyInfo?.esiNo,
+    savedSetup?.employerEsiCode,
+    savedSetup?.esiCode,
+    localDefaultComp?.employerEsiCode,
+    localDefaultComp?.esiCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const esiNo = cleanEsi || '—';
   const monthLabel = period?.monthLabel || period?.month || 'Current Month';
   const toDate = period?.toDate || new Date().toISOString().slice(0, 10);
 
@@ -427,132 +518,180 @@ export const downloadSalarySheetFormat1Pdf = (
     },
   });
 
-  // Bottom Summary Tables from Image 3
-  const finalY = doc.lastAutoTable.finalY + 15;
+  // Dedicated Page 2: Statutory Summary & Reconciliation Sheet
+  doc.addPage('a3', 'landscape');
+
+  // Page 2 Header
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text(companyName, 30, 32);
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(companyAddress, 30, 44);
+
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('WAGE / SALARY REGISTER — STATUTORY SUMMARY & RECONCILIATION STATEMENT', 590, 44, { align: 'center' });
+
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`PF No :- ${pfNo}   |   ESI No :- ${esiNo}   |   Date of Payment :- ${toDate}`, 30, 60);
+  doc.text(`For The Month Of: ${monthLabel}${clientName ? `   |   Client: ${clientName}` : ''}`, 1150, 60, { align: 'right' });
+
+  const finalY = 72;
 
   // 1. PF Summary Table
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('PF SUMMARY', 30, finalY);
+  doc.text('PF SUMMARY STATEMENT', 30, finalY);
 
   autoTable(doc, {
     startY: finalY + 4,
     margin: { left: 30 },
     tableWidth: 420,
     head: [
-      ['PF Wages', 'Strn.', 'EE', 'ER (Diff)', 'A/C - 1', 'A/C 10', 'A/C 2', 'A/C - 21', 'A/C - 22', 'Total'],
+      ['PF Wages', 'Strn.', 'EE (12%)', 'ER (Diff)', 'A/C - 1', 'A/C 10', 'A/C 2', 'A/C - 21', 'A/C - 22', 'Total'],
     ],
     body: [
       [
-        pfSummary.pfWages || 0,
+        (pfSummary.pfWages || 0).toLocaleString('en-IN'),
         pfSummary.strn || 0,
-        pfSummary.ee || 0,
-        pfSummary.erDiff || 0,
-        pfSummary.ac1 || 0,
-        pfSummary.ac10 || 0,
-        pfSummary.ac2 || 0,
-        pfSummary.ac21 || 0,
-        pfSummary.ac22 || 0,
-        pfSummary.total || 0,
+        (pfSummary.ee || 0).toLocaleString('en-IN'),
+        (pfSummary.erDiff || 0).toLocaleString('en-IN'),
+        (pfSummary.ac1 || 0).toLocaleString('en-IN'),
+        (pfSummary.ac10 || 0).toLocaleString('en-IN'),
+        (pfSummary.ac2 || 0).toLocaleString('en-IN'),
+        (pfSummary.ac21 || 0).toLocaleString('en-IN'),
+        (pfSummary.ac22 || 0).toLocaleString('en-IN'),
+        (pfSummary.total || 0).toLocaleString('en-IN'),
       ],
       [
-        pfSummary.pfWages || 0,
+        (pfSummary.pfWages || 0).toLocaleString('en-IN'),
         '',
         '',
         '',
         '',
         '',
         '',
-        pfSummary.pfWages || 0,
+        (pfSummary.pfWages || 0).toLocaleString('en-IN'),
         '',
         '',
       ],
     ],
     theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
+    headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
   });
 
   // 2. ESI Summary Table
-  const esiY = doc.lastAutoTable.finalY + 10;
-  doc.text('ESI Summary', 30, esiY);
+  const esiY = doc.lastAutoTable.finalY + 12;
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('ESI SUMMARY', 30, esiY);
 
   autoTable(doc, {
     startY: esiY + 4,
     margin: { left: 30 },
-    tableWidth: 280,
-    head: [['ESI Wages', 'Strn', 'EE Share', 'ER.Share', 'Total ESI']],
+    tableWidth: 260,
+    head: [['ESI Wages', 'Strn', 'EE Share (0.75%)', 'ER.Share (3.25%)', 'Total ESI (4%)']],
     body: [
       [
-        esiSummary.esiWages || 0,
+        (esiSummary.esiWages || 0).toLocaleString('en-IN'),
         esiSummary.strn || 0,
-        esiSummary.eeShare || 0,
-        esiSummary.erShare || 0,
-        esiSummary.totalEsi || 0,
+        (esiSummary.eeShare || 0).toLocaleString('en-IN'),
+        (esiSummary.erShare || 0).toLocaleString('en-IN'),
+        (esiSummary.totalEsi || 0).toLocaleString('en-IN'),
       ],
     ],
     theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
+    headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
   });
 
   // 3. P.T. Summary Table
+  doc.text('P.T. SUMMARY', 310, esiY);
   autoTable(doc, {
     startY: esiY + 4,
-    margin: { left: 330 },
-    tableWidth: 150,
-    head: [['P.T. Summary', '0', 'Total']],
+    margin: { left: 310 },
+    tableWidth: 140,
+    head: [['P.T. Head', 'Count', 'Total Amount']],
     body: [
-      ['PT Amount', `${ptSummary.ptAmount || 0}`, `${ptSummary.ptAmount || 0}`],
-      ['PT Count', `${ptSummary.ptCount || 0}`, `${ptSummary.ptCount || 0}`],
+      ['PT Deducted', `${ptSummary.ptCount || 0}`, `₹${(ptSummary.ptAmount || 0).toLocaleString('en-IN')}`],
+      ['PT Total', `${ptSummary.ptCount || 0}`, `₹${(ptSummary.ptAmount || 0).toLocaleString('en-IN')}`],
     ],
     theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [255, 255, 255], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
+    headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
   });
 
   // 4. Earning Summary & Deduction Summary Side-by-Side Box
+  doc.setFontSize(9.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('EARNING & DEDUCTION STATEMENT', 520, finalY);
+
   autoTable(doc, {
     startY: finalY + 4,
-    margin: { left: 650 },
-    tableWidth: 260,
+    margin: { left: 520 },
+    tableWidth: 380,
     head: [
-      [{ content: 'Earning Summary', colSpan: 2 }, { content: 'Deduction Summary', colSpan: 2 }],
+      [{ content: 'EARNING SUMMARY (₹)', colSpan: 2 }, { content: 'DEDUCTION SUMMARY (₹)', colSpan: 2 }],
     ],
     body: [
-      ['BASIC', `${earningSummary.basic || totals.grandBasic || 0}`, 'P.F', `${deductionSummary.pf || totals.grandPf || 0}`],
-      ['DA', `${earningSummary.da || totals.grandDa || 0}`, 'ESI', `${deductionSummary.esi || totals.grandEsi || 0}`],
-      ['HRA', `${earningSummary.hra || totals.grandHra || 0}`, 'P.T.', `${deductionSummary.pt || totals.grandPt || 0}`],
-      ['CONV', `${earningSummary.conv || totals.grandConv || 0}`, 'I.T.', `${deductionSummary.it || totals.grandIt || 0}`],
-      ['SP.All', `${earningSummary.spAll || totals.grandSpAll || 0}`, 'LOAN', `${deductionSummary.loan || totals.grandLoan || 0}`],
-      ['OTH.All', `${earningSummary.othAll || totals.grandOthAll || 0}`, 'Advance', `${deductionSummary.advance || totals.grandAdvance || 0}`],
-      ['OT/PIB', `${earningSummary.otPib || totals.grandOtPib || 0}`, 'LWF', `${deductionSummary.lwf || totals.grandLwf || 0}`],
-      ['', '', 'Oth.Ded', `${deductionSummary.othDed || totals.grandOthDed || 0}`],
-      ['', '', 'Food', `${deductionSummary.food || totals.grandFood || 0}`],
-      ['', '', 'E/Mbill', `${deductionSummary.eMbill || totals.grandEMbill || 0}`],
+      ['BASIC', `${(earningSummary.basic || totals.grandBasic || 0).toLocaleString('en-IN')}`, 'P.F', `${(deductionSummary.pf || totals.grandPf || 0).toLocaleString('en-IN')}`],
+      ['DA', `${(earningSummary.da || totals.grandDa || 0).toLocaleString('en-IN')}`, 'ESI', `${(deductionSummary.esi || totals.grandEsi || 0).toLocaleString('en-IN')}`],
+      ['HRA', `${(earningSummary.hra || totals.grandHra || 0).toLocaleString('en-IN')}`, 'P.T.', `${(deductionSummary.pt || totals.grandPt || 0).toLocaleString('en-IN')}`],
+      ['CONV', `${(earningSummary.conv || totals.grandConv || 0).toLocaleString('en-IN')}`, 'I.T.', `${(deductionSummary.it || totals.grandIt || 0).toLocaleString('en-IN')}`],
+      ['SP.All', `${(earningSummary.spAll || totals.grandSpAll || 0).toLocaleString('en-IN')}`, 'LOAN', `${(deductionSummary.loan || totals.grandLoan || 0).toLocaleString('en-IN')}`],
+      ['OTH.All', `${(earningSummary.othAll || totals.grandOthAll || 0).toLocaleString('en-IN')}`, 'Advance', `${(deductionSummary.advance || totals.grandAdvance || 0).toLocaleString('en-IN')}`],
+      ['OT/PIB', `${(earningSummary.otPib || totals.grandOtPib || 0).toLocaleString('en-IN')}`, 'LWF', `${(deductionSummary.lwf || totals.grandLwf || 0).toLocaleString('en-IN')}`],
+      ['—', '—', 'Oth.Ded', `${(deductionSummary.othDed || totals.grandOthDed || 0).toLocaleString('en-IN')}`],
+      ['—', '—', 'Food', `${(deductionSummary.food || totals.grandFood || 0).toLocaleString('en-IN')}`],
+      ['—', '—', 'E/Mbill', `${(deductionSummary.eMbill || totals.grandEMbill || 0).toLocaleString('en-IN')}`],
       [
-        { content: `Gross Salary: ${(earningSummary.grossSalary || totals.grandGross || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold' } },
-        { content: `Gross Ded.: ${(deductionSummary.grossDed || totals.grandDeductions || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold' } },
+        { content: `Gross Salary: ₹${(earningSummary.grossSalary || totals.grandGross || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold' } },
+        { content: `Gross Ded.: ₹${(deductionSummary.grossDed || totals.grandDeductions || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold' } },
       ],
     ],
     theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [245, 245, 245], textColor: [0, 0, 0], fontStyle: 'bold' },
+    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
+    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
   });
 
   // 5. Net Pay Highlight Box
+  doc.text('NET SALARY DISBURSED', 930, finalY);
   autoTable(doc, {
     startY: finalY + 4,
     margin: { left: 930 },
-    tableWidth: 160,
-    head: [['Net Pay']],
+    tableWidth: 220,
+    head: [['NET SALARY DISBURSED']],
     body: [
-      [{ content: `₹${(totals.grandNet || 0).toLocaleString('en-IN')}`, styles: { fontSize: 14, fontStyle: 'bold', halign: 'center' } }],
+      [{ content: `₹${(totals.grandNet || 0).toLocaleString('en-IN')}`, styles: { fontSize: 16, fontStyle: 'bold', halign: 'center' } }],
     ],
     theme: 'grid',
-    styles: { lineColor: [0, 0, 0], lineWidth: 1 },
-    headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
+    styles: { lineColor: [0, 0, 0], lineWidth: 1.5 },
+    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
   });
+
+  // Signatory Verification Block on Page 2
+  const signY = 280;
+  doc.setFontSize(8.5);
+  doc.setFont('helvetica', 'bold');
+  doc.text('PREPARED BY', 120, signY, { align: 'center' });
+  doc.line(50, signY + 30, 190, signY + 30);
+  doc.setFont('helvetica', 'normal');
+  doc.text('HR / Payroll Executive', 120, signY + 40, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('CHECKED & VERIFIED BY', 580, signY, { align: 'center' });
+  doc.line(500, signY + 30, 660, signY + 30);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Finance & Accounts Officer', 580, signY + 40, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.text(`FOR ${companyName.toUpperCase()}`, 1030, signY, { align: 'center' });
+  doc.line(950, signY + 30, 1110, signY + 30);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Authorised Signatory', 1030, signY + 40, { align: 'center' });
 
   doc.save(`Salary_Sheet_Format_1_${String(monthLabel).replace(/\s+/g, '_')}.pdf`);
 };

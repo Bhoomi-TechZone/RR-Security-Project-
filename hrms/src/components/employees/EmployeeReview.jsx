@@ -161,7 +161,7 @@ function EmployeeReview({ data, onEditStep }) {
             <ReviewRow label="Employee Type" value={data.employeeType || '—'} />
             <ReviewRow label="Designation" value={data.designation || '—'} />
             <ReviewRow label="Department" value={data.department || '—'} />
-            <ReviewRow label="Client Address" value={data.clientAddress || data.siteLocation || '—'} />
+            <ReviewRow label="Client Site" value={data.site || data.siteLocation || data.clientAddress || '—'} />
             <ReviewRow label="Duty Post" value={data.dutyPost || '—'} />
             <ReviewRow label="Shift" value={data.shift || '—'} />
             <ReviewRow label="Reporting Supervisor" value={data.reportingSupervisor || '—'} />

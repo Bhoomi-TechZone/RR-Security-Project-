@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * Download Statutory Register of Wages (Form XVII) as Excel (.xlsx) / CSV
@@ -332,7 +333,7 @@ export const downloadWagesRegisterExcel = (
  * Download Statutory Register of Wages (Form XVII) as Landscape PDF
  * or trigger direct print mode.
  */
-export const downloadWagesRegisterPdf = (
+export const downloadWagesRegisterPdf = async (
   records = [],
   companyInfo = {},
   period = {},
@@ -343,6 +344,23 @@ export const downloadWagesRegisterPdf = (
   options = {}
 ) => {
   const isPrint = options?.mode === 'print';
+
+  // Live preview capture for exact styling/layout parity
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="WagesRegisterFormXVIILReportView_paperSheet"]');
+    if (previewEl) {
+      const cleanMonth = (period?.monthLabel || period?.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename: `Form_XVII_Register_of_Wages_${cleanMonth}.pdf`,
+        title: 'Form XVII Register of Wages',
+        mode: isPrint ? 'print' : 'download',
+        orientation: 'landscape',
+        format: 'a3',
+      });
+      if (ok) return;
+    }
+  }
+
   // Use A3 landscape for rich readability of multi-column wage register
   const doc = new jsPDF({
     orientation: 'landscape',

@@ -123,8 +123,8 @@ function TransferEmployeeModal({
               <span className={styles.value}>{employee.clientName || employee.companyName || 'N/A'}</span>
             </div>
             <div className={styles.summaryRow}>
-              <span className={styles.label}>Current Client Address:</span>
-              <span className={styles.value}>{employee.clientAddress || employee.siteLocation || employee.site || employee.address || 'N/A'}</span>
+              <span className={styles.label}>Current Client Site:</span>
+              <span className={styles.value}>{employee.site || employee.siteLocation || employee.clientAddress || employee.address || 'N/A'}</span>
             </div>
           </div>
 
@@ -146,8 +146,8 @@ function TransferEmployeeModal({
                     const compId = e.target.value;
                     setTargetCompanyId(compId);
                     const matched = clients.find((c) => c.clientId === compId || c.id === compId || c._id === compId || c.name === compId);
-                    if (matched && matched.address) {
-                      setSite(matched.address);
+                    if (matched && (matched.site || matched.location || matched.address)) {
+                      setSite(matched.site || matched.location || matched.address);
                     }
                     setError('');
                   }}
@@ -183,12 +183,12 @@ function TransferEmployeeModal({
           </div>
 
           <div className={styles.field}>
-            <label htmlFor="transfer-site" className={styles.fieldLabel}>Client Address *</label>
+            <label htmlFor="transfer-site" className={styles.fieldLabel}>Client Site *</label>
             <input
               id="transfer-site"
               type="text"
               className={styles.input}
-              placeholder="Client address"
+              placeholder="Client site"
               value={site}
               onChange={(e) => {
                 setSite(e.target.value);

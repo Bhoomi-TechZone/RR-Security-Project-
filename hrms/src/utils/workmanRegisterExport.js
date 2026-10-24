@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * Download Statutory Register of Workmen Employed by Contractor (Form XIII) as Excel (.xlsx) / CSV
@@ -144,7 +145,7 @@ export const downloadWorkmanRegisterExcel = (
  * Download Statutory Register of Workmen Employed by Contractor (Form XIII) as Landscape PDF
  * or trigger direct print mode.
  */
-export const downloadWorkmanRegisterPdf = (
+export const downloadWorkmanRegisterPdf = async (
   records = [],
   companyInfo = {},
   period = {},
@@ -153,6 +154,23 @@ export const downloadWorkmanRegisterPdf = (
   options = {}
 ) => {
   const isPrint = options?.mode === 'print';
+
+  // Live preview capture for exact styling/layout parity
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="WorkmanRegisterFormXIIIReportView_paperSheet"]');
+    if (previewEl) {
+      const cleanMonth = (period?.monthLabel || period?.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename: `Form_XIII_Workman_Register_${cleanMonth}.pdf`,
+        title: 'Form XIII Register of Workmen',
+        mode: isPrint ? 'print' : 'download',
+        orientation: 'landscape',
+        format: 'a3',
+      });
+      if (ok) return;
+    }
+  }
+
   // Use landscape A3 for clear statutory 12-column layout
   const doc = new jsPDF({
     orientation: 'landscape',

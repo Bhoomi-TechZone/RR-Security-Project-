@@ -22,9 +22,12 @@ import {
 import AdminLayout from '../../components/layout/AdminLayout';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
+import { useCompany } from '../../context/CompanyContext';
 import { reportService } from '../../services/reportService';
+import { masterService } from '../../services/masterService';
 import { generateReportPdf } from '../../utils/pdfExportUtil';
 import { generateReportExcel } from '../../utils/excelExportUtil';
+import { downloadElementAsPdf } from '../../utils/domPdfExportUtil';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 import { downloadFnfSettlementPdf } from '../../utils/fnfSettlementExport';
 import { downloadForm16Pdf } from '../../utils/form16Export';
@@ -1415,12 +1418,7 @@ const ALL_REPORTS_CATALOG = [
    ========================================================= */
 function WageSalaryRegisterTable({ reportData }) {
   const records = reportData?.records || [];
-  const company = reportData?.companyInfo || {
-    name: 'RR Security & Facilities',
-    address: 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044',
-    pfNo: 'DSNHP3718318000',
-    esiNo: '20001853160000999'
-  };
+  const company = reportData?.companyInfo || {};
   const period = reportData?.period || {};
   const totals = reportData?.totals || {};
 
@@ -1444,8 +1442,8 @@ function WageSalaryRegisterTable({ reportData }) {
       {/* Sub Bar */}
       <div className={styles.officialSubBar}>
         <div className={styles.officialMetaLeft}>
-          <div><strong>PF No :-</strong> {company.pfNo || 'DSNHP3718318000'}</div>
-          <div><strong>ESI No :-</strong> {company.esiNo || '20001853160000999'}</div>
+          <div><strong>PF No :-</strong> {company.pfNo || company.employerPfCode || '—'}</div>
+          <div><strong>ESI No :-</strong> {company.esiNo || company.employerEsiCode || '—'}</div>
         </div>
         <div className={styles.officialMetaCenter}>
           Wage/Salary Register
@@ -1922,13 +1920,124 @@ function ReportFilters({
   const meta = reportMeta[selectedReport] || reportMeta.payroll;
   const showMonth = meta.filters.includes('month');
   const showCompany = meta.filters.includes('company');
-  const showDepartment = meta.filters.includes('department');
+  const showSite = meta.filters.includes('site') || meta.filters.includes('sites') || meta.filters.includes('department');
   const showEmployee = meta.filters.includes('employee');
   const showCategory = meta.filters.includes('category');
   const showItemType = meta.filters.includes('itemType');
   const showStatus = meta.filters.includes('status');
 
   const categories = filterOptions.inventoryCategories || ['Uniform', 'Asset', 'Equipment', 'Security Gear'];
+
+  // Resolve selected client object if any
+  const selectedClientObj = useMemo(() => {
+    if (!filters.company || filters.company === 'All Companies' || filters.company === 'All Clients') return null;
+    const target = String(filters.company).trim().toLowerCase();
+    return (filterOptions.clients || []).find((c) => {
+      const cName = String(c.name || c.clientName || '').trim().toLowerCase();
+      const cId = String(c.clientId || c.id || c._id || '').trim().toLowerCase();
+      return cName === target || cId === target || cName.includes(target) || target.includes(cName);
+    });
+  }, [filterOptions.clients, filters.company]);
+
+  // Extract distinct sites dynamically based on selected Client strictly from Sites Management
+  const siteOptions = useMemo(() => {
+    // When a specific client is selected in the Client dropdown:
+    if (filters.company && filters.company !== 'All Companies' && filters.company !== 'All Clients') {
+      const selName = String(filters.company).trim().toLowerCase();
+      const selId = String(selectedClientObj?.clientId || selectedClientObj?.id || selectedClientObj?._id || '').trim().toLowerCase();
+
+      // Official Sites configured in Master Sites (Sites Management) for this client
+      const fromMasterSites = (filterOptions.siteRecords || [])
+        .filter((s) => {
+          const sCliName = String(s.clientName || '').trim().toLowerCase();
+          const sCliId = String(s.clientId || s.client || '').trim().toLowerCase();
+          return (
+            (selId && sCliId && sCliId === selId) ||
+            (sCliName && selName && (sCliName === selName || sCliName.includes(selName) || selName.includes(sCliName)))
+          );
+        })
+        .map((s) => (s.name || s.siteName || '').trim())
+        .filter(Boolean);
+
+      return Array.from(new Set(fromMasterSites));
+    }
+
+    // When "All Clients" is selected, show official master sites across organization
+    if (filterOptions.siteRecords && filterOptions.siteRecords.length > 0) {
+      return Array.from(new Set(filterOptions.siteRecords.map((s) => (s.name || s.siteName || '').trim()).filter(Boolean)));
+    }
+
+    const fromApiSites = (filterOptions.sites || []).map((s) => (typeof s === 'string' ? s : s.name || '').trim()).filter(Boolean);
+    return Array.from(new Set(fromApiSites));
+  }, [filterOptions.sites, filterOptions.siteRecords, filters.company, selectedClientObj]);
+
+  // If site filter is selected but no longer valid in the newly filtered siteOptions, reset to 'All Sites'
+  useEffect(() => {
+    if (filters.site && filters.site !== 'All Sites') {
+      if (!siteOptions.includes(filters.site)) {
+        setFilter('site', 'All Sites');
+      }
+    }
+  }, [siteOptions, filters.site, setFilter]);
+
+  // Filter employees dynamically based on the selected Client and Site
+  const filteredEmployees = useMemo(() => {
+    const list = filterOptions.employees || [];
+    const selectedComp = filters.company;
+    const selectedSite = filters.site;
+
+    return list.filter((emp) => {
+      // 1. Client filter
+      if (selectedComp && selectedComp !== 'All Companies' && selectedComp !== 'All Clients' && selectedComp !== 'All Companies & Clients') {
+        const selectedCompLower = String(selectedComp).trim().toLowerCase();
+        const empClient = String(emp.clientName || '').trim().toLowerCase();
+        const empClientId = String(emp.clientId || '').trim().toLowerCase();
+        const empComp = String(emp.companyName || '').trim().toLowerCase();
+        const empSite = String(emp.site || '').trim().toLowerCase();
+        const empSiteLoc = String(emp.siteLocation || '').trim().toLowerCase();
+
+        const matchesClient =
+          empClient === selectedCompLower ||
+          empClientId === selectedCompLower ||
+          empComp === selectedCompLower ||
+          (empClient && selectedCompLower.includes(empClient)) ||
+          (selectedCompLower && empClient.includes(selectedCompLower)) ||
+          (!empClient && empSite === selectedCompLower) ||
+          (!empClient && empSiteLoc === selectedCompLower);
+
+        if (!matchesClient) return false;
+      }
+
+      // 2. Site filter
+      if (selectedSite && selectedSite !== 'All Sites') {
+        const siteLower = String(selectedSite).trim().toLowerCase();
+        const empSite = String(emp.site || '').trim().toLowerCase();
+        const empSiteLoc = String(emp.siteLocation || '').trim().toLowerCase();
+
+        const matchesSite =
+          empSite === siteLower ||
+          empSiteLoc === siteLower ||
+          (empSite && (empSite.includes(siteLower) || siteLower.includes(empSite))) ||
+          (empSiteLoc && (empSiteLoc.includes(siteLower) || siteLower.includes(empSiteLoc)));
+
+        if (!matchesSite) return false;
+      }
+
+      return true;
+    });
+  }, [filterOptions.employees, filters.company, filters.site]);
+
+  // If currently selected employee does not exist in the filtered list, reset to 'All Employees'
+  useEffect(() => {
+    if (filters.employee && filters.employee !== 'All Employees') {
+      const exists = filteredEmployees.some(
+        (emp) => emp.label === filters.employee || emp.name === filters.employee || emp.employeeId === filters.employee
+      );
+      if (!exists) {
+        setFilter('employee', 'All Employees');
+      }
+    }
+  }, [filteredEmployees, filters.employee, setFilter]);
 
   return (
     <div className={styles.filterCard}>
@@ -1953,45 +2062,57 @@ function ReportFilters({
 
         {showCompany && (
           <div className={styles.fieldGroup}>
-            <label>Company / Client</label>
+            <label>Client</label>
             <select
               value={filters.company}
-              onChange={(e) => setFilter('company', e.target.value)}
+              onChange={(e) => {
+                const newComp = e.target.value;
+                setFilter('company', newComp);
+                setFilter('site', 'All Sites');
+                setFilter('employee', 'All Employees');
+              }}
             >
-              <option value="All Companies">All Companies &amp; Clients</option>
-              {filterOptions.companies && filterOptions.companies.length > 0 && (
-                <optgroup label="Main Company">
-                  {filterOptions.companies.map((c) => (
-                    <option key={`comp-${c.companyId || c._id || c.name}`} value={c.name}>
-                      {c.name}
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+              <option value="All Companies">All Clients</option>
               {filterOptions.clients && filterOptions.clients.length > 0 && (
-                <optgroup label="Associated Clients / Sites">
-                  {filterOptions.clients.map((cli) => (
-                    <option key={`cli-${cli.clientId || cli._id || cli.name}`} value={cli.name}>
-                      {cli.name} {cli.location || cli.address ? `(${cli.location || cli.address})` : ''}
+                filterOptions.clients.map((cli) => {
+                  const clientName = cli.name || cli.clientName || '';
+                  const locationInfo = cli.location || cli.address ? ` (${cli.location || cli.address})` : '';
+                  return (
+                    <option key={`cli-${cli.clientId || cli._id || clientName}`} value={clientName}>
+                      {clientName}{locationInfo}
                     </option>
-                  ))}
-                </optgroup>
+                  );
+                })
               )}
             </select>
           </div>
         )}
 
-        {showDepartment && (
+        {showSite && (
           <div className={styles.fieldGroup}>
-            <label>Department</label>
+            <label>
+              Sites
+              {filters.company && filters.company !== 'All Companies' && filters.company !== 'All Clients' && (
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400, marginLeft: '6px' }}>
+                  ({siteOptions.length})
+                </span>
+              )}
+            </label>
             <select
-              value={filters.department}
-              onChange={(e) => setFilter('department', e.target.value)}
+              value={filters.site || 'All Sites'}
+              onChange={(e) => {
+                setFilter('site', e.target.value);
+                setFilter('employee', 'All Employees');
+              }}
             >
-              <option value="All Departments">All Departments</option>
-              {filterOptions.departments?.map((d) => (
-                <option key={d} value={d}>
-                  {d}
+              <option value="All Sites">
+                {filters.company && filters.company !== 'All Companies' && filters.company !== 'All Clients'
+                  ? siteOptions.length > 0 ? `All Sites (${siteOptions.length})` : 'No Sites Configured'
+                  : 'All Sites'}
+              </option>
+              {siteOptions.map((s) => (
+                <option key={s} value={s}>
+                  {s}
                 </option>
               ))}
             </select>
@@ -2000,13 +2121,26 @@ function ReportFilters({
 
         {showEmployee && (
           <div className={styles.fieldGroup}>
-            <label>Employee</label>
+            <label>
+              Employee
+              {((filters.company && filters.company !== 'All Companies' && filters.company !== 'All Clients') ||
+                (filters.site && filters.site !== 'All Sites')) && (
+                <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400, marginLeft: '6px' }}>
+                  ({filteredEmployees.length})
+                </span>
+              )}
+            </label>
             <select
               value={filters.employee}
               onChange={(e) => setFilter('employee', e.target.value)}
             >
-              <option value="All Employees">All Employees</option>
-              {filterOptions.employees?.map((emp) => (
+              <option value="All Employees">
+                {(filters.company && filters.company !== 'All Companies' && filters.company !== 'All Clients') ||
+                (filters.site && filters.site !== 'All Sites')
+                  ? `All Employees (${filteredEmployees.length})`
+                  : 'All Employees'}
+              </option>
+              {filteredEmployees.map((emp) => (
                 <option key={emp.employeeId || emp.id} value={emp.label || emp.name}>
                   {emp.label || emp.name}
                 </option>
@@ -2058,27 +2192,38 @@ function ReportFilters({
             </select>
           </div>
         )}
-      </div>
 
-      <div className={styles.filterActions}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          onClick={onGenerateReport}
-          disabled={isLoading}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-        >
-          <RefreshCw size={14} className={isLoading ? styles.spinIcon : ''} />
-          {isLoading ? 'Generating...' : 'Generate Report'}
-        </button>
-        <button
-          type="button"
-          className={styles.secondaryButton}
-          onClick={onResetFilters}
-          disabled={isLoading}
-        >
-          Reset
-        </button>
+        <div className={styles.fieldGroup} style={{ alignSelf: 'flex-end', minWidth: 'max-content' }}>
+          <label style={{ visibility: 'hidden', height: '17px', margin: 0 }}>&nbsp;</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
+            <button
+              type="button"
+              className={styles.primaryButton}
+              onClick={onGenerateReport}
+              disabled={isLoading}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '42px',
+                whiteSpace: 'nowrap',
+                padding: '0 16px',
+              }}
+            >
+              <RefreshCw size={14} className={isLoading ? styles.spinIcon : ''} />
+              {isLoading ? 'Generating...' : 'Generate Report'}
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={onResetFilters}
+              disabled={isLoading}
+              style={{ height: '42px', padding: '0 14px' }}
+            >
+              Reset
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -2096,8 +2241,13 @@ function ReportBody({
   reportData,
   isLoading,
   onGenerateReport,
-  onResetFilters
+  onResetFilters,
+  isExporting = false,
+  activeCompany: passedCompany = null,
+  isReportGenerated = false,
 }) {
+  const companyCtx = typeof useCompany === 'function' ? useCompany() : null;
+  const activeCompany = passedCompany || companyCtx?.activeCompany || null;
   const meta = reportMeta[activeReport] || reportMeta.payroll;
   const summaryCards = reportData?.summaryCards || [];
   const records = reportData?.records || [];
@@ -2115,11 +2265,11 @@ function ReportBody({
   const [currentPage, setCurrentPage] = useState(1);
   const totalItems = filteredRows.length;
   const paginatedRows = useMemo(() => {
-    // For WageSalaryRegister, EmployeeProfile, Full & Final Settlement, and ESI Form 7, show all matching records
-    if (activeReport === 'payroll' || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip' || activeReport === 'esi-form-7-opt1' || activeReport === 'esi-form-7' || activeReport === 'form-7-esi' || activeReport === 'form-7') return filteredRows;
+    // When exporting PDF, or for WageSalaryRegister, EmployeeProfile, Full & Final Settlement, and ESI Form 7, show all matching records
+    if (isExporting || activeReport === 'payroll' || activeReport === 'employee-profile' || activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip' || activeReport === 'esi-form-7-opt1' || activeReport === 'esi-form-7' || activeReport === 'form-7-esi' || activeReport === 'form-7') return filteredRows;
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredRows.slice(start, start + PAGE_SIZE);
-  }, [filteredRows, currentPage, activeReport]);
+  }, [filteredRows, currentPage, activeReport, isExporting]);
 
   const renderTable = () => {
     if (activeReport === 'payroll') {
@@ -2193,10 +2343,19 @@ function ReportBody({
       );
     }
     if (activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report') {
+      const effectiveCompany = {
+        ...(activeCompany || {}),
+        ...(reportData?.companyInfo || {}),
+        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName || activeCompany?.name || activeCompany?.companyName,
+        address: reportData?.companyInfo?.address || activeCompany?.address || activeCompany?.registeredAddress,
+        phone: reportData?.companyInfo?.phone || activeCompany?.phone || activeCompany?.contactNumber,
+        email: reportData?.companyInfo?.email || activeCompany?.email,
+        logo: reportData?.companyInfo?.logo || activeCompany?.logo || activeCompany?.logoUrl,
+      };
       return (
         <EmployeeIdCardReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           filters={filters}
         />
@@ -2348,10 +2507,18 @@ function ReportBody({
       );
     }
     if (activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1') {
+      const effectiveCompany = {
+        ...activeCompany,
+        ...reportData?.companyInfo,
+        employerPfCode: reportData?.companyInfo?.employerPfCode || activeCompany?.employerPfCode || activeCompany?.pfCode,
+        employerEsiCode: reportData?.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || activeCompany?.esiCode,
+        pfNo: reportData?.companyInfo?.pfNo || activeCompany?.employerPfCode || activeCompany?.pfCode,
+        esiNo: reportData?.companyInfo?.esiNo || activeCompany?.employerEsiCode || activeCompany?.esiCode,
+      };
       return (
         <SalarySheetFormat1View
           records={reportData?.records || filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           clientInfo={reportData?.clientInfo}
           establishmentInfo={reportData?.establishmentInfo}
           period={reportData?.period}
@@ -2366,10 +2533,18 @@ function ReportBody({
       );
     }
     if (activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2') {
+      const effectiveCompany = {
+        ...activeCompany,
+        ...reportData?.companyInfo,
+        employerPfCode: reportData?.companyInfo?.employerPfCode || activeCompany?.employerPfCode || activeCompany?.pfCode,
+        employerEsiCode: reportData?.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || activeCompany?.esiCode,
+        pfNo: reportData?.companyInfo?.pfNo || activeCompany?.employerPfCode || activeCompany?.pfCode,
+        esiNo: reportData?.companyInfo?.esiNo || activeCompany?.employerEsiCode || activeCompany?.esiCode,
+      };
       return (
         <SalarySheetFormat2View
           records={reportData?.records || filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           clientInfo={reportData?.clientInfo}
           establishmentInfo={reportData?.establishmentInfo}
           period={reportData?.period}
@@ -2675,44 +2850,7 @@ function ReportBody({
 
   return (
     <section className={styles.reportPanel}>
-      {/* Selected Period Preview Card */}
-      <div className={styles.reportPreviewCard}>
-        <div className={styles.previewGrid}>
-          <div>
-            <span>Selected Period</span>
-            <strong>{reportData?.period?.monthLabel || filters.month || 'Current Month'}</strong>
-          </div>
-          <div>
-            <span>Company / Site</span>
-            <strong>{filters.company || 'All Companies'}</strong>
-          </div>
-          <div>
-            <span>Department</span>
-            <strong>{filters.department || 'All Departments'}</strong>
-          </div>
-          <div>
-            <span>Total Records</span>
-            <strong>{records.length} Records</strong>
-          </div>
-        </div>
-      </div>
-
-      {/* Dynamic Summary Cards */}
-      <div className={styles.dynamicSummaryGrid}>
-        {summaryCards.map(({ label, value, tone }) => (
-          <div key={label} className={styles.summaryCard}>
-            <div className={styles.summaryContent}>
-              <span className={styles.summaryLabel}>{label}</span>
-              <strong className={styles.summaryValue}>{value}</strong>
-            </div>
-            <span className={`${styles.summaryIcon} ${styles[tone] || styles.cardBlue}`}>
-              <CheckCircle2 size={20} />
-            </span>
-          </div>
-        ))}
-      </div>
-
-      {/* Report Filter Controls */}
+      {/* Report Filter Controls (Always at top) */}
       <ReportFilters
         selectedReport={activeReport}
         filters={filters}
@@ -2723,18 +2861,100 @@ function ReportBody({
         isLoading={isLoading}
       />
 
-      {/* Search Toolbar */}
-      <div className={styles.toolbarRow}>
-        <div className={styles.searchBox}>
-          <Search size={15} />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(event) => setFilter('searchTerm', event.target.value)}
-            placeholder={meta.placeholder}
-          />
+      {/* If Report is NOT generated yet, show clean call-to-action placeholder */}
+      {!isReportGenerated || !reportData ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '60px 24px',
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          margin: '20px 0'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: '#eff6ff',
+            color: '#2563eb',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <FileBarChart size={32} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '0 0 8px 0' }}>
+            Report Ready to Generate
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+            Configure your filters above and click <strong>"Generate Report"</strong> to query database records and render the {meta.title}.
+          </p>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={onGenerateReport}
+            disabled={isLoading}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '14px' }}
+          >
+            <RefreshCw size={15} className={isLoading ? styles.spinIcon : ''} />
+            {isLoading ? 'Generating...' : 'Generate Report'}
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Selected Period Preview Card */}
+          <div className={styles.reportPreviewCard}>
+            <div className={styles.previewGrid}>
+              <div>
+                <span>Selected Period</span>
+                <strong>{reportData?.period?.monthLabel || filters.month || 'Current Month'}</strong>
+              </div>
+              <div>
+                <span>Company / Client</span>
+                <strong>{filters.company || 'All Clients'}</strong>
+              </div>
+              <div>
+                <span>Site</span>
+                <strong>{filters.site || 'All Sites'}</strong>
+              </div>
+              <div>
+                <span>Total Records</span>
+                <strong>{records.length} Records</strong>
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic Summary Cards */}
+          {summaryCards.length > 0 && (
+            <div className={styles.dynamicSummaryGrid}>
+              {summaryCards.map(({ label, value, tone }) => (
+                <div key={label} className={styles.summaryCard}>
+                  <div className={styles.summaryContent}>
+                    <span className={styles.summaryLabel}>{label}</span>
+                    <strong className={styles.summaryValue}>{value}</strong>
+                  </div>
+                  <span className={`${styles.summaryIcon} ${styles[tone] || styles.cardBlue}`}>
+                    <CheckCircle2 size={20} />
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Search Toolbar */}
+          <div className={styles.toolbarRow}>
+            <div className={styles.searchBox}>
+              <Search size={15} />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(event) => setFilter('searchTerm', event.target.value)}
+                placeholder={meta.placeholder}
+              />
+            </div>
+          </div>
 
       {/* Table / Register Render */}
       {isLoading ? (
@@ -2828,7 +3048,37 @@ function ReportBody({
           activeReport === 'form-7-esi' ||
           activeReport === 'form-7') ? (
         <>
-          {renderTable()}
+          <div id="report-preview-capture-area" className={styles.reportPreviewCaptureArea}>
+            {(activeReport === 'attendance' || activeReport === 'billing' || activeReport === 'employee' || activeReport === 'inventory') && (
+              <div className={styles.standardReportDocHeader}>
+                <div className={styles.standardReportHeaderTop}>
+                  <div className={styles.standardReportCompanyBlock}>
+                    <h2 className={styles.standardReportCompanyName}>{reportData?.companyInfo?.name || 'RR SECURITY & FACILITIES'}</h2>
+                    <p className={styles.standardReportCompanyAddress}>{reportData?.companyInfo?.address || 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044'}</p>
+                    <div className={styles.standardReportStatutoryRow}>
+                      <span>PF No: {reportData?.companyInfo?.pfNo || reportData?.companyInfo?.employerPfCode || activeCompany?.employerPfCode || '—'}</span>
+                      <span>ESI No: {reportData?.companyInfo?.esiNo || reportData?.companyInfo?.esicNo || reportData?.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || '—'}</span>
+                    </div>
+                  </div>
+                  <div className={styles.standardReportTitleBlock}>
+                    <h3 className={styles.standardReportDocTitle}>{meta.title.toUpperCase()}</h3>
+                    <div className={styles.standardReportPeriodBadge}>
+                      For The Period: {reportData?.period?.monthLabel || filters.month || 'Current Month'}
+                    </div>
+                    <div className={styles.standardReportDateStamp}>
+                      Generated: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.standardReportSummaryBar}>
+                  <div><strong>Company / Client:</strong> {filters.company || 'All Clients'}</div>
+                  <div><strong>Site:</strong> {filters.site || 'All Sites'}</div>
+                  <div><strong>Total Records:</strong> {filteredRows.length}</div>
+                </div>
+              </div>
+            )}
+            {renderTable()}
+          </div>
           {activeReport !== 'payroll' &&
             activeReport !== 'form-11-accident-book' &&
             activeReport !== 'accident-book-form-11' &&
@@ -2943,6 +3193,8 @@ function ReportBody({
           <p>Try selecting a different month or adjusting your filters.</p>
         </div>
       )}
+        </>
+      )}
     </section>
   );
 }
@@ -2950,7 +3202,16 @@ function ReportBody({
 /* =========================================================
    Export Report Modal (PDF & Excel download)
    ========================================================= */
-function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filters, onExportSuccess }) {
+function ExportReportModal({
+  isOpen,
+  onClose,
+  selectedReport,
+  reportData,
+  filters,
+  onExportSuccess,
+  onStartExport,
+  onEndExport
+}) {
   const [format, setFormat] = useState(
     selectedReport === 'bonus-register-form-c' ||
     selectedReport === 'form-c-bonus-paid' ||
@@ -3111,6 +3372,32 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
       return;
     }
 
+    // Capture the live preview DOM for 100% exact layout, colors, table lines, cards and typography parity!
+    if (format === 'PDF') {
+      const captureEl = document.querySelector('#report-preview-capture-area');
+      if (captureEl) {
+        if (onStartExport) onStartExport();
+        await new Promise((r) => setTimeout(r, 120));
+
+        const cleanPeriodStr = (reportData?.period?.monthLabel || filters?.month || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${reportName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${cleanPeriodStr}.pdf`;
+
+        const ok = await downloadElementAsPdf(captureEl, {
+          filename,
+          title: reportName,
+          mode: 'download',
+        });
+
+        if (onEndExport) onEndExport();
+
+        if (ok) {
+          onExportSuccess(`✓ ${reportName} PDF downloaded successfully with exact preview layout.`);
+          onClose();
+          return;
+        }
+      }
+    }
+
     // Special handling for Employee Profile report -> generates the exact official Employee Profile PDF
     if (isProfileReport) {
       if (profileScope === 'all' && records.length > 1) {
@@ -3194,15 +3481,23 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
 
     // Special handling for Employee ID Card report -> generates the exact official ID Card PDF
     if (isIdCardReport) {
+      const effectiveCompany = {
+        ...(reportData?.companyInfo || {}),
+        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName,
+        address: reportData?.companyInfo?.address,
+        phone: reportData?.companyInfo?.phone,
+        email: reportData?.companyInfo?.email,
+        logo: reportData?.companyInfo?.logo,
+      };
       const exportOptions = {
         mode: 'download',
         companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
       };
       if (profileScope === 'all' && records.length > 1) {
-        await downloadEmployeeIdCardPdf(records, reportData?.companyInfo, exportOptions);
+        await downloadEmployeeIdCardPdf(records, effectiveCompany, exportOptions);
         onExportSuccess(`✓ Downloaded all ${records.length} Employee ID Cards successfully.`);
       } else {
-        await downloadEmployeeIdCardPdf(targetEmp, reportData?.companyInfo, exportOptions);
+        await downloadEmployeeIdCardPdf(targetEmp, effectiveCompany, exportOptions);
         onExportSuccess(`✓ Employee ID Card PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
       }
       onClose();
@@ -4130,6 +4425,7 @@ function ExportReportModal({ isOpen, onClose, selectedReport, reportData, filter
    ========================================================= */
 function Reports() {
   const navigate = useNavigate();
+  const { activeCompany, activeCompanyId } = useCompany();
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') || searchParams.get('type');
   const validReportTypes = [
@@ -4245,6 +4541,7 @@ function Reports() {
   const [searchTerm, setSearchTerm] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [explorerCategory, setExplorerCategory] = useState('all');
   const [catalogSearch, setCatalogSearch] = useState('');
@@ -4270,10 +4567,13 @@ function Reports() {
     companies: [],
     clients: [],
     departments: ['Security', 'Facility', 'Operations', 'Housekeeping', 'Administration', 'HR', 'Accounts'],
+    sites: [],
+    siteRecords: [],
     employees: []
   });
 
   const [reportData, setReportData] = useState(null);
+  const [isReportGenerated, setIsReportGenerated] = useState(false);
 
   const [filters, setFilters] = useState({
     month: getCurrentMonthStr(),
@@ -4281,6 +4581,7 @@ function Reports() {
     toDate: '',
     company: 'All Companies',
     department: 'All Departments',
+    site: 'All Sites',
     employee: 'All Employees',
     category: 'All Categories',
     itemType: 'All Types',
@@ -4291,29 +4592,58 @@ function Reports() {
   useEffect(() => {
     const currentTab = searchParams.get('tab') || searchParams.get('type');
     if (currentTab && (validReportTypes.includes(currentTab) || Boolean(reportMeta[currentTab]))) {
-      setActiveReport(currentTab);
+      setActiveReport((prev) => {
+        if (prev !== currentTab) {
+          setReportData(null);
+          setIsReportGenerated(false);
+        }
+        return currentTab;
+      });
     } else {
       setActiveReport(null);
+      setReportData(null);
+      setIsReportGenerated(false);
     }
   }, [searchParams]);
 
-  // Fetch overview stats and filter options on mount
+  // Fetch overview stats and filter options on mount or company change
   useEffect(() => {
     const loadInit = async () => {
       try {
-        const [overviewRes, filterRes] = await Promise.all([
-          reportService.getOverview().catch(() => null),
-          reportService.getFilterOptions().catch(() => null)
+        const [overviewRes, filterRes, masterSitesRes] = await Promise.all([
+          reportService.getOverview(activeCompanyId).catch(() => null),
+          reportService.getFilterOptions(activeCompanyId).catch(() => null),
+          masterService.getMasters('sites', activeCompanyId).catch(() => [])
         ]);
 
         if (overviewRes?.stats) {
           setOverviewStats(overviewRes);
         }
         if (filterRes) {
+          const directMasterSites = Array.isArray(masterSitesRes) ? masterSitesRes : [];
+          const combinedSiteRecords = [
+            ...(filterRes.siteRecords || []),
+            ...directMasterSites.map((s) => ({
+              name: (s.name || s.siteName || '').trim(),
+              code: (s.code || '').trim(),
+              clientId: (s.clientId || s.client || '').trim(),
+              clientName: (s.clientName || '').trim(),
+              city: (s.city || '').trim(),
+              address: (s.address || '').trim(),
+            }))
+          ].filter((s) => s.name);
+
+          // Deduplicate by site name + client name
+          const uniqueSiteRecords = Array.from(
+            new Map(combinedSiteRecords.map((item) => [`${item.name.toLowerCase()}_${item.clientName.toLowerCase()}`, item])).values()
+          );
+
           setFilterOptions({
             companies: filterRes.companies || [],
             clients: filterRes.clients || [],
             departments: filterRes.departments || ['Security', 'Facility', 'Operations', 'Housekeeping', 'Administration', 'HR', 'Accounts'],
+            sites: Array.from(new Set([...(filterRes.sites || []), ...uniqueSiteRecords.map((s) => s.name)])),
+            siteRecords: uniqueSiteRecords,
             employees: filterRes.employees || []
           });
         }
@@ -4322,7 +4652,7 @@ function Reports() {
       }
     };
     loadInit();
-  }, []);
+  }, [activeCompanyId]);
 
   // Fetch active report data dynamically from MongoDB
   const fetchActiveReportData = useCallback(async () => {
@@ -4331,40 +4661,41 @@ function Reports() {
 
     try {
       let data = null;
+      const targetCompId = activeCompanyId || '';
       if (activeReport === 'payroll') {
-        data = await reportService.getPayrollReport('', filters);
+        data = await reportService.getPayrollReport(targetCompId, filters);
       } else if (activeReport === 'attendance') {
-        data = await reportService.getAttendanceReport('', filters);
+        data = await reportService.getAttendanceReport(targetCompId, filters);
       } else if (activeReport === 'billing') {
-        data = await reportService.getBillingReport('', filters);
+        data = await reportService.getBillingReport(targetCompId, filters);
       } else if (activeReport === 'employee' || activeReport === 'employee-profile') {
-        data = await reportService.getEmployeeMasterReport('', filters);
+        data = await reportService.getEmployeeMasterReport(targetCompId, filters);
       } else if (activeReport === 'inventory') {
-        data = await reportService.getInventoryReport('', filters);
+        data = await reportService.getInventoryReport(targetCompId, filters);
       } else if (activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') {
-        data = await reportService.getFnfSettlementReport('', filters);
+        data = await reportService.getFnfSettlementReport(targetCompId, filters);
       } else if (activeReport === 'form-16' || activeReport === 'form-16-part-b') {
-        data = await reportService.getForm16Report('', filters);
+        data = await reportService.getForm16Report(targetCompId, filters);
       } else if (activeReport === 'form-f-gratuity-nomination' || activeReport === 'form-f') {
-        data = await reportService.getFormFGratuityReport('', filters);
+        data = await reportService.getFormFGratuityReport(targetCompId, filters);
       } else if (activeReport === 'salary-certificate' || activeReport === 'salary-certificate-report') {
-        data = await reportService.getSalaryCertificateReport('', filters);
+        data = await reportService.getSalaryCertificateReport(targetCompId, filters);
       } else if (activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report') {
-        data = await reportService.getEmployeeIdCardReport('', filters);
+        data = await reportService.getEmployeeIdCardReport(targetCompId, filters);
       } else if (activeReport === 'bonus-register-form-c' || activeReport === 'form-c-bonus-paid') {
-        data = await reportService.getBonusRegisterReport('', filters);
+        data = await reportService.getBonusRegisterReport(targetCompId, filters);
       } else if (activeReport === 'employment-card-form-xiv' || activeReport === 'employment-card') {
-        data = await reportService.getEmploymentCardReport('', filters);
+        data = await reportService.getEmploymentCardReport(targetCompId, filters);
       } else if (activeReport === 'muster-roll-form-xvi' || activeReport === 'form-xvi' || activeReport === 'muster-roll') {
-        data = await reportService.getMusterRollReport('', filters);
+        data = await reportService.getMusterRollReport(targetCompId, filters);
       } else if (activeReport === 'register-advances-form-xxii' || activeReport === 'form-xxii' || activeReport === 'register-advances') {
-        data = await reportService.getRegisterOfAdvancesReport('', filters);
+        data = await reportService.getRegisterOfAdvancesReport(targetCompId, filters);
       } else if (activeReport === 'register-deduction-damage-form-xx' || activeReport === 'form-xx' || activeReport === 'register-deductions-damage') {
-        data = await reportService.getDeductionsDamageReport('', filters);
+        data = await reportService.getDeductionsDamageReport(targetCompId, filters);
       } else if (activeReport === 'register-fines-form-xxi' || activeReport === 'form-xxi' || activeReport === 'register-fines') {
-        data = await reportService.getRegisterOfFinesReport('', filters);
+        data = await reportService.getRegisterOfFinesReport(targetCompId, filters);
       } else if (activeReport === 'register-overtime-form-xxiii' || activeReport === 'form-xxiii' || activeReport === 'register-overtime') {
-        data = await reportService.getRegisterOfOvertimeReport('', filters);
+        data = await reportService.getRegisterOfOvertimeReport(targetCompId, filters);
       } else if (
         activeReport === 'overtime-register-salary' ||
         activeReport === 'overtime-register-form-iv' ||
@@ -4373,30 +4704,30 @@ function Reports() {
         activeReport === 'form-iv-overtime' ||
         activeReport === 'salary-overtime'
       ) {
-        data = await reportService.getFormIVOvertimeReport('', filters);
+        data = await reportService.getFormIVOvertimeReport(targetCompId, filters);
       } else if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
-        data = await reportService.getEmployeePayslipReport('', filters);
+        data = await reportService.getEmployeePayslipReport(targetCompId, filters);
       } else if (
         activeReport === 'register-deductions-damage-salary' ||
         activeReport === 'form-ii-damage-loss' ||
         activeReport === 'form-ii'
       ) {
-        data = await reportService.getFormIIDeductionsDamageReport('', filters);
+        data = await reportService.getFormIIDeductionsDamageReport(targetCompId, filters);
       } else if (
         activeReport === 'register-fines-employer-salary' ||
         activeReport === 'form-i-fines'
       ) {
-        data = await reportService.getFormIFinesReport('', filters);
+        data = await reportService.getFormIFinesReport(targetCompId, filters);
       } else if (
         activeReport === 'salary-sheet-format-1' ||
         activeReport === 'salary-sheet-1'
       ) {
-        data = await reportService.getSalarySheetFormat1Report('', filters);
+        data = await reportService.getSalarySheetFormat1Report(targetCompId, filters);
       } else if (
         activeReport === 'salary-sheet-format-2' ||
         activeReport === 'salary-sheet-2'
       ) {
-        data = await reportService.getSalarySheetFormat2Report('', filters);
+        data = await reportService.getSalarySheetFormat2Report(targetCompId, filters);
       } else if (
         activeReport === 'esi-summary-employee-pdf' ||
         activeReport === 'esi-summary-employee-xls' ||
@@ -4521,12 +4852,12 @@ function Reports() {
     }
   }, [activeReport, filters]);
 
+  // Only update if report was already explicitly generated by the user
   useEffect(() => {
-    if (activeReport) {
+    if (activeReport && isReportGenerated) {
       fetchActiveReportData();
     }
   }, [
-    activeReport,
     filters.month,
     filters.company,
     filters.department,
@@ -4541,6 +4872,8 @@ function Reports() {
   };
 
   const handleSelectReport = (reportId) => {
+    setReportData(null);
+    setIsReportGenerated(false);
     navigate(`/admin/reports?tab=${reportId}`);
     setSearchTerm('');
   };
@@ -4549,10 +4882,12 @@ function Reports() {
     navigate('/admin/reports');
     setSearchTerm('');
     setReportData(null);
+    setIsReportGenerated(false);
   };
 
-  const handleGenerateReport = () => {
-    fetchActiveReportData();
+  const handleGenerateReport = async () => {
+    setIsReportGenerated(true);
+    await fetchActiveReportData();
     setToastMessage('✓ Report dynamically generated from database.');
   };
 
@@ -4563,16 +4898,43 @@ function Reports() {
       toDate: '',
       company: 'All Companies',
       department: 'All Departments',
+      site: 'All Sites',
       employee: 'All Employees',
       category: 'All Categories',
       itemType: 'All Types',
       status: 'All Statuses',
     });
     setSearchTerm('');
+    setReportData(null);
+    setIsReportGenerated(false);
     setToastMessage('✓ Report filters reset.');
   };
 
   const handlePrintReport = async () => {
+    if (!isReportGenerated || !reportData) {
+      alert('Please click "Generate Report" before printing.');
+      return;
+    }
+    // If the live report preview is mounted, print directly with exact preview layout/styling!
+    const captureEl = document.querySelector('#report-preview-capture-area');
+    if (captureEl) {
+      setIsExportingPdf(true);
+      await new Promise((r) => setTimeout(r, 120));
+
+      const title = reportMeta[activeReport]?.title || 'Report';
+      const cleanPeriodStr = (reportData?.period?.monthLabel || filters?.month || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const filename = `${title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${cleanPeriodStr}.pdf`;
+
+      const ok = await downloadElementAsPdf(captureEl, {
+        filename,
+        title,
+        mode: 'print',
+      });
+
+      setIsExportingPdf(false);
+      if (ok) return;
+    }
+
     const records = reportData?.records || [];
     if (!records.length) {
       alert('No records available to print.');
@@ -4650,7 +5012,16 @@ function Reports() {
         alert('No employee available to print ID Card.');
         return;
       }
-      downloadEmployeeIdCardPdf(targetEmp, reportData?.companyInfo, {
+      const effectiveCompany = {
+        ...(activeCompany || {}),
+        ...(reportData?.companyInfo || {}),
+        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName || activeCompany?.name || activeCompany?.companyName,
+        address: reportData?.companyInfo?.address || activeCompany?.address || activeCompany?.registeredAddress,
+        phone: reportData?.companyInfo?.phone || activeCompany?.phone || activeCompany?.contactNumber,
+        email: reportData?.companyInfo?.email || activeCompany?.email,
+        logo: reportData?.companyInfo?.logo || activeCompany?.logo || activeCompany?.logoUrl,
+      };
+      downloadEmployeeIdCardPdf(targetEmp, effectiveCompany, {
         mode: 'print',
         companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
       });
@@ -5129,15 +5500,41 @@ function Reports() {
                   type="button"
                   className={styles.secondaryButton}
                   onClick={handlePrintReport}
-                  style={{ padding: '8px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  disabled={!isReportGenerated || !reportData}
+                  style={{
+                    padding: '8px 14px',
+                    fontSize: '13px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: !isReportGenerated || !reportData ? 0.5 : 1,
+                    cursor: !isReportGenerated || !reportData ? 'not-allowed' : 'pointer',
+                  }}
+                  title={!isReportGenerated || !reportData ? 'Generate report first to print' : 'Print Report'}
                 >
                   <Printer size={15} /> Print
                 </button>
                 <button
                   type="button"
                   className={styles.primaryButton}
-                  onClick={() => setIsExportOpen(true)}
-                  style={{ padding: '8px 16px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  onClick={() => {
+                    if (!isReportGenerated || !reportData) {
+                      alert('Please click "Generate Report" before exporting.');
+                      return;
+                    }
+                    setIsExportOpen(true);
+                  }}
+                  disabled={!isReportGenerated || !reportData}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    opacity: !isReportGenerated || !reportData ? 0.5 : 1,
+                    cursor: !isReportGenerated || !reportData ? 'not-allowed' : 'pointer',
+                  }}
+                  title={!isReportGenerated || !reportData ? 'Generate report first to export' : 'Export Report'}
                 >
                   <Download size={15} /> Export Report
                 </button>
@@ -5163,6 +5560,9 @@ function Reports() {
               isLoading={isLoading}
               onGenerateReport={handleGenerateReport}
               onResetFilters={handleResetFilters}
+              isExporting={isExportingPdf}
+              activeCompany={activeCompany}
+              isReportGenerated={isReportGenerated}
             />
           </>
         )}
@@ -5174,6 +5574,8 @@ function Reports() {
           reportData={reportData}
           filters={filters}
           onExportSuccess={(msg) => setToastMessage(msg)}
+          onStartExport={() => setIsExportingPdf(true)}
+          onEndExport={() => setIsExportingPdf(false)}
         />
       </div>
     </AdminLayout>

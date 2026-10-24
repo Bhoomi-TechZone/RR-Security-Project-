@@ -1286,3 +1286,108 @@
   }
 }
 
+/* =========================================================
+   Printable Report Preview Capture Area
+   ========================================================= */
+.reportPreviewCaptureArea {
+  background: #ffffff;
+  width: 100%;
+  border-radius: var(--radius-sm, 6px);
+  position: relative;
+}
+
+.standardReportDocHeader {
+  padding: 18px 20px 14px 20px;
+  background: #ffffff;
+  border-bottom: 2px solid #0f172a;
+  margin-bottom: 16px;
+}
+
+.standardReportHeaderTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.standardReportCompanyBlock {
+  flex: 1;
+  min-width: 260px;
+}
+
+.standardReportCompanyName {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 4px 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.standardReportCompanyAddress {
+  font-size: 11px;
+  color: #475569;
+  margin: 0 0 6px 0;
+  max-width: 480px;
+  line-height: 1.4;
+}
+
+.standardReportStatutoryRow {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.standardReportTitleBlock {
+  text-align: right;
+  min-width: 200px;
+}
+
+.standardReportDocTitle {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0 0 6px 0;
+  letter-spacing: 0.5px;
+}
+
+.standardReportPeriodBadge {
+  display: inline-block;
+  padding: 3px 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 700;
+  font-size: 11px;
+  border-radius: 4px;
+  border: 1px solid #bfdbfe;
+}
+
+.standardReportDateStamp {
+  font-size: 10px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.standardReportSummaryBar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: #1e293b;
+}
+
+.standardReportSummaryBar strong {
+  color: #475569;
+  font-weight: 600;
+}
+
+

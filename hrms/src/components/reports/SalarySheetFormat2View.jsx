@@ -35,9 +35,47 @@ export default function SalarySheetFormat2View({
   filters = {},
 }) {
   const companyName = companyInfo?.name || companyInfo?.companyName || 'RR SECURITY & FACILITIES';
-  const companyAddress = companyInfo?.address || '—';
-  const pfNo = companyInfo?.pfNo || '—';
-  const esiNo = companyInfo?.esiNo || companyInfo?.esicNo || '—';
+  const companyAddress =
+    companyInfo?.address && companyInfo.address !== '—'
+      ? companyInfo.address
+      : 'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
+  // Resolve configured company statutory codes strictly from Company Setup
+  let savedSetup = {};
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
+    if (raw) savedSetup = JSON.parse(raw);
+  } catch (e) {}
+
+  let adminCompanies = [];
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
+    if (raw) adminCompanies = JSON.parse(raw);
+  } catch (e) {}
+  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+
+  const cleanPf = [
+    companyInfo?.employerPfCode,
+    companyInfo?.pfCode,
+    companyInfo?.pfNo,
+    companyInfo?.epfNo,
+    savedSetup?.employerPfCode,
+    savedSetup?.pfCode,
+    localDefaultComp?.employerPfCode,
+    localDefaultComp?.pfCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const pfNo = cleanPf || '—';
+
+  const cleanEsi = [
+    companyInfo?.employerEsiCode,
+    companyInfo?.esiCode,
+    companyInfo?.esicNo,
+    companyInfo?.esiNo,
+    savedSetup?.employerEsiCode,
+    savedSetup?.esiCode,
+    localDefaultComp?.employerEsiCode,
+    localDefaultComp?.esiCode,
+  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
+  const esiNo = cleanEsi || '—';
   const monthLabel = period?.monthLabel || period?.month || filters?.month || '';
 
   const clientName =

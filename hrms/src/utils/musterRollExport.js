@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { downloadElementAsPdf } from './domPdfExportUtil';
 
 /**
  * Download Statutory Muster Roll (Form XVI) as Excel (.xlsx) / CSV
@@ -116,7 +117,7 @@ export const downloadMusterRollExcel = (
  * Download Statutory Muster Roll (Form XVI) as PDF
  * [See Rule 78(1)(a)(i) of Contract Labour (Regulation & Abolition) Central Rules, 1971]
  */
-export const downloadMusterRollPdf = (
+export const downloadMusterRollPdf = async (
   records = [],
   companyInfo = {},
   period = {},
@@ -124,6 +125,23 @@ export const downloadMusterRollPdf = (
   options = {}
 ) => {
   const mode = options.mode || 'download';
+
+  // Live DOM preview capture for exact layout/styling match
+  if (typeof document !== 'undefined') {
+    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="MusterRollFormXVIReportView_container"]');
+    if (previewEl) {
+      const cleanMonth = (period.monthLabel || period.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
+      const ok = await downloadElementAsPdf(previewEl, {
+        filename: `Muster_Roll_Form_XVI_${cleanMonth}.pdf`,
+        title: 'Muster Roll (Form XVI)',
+        mode,
+        orientation: 'landscape',
+        format: 'a3',
+      });
+      if (ok) return;
+    }
+  }
+
   const defaultComp = companyInfo || {};
   const contractorFull = `${defaultComp.name || 'RR SECURITY & FACILITIES'}, ${defaultComp.address || 'G-75/A Badarpur New Delhi-110044'}`;
   const firstRec = records[0] || {};
