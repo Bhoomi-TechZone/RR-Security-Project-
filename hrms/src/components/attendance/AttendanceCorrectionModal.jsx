@@ -1,5 +1,13 @@
 import React, { useState, useMemo } from 'react';
-import { X, CheckCircle2, User, FileSpreadsheet, Calculator } from 'lucide-react';
+import {
+  X,
+  User,
+  Calendar,
+  Building2,
+  FileSpreadsheet,
+  Calculator,
+  Check,
+} from 'lucide-react';
 import styles from './AttendanceCorrectionModal.module.css';
 
 const MONTH_OPTIONS = [
@@ -40,10 +48,58 @@ export const getDaysInMonth = (monthName, year) => {
   return new Date(y, mIdx + 1, 0).getDate();
 };
 
-function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
+const STATUS_OPTIONS = [
+  { value: 'present', label: 'Present', color: '#16a34a', bg: '#dcfce7', border: '#86efac' },
+  { value: 'absent', label: 'Absent', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  { value: 'halfDay', label: 'Half Day', color: '#0369a1', bg: '#e0f2fe', border: '#7dd3fc' },
+  { value: 'onLeave', label: 'On Leave', color: '#7c3aed', bg: '#ede9fe', border: '#d8b4fe' },
+  { value: 'late', label: 'Late', color: '#d97706', bg: '#fef3c7', border: '#fde68a' },
+  { value: 'weekOff', label: 'Week Off', color: '#2563eb', bg: '#dbeafe', border: '#93c5fd' },
+  { value: 'holiday', label: 'Holiday', color: '#ea580c', bg: '#ffedd5', border: '#fdba74' },
+];
+
+const formatDisplayDate = (dateVal) => {
+  if (!dateVal) return '—';
+  const str = String(dateVal).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return str;
+};
+
+const getInitialsBg = (initials = '') => {
+  const colors = [
+    '#2563eb', '#7c3aed', '#059669', '#d97706',
+    '#dc2626', '#0891b2', '#4f46e5', '#ca8a04'
+  ];
+  let sum = 0;
+  for (let i = 0; i < initials.length; i++) {
+    sum += initials.charCodeAt(i);
+  }
+  return colors[sum % colors.length];
+};
+
+function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit, activeTab }) {
   if (!isOpen || !record) return null;
 
+  const isSimpleMode = activeTab !== 'overview';
   const currentYear = new Date().getFullYear();
+
+  // Normalize initial status
+  let initialStatus = record?.status ? String(record.status).toLowerCase().replace(/[-_ ]/g, '') : 'present';
+  if (initialStatus === 'leave') initialStatus = 'onLeave';
+  if (initialStatus === 'half_day') initialStatus = 'halfDay';
+  if (initialStatus === 'week_off' || initialStatus === 'weeklyoff') initialStatus = 'weekOff';
+  const matchedOpt = STATUS_OPTIONS.find((opt) => opt.value.toLowerCase() === initialStatus);
+  const normalizedStatus = matchedOpt ? matchedOpt.value : (record?.status || 'present');
 
   // Derive initial values from record
   const initialMonth = record?.month || (record?.date ? new Date(record.date).toLocaleString('default', { month: 'long' }) : 'October');
@@ -59,7 +115,6 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
   const monthDaysAtStart = getDaysInMonth(initialMonth, initialYear);
   const nonPresentTotalAtStart = initialWeekOff + initialHolidays + initialCl + initialSl + initialEl + initialLwp;
 
-  // If record has explicit present, ensure it stays within month days or auto-deducts
   let initialPresent = record?.present !== undefined ? Number(record.present) : Math.max(0, monthDaysAtStart - nonPresentTotalAtStart);
   if (initialPresent + nonPresentTotalAtStart > monthDaysAtStart) {
     initialPresent = Math.max(0, monthDaysAtStart - nonPresentTotalAtStart);
@@ -78,19 +133,18 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
     sl: initialSl,
     el: initialEl,
     lwp: initialLwp,
+    status: normalizedStatus,
     remarks: record?.remarks || ''
   });
 
   const [isSaving, setIsSaving] = useState(false);
-
-  if (!record) return null;
 
   // Days in selected month & year (Working Days)
   const monthDays = useMemo(() => {
     return getDaysInMonth(form.month, form.year);
   }, [form.month, form.year]);
 
-  // Real-time calculated Total Paid Days (Present + Week Off + Holidays + CL + SL + EL)
+  // Real-time calculated Total Paid Days
   const computedPaidDays = useMemo(() => {
     const p = Number(form.present) || 0;
     const wo = Number(form.weekOff) || 0;
@@ -105,7 +159,6 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  // When Month or Year changes, recalculate month days and auto-adjust present days
   const handlePeriodChange = (key, value) => {
     setForm((prev) => {
       const updated = { ...prev, [key]: value };
@@ -126,8 +179,6 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
     });
   };
 
-  // When User modifies any Leave (CL, SL, EL, LWP), Week Off, or Holidays:
-  // Automatically deduct from Present days to maintain exact total month working days
   const handleLeaveChange = (key, rawVal) => {
     const num = rawVal === '' ? '' : Math.max(0, Number(rawVal));
     setForm((prev) => {
@@ -150,7 +201,6 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
     });
   };
 
-  // User directly edits present days
   const handlePresentChange = (rawVal) => {
     const num = rawVal === '' ? '' : Math.max(0, Number(rawVal));
     setForm((prev) => ({ ...prev, present: num }));
@@ -160,51 +210,68 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const present = Number(form.present) || 0;
-      const weekOff = Number(form.weekOff) || 0;
-      const holidays = Number(form.holidays) || 0;
-      const cl = Number(form.cl) || 0;
-      const sl = Number(form.sl) || 0;
-      const el = Number(form.el) || 0;
-      const lwp = Number(form.lwp) || 0;
-      const totalPaidDays = computedPaidDays;
-      const workingDays = monthDays;
+      if (isSimpleMode) {
+        await onSubmit({
+          ...record,
+          attendanceId: record.id || record._id,
+          employeeId: String(form.employeeId).trim(),
+          employeeName: String(form.employeeName).trim(),
+          fatherName: String(form.fatherName).trim(),
+          status: form.status,
+          remarks: form.remarks,
+        });
+      } else {
+        const present = Number(form.present) || 0;
+        const weekOff = Number(form.weekOff) || 0;
+        const holidays = Number(form.holidays) || 0;
+        const cl = Number(form.cl) || 0;
+        const sl = Number(form.sl) || 0;
+        const el = Number(form.el) || 0;
+        const lwp = Number(form.lwp) || 0;
+        const totalPaidDays = computedPaidDays;
+        const workingDays = monthDays;
 
-      await onSubmit({
-        ...record,
-        attendanceId: record.id || record._id,
-        employeeId: String(form.employeeId).trim(),
-        employeeName: String(form.employeeName).trim(),
-        fatherName: String(form.fatherName).trim(),
-        month: form.month,
-        year: Number(form.year) || currentYear,
-        present,
-        weekOff,
-        holidays,
-        cl,
-        sl,
-        el,
-        lwp,
-        totalPaidDays,
-        workingDays,
-        workingHours: `${present} days`,
-        status: present > 0 ? 'present' : (lwp > 0 ? 'absent' : 'onLeave'),
-        remarks: form.remarks,
-      });
+        await onSubmit({
+          ...record,
+          attendanceId: record.id || record._id,
+          employeeId: String(form.employeeId).trim(),
+          employeeName: String(form.employeeName).trim(),
+          fatherName: String(form.fatherName).trim(),
+          month: form.month,
+          year: Number(form.year) || currentYear,
+          present,
+          weekOff,
+          holidays,
+          cl,
+          sl,
+          el,
+          lwp,
+          totalPaidDays,
+          workingDays,
+          workingHours: `${present} days`,
+          status: present > 0 ? 'present' : (lwp > 0 ? 'absent' : 'onLeave'),
+          remarks: form.remarks,
+        });
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
+  const activeStatusConfig = STATUS_OPTIONS.find((opt) => opt.value === form.status) || STATUS_OPTIONS[0];
+  const empInitials = record.initials || (record.employeeName || 'EM').split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase();
+
   return (
     <div className={styles.overlay} role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={styles.modal}>
+      <div className={`${styles.modal} ${isSimpleMode ? styles.simpleModal : ''}`}>
         {/* Header */}
         <div className={styles.header}>
           <div>
             <h3 className={styles.title}>Edit Attendance Record</h3>
             <p className={styles.sub}>
-              Update employee attendance & leave metrics matching the Excel format
+              {isSimpleMode
+                ? 'Update attendance status and remarks for this record'
+                : 'Update employee attendance & leave metrics matching the Excel format'}
             </p>
           </div>
           <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
@@ -214,198 +281,315 @@ function AttendanceCorrectionModal({ isOpen, record, onClose, onSubmit }) {
 
         {/* Form Body */}
         <form className={styles.body} onSubmit={handleSubmit}>
-          {/* Section 1: Employee & Period Identification */}
-          <div className={styles.sectionHeader}>
-            <User size={15} color="#2563eb" />
-            <span>Employee & Period Details</span>
-          </div>
+          {isSimpleMode ? (
+            <>
+              {/* Context Information Card */}
+              <div className={styles.contextCard}>
+                <div className={styles.contextHeader}>
+                  <div className={styles.contextEmp}>
+                    <div
+                      className={styles.avatar}
+                      style={{ background: getInitialsBg(empInitials) }}
+                    >
+                      {empInitials}
+                    </div>
+                    <div className={styles.empDetails}>
+                      <span className={styles.empName}>{record.employeeName || 'Employee'}</span>
+                      <span className={styles.empId}>
+                        {record.employeeId} {record.fatherName ? `• S/O ${record.fatherName}` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <span
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '3px 9px',
+                        borderRadius: '9999px',
+                        background: activeStatusConfig.bg,
+                        color: activeStatusConfig.color,
+                        border: `1px solid ${activeStatusConfig.border}`,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.4px',
+                      }}
+                    >
+                      {activeStatusConfig.label}
+                    </span>
+                  </div>
+                </div>
 
-          <div className={styles.formGrid5}>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>EMPID *</label>
-              <input
-                type="text"
-                className={styles.formInput}
-                value={form.employeeId}
-                onChange={(e) => handleChange('employeeId', e.target.value)}
-                required
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>EMPLOYEE NAME *</label>
-              <input
-                type="text"
-                className={styles.formInput}
-                value={form.employeeName}
-                onChange={(e) => handleChange('employeeName', e.target.value)}
-                required
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>FATHER NAME</label>
-              <input
-                type="text"
-                className={styles.formInput}
-                placeholder="Father's Name"
-                value={form.fatherName}
-                onChange={(e) => handleChange('fatherName', e.target.value)}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>MONTH</label>
-              <select
-                className={styles.formInput}
-                value={form.month}
-                onChange={(e) => handlePeriodChange('month', e.target.value)}
-              >
-                {MONTH_OPTIONS.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel}>YEAR</label>
-              <input
-                type="number"
-                min="2020"
-                max="2035"
-                className={styles.formInput}
-                value={form.year}
-                onChange={(e) => handlePeriodChange('year', e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Section 2: Attendance & Leave Days Breakdown */}
-          <div className={styles.sectionHeader}>
-            <FileSpreadsheet size={15} color="#16a34a" />
-            <span>Attendance & Leaves Breakdown (Days)</span>
-          </div>
-
-          <div className={styles.formGrid7}>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#16a34a' }}>
-                PRESENT *
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={`${styles.formInput} ${styles.inputHighlight}`}
-                value={form.present}
-                onChange={(e) => handlePresentChange(e.target.value)}
-                required
-                title="Present days automatically adjust when leaves or off-days are changed"
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#2563eb' }}>
-                WEEK OFF
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={styles.formInput}
-                value={form.weekOff}
-                onChange={(e) => handleLeaveChange('weekOff', e.target.value)}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#d97706' }}>
-                HOLIDAYS
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={styles.formInput}
-                value={form.holidays}
-                onChange={(e) => handleLeaveChange('holidays', e.target.value)}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#7c3aed' }}>
-                CL (Casual)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={styles.formInput}
-                value={form.cl}
-                onChange={(e) => handleLeaveChange('cl', e.target.value)}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#0284c7' }}>
-                SL (Sick)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={styles.formInput}
-                value={form.sl}
-                onChange={(e) => handleLeaveChange('sl', e.target.value)}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#0d9488' }}>
-                EL (Earn)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={styles.formInput}
-                value={form.el}
-                onChange={(e) => handleLeaveChange('el', e.target.value)}
-              />
-            </div>
-            <div className={styles.formGroup}>
-              <label className={styles.formLabel} style={{ color: '#dc2626' }}>
-                LWP (Unpaid)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={monthDays}
-                className={styles.formInput}
-                value={form.lwp}
-                onChange={(e) => handleLeaveChange('lwp', e.target.value)}
-              />
-            </div>
-          </div>
-
-          {/* Real-time Working Days Summary Box */}
-          <div className={styles.totalSummaryCard}>
-            <div className={styles.totalInfo}>
-              <Calculator size={18} color="#166534" />
-              <div>
-                <span style={{ fontWeight: 700, fontSize: 13, color: '#166534' }}>
-                  Working Days ({form.month} {form.year}):
-                </span>
-                <div style={{ fontSize: 11, color: '#15803d', fontWeight: 500, marginTop: 1 }}>
-                  Total days in {form.month} {form.year} (Present: {form.present}d + Off/Holidays: {(Number(form.weekOff) || 0) + (Number(form.holidays) || 0)}d + Leaves: {(Number(form.cl) || 0) + (Number(form.sl) || 0) + (Number(form.el) || 0) + (Number(form.lwp) || 0)}d)
+                <div className={styles.metaRow}>
+                  <div className={styles.metaItem}>
+                    <Calendar size={13} color="#64748b" />
+                    <span>{formatDisplayDate(record.date)}</span>
+                  </div>
+                  <div className={styles.metaItem}>
+                    <Building2 size={13} color="#64748b" />
+                    <span>{record.companyName || record.clientName || 'RR Security & Facilities'}</span>
+                  </div>
+                  {record.site && (
+                    <div className={styles.metaItem}>
+                      <span>Site: <strong>{record.site}</strong></span>
+                    </div>
+                  )}
                 </div>
               </div>
-            </div>
-            <div className={styles.totalDaysValue}>
-              {monthDays} Days
-            </div>
-          </div>
 
-          <div className={styles.formGroup}>
-            <label className={styles.formLabel}>Remarks / Edit Reason (Optional)</label>
-            <input
-              type="text"
-              className={styles.formInput}
-              placeholder="e.g. Updated monthly attendance summary from attendance register"
-              value={form.remarks}
-              onChange={(e) => handleChange('remarks', e.target.value)}
-            />
-          </div>
+              {/* Status Field */}
+              <div className={styles.formGroup} style={{ marginTop: '4px' }}>
+                <label className={styles.formLabel}>ATTENDANCE STATUS *</label>
+                <select
+                  className={styles.formInput}
+                  value={form.status}
+                  onChange={(e) => handleChange('status', e.target.value)}
+                  style={{ fontWeight: 600, cursor: 'pointer' }}
+                  required
+                >
+                  {STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Quick Select Status Pills */}
+                <div className={styles.statusPillsGrid}>
+                  {STATUS_OPTIONS.map((opt) => {
+                    const isSelected = form.status === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className={`${styles.statusPillBtn} ${isSelected ? styles.statusPillBtnActive : ''}`}
+                        onClick={() => handleChange('status', opt.value)}
+                        style={
+                          isSelected
+                            ? {
+                                background: opt.bg,
+                                borderColor: opt.border,
+                                color: opt.color,
+                              }
+                            : {}
+                        }
+                      >
+                        {isSelected && <Check size={12} strokeWidth={3} />}
+                        <span>{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Remarks Field (Input field) */}
+              <div className={styles.formGroup} style={{ marginTop: '4px' }}>
+                <label className={styles.formLabel}>REMARKS</label>
+                <input
+                  type="text"
+                  className={styles.formInput}
+                  placeholder="Enter remarks (e.g. Duty adjusted, approved leave, biometric issue)"
+                  value={form.remarks}
+                  onChange={(e) => handleChange('remarks', e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Overview Tab: Full Monthly Breakdown */}
+              <div className={styles.sectionHeader}>
+                <User size={15} color="#2563eb" />
+                <span>Employee & Period Details</span>
+              </div>
+
+              <div className={styles.formGrid5}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>EMPID *</label>
+                  <input
+                    type="text"
+                    className={styles.formInput}
+                    value={form.employeeId}
+                    onChange={(e) => handleChange('employeeId', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>EMPLOYEE NAME *</label>
+                  <input
+                    type="text"
+                    className={styles.formInput}
+                    value={form.employeeName}
+                    onChange={(e) => handleChange('employeeName', e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>FATHER NAME</label>
+                  <input
+                    type="text"
+                    className={styles.formInput}
+                    placeholder="Father's Name"
+                    value={form.fatherName}
+                    onChange={(e) => handleChange('fatherName', e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>MONTH</label>
+                  <select
+                    className={styles.formInput}
+                    value={form.month}
+                    onChange={(e) => handlePeriodChange('month', e.target.value)}
+                  >
+                    {MONTH_OPTIONS.map((m) => (
+                      <option key={m} value={m}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel}>YEAR</label>
+                  <input
+                    type="number"
+                    min="2020"
+                    max="2035"
+                    className={styles.formInput}
+                    value={form.year}
+                    onChange={(e) => handlePeriodChange('year', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.sectionHeader}>
+                <FileSpreadsheet size={15} color="#16a34a" />
+                <span>Attendance & Leaves Breakdown (Days)</span>
+              </div>
+
+              <div className={styles.formGrid7}>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#16a34a' }}>
+                    PRESENT *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={`${styles.formInput} ${styles.inputHighlight}`}
+                    value={form.present}
+                    onChange={(e) => handlePresentChange(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#2563eb' }}>
+                    WEEK OFF
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={styles.formInput}
+                    value={form.weekOff}
+                    onChange={(e) => handleLeaveChange('weekOff', e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#d97706' }}>
+                    HOLIDAYS
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={styles.formInput}
+                    value={form.holidays}
+                    onChange={(e) => handleLeaveChange('holidays', e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#7c3aed' }}>
+                    CL (Casual)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={styles.formInput}
+                    value={form.cl}
+                    onChange={(e) => handleLeaveChange('cl', e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#0284c7' }}>
+                    SL (Sick)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={styles.formInput}
+                    value={form.sl}
+                    onChange={(e) => handleLeaveChange('sl', e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#0d9488' }}>
+                    EL (Earn)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={styles.formInput}
+                    value={form.el}
+                    onChange={(e) => handleLeaveChange('el', e.target.value)}
+                  />
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.formLabel} style={{ color: '#dc2626' }}>
+                    LWP (Unpaid)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max={monthDays}
+                    className={styles.formInput}
+                    value={form.lwp}
+                    onChange={(e) => handleLeaveChange('lwp', e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.totalSummaryCard}>
+                <div className={styles.totalInfo}>
+                  <Calculator size={18} color="#166534" />
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: '#166534' }}>
+                      Working Days ({form.month} {form.year}):
+                    </span>
+                    <div style={{ fontSize: 11, color: '#15803d', fontWeight: 500, marginTop: 1 }}>
+                      Total days in {form.month} {form.year} (Present: {form.present}d + Off/Holidays: {(Number(form.weekOff) || 0) + (Number(form.holidays) || 0)}d + Leaves: {(Number(form.cl) || 0) + (Number(form.sl) || 0) + (Number(form.el) || 0) + (Number(form.lwp) || 0)}d)
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.totalDaysValue}>
+                  {monthDays} Days
+                </div>
+              </div>
+
+              <div className={styles.formGroup}>
+                <label className={styles.formLabel}>Remarks / Edit Reason (Optional)</label>
+                <input
+                  type="text"
+                  className={styles.formInput}
+                  placeholder="e.g. Updated monthly attendance summary from register"
+                  value={form.remarks}
+                  onChange={(e) => handleChange('remarks', e.target.value)}
+                />
+              </div>
+            </>
+          )}
 
           {/* Modal Footer */}
           <div className={styles.footer}>

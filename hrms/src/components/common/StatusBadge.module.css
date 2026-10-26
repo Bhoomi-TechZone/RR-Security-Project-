@@ -58,3 +58,15 @@
   color: #9333ea;
   border: 1px solid #e9d5ff;
 }
+
+.weekOff {
+  background-color: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.holiday {
+  background-color: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}

@@ -3,10 +3,11 @@ import styles from './AttendanceDistribution.module.css';
 
 const SEGMENTS = [
   { statuses: ['present'], label: 'Present', color: '#16a34a', bg: '#dcfce7' },
+  { statuses: ['weekOff', 'weeklyOff', 'holiday'], label: 'Week Off / Holiday', color: '#2563eb', bg: '#dbeafe' },
   { statuses: ['late', 'earlyOut'], label: 'Late/Early', color: '#d97706', bg: '#fff7ed' },
   { statuses: ['halfDay'], label: 'Half Day', color: '#0369a1', bg: '#e0f2fe' },
-  { statuses: ['leave', 'onLeave'], label: 'Leave', color: '#7c3aed', bg: '#ede9fe' },
-  { statuses: ['absent'], label: 'Absent', color: '#dc2626', bg: '#fee2e2' },
+  { statuses: ['leave', 'onLeave', 'cl', 'sl', 'el'], label: 'Leave', color: '#7c3aed', bg: '#ede9fe' },
+  { statuses: ['absent', 'lwp'], label: 'Absent', color: '#dc2626', bg: '#fee2e2' },
   { statuses: ['pendingCorrection'], label: 'Pending Fix', color: '#9333ea', bg: '#fdf4ff' }
 ];
 

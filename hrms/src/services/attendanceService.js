@@ -44,6 +44,25 @@ class AttendanceService {
   }
 
   /**
+   * Get distinct months that have attendance records
+   */
+  async getAttendanceMonths(companyId) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/attendance/months?companyId=${companyId || ''}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to fetch attendance months');
+      }
+      return data.months || [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Bulk import attendance records into MongoDB
    */
   async bulkImportAttendance(companyId, payload) {
@@ -90,8 +109,15 @@ class AttendanceService {
   /**
    * Delete attendance record permanently from MongoDB
    */
-  async deleteAttendanceRecord(companyId, recordId) {
-    const res = await fetch(`${API_BASE_URL}/attendance/${recordId}`, {
+  async deleteAttendanceRecord(companyId, recordId, options = {}) {
+    const query = new URLSearchParams();
+    if (companyId) query.append('companyId', companyId);
+    if (options.month) query.append('month', options.month);
+    if (options.employeeId) query.append('employeeId', options.employeeId);
+    if (options.deleteAllMonth) query.append('deleteAllMonth', 'true');
+
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    const res = await fetch(`${API_BASE_URL}/attendance/${recordId}${qs}`, {
       method: 'DELETE',
       headers: this.getHeaders(companyId),
     });

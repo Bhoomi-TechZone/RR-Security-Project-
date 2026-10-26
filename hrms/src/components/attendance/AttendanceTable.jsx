@@ -1,5 +1,7 @@
 import React from 'react';
+import { Loader2 } from 'lucide-react';
 import EmptyState from '../common/EmptyState';
+import StatusBadge from '../common/StatusBadge';
 import AttendanceActionMenu from './AttendanceActionMenu';
 import { getDaysInMonth } from './AttendanceCorrectionModal';
 import styles from './AttendanceTable.module.css';
@@ -27,6 +29,45 @@ const MONTH_FULL_NAMES = {
   oct: 'October', october: 'October', '10': 'October',
   nov: 'November', november: 'November', '11': 'November',
   dec: 'December', december: 'December', '12': 'December',
+};
+
+const formatDisplayDate = (dateVal) => {
+  if (!dateVal) return '—';
+  const str = String(dateVal).trim();
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return str;
+};
+
+const getStatusLabel = (status) => {
+  if (!status) return 'Present';
+  const clean = String(status).toLowerCase().replace(/[\s_-]+/g, '');
+  const map = {
+    present: 'Present',
+    absent: 'Absent',
+    halfday: 'Half Day',
+    leave: 'On Leave',
+    onleave: 'On Leave',
+    late: 'Late',
+    earlyout: 'Early Out',
+    pendingcorrection: 'Pending Correction'
+  };
+  return map[clean] || (String(status).charAt(0).toUpperCase() + String(status).slice(1));
 };
 
 const formatMonthYearDisplay = (rec) => {
@@ -72,7 +113,18 @@ const formatMonthYearDisplay = (rec) => {
   return '—';
 };
 
-function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
+function AttendanceTable({
+  records,
+  activeTab = 'daily',
+  isLoading = false,
+  onView,
+  onEdit,
+  onReview,
+  onDelete,
+}) {
+  const isDaily = activeTab !== 'overview';
+  const totalCols = isDaily ? 6 : 13;
+
   const handleAction = (action, rec) => {
     if (action === 'view') {
       onView(rec);
@@ -85,7 +137,7 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
     }
   };
 
-  if (records.length === 0) {
+  if (!isLoading && records.length === 0) {
     return (
       <EmptyState
         title="No records found"
@@ -100,24 +152,52 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
-            <tr>
-              <th>Employee</th>
-              <th>Father Name</th>
-              <th>Client / Company</th>
-              <th>Month / Year</th>
-              <th style={{ color: '#16a34a' }}>Present</th>
-              <th style={{ color: '#2563eb' }}>Week Off</th>
-              <th style={{ color: '#d97706' }}>Holidays</th>
-              <th style={{ color: '#7c3aed' }} title="Casual Leave">CL</th>
-              <th style={{ color: '#0284c7' }} title="Sick Leave">SL</th>
-              <th style={{ color: '#0d9488' }} title="Earn Leave">EL</th>
-              <th style={{ color: '#dc2626' }} title="Leave Without Pay">LWP</th>
-              <th>Working Days</th>
-              <th className={styles.actionsCol}></th>
-            </tr>
+            {isDaily ? (
+              <tr>
+                <th>Employee</th>
+                <th>Father Name</th>
+                <th>Client / Company</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th className={styles.actionsCol}></th>
+              </tr>
+            ) : (
+              <tr>
+                <th>Employee</th>
+                <th>Father Name</th>
+                <th>Client / Company</th>
+                <th>Month / Year</th>
+                <th style={{ color: '#16a34a' }}>Present</th>
+                <th style={{ color: '#2563eb' }}>Week Off</th>
+                <th style={{ color: '#d97706' }}>Holidays</th>
+                <th style={{ color: '#7c3aed' }} title="Casual Leave">CL</th>
+                <th style={{ color: '#0284c7' }} title="Sick Leave">SL</th>
+                <th style={{ color: '#0d9488' }} title="Earn Leave">EL</th>
+                <th style={{ color: '#dc2626' }} title="Leave Without Pay">LWP</th>
+                <th>Working Days</th>
+                <th className={styles.actionsCol}></th>
+              </tr>
+            )}
           </thead>
           <tbody>
-            {records.map((rec) => {
+            {isLoading ? (
+              <tr>
+                <td colSpan={totalCols} className={styles.loaderCell}>
+                  <div className={styles.loaderContainer}>
+                    <div className={styles.spinnerWrapper}>
+                      <Loader2 size={32} className={styles.spinnerIcon} />
+                    </div>
+                    <div className={styles.loaderTextWrap}>
+                      <h4 className={styles.loaderTitle}>Loading Attendance Records</h4>
+                      <p className={styles.loaderSubtitle}>
+                        Fetching workforce muster and attendance logs from database…
+                      </p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              records.map((rec) => {
               const present = rec.present !== undefined ? rec.present : (rec.status === 'present' ? 1 : 0);
               const weekOff = rec.weekOff !== undefined ? rec.weekOff : 0;
               const holidays = rec.holidays !== undefined ? rec.holidays : 0;
@@ -131,6 +211,52 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
                   : (rec.month || rec.date
                     ? getDaysInMonth(rec.month || rec.date.slice(0, 7), rec.year || rec.date?.slice(0, 4))
                     : 30);
+
+              if (isDaily) {
+                return (
+                  <tr key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.row} onClick={() => onView(rec)}>
+                    <td>
+                      <div className={styles.empCell}>
+                        <div
+                          className={styles.avatar}
+                          style={{ background: getInitialsBg(rec.initials) }}
+                        >
+                          {rec.initials || 'EM'}
+                        </div>
+                        <div>
+                          <div className={styles.empName}>{rec.employeeName}</div>
+                          <div className={styles.empId}>{rec.employeeId}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span className={styles.fatherNameText}>{rec.fatherName || '—'}</span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                        {rec.companyName || rec.clientName || '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={styles.dateText}>{formatDisplayDate(rec.date)}</span>
+                    </td>
+                    <td>
+                      <StatusBadge status={rec.status || 'present'}>
+                        {getStatusLabel(rec.status)}
+                      </StatusBadge>
+                    </td>
+                    <td
+                      className={styles.actionsCell}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <AttendanceActionMenu
+                        record={rec}
+                        onAction={handleAction}
+                      />
+                    </td>
+                  </tr>
+                );
+              }
 
               return (
                 <tr key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.row} onClick={() => onView(rec)}>
@@ -196,14 +322,23 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
                   </td>
                 </tr>
               );
-            })}
+            }))}
           </tbody>
         </table>
       </div>
 
       {/* Mobile cards */}
       <div className={styles.cards}>
-        {records.map((rec) => {
+        {isLoading ? (
+          <div className={styles.mobileLoader}>
+            <div className={styles.spinnerWrapper}>
+              <Loader2 size={28} className={styles.spinnerIcon} />
+            </div>
+            <h4 className={styles.loaderTitle}>Loading Attendance Records</h4>
+            <p className={styles.loaderSubtitle}>Fetching workforce records…</p>
+          </div>
+        ) : (
+          records.map((rec) => {
           const present = rec.present !== undefined ? rec.present : (rec.status === 'present' ? 1 : 0);
           const weekOff = rec.weekOff !== undefined ? rec.weekOff : 0;
           const holidays = rec.holidays !== undefined ? rec.holidays : 0;
@@ -218,6 +353,57 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
               : rec.totalPaidDays !== undefined
               ? rec.totalPaidDays
               : present + weekOff + holidays + cl + sl + el);
+
+          if (isDaily) {
+            return (
+              <div key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.card} onClick={() => onView(rec)}>
+                <div className={styles.cardHeader}>
+                  <div className={styles.empCell}>
+                    <div
+                      className={styles.avatar}
+                      style={{ background: getInitialsBg(rec.initials) }}
+                    >
+                      {rec.initials || 'EM'}
+                    </div>
+                    <div>
+                      <div className={styles.empName}>{rec.employeeName}</div>
+                      <div className={styles.empId}>
+                        {rec.employeeId} {rec.fatherName ? `· S/O: ${rec.fatherName}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <StatusBadge status={rec.status || 'present'}>
+                    {getStatusLabel(rec.status)}
+                  </StatusBadge>
+                </div>
+                <div className={styles.cardBody}>
+                  <div className={styles.cardRow}>
+                    <span>Client</span>
+                    <span style={{ fontWeight: 600 }}>{rec.companyName || rec.clientName || '—'}</span>
+                  </div>
+                  <div className={styles.cardRow}>
+                    <span>Date</span>
+                    <span className={styles.dateText}>{formatDisplayDate(rec.date)}</span>
+                  </div>
+                  <div className={styles.cardRow}>
+                    <span>Status</span>
+                    <StatusBadge status={rec.status || 'present'}>
+                      {getStatusLabel(rec.status)}
+                    </StatusBadge>
+                  </div>
+                </div>
+                <div
+                  className={styles.cardActions}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <AttendanceActionMenu
+                    record={rec}
+                    onAction={handleAction}
+                  />
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`} className={styles.card} onClick={() => onView(rec)}>
@@ -273,7 +459,7 @@ function AttendanceTable({ records, onView, onEdit, onReview, onDelete }) {
               </div>
             </div>
           );
-        })}
+        }))}
       </div>
     </>
   );

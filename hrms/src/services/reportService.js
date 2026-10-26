@@ -1382,6 +1382,55 @@ class ReportService {
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
     const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
 
+    let attRecords = [];
+    try {
+      const attRes = await fetch(`${API_BASE_URL}/attendance?month=${targetMonth}&companyId=${companyId || ''}`, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      if (attRes.ok) {
+        const attJson = await attRes.json();
+        attRecords = attJson.records || [];
+      }
+    } catch {
+      // fallback
+    }
+
+    const normalizeCode = (c) => String(c || '').trim().toUpperCase().replace(/[-_\s]/g, '');
+    const cleanName = (n) => String(n || '').trim().toUpperCase();
+
+    const normalizeStatusToMark = (rawStatus, isSunday = false) => {
+      if (!rawStatus) return isSunday ? 'WO' : '—';
+      const s = String(rawStatus).trim().toLowerCase().replace(/[\s_-]/g, '');
+      if (['present', 'p', 'late', 'onduty', 'duty', 'work', 'worked'].includes(s)) return 'P';
+      if (['halfday', 'hd', 'half'].includes(s)) return 'HD';
+      if (['weekoff', 'weeklyoff', 'wo', 'off', 'sunday'].includes(s)) return 'WO';
+      if (['holiday', 'holidays', 'hol', 'h', 'festivalholiday', 'nationalholiday', 'ph'].includes(s)) return 'H';
+      if (['cl', 'casualleave'].includes(s)) return 'CL';
+      if (['sl', 'sickleave'].includes(s)) return 'SL';
+      if (['el', 'pl', 'earnedleave'].includes(s)) return 'EL';
+      if (['onleave', 'leave', 'leaves', 'paidleave', 'l'].includes(s)) return 'L';
+      if (['absent', 'a', 'abs', 'lwp', 'leavewithoutpay', 'unpaid', 'lossofpay'].includes(s)) return 'A';
+      return isSunday ? 'WO' : 'P';
+    };
+
+    const attMap = new Map();
+    attRecords.forEach((att) => {
+      const dateStr = att.date ? String(att.date).slice(0, 10) : '';
+      if (dateStr) {
+        const status = att.status || (Number(att.present) === 0.5 ? 'halfDay' : 'present');
+        const keys = [
+          `${normalizeCode(att.employeeId)}_${dateStr}`,
+          `${normalizeCode(att.employeeCode)}_${dateStr}`,
+          `${cleanName(att.employeeName)}_${dateStr}`,
+          `${att.employeeId}_${dateStr}`,
+        ];
+        keys.forEach((k) => {
+          if (k) attMap.set(k, status);
+        });
+      }
+    });
+
     const rawList = empData?.records || [];
     let totalWorkDaysSum = 0;
 
@@ -1398,10 +1447,30 @@ class ReportService {
       let employeeWorkedDays = 0;
 
       for (let day = 1; day <= daysInMonth; day++) {
+        const dayStr = String(day).padStart(2, '0');
+        const dateKey = `${targetMonth}-${dayStr}`;
         const dObj = new Date(yearNum, monthNum - 1, day);
         const isSunday = dObj.getDay() === 0;
-        const mark = isSunday ? 'WO' : '—';
+
+        const rawStatus =
+          attMap.get(`${normalizeCode(empId)}_${dateKey}`) ||
+          attMap.get(`${normalizeCode(empCode)}_${dateKey}`) ||
+          attMap.get(`${cleanName(emp.name)}_${dateKey}`) ||
+          attMap.get(`${empId}_${dateKey}`);
+
+        let mark = '—';
+        if (rawStatus) {
+          mark = normalizeStatusToMark(rawStatus, isSunday);
+        } else {
+          mark = isSunday ? 'WO' : '—';
+        }
+
         dailyAttendance[day] = mark;
+
+        if (mark === 'P') employeeWorkedDays += 1;
+        else if (mark === 'HD') employeeWorkedDays += 0.5;
+        else if (mark === 'WO') employeeWorkedDays += 1;
+        else if (mark === 'H' || mark === 'HOL') employeeWorkedDays += 1;
       }
 
       totalWorkDaysSum += employeeWorkedDays;

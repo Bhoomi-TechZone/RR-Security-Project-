@@ -7,7 +7,7 @@ import styles from './StatusBadge.module.css';
  */
 function StatusBadge({ status, children }) {
   const rawStatus = status || children || '';
-  const normalizedStatus = rawStatus.toLowerCase().replace(/\s+/g, '');
+  const normalizedStatus = String(rawStatus).toLowerCase().replace(/[\s_-]+/g, '');
 
   let statusClass = styles.pending;
 
@@ -15,16 +15,20 @@ function StatusBadge({ status, children }) {
     statusClass = styles.approved;
   } else if (['rejected', 'danger', 'error', 'inactive', 'absent'].includes(normalizedStatus)) {
     statusClass = styles.rejected;
-  } else if (normalizedStatus === 'halfday' || normalizedStatus === 'half day') {
+  } else if (normalizedStatus === 'halfday') {
     statusClass = styles.halfDay;
-  } else if (normalizedStatus === 'leave') {
+  } else if (['leave', 'onleave'].includes(normalizedStatus)) {
     statusClass = styles.leave;
   } else if (normalizedStatus === 'late') {
     statusClass = styles.late;
-  } else if (normalizedStatus === 'earlyout' || normalizedStatus === 'early out') {
+  } else if (normalizedStatus === 'earlyout') {
     statusClass = styles.earlyOut;
-  } else if (normalizedStatus === 'pendingcorrection' || normalizedStatus === 'pending correction') {
+  } else if (normalizedStatus === 'pendingcorrection') {
     statusClass = styles.pendingCorrection;
+  } else if (['weekoff', 'wo'].includes(normalizedStatus)) {
+    statusClass = styles.weekOff;
+  } else if (['holiday', 'h', 'publicholiday'].includes(normalizedStatus)) {
+    statusClass = styles.holiday;
   }
 
   return (

@@ -4,6 +4,7 @@ import {
   bulkImportAttendance,
   saveAttendanceRecord,
   deleteAttendanceRecord,
+  getAttendanceMonths,
   getCorrectionRequests,
   submitCorrectionRequest,
   reviewCorrectionRequest,
@@ -13,6 +14,8 @@ import { protect, adminOnly } from '../middleware/authMiddleware.js';
 const router = express.Router();
 
 router.use(protect);
+
+router.get('/months', getAttendanceMonths);
 
 router
   .route('/')

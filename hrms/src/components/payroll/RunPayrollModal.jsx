@@ -1,44 +1,161 @@
-import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, AlertTriangle, Play, Sparkles, ShieldCheck, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  X,
+  CheckCircle2,
+  AlertTriangle,
+  Play,
+  Sparkles,
+  ShieldCheck,
+  ArrowRight,
+  Calendar,
+  Loader2,
+  XCircle,
+} from 'lucide-react';
 import { formatRupee } from '../../utils/payrollUtils';
+import payrollService from '../../services/payrollService';
+import attendanceService from '../../services/attendanceService';
 import styles from './RunPayrollModal.module.css';
+
+const getMonthDisplayLabel = (mStr) => {
+  if (!mStr || !mStr.includes('-')) return mStr || '';
+  const [y, m] = mStr.split('-');
+  const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+  return d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+};
+
+const generateStandardMonths = () => {
+  const list = [];
+  const now = new Date();
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    list.push({ value, label });
+  }
+  return list;
+};
 
 export default function RunPayrollModal({
   isOpen,
   onClose,
-  selectedMonth = '2026-08',
-  monthLabel = 'August 2026',
+  selectedMonth = '2026-10',
+  monthLabel: propMonthLabel,
   companies = [],
   departments = [],
-  employeeCount = 0,
-  estimatedGross = 0,
-  estimatedDeductions = 0,
-  estimatedNet = 0,
-  records = [],
+  employeeCount: initialEmployeeCount = 0,
+  estimatedGross: initialEstimatedGross = 0,
+  estimatedDeductions: initialEstimatedDeductions = 0,
+  estimatedNet: initialEstimatedNet = 0,
+  records: initialRecords = [],
+  companyId,
   onComplete,
-  onViewIssues
+  onViewIssues,
 }) {
   const [step, setStep] = useState('config'); // 'config' | 'processing' | 'success'
+  const [activeMonth, setActiveMonth] = useState(selectedMonth);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [attendanceCount, setAttendanceCount] = useState(0);
+  const [isLoadingMonthData, setIsLoadingMonthData] = useState(false);
+  const [liveRecords, setLiveRecords] = useState(initialRecords || []);
+  const [liveKPI, setLiveKPI] = useState({
+    employeeCount: initialEmployeeCount,
+    estimatedGross: initialEstimatedGross,
+    estimatedDeductions: initialEstimatedDeductions,
+    estimatedNet: initialEstimatedNet,
+  });
+
   const [selectedClient, setSelectedClient] = useState('all');
   const [selectedDept, setSelectedDept] = useState('all');
   const [progress, setProgress] = useState(0);
   const [processedCount, setProcessedCount] = useState(0);
   const [currentStage, setCurrentStage] = useState('');
-  const totalEmployees = employeeCount > 0 ? employeeCount : (Array.isArray(records) && records.length > 0 ? records.length : 1);
 
-  const missingAttendanceCount = Array.isArray(records)
-    ? records.filter(r => r.hasAttendance === false || r.status === 'Pending Attendance').length
-    : 0;
+  const standardMonthsList = useMemo(() => generateStandardMonths(), []);
+  const currentMonthLabel = useMemo(() => getMonthDisplayLabel(activeMonth), [activeMonth]);
 
-  // Reset state when opening modal
+  const totalEmployees =
+    liveKPI.employeeCount > 0
+      ? liveKPI.employeeCount
+      : Array.isArray(liveRecords) && liveRecords.length > 0
+      ? liveRecords.length
+      : 1;
+
+  // Load attendance months and check records for current month
+  const checkAttendanceAndLoadPayroll = useCallback(
+    async (targetMonth) => {
+      setIsLoadingMonthData(true);
+      try {
+        // 1. Check attendance count in MongoDB for targetMonth
+        const attRes = await attendanceService
+          .getAttendanceRecords(companyId, { month: targetMonth })
+          .catch(() => ({ count: 0, records: [] }));
+
+        const count = attRes?.count !== undefined
+          ? attRes.count
+          : Array.isArray(attRes?.records)
+          ? attRes.records.length
+          : 0;
+
+        setAttendanceCount(count);
+
+        // 2. Fetch live calculated payroll preview for this month
+        const payrollData = await payrollService
+          .getPayrollRecords(companyId, targetMonth)
+          .catch(() => null);
+
+        if (payrollData && Array.isArray(payrollData.records) && payrollData.records.length > 0) {
+          const recs = payrollData.records;
+          setLiveRecords(recs);
+          const gross = recs.reduce((sum, r) => sum + (Number(r.grossSalary) || 0), 0);
+          const deduct = recs.reduce((sum, r) => sum + (Number(r.totalDeductions) || 0), 0);
+          const net = recs.reduce((sum, r) => sum + (Number(r.netSalary) || 0), 0);
+          setLiveKPI({
+            employeeCount: recs.length,
+            estimatedGross: gross,
+            estimatedDeductions: deduct,
+            estimatedNet: net,
+          });
+        }
+      } catch (err) {
+        console.warn('Error loading payroll data for selected month:', err);
+      } finally {
+        setIsLoadingMonthData(false);
+      }
+    },
+    [companyId]
+  );
+
+  // Initialize modal state on open
   useEffect(() => {
     if (isOpen) {
       setStep('config');
       setProgress(0);
       setProcessedCount(0);
       setCurrentStage('Initializing payroll engine...');
+      setActiveMonth(selectedMonth);
+
+      // Fetch distinct months with attendance
+      attendanceService
+        .getAttendanceMonths(companyId)
+        .then((months) => {
+          setAvailableMonths(months || []);
+          // If current selectedMonth has no attendance but another month has attendance, highlight it
+          const currentHasAttendance = (months || []).find((m) => m.month === selectedMonth);
+          if (currentHasAttendance) {
+            setAttendanceCount(currentHasAttendance.count);
+          }
+        })
+        .catch(() => {});
+
+      checkAttendanceAndLoadPayroll(selectedMonth);
     }
-  }, [isOpen]);
+  }, [isOpen, selectedMonth, companyId, checkAttendanceAndLoadPayroll]);
+
+  // Handle User selecting a different month
+  const handleMonthChange = (newMonth) => {
+    setActiveMonth(newMonth);
+    checkAttendanceAndLoadPayroll(newMonth);
+  };
 
   // Simulate progress when step is processing
   useEffect(() => {
@@ -50,7 +167,7 @@ export default function RunPayrollModal({
       'Calculating approved overtime hours & rates...',
       'Applying active advance & loan adjustments...',
       'Applying statutory PF & ESI deductions...',
-      'Generating net salary ledgers & slips...'
+      'Generating net salary ledgers & slips...',
     ];
 
     let currentProgress = 0;
@@ -73,18 +190,21 @@ export default function RunPayrollModal({
     }, 150);
 
     return () => clearInterval(interval);
-  }, [step]);
+  }, [step, totalEmployees]);
 
   if (!isOpen) return null;
 
   const handleStartProcessing = () => {
+    if (attendanceCount === 0) return;
     setStep('processing');
   };
 
   const handleFinish = () => {
-    onComplete();
+    onComplete(activeMonth, liveRecords);
     onClose();
   };
+
+  const hasAttendance = attendanceCount > 0;
 
   return (
     <div className={styles.modalOverlay} role="dialog" aria-modal="true">
@@ -95,7 +215,7 @@ export default function RunPayrollModal({
             <Sparkles size={20} className={styles.sparkleIcon} />
             <div>
               <h2>Run Payroll</h2>
-              <span className={styles.monthBadge}>{monthLabel}</span>
+              <span className={styles.monthBadge}>{currentMonthLabel}</span>
             </div>
           </div>
           {step !== 'processing' && (
@@ -114,16 +234,60 @@ export default function RunPayrollModal({
         {step === 'config' && (
           <div className={styles.modalBody}>
             <div className={styles.formGrid}>
+              {/* SELECT PAYROLL MONTH */}
               <div className={styles.field}>
-                <label className={styles.fieldLabel}>Payroll Month</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  value={monthLabel}
-                  readOnly
-                />
+                <label className={styles.fieldLabel} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Payroll Month *</span>
+                  {isLoadingMonthData ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#64748b', fontSize: '11px' }}>
+                      <Loader2 size={12} className={styles.spinning} /> Checking...
+                    </span>
+                  ) : hasAttendance ? (
+                    <span style={{ color: '#16a34a', fontSize: '11px', fontWeight: 700 }}>
+                      ✓ {attendanceCount} Attendance Records
+                    </span>
+                  ) : (
+                    <span style={{ color: '#dc2626', fontSize: '11px', fontWeight: 700 }}>
+                      ⚠ No Attendance Records
+                    </span>
+                  )}
+                </label>
+                <select
+                  className={styles.select}
+                  value={activeMonth}
+                  onChange={(e) => handleMonthChange(e.target.value)}
+                  style={{
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    borderColor: hasAttendance ? '#86efac' : '#fca5a5',
+                    background: hasAttendance ? '#f0fdf4' : '#fff5f5',
+                  }}
+                >
+                  {/* Option Group 1: Months with Attendance in DB */}
+                  {availableMonths.length > 0 && (
+                    <optgroup label="✓ Months with Attendance Records in Database">
+                      {availableMonths.map((m) => (
+                        <option key={m.month} value={m.month}>
+                          {m.label} ({m.count} attendance records found)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+
+                  {/* Option Group 2: All Other Standard Months */}
+                  <optgroup label="Calendar Months">
+                    {standardMonthsList
+                      .filter((m) => !availableMonths.some((am) => am.month === m.value))
+                      .map((m) => (
+                        <option key={m.value} value={m.value}>
+                          {m.label} (No attendance records)
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
               </div>
 
+              {/* CLIENT SCOPE */}
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Client Scope</label>
                 <select
@@ -140,6 +304,7 @@ export default function RunPayrollModal({
                 </select>
               </div>
 
+              {/* DEPARTMENT SCOPE */}
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Department Scope</label>
                 <select
@@ -156,6 +321,7 @@ export default function RunPayrollModal({
                 </select>
               </div>
 
+              {/* ELIGIBLE EMPLOYEES */}
               <div className={styles.field}>
                 <label className={styles.fieldLabel}>Eligible Employees</label>
                 <input
@@ -169,7 +335,9 @@ export default function RunPayrollModal({
 
             {/* Payroll Summary Estimates */}
             <div className={styles.summaryCard}>
-              <h3 className={styles.summaryCardTitle}>Payroll Summary Estimate</h3>
+              <h3 className={styles.summaryCardTitle}>
+                Payroll Summary Estimate ({currentMonthLabel})
+              </h3>
               <div className={styles.summaryGrid}>
                 <div className={styles.summaryTile}>
                   <span>Total Employees</span>
@@ -177,15 +345,15 @@ export default function RunPayrollModal({
                 </div>
                 <div className={styles.summaryTile}>
                   <span>Estimated Gross</span>
-                  <strong className={styles.textGreen}>{formatRupee(estimatedGross || 0)}</strong>
+                  <strong className={styles.textGreen}>{formatRupee(liveKPI.estimatedGross || 0)}</strong>
                 </div>
                 <div className={styles.summaryTile}>
                   <span>Estimated Deductions</span>
-                  <strong className={styles.textRed}>-{formatRupee(estimatedDeductions || 0)}</strong>
+                  <strong className={styles.textRed}>-{formatRupee(liveKPI.estimatedDeductions || 0)}</strong>
                 </div>
                 <div className={`${styles.summaryTile} ${styles.summaryTileNet}`}>
                   <span>Estimated Net Payroll</span>
-                  <strong className={styles.textPrimary}>{formatRupee(estimatedNet || 0)}</strong>
+                  <strong className={styles.textPrimary}>{formatRupee(liveKPI.estimatedNet || 0)}</strong>
                 </div>
               </div>
             </div>
@@ -197,7 +365,16 @@ export default function RunPayrollModal({
                   <ShieldCheck size={18} className={styles.shieldIcon} />
                   <strong>Payroll Pre-Run Validation</strong>
                 </div>
-                <span className={styles.valBadge}>Ready with Warnings</span>
+                <span
+                  className={styles.valBadge}
+                  style={{
+                    background: hasAttendance ? '#dcfce7' : '#fee2e2',
+                    color: hasAttendance ? '#15803d' : '#b91c1c',
+                    borderColor: hasAttendance ? '#86efac' : '#fca5a5',
+                  }}
+                >
+                  {hasAttendance ? 'Ready to Run' : 'Attendance Required'}
+                </span>
               </div>
               <ul className={styles.checklist}>
                 <li className={styles.checkItem}>
@@ -208,10 +385,20 @@ export default function RunPayrollModal({
                   <CheckCircle2 size={16} className={styles.iconCheck} />
                   <span>Salary structures linked &amp; valid</span>
                 </li>
-                <li className={styles.checkItem}>
-                  <CheckCircle2 size={16} className={styles.iconCheck} />
-                  <span>Attendance records computed ({monthLabel})</span>
-                </li>
+
+                {/* DYNAMIC ATTENDANCE VALIDATION ITEM */}
+                {hasAttendance ? (
+                  <li className={styles.checkItem} style={{ color: '#16a34a', fontWeight: 600 }}>
+                    <CheckCircle2 size={16} className={styles.iconCheck} />
+                    <span>Attendance records computed ({currentMonthLabel}) — {attendanceCount} records found</span>
+                  </li>
+                ) : (
+                  <li className={styles.checkItem} style={{ color: '#dc2626', fontWeight: 600 }}>
+                    <XCircle size={16} style={{ color: '#dc2626', flexShrink: 0 }} />
+                    <span>No attendance records found for {currentMonthLabel}</span>
+                  </li>
+                )}
+
                 <li className={styles.checkItem}>
                   <CheckCircle2 size={16} className={styles.iconCheck} />
                   <span>Approved overtime entries mapped</span>
@@ -226,34 +413,29 @@ export default function RunPayrollModal({
                 </li>
               </ul>
 
-              {/* Warning Item if missing attendance */}
-              {missingAttendanceCount > 0 ? (
-                <div className={styles.warningBox}>
+              {/* Attendance Missing Warning Box */}
+              {!hasAttendance && (
+                <div className={styles.warningBox} style={{ background: '#fef2f2', borderColor: '#fca5a5' }}>
                   <div className={styles.warningContent}>
-                    <AlertTriangle size={16} className={styles.iconWarning} />
-                    <span>{missingAttendanceCount} record{missingAttendanceCount > 1 ? 's' : ''} require attention (Missing attendance reported)</span>
+                    <AlertTriangle size={18} style={{ color: '#dc2626', flexShrink: 0 }} />
+                    <span style={{ color: '#991b1b', fontSize: '12px' }}>
+                      <strong>Attendance records required:</strong> No attendance entries were found for{' '}
+                      <strong>{currentMonthLabel}</strong>. Please select a month with attendance from the dropdown above, or import attendance records first before running payroll.
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    className={styles.viewIssuesBtn}
-                    onClick={() => {
-                      onClose();
-                      onViewIssues();
-                    }}
-                  >
-                    View Issues
-                  </button>
                 </div>
-              ) : (
+              )}
+
+              {hasAttendance && (
                 <div className={styles.checkItem} style={{ marginTop: '0.75rem', color: '#16a34a', fontWeight: 500 }}>
                   <CheckCircle2 size={16} className={styles.iconCheck} />
-                  <span>All active employee attendances verified and present</span>
+                  <span>All active employee attendances verified and ready for calculation</span>
                 </div>
               )}
             </div>
 
             <p className={styles.disclaimerText}>
-              Once confirmed, salary calculations will be locked into the cycle and salary slips will be generated.
+              Once confirmed, salary calculations for {currentMonthLabel} will be locked into the cycle and salary slips will be generated.
             </p>
           </div>
         )}
@@ -267,7 +449,7 @@ export default function RunPayrollModal({
               </div>
             </div>
 
-            <h3 className={styles.processingTitle}>Processing {monthLabel} Payroll</h3>
+            <h3 className={styles.processingTitle}>Processing {currentMonthLabel} Payroll</h3>
             <p className={styles.processingStage}>{currentStage}</p>
 
             <div className={styles.progressDetailCard}>
@@ -295,10 +477,11 @@ export default function RunPayrollModal({
               <CheckCircle2 size={48} className={styles.successIcon} />
             </div>
 
-            <h3 className={styles.successTitle}>✓ {monthLabel} Payroll Processed</h3>
+            <h3 className={styles.successTitle}>✓ {currentMonthLabel} Payroll Processed</h3>
             <p className={styles.successSub}>
-              Successfully processed salaries for {totalEmployees.toLocaleString('en-IN')} employees.
-              Net payout amount of <strong>{formatRupee(48250000)}</strong> ready for disbursement.
+              Successfully processed salaries for {totalEmployees.toLocaleString('en-IN')} employees for{' '}
+              <strong>{currentMonthLabel}</strong>.
+              Net payout amount of <strong>{formatRupee(liveKPI.estimatedNet || 0)}</strong> ready for disbursement.
             </p>
 
             <div className={styles.successSummaryGrid}>
@@ -308,11 +491,11 @@ export default function RunPayrollModal({
               </div>
               <div className={styles.successStat}>
                 <span>Total Gross</span>
-                <strong>{formatRupee(52000000)}</strong>
+                <strong>{formatRupee(liveKPI.estimatedGross || 0)}</strong>
               </div>
               <div className={styles.successStat}>
                 <span>Total Net</span>
-                <strong className={styles.textGreen}>{formatRupee(48250000)}</strong>
+                <strong className={styles.textGreen}>{formatRupee(liveKPI.estimatedNet || 0)}</strong>
               </div>
             </div>
           </div>
@@ -333,9 +516,13 @@ export default function RunPayrollModal({
                 type="button"
                 className={styles.runBtn}
                 onClick={handleStartProcessing}
+                disabled={!hasAttendance || isLoadingMonthData}
+                title={!hasAttendance ? `No attendance records found for ${currentMonthLabel}` : `Run payroll for ${currentMonthLabel}`}
               >
                 <Play size={16} />
-                <span>Run Payroll</span>
+                <span>
+                  {!hasAttendance ? 'Cannot Run (No Attendance Records)' : `Run Payroll (${currentMonthLabel})`}
+                </span>
               </button>
             </>
           )}
