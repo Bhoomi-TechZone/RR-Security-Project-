@@ -1,4 +1,5 @@
 import React from 'react';
+import { Camera } from 'lucide-react';
 import styles from './EmployeeFormSteps.module.css';
 
 function PersonalInfoStep({ data, onChange, errors }) {
@@ -266,27 +267,29 @@ function PersonalInfoStep({ data, onChange, errors }) {
         </div>
 
         <div className={styles.fieldGroup}>
-          <label htmlFor="emp-photo" className={styles.label}>Employee Photo</label>
-          <div className={styles.fileUploadWrapper}>
-            <div className={styles.fileUploadBox}>
-              {data.employeePhoto && data.employeePhoto.startsWith('data:') ? (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label className={styles.label}>Employee Photo</label>
+          <div className={styles.passportPhotoWrapper}>
+            {data.employeePhoto && typeof data.employeePhoto === 'string' && data.employeePhoto.trim() !== '' && data.employeePhoto !== 'Choose File' ? (
+              <>
+                <div className={styles.passportPhotoFrame}>
                   <img
                     src={data.employeePhoto}
-                    alt="Preview"
-                    style={{ width: '22px', height: '22px', borderRadius: '4px', objectFit: 'cover' }}
+                    alt="Employee Photo"
+                    className={styles.passportPhotoImg}
                   />
-                  <span className={styles.fileUploadText} style={{ color: '#16a34a', fontWeight: 600 }}>
-                    Photo Selected ✓
-                  </span>
                 </div>
-              ) : (
-                <span className={styles.fileUploadText}>{data.employeePhoto || 'Choose File'}</span>
-              )}
-            </div>
-            <label className={styles.fileUploadButton} htmlFor="emp-photo">
-              Choose File
-            </label>
+                <label htmlFor="emp-photo" className={styles.passportChangeBtn}>
+                  <Camera size={13} />
+                  <span>Change Photo</span>
+                </label>
+              </>
+            ) : (
+              <label htmlFor="emp-photo" className={styles.passportUploadPlaceholder}>
+                <Camera size={22} className={styles.passportUploadIcon} />
+                <span className={styles.passportUploadLabel}>Upload Photo</span>
+                <span className={styles.passportUploadHint}>Passport Size</span>
+              </label>
+            )}
             <input
               id="emp-photo"
               type="file"
@@ -301,6 +304,7 @@ function PersonalInfoStep({ data, onChange, errors }) {
                   };
                   reader.readAsDataURL(file);
                 }
+                e.target.value = '';
               }}
             />
           </div>

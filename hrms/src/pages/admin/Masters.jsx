@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, ArrowRight, Search, X, Settings2, Landmark, UserCheck, 
-  MapPin, Shield, CalendarDays, CalendarOff, CalendarHeart, FileCheck 
+  MapPin, Shield, CalendarDays, CalendarOff, CalendarHeart, FileCheck, Briefcase 
 } from 'lucide-react';
 import styles from './Masters.module.css';
 
@@ -24,6 +24,7 @@ import clientService from '../../services/clientService';
 
 // Mock master data for non-dynamic / fallback datasets
 import { getInitialClients } from '../../data/masters/clientData';
+import { getInitialClientServices } from '../../data/masters/clientServicesData';
 import { mockShiftMaster } from '../../data/masters/shiftMasterData';
 import { mockWorkLocations } from '../../data/workLocationsData';
 
@@ -31,7 +32,8 @@ const ITEMS_PER_PAGE = 8;
 
 const TAB_LABELS = {
   'banks': 'Banks',
-  'clients': 'Client Master',
+  'client-services': 'Client Services',
+  'clients': 'Client Services',
   'departments': 'Departments',
   'designations': 'Designations',
   'employee-types': 'Employee Types',
@@ -46,6 +48,7 @@ const TAB_LABELS = {
 
 const DYNAMIC_TABS = [
   'banks',
+  'client-services',
   'clients',
   'departments',
   'designations',
@@ -60,15 +63,7 @@ const DYNAMIC_TABS = [
 ];
 
 const MASTER_CATEGORIES = [
-  { id: 'all', label: 'All Masters' },
-  { id: 'banks', label: 'Banks' },
-  { id: 'employee-types', label: 'Employee Types' },
-  { id: 'sites', label: 'Sites' },
-  { id: 'posts', label: 'Posts' },
-  { id: 'shifts', label: 'Shifts' },
-  { id: 'leave-types', label: 'Leave Types' },
-  { id: 'holidays', label: 'Holidays' },
-  { id: 'document-types', label: 'Document Types' }
+  { id: 'all', label: 'All Masters Setup' }
 ];
 
 const ALL_MASTERS_CATALOG = [
@@ -81,6 +76,16 @@ const ALL_MASTERS_CATALOG = [
     badge: 'Banking',
     iconBg: '#fef3c7',
     iconColor: '#d97706'
+  },
+  {
+    id: 'client-services',
+    tab: 'client-services',
+    title: 'Client Services',
+    desc: 'Configure operational service types provided to clients (Security Guard, Housekeeping, Facility Management, etc.).',
+    icon: Briefcase,
+    badge: 'Services',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb'
   },
   {
     id: 'employee-types',
@@ -204,6 +209,9 @@ function Masters() {
   const [salaryComponents, setSalaryComponents] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
 
+  // Client Services Master Data State
+  const [clientServices, setClientServices] = useState(() => getInitialClientServices(companyId));
+
   // Clients & Work Locations for Masters Lookups (Loaded dynamically from API)
   const [clients, setClients] = useState(() => {
     const saved = localStorage.getItem(`novaspark_clients_${companyId}`);
@@ -247,7 +255,13 @@ function Masters() {
   // Toast
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
-  // Persistence for lookups caching only
+  // Persistence for lookups caching
+  useEffect(() => {
+    if (clientServices.length > 0) {
+      localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(clientServices));
+    }
+  }, [clientServices, companyId]);
+
   useEffect(() => {
     if (clients.length > 0) {
       localStorage.setItem(`novaspark_clients_${companyId}`, JSON.stringify(clients));
@@ -268,7 +282,8 @@ function Masters() {
   const setTabData = useCallback((tab, data) => {
     switch (tab) {
       case 'banks': setBanks(data); break;
-      case 'clients': setClients(data); break;
+      case 'client-services':
+      case 'clients': setClientServices(data); break;
       case 'departments': setDepartments(data); break;
       case 'designations': setDesignations(data); break;
       case 'employee-types': setEmployeeTypes(data); break;
@@ -291,10 +306,20 @@ function Masters() {
     setError(null);
 
     try {
-      if (tab === 'clients') {
-        const clientList = await clientService.getClients(companyId);
-        setClients(clientList);
-        localStorage.setItem(`novaspark_clients_${companyId}`, JSON.stringify(clientList));
+      if (tab === 'client-services' || tab === 'clients') {
+        try {
+          const data = await masterService.getMasters('client-services', companyId);
+          if (Array.isArray(data) && data.length > 0) {
+            setClientServices(data);
+            localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(data));
+          } else {
+            const initial = getInitialClientServices(companyId);
+            setClientServices(initial);
+          }
+        } catch {
+          const initial = getInitialClientServices(companyId);
+          setClientServices(initial);
+        }
       } else {
         const data = await masterService.getMasters(tab, companyId);
         setTabData(tab, data);
@@ -368,6 +393,7 @@ function Masters() {
               }
             });
             if (grouped['banks']?.length) setBanks(grouped['banks']);
+            if (grouped['client-services']?.length) setClientServices(grouped['client-services']);
             if (grouped['departments']?.length) setDepartments(grouped['departments']);
             if (grouped['designations']?.length) setDesignations(grouped['designations']);
             if (grouped['employee-types']?.length) setEmployeeTypes(grouped['employee-types']);
@@ -396,11 +422,13 @@ function Masters() {
     window.addEventListener('masters-updated', handleSync);
     window.addEventListener('shifts-updated', handleSync);
     window.addEventListener('clients-updated', handleSync);
+    window.addEventListener('client-services-updated', handleSync);
     window.addEventListener('leaves-updated', handleSync);
     return () => {
       window.removeEventListener('masters-updated', handleSync);
       window.removeEventListener('shifts-updated', handleSync);
       window.removeEventListener('clients-updated', handleSync);
+      window.removeEventListener('client-services-updated', handleSync);
       window.removeEventListener('leaves-updated', handleSync);
     };
   }, [fetchMasterData, activeTab]);
@@ -414,7 +442,8 @@ function Masters() {
   const getCurrentDataset = () => {
     switch (activeTab) {
       case 'banks': return banks;
-      case 'clients': return clients;
+      case 'client-services':
+      case 'clients': return clientServices;
       case 'departments': return departments;
       case 'designations': return designations;
       case 'employee-types': return employeeTypes;
@@ -432,7 +461,8 @@ function Masters() {
   const getMasterCount = (tabId) => {
     switch (tabId) {
       case 'banks': return banks.length;
-      case 'clients': return clients.length;
+      case 'client-services':
+      case 'clients': return clientServices.length;
       case 'departments': return departments.length;
       case 'designations': return designations.length;
       case 'employee-types': return employeeTypes.length;
@@ -484,12 +514,12 @@ function Masters() {
           b.name?.toLowerCase().includes(term) ||
           (b.code && b.code.toLowerCase().includes(term))
         );
+      case 'client-services':
       case 'clients':
-        return dataset.filter(c =>
-          c.name?.toLowerCase().includes(term) ||
-          (c.code && c.code.toLowerCase().includes(term)) ||
-          (c.contactPerson && c.contactPerson.toLowerCase().includes(term)) ||
-          (c.city && c.city.toLowerCase().includes(term))
+        return dataset.filter(srv =>
+          srv.name?.toLowerCase().includes(term) ||
+          (srv.code && srv.code.toLowerCase().includes(term)) ||
+          (srv.description && srv.description.toLowerCase().includes(term))
         );
       case 'departments':
         return dataset.filter(d =>
@@ -574,7 +604,8 @@ function Masters() {
   const getEntityName = () => {
     switch (activeTab) {
       case 'banks': return 'Bank';
-      case 'clients': return 'Client';
+      case 'client-services':
+      case 'clients': return 'Client Service';
       case 'departments': return 'Department';
       case 'designations': return 'Designation';
       case 'employee-types': return 'Employee Type';
@@ -594,34 +625,27 @@ function Masters() {
     const entityName = getEntityName();
 
     try {
-      if (activeTab === 'clients') {
-        if (editingItem) {
-          const clientId = editingItem.id || editingItem._id || editingItem.clientId;
-          const updated = await clientService.updateClient(companyId, clientId, formData);
-          setClients(prev => {
-            const next = prev.map(c => ((c.id === clientId || c._id === clientId || c.clientId === clientId) ? { ...c, ...updated, ...formData } : c));
-            localStorage.setItem(`novaspark_clients_${companyId}`, JSON.stringify(next));
-            return next;
-          });
-          window.dispatchEvent(new CustomEvent('clients-updated'));
-          showToast(`✓ Client "${formData.name || ''}" updated successfully.`, 'success');
-        } else {
-          const created = await clientService.createClient(companyId, formData);
-          setClients(prev => {
-            const next = [created, ...prev];
-            localStorage.setItem(`novaspark_clients_${companyId}`, JSON.stringify(next));
-            return next;
-          });
-          window.dispatchEvent(new CustomEvent('clients-updated'));
-          showToast(`✓ Client "${created?.name || formData.name}" created successfully.`, 'success');
-        }
-      } else if (DYNAMIC_TABS.includes(activeTab)) {
+      if (DYNAMIC_TABS.includes(activeTab)) {
         if (editingItem) {
           // Dynamic Edit mode
-          const updated = await masterService.updateMaster(companyId, editingItem.id, formData);
-          const updateList = (list) => list.map(item => item.id === editingItem.id ? updated : item);
+          let updated = null;
+          try {
+            updated = await masterService.updateMaster(companyId, editingItem.id, formData);
+          } catch (e) {
+            updated = { ...editingItem, ...formData };
+          }
+          if (!updated || !updated.id) {
+            updated = { ...editingItem, ...formData };
+          }
+          const updateList = (list) => list.map(item => item.id === editingItem.id ? { ...item, ...updated, ...formData } : item);
 
           if (activeTab === 'banks') setBanks(updateList);
+          else if (activeTab === 'client-services' || activeTab === 'clients') {
+            setClientServices(updateList);
+            const nextList = updateList(clientServices);
+            localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(nextList));
+            window.dispatchEvent(new CustomEvent('client-services-updated'));
+          }
           else if (activeTab === 'departments') setDepartments(updateList);
           else if (activeTab === 'designations') setDesignations(updateList);
           else if (activeTab === 'employee-types') setEmployeeTypes(updateList);
@@ -643,12 +667,28 @@ function Masters() {
           showToast(`✓ ${entityName} updated successfully.`, 'success');
         } else {
           // Dynamic Add mode
-          const created = await masterService.createMaster(companyId, {
-            type: activeTab,
-            ...formData
-          });
+          let created = null;
+          try {
+            created = await masterService.createMaster(companyId, {
+              type: activeTab === 'clients' ? 'client-services' : activeTab,
+              ...formData
+            });
+          } catch (e) {
+            created = { id: `srv_${Date.now()}`, ...formData, status: formData.status || 'active' };
+          }
+          if (!created || !created.id) {
+            created = { id: `srv_${Date.now()}`, ...formData, status: formData.status || 'active' };
+          }
 
           if (activeTab === 'banks') setBanks(prev => [created, ...prev]);
+          else if (activeTab === 'client-services' || activeTab === 'clients') {
+            setClientServices(prev => {
+              const next = [created, ...prev];
+              localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(next));
+              return next;
+            });
+            window.dispatchEvent(new CustomEvent('client-services-updated'));
+          }
           else if (activeTab === 'departments') setDepartments(prev => [created, ...prev]);
           else if (activeTab === 'designations') setDesignations(prev => [created, ...prev]);
           else if (activeTab === 'employee-types') setEmployeeTypes(prev => [created, ...prev]);
@@ -682,12 +722,8 @@ function Masters() {
   // Handle Record Actions (View, Edit, Activate/Deactivate)
   const handleAction = (actionType, item) => {
     if (actionType === 'view') {
-      if (activeTab === 'clients') {
-        navigate(`/admin/clients/${item.id || item._id || item.clientId}`);
-      } else {
-        setSelectedItem(item);
-        setIsDetailsOpen(true);
-      }
+      setSelectedItem(item);
+      setIsDetailsOpen(true);
     } else if (actionType === 'edit') {
       setEditingItem(item);
       setIsFormOpen(true);
@@ -723,20 +759,19 @@ function Masters() {
     const entityName = getEntityName();
 
     try {
-      if (activeTab === 'clients') {
-        const clientId = item.id || item._id || item.clientId;
-        await clientService.toggleClientStatus(companyId, clientId, newStatus);
-        setClients(prev => {
-          const next = prev.map(c => ((c.id === clientId || c._id === clientId || c.clientId === clientId) ? { ...c, status: newStatus } : c));
-          localStorage.setItem(`novaspark_clients_${companyId}`, JSON.stringify(next));
-          return next;
-        });
-        window.dispatchEvent(new CustomEvent('clients-updated'));
-      } else if (DYNAMIC_TABS.includes(activeTab)) {
-        const updated = await masterService.toggleMasterStatus(companyId, item.id, newStatus);
-        const updateList = (list) => list.map(i => i.id === item.id ? updated : i);
+      if (DYNAMIC_TABS.includes(activeTab)) {
+        try {
+          await masterService.toggleMasterStatus(companyId, item.id, newStatus);
+        } catch (e) {}
+        const updateList = (list) => list.map(i => i.id === item.id ? { ...i, status: newStatus } : i);
 
         if (activeTab === 'banks') setBanks(updateList);
+        else if (activeTab === 'client-services' || activeTab === 'clients') {
+          setClientServices(updateList);
+          const nextList = updateList(clientServices);
+          localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(nextList));
+          window.dispatchEvent(new CustomEvent('client-services-updated'));
+        }
         else if (activeTab === 'departments') setDepartments(updateList);
         else if (activeTab === 'designations') setDesignations(updateList);
         else if (activeTab === 'employee-types') setEmployeeTypes(updateList);
@@ -981,67 +1016,64 @@ function Masters() {
                 Dashboard
               </span>
               <span className={styles.separator}>/</span>
-              <span
-                className={styles.crumbLink}
-                onClick={handleBackToMasters}
-                style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
-              >
-                Masters
-              </span>
-              <span className={styles.separator}>/</span>
+              {activeTab === 'departments' || activeTab === 'designations' ? (
+                <>
+                  <span
+                    className={styles.crumbLink}
+                    onClick={() => navigate('/admin/company-setup')}
+                    style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+                  >
+                    Organization Setup
+                  </span>
+                  <span className={styles.separator}>/</span>
+                </>
+              ) : activeTab === 'salary-components' ? (
+                <>
+                  <span
+                    className={styles.crumbLink}
+                    onClick={() => navigate('/admin/company-setup?category=payroll-setup')}
+                    style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+                  >
+                    Payroll Setup
+                  </span>
+                  <span className={styles.separator}>/</span>
+                </>
+              ) : (activeTab === 'client-services' || activeTab === 'clients') ? (
+                <>
+                  <span
+                    className={styles.crumbLink}
+                    onClick={() => navigate('/admin/clients')}
+                    style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+                  >
+                    Clients
+                  </span>
+                  <span className={styles.separator}>/</span>
+                </>
+              ) : (
+                <>
+                  <span
+                    className={styles.crumbLink}
+                    onClick={handleBackToMasters}
+                    style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
+                  >
+                    Masters
+                  </span>
+                  <span className={styles.separator}>/</span>
+                </>
+              )}
               <span className={styles.crumbActive}>{TAB_LABELS[activeTab] || activeTab}</span>
             </div>
 
             {/* Page Header */}
             <header className={styles.header}>
               <div className={styles.titleArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={handleBackToMasters}
-                    className={styles.secondaryButton}
-                    style={{ padding: '6px 12px', fontSize: '13px' }}
-                  >
-                    <ArrowLeft size={15} /> Back to All Masters
-                  </button>
-                  {(activeTab === 'departments' || activeTab === 'designations') && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('/admin/company-setup')}
-                      className={styles.secondaryButton}
-                      style={{ padding: '6px 12px', fontSize: '13px' }}
-                    >
-                      <ArrowLeft size={15} /> Back to Organization Setup
-                    </button>
-                  )}
-                  {activeTab === 'clients' && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('/admin/clients')}
-                      className={styles.secondaryButton}
-                      style={{ padding: '6px 12px', fontSize: '13px' }}
-                    >
-                      <ArrowLeft size={15} /> Back to All Clients
-                    </button>
-                  )}
-                  {activeTab === 'salary-components' && (
-                    <button
-                      type="button"
-                      onClick={() => navigate('/admin/payroll-setup')}
-                      className={styles.secondaryButton}
-                      style={{ padding: '6px 12px', fontSize: '13px' }}
-                    >
-                      <ArrowLeft size={15} /> Back to Payroll Setup
-                    </button>
-                  )}
-                </div>
                 <h1 className={styles.title}>
                   {activeTab === 'departments'
                     ? 'Department Management'
                     : activeTab === 'designations'
                     ? 'Designation Management'
-                    : activeTab === 'clients'
-                    ? 'Client Master Management'
+                    : (activeTab === 'client-services' || activeTab === 'clients')
+                    ? 'Client Services'
                     : `${TAB_LABELS[activeTab] || 'Master'} Management`}
                 </h1>
                 <p className={styles.description}>
@@ -1049,10 +1081,122 @@ function Masters() {
                     ? 'Configure and manage company departments, divisions, and operational units.'
                     : activeTab === 'designations'
                     ? 'Configure employee designations, job titles, and organizational roles.'
-                    : activeTab === 'clients'
-                    ? 'Configure and manage organization client master records, codes, and contracted specifications.'
+                    : (activeTab === 'client-services' || activeTab === 'clients')
+                    ? 'Configure operational client service categories and offerings available during client onboarding.'
                     : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
                 </p>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                {activeTab === 'departments' || activeTab === 'designations' ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/admin/company-setup')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '8px 16px',
+                      background: 'rgb(215 119 5)',
+                      color: '#ffffff',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgb(180 83 9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgb(215 119 5)';
+                    }}
+                  >
+                    <ArrowLeft size={15} color="#fff" /> Back to Master Setup
+                  </button>
+                ) : activeTab === 'salary-components' ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/admin/company-setup?category=payroll-setup')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '8px 16px',
+                      background: 'rgb(215 119 5)',
+                      color: '#ffffff',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgb(180 83 9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgb(215 119 5)';
+                    }}
+                  >
+                    <ArrowLeft size={15} color="#fff" /> Back to Payroll Setup
+                  </button>
+                ) : (activeTab === 'client-services' || activeTab === 'clients') ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/admin/clients')}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '8px 16px',
+                      background: 'rgb(215 119 5)',
+                      color: '#ffffff',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgb(180 83 9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgb(215 119 5)';
+                    }}
+                  >
+                    <ArrowLeft size={15} color="#fff" /> Back to Clients
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleBackToMasters}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '8px 16px',
+                      background: 'rgb(215 119 5)',
+                      color: '#ffffff',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgb(180 83 9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgb(215 119 5)';
+                    }}
+                  >
+                    <ArrowLeft size={15} color="#fff" /> Back to All Masters
+                  </button>
+                )}
               </div>
             </header>
 
@@ -1092,6 +1236,8 @@ function Masters() {
                   loading={loading}
                   onAction={handleAction}
                   onResetSearch={() => setSearchTerm('')}
+                  currentPage={currentPage}
+                  itemsPerPage={ITEMS_PER_PAGE}
                 />
 
                 {!loading && filteredItems.length > 0 && (

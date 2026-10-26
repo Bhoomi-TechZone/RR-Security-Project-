@@ -3,7 +3,8 @@ import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   Building2, MapPin, Phone, Mail, Upload, X, FileText, 
   Calendar, UserCheck, Sparkles, Hash, SlidersHorizontal, ShieldCheck,
-  Search, ArrowRight, ArrowLeft, Layers
+  Search, ArrowRight, ArrowLeft, Layers, DollarSign, Clock, CalendarDays, Calculator,
+  Landmark, Shield, Gift, HeartHandshake, FileCheck, Award
 } from 'lucide-react';
 import styles from './CompanySetup.module.css';
 
@@ -24,15 +25,19 @@ import {
 } from '../../data/numberSeriesData';
 
 const SETUP_CATEGORIES = [
-  { id: 'all', label: 'Master Setup' }
+  { id: 'master-setup', label: 'Master Setup' },
+  { id: 'payroll-setup', label: 'Payroll Setup' },
+  { id: 'statutory-setup', label: 'Statutory Setup' },
+  { id: 'template-setup', label: 'Template Setup' }
 ];
 
 const SETUP_MODULES = [
+  // --- Master Setup Modules ---
   {
     id: 'company-profile',
     title: 'Company Profile',
     desc: 'Manage corporate identity, logo, addresses, contacts, PAN/GST/PF/ESI and regional settings.',
-    category: 'company-profile',
+    category: 'master-setup',
     icon: Building2,
     badge: 'Identity',
     iconBg: '#eff6ff',
@@ -44,7 +49,7 @@ const SETUP_MODULES = [
     id: 'branch',
     title: 'Branch',
     desc: 'Manage branch offices, operational facilities, and physical work locations.',
-    category: 'branch',
+    category: 'master-setup',
     icon: MapPin,
     badge: 'Locations',
     iconBg: '#ecfdf5',
@@ -56,7 +61,7 @@ const SETUP_MODULES = [
     id: 'departments',
     title: 'Departments',
     desc: 'Configure company departments, divisions, and department head assignments.',
-    category: 'departments',
+    category: 'master-setup',
     icon: Layers,
     badge: 'Masters',
     iconBg: '#f5f3ff',
@@ -68,7 +73,7 @@ const SETUP_MODULES = [
     id: 'designations',
     title: 'Designations',
     desc: 'Define employee job designations, corporate roles, and grading structures.',
-    category: 'designations',
+    category: 'master-setup',
     icon: UserCheck,
     badge: 'Masters',
     iconBg: '#fffbeb',
@@ -80,7 +85,7 @@ const SETUP_MODULES = [
     id: 'employee-code',
     title: 'Employee Code Configuration',
     desc: 'Configure automatic employee code numbering, prefix format, and sequence rules.',
-    category: 'employee-code',
+    category: 'master-setup',
     icon: Hash,
     badge: 'Series',
     iconBg: '#f0fdf4',
@@ -92,20 +97,254 @@ const SETUP_MODULES = [
     id: 'pf-code',
     title: 'PF Code Configuration',
     desc: 'Configure Provident Fund establishment numbering, office prefix, and sequence rules.',
-    category: 'pf-code',
+    category: 'master-setup',
     icon: ShieldCheck,
     badge: 'EPFO',
     iconBg: '#fff1f2',
     iconColor: '#e11d48',
     route: '/admin/company-setup?section=pf-code',
     isExternal: false
+  },
+
+  // --- Payroll Setup Modules ---
+  {
+    id: 'pay-groups',
+    title: 'Pay Groups',
+    desc: 'Configure salary structures, payment frequencies, and assign employee groups to pay brackets.',
+    category: 'payroll-setup',
+    icon: DollarSign,
+    badge: 'Structure',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    route: '/admin/payroll-setup?tab=pay-groups',
+    isExternal: true
+  },
+  {
+    id: 'salary-components',
+    title: 'Salary Components',
+    desc: 'Manage earnings, basic pay, HRA, standard allowances, reimbursements, and deduction rules.',
+    category: 'payroll-setup',
+    icon: Layers,
+    badge: 'Earnings & Deductions',
+    iconBg: '#ecfdf5',
+    iconColor: '#059669',
+    route: '/admin/masters?tab=salary-components',
+    isExternal: true
+  },
+  {
+    id: 'pay-schedules',
+    title: 'Pay Schedules',
+    desc: 'Set up recurring disbursement frequency timelines such as Monthly, Bi-Weekly, and Weekly.',
+    category: 'payroll-setup',
+    icon: Calendar,
+    badge: 'Timeline',
+    iconBg: '#f0f9ff',
+    iconColor: '#0284c7',
+    route: '/admin/payroll-setup?tab=pay-schedules',
+    isExternal: true
+  },
+  {
+    id: 'pay-cycles',
+    title: 'Pay Cycles',
+    desc: 'Define attendance cutoff bounds, calculation periods, and processing dates for payroll runs.',
+    category: 'payroll-setup',
+    icon: Clock,
+    badge: 'Cutoff',
+    iconBg: '#f5f3ff',
+    iconColor: '#7c3aed',
+    route: '/admin/payroll-setup?tab=pay-cycles',
+    isExternal: true
+  },
+  {
+    id: 'pay-days',
+    title: 'Pay Days',
+    desc: 'Configure fixed payout dates, last working day of month, or custom disbursement rules.',
+    category: 'payroll-setup',
+    icon: CalendarDays,
+    badge: 'Disbursement',
+    iconBg: '#fffbeb',
+    iconColor: '#d97706',
+    route: '/admin/payroll-setup?tab=pay-days',
+    isExternal: true
+  },
+  {
+    id: 'calculation-methods',
+    title: 'Salary Calculation Methods',
+    desc: 'Define daily salary rate formulas using Calendar Days, Fixed Days, or Working Days basis.',
+    category: 'payroll-setup',
+    icon: Calculator,
+    badge: 'Formula',
+    iconBg: '#fff1f2',
+    iconColor: '#e11d48',
+    route: '/admin/payroll-setup?tab=calculation-methods',
+    isExternal: true
+  },
+
+  // --- Statutory Setup Modules ---
+  {
+    id: 'pf',
+    title: 'Provident Fund (PF)',
+    desc: 'Employee & Employer EPF contributions, statutory wage ceiling, admin charges, and VPF rules.',
+    category: 'statutory-setup',
+    icon: Landmark,
+    badge: 'Retirement Fund',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    route: '/admin/statutory-setup?tab=pf',
+    isExternal: true
+  },
+  {
+    id: 'esi',
+    title: 'Employee State Insurance (ESI)',
+    desc: 'Healthcare insurance coverage, contribution percentages, and monthly wage eligibility limits.',
+    category: 'statutory-setup',
+    icon: Shield,
+    badge: 'Health & Medical',
+    iconBg: '#f0f9ff',
+    iconColor: '#0284c7',
+    route: '/admin/statutory-setup?tab=esi',
+    isExternal: true
+  },
+  {
+    id: 'pt',
+    title: 'Professional Tax (PT)',
+    desc: 'State-mandated monthly salary tax slabs, exemption limits, and gender-specific deduction rules.',
+    category: 'statutory-setup',
+    icon: Layers,
+    badge: 'State Tax',
+    iconBg: '#f5f3ff',
+    iconColor: '#7c3aed',
+    route: '/admin/statutory-setup?tab=pt',
+    isExternal: true
+  },
+  {
+    id: 'tds',
+    title: 'Tax Deducted at Source (TDS)',
+    desc: 'Income tax regimes (New vs Old), standard deduction rules, and investment declaration cutoffs.',
+    category: 'statutory-setup',
+    icon: FileText,
+    badge: 'Income Tax',
+    iconBg: '#fffbeb',
+    iconColor: '#d97706',
+    route: '/admin/statutory-setup?tab=tds',
+    isExternal: true
+  },
+  {
+    id: 'bonus',
+    title: 'Statutory Bonus',
+    desc: 'Payment of Bonus Act compliance rates, statutory wage ceiling, and disbursement timeline.',
+    category: 'statutory-setup',
+    icon: Gift,
+    badge: 'Annual Bonus',
+    iconBg: '#fdf2f8',
+    iconColor: '#db2777',
+    route: '/admin/statutory-setup?tab=bonus',
+    isExternal: true
+  },
+  {
+    id: 'gratuity',
+    title: 'Gratuity',
+    desc: 'Payment of Gratuity Act formulas for employee retirement, separation, and tax exemption limit.',
+    category: 'statutory-setup',
+    icon: HeartHandshake,
+    badge: 'Retirement Benefit',
+    iconBg: '#ecfdf5',
+    iconColor: '#059669',
+    route: '/admin/statutory-setup?tab=gratuity',
+    isExternal: true
+  },
+  {
+    id: 'lwf',
+    title: 'Labour Welfare Fund (LWF)',
+    desc: 'State-mandated welfare fund contributions, deduction frequency schedules, and employer ratios.',
+    category: 'statutory-setup',
+    icon: Landmark,
+    badge: 'Welfare Fund',
+    iconBg: '#f1f5f9',
+    iconColor: '#475569',
+    route: '/admin/statutory-setup?tab=lwf',
+    isExternal: true
+  },
+
+  // --- Template Setup Modules ---
+  {
+    id: 'salary-slip',
+    title: 'Salary Slip Template',
+    desc: 'Configure visible ledger sections, company header branding, attendance matrix and net disbursement formula.',
+    category: 'template-setup',
+    icon: DollarSign,
+    badge: 'Payslip',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    route: '/admin/templates?tab=salary-slip',
+    isExternal: true
+  },
+  {
+    id: 'appointment-letter',
+    title: 'Appointment Letter',
+    desc: 'Standardized formal offer and appointment terms with dynamic salary breakdown, CTC placeholders & probation clauses.',
+    category: 'template-setup',
+    icon: FileCheck,
+    badge: 'Appointment',
+    iconBg: '#ecfdf5',
+    iconColor: '#059669',
+    route: '/admin/templates?tab=appointment-letter',
+    isExternal: true
+  },
+  {
+    id: 'joining-letter',
+    title: 'Joining Letter',
+    desc: 'Official joining confirmation, branch/site deployment instructions and reporting officer assignment.',
+    category: 'template-setup',
+    icon: UserCheck,
+    badge: 'Onboarding',
+    iconBg: '#f0f9ff',
+    iconColor: '#0284c7',
+    route: '/admin/templates?tab=joining-letter',
+    isExternal: true
+  },
+  {
+    id: 'experience-letter',
+    title: 'Experience Letter',
+    desc: 'Service tenure certificate, conduct statement and relieving acknowledgment issued upon exit.',
+    category: 'template-setup',
+    icon: Award,
+    badge: 'Experience',
+    iconBg: '#fffbeb',
+    iconColor: '#d97706',
+    route: '/admin/templates?tab=experience-letter',
+    isExternal: true
+  },
+  {
+    id: 'full-final-letter',
+    title: 'Full & Final Letter',
+    desc: 'F&F settlement voucher statement, leave encashment, asset clearance declaration and final payout breakdown.',
+    category: 'template-setup',
+    icon: HeartHandshake,
+    badge: 'Exit Settlement',
+    iconBg: '#f5f3ff',
+    iconColor: '#7c3aed',
+    route: '/admin/templates?tab=full-final-letter',
+    isExternal: true
+  },
+  {
+    id: 'email',
+    title: 'Email Templates',
+    desc: 'Automated transactional emails for onboarding, leave approvals, salary slips, overtime and password resets.',
+    category: 'template-setup',
+    icon: Mail,
+    badge: 'Communications',
+    iconBg: '#fff1f2',
+    iconColor: '#e11d48',
+    route: '/admin/templates?tab=email',
+    isExternal: true
   }
 ];
 
 function CompanySetup() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { activeCompany, updateCompanyProfile } = useCompany();
 
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
@@ -113,8 +352,16 @@ function CompanySetup() {
   const isExplorerView = !rawSection;
   const activeSection = rawSection || 'company-profile';
 
+  const categoryParam = searchParams.get('category');
   const [catalogSearch, setCatalogSearch] = useState('');
-  const [explorerCategory, setExplorerCategory] = useState('all');
+  const [explorerCategory, setExplorerCategory] = useState(categoryParam || 'master-setup');
+
+  // Keep explorerCategory in sync if search param changes
+  useEffect(() => {
+    if (categoryParam) {
+      setExplorerCategory(categoryParam);
+    }
+  }, [categoryParam]);
 
   const filteredCatalog = useMemo(() => {
     return SETUP_MODULES.filter((item) => {
@@ -133,7 +380,6 @@ function CompanySetup() {
   }, [explorerCategory, catalogSearch]);
 
   const getCategoryCount = (categoryId) => {
-    if (categoryId === 'all') return SETUP_MODULES.length;
     return SETUP_MODULES.filter((m) => m.category === categoryId).length;
   };
 
@@ -689,9 +935,9 @@ function CompanySetup() {
                     <button
                       type="button"
                       className={styles.emptyResetBtn}
-                      onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                      onClick={() => { setCatalogSearch(''); }}
                     >
-                      Show Master Setup
+                      Clear Search
                     </button>
                   </div>
                 ) : (
@@ -758,26 +1004,17 @@ function CompanySetup() {
             </div>
 
             {/* Page Header */}
-            <header className={styles.header}>
-              <div className={styles.titleArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/admin/company-setup')}
-                    className={styles.backBtn}
-                  >
-                    <ArrowLeft size={15} /> Back to Organization Setup
-                  </button>
-                  <h1 className={styles.title} style={{ margin: 0, fontSize: '22px' }}>
-                    {isSpecificSectionMode
-                      ? (SECTION_TITLES[activeSection] || 'Organization Setup')
-                      : (isEmployeeCodeSection
-                          ? 'Employee Code Configuration'
-                          : isPfCodeSection
-                          ? 'PF Code Configuration'
-                          : 'Company Profile')}
-                  </h1>
-                </div>
+            <header className={styles.header} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+              <div className={styles.titleArea} style={{ flex: '1 1 auto', minWidth: '240px' }}>
+                <h1 className={styles.title} style={{ margin: 0, fontSize: '22px' }}>
+                  {isSpecificSectionMode
+                    ? (SECTION_TITLES[activeSection] || 'Organization Setup')
+                    : (isEmployeeCodeSection
+                        ? 'Employee Code Configuration'
+                        : isPfCodeSection
+                        ? 'PF Code Configuration'
+                        : 'Company Profile')}
+                </h1>
                 <p className={styles.description} style={{ marginTop: '6px' }}>
                   {isSpecificSectionMode
                     ? (SECTION_DESCRIPTIONS[activeSection] || 'Manage company setup details.')
@@ -787,6 +1024,16 @@ function CompanySetup() {
                         ? 'Configure automatic Provident Fund (PF) member number / code series formatting and sequence rules.'
                         : 'Manage your company profile, logo, address, contact details, statutory information (PAN / TAN / GST / PF / ESI) and regional settings.')}
                 </p>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  onClick={() => navigate('/admin/company-setup')}
+                  className={styles.backBtn}
+                >
+                  <ArrowLeft size={15} /> Back to Master Setup
+                </button>
               </div>
             </header>
 

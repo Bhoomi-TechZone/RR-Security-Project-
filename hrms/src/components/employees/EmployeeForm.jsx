@@ -21,6 +21,15 @@ const STEPS = [
   { id: 'review', label: 'Review & Submit', number: '07' }
 ];
 
+const QUICK_NAV_SECTIONS = [
+  { id: 'section-basic', number: '01', label: 'Basic Details' },
+  { id: 'section-employment', number: '02', label: 'Employment Details' },
+  { id: 'section-salary', number: '03', label: 'Salary & Statutory' },
+  { id: 'section-bank', number: '04', label: 'Bank Details' },
+  { id: 'section-address', number: '05', label: 'Address & Family' },
+  { id: 'section-documents', number: '06', label: 'Documents' },
+];
+
 const DEFAULT_FORM_DATA = {
   employeeCode: '',
   joiningDate: '',
@@ -370,6 +379,56 @@ function EmployeeForm({
   const isEditMode = !!employee;
   const shouldShow = isPageMode || isOpen;
   const isStackedMode = isPageMode;
+  const [activeSection, setActiveSection] = useState('section-basic');
+
+  // Track active section on scroll for quickNav sidebar in page mode
+  useEffect(() => {
+    if (!isStackedMode) return;
+
+    const handleScroll = () => {
+      // If near top of the page, keep Basic Details active and avoid premature switching
+      if (window.scrollY < 120) {
+        setActiveSection('section-basic');
+        return;
+      }
+
+      const scrollPosition = window.scrollY + 180;
+      for (let i = QUICK_NAV_SECTIONS.length - 1; i >= 0; i--) {
+        const item = QUICK_NAV_SECTIONS[i];
+        const el = document.getElementById(item.id);
+        if (el) {
+          const top = el.getBoundingClientRect().top + window.scrollY;
+          if (scrollPosition >= top) {
+            setActiveSection(item.id);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [isStackedMode]);
+
+  const scrollToSection = (e, sectionId) => {
+    e.preventDefault();
+    if (sectionId === 'section-basic') {
+      // Basic Details is at the top of the form — scroll to top 0 so the Add Employee header remains 100% visible
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setActiveSection('section-basic');
+      return;
+    }
+
+    const el = document.getElementById(sectionId);
+    if (el) {
+      // AdminHeader is 68px + 20px padding buffer = 88px
+      const headerOffset = 88;
+      const top = el.getBoundingClientRect().top + window.scrollY - headerOffset;
+      window.scrollTo({ top, behavior: 'smooth' });
+      setActiveSection(sectionId);
+    }
+  };
 
   useEffect(() => {
     if (shouldShow) {
@@ -552,88 +611,36 @@ function EmployeeForm({
           )}
         </header>
 
-        {/* Stepper Progress OR Quick Section Navigator */}
+        {/* Form Content: Stacked Layout with Left Quick Nav for Page Mode, Stepped for Modal Mode */}
         {isStackedMode ? (
-          <div className={styles.quickNavWrapper}>
-            <a href="#section-basic" className={styles.quickNavItem}>
-              <span className={styles.quickNavNumber}>01</span>
-              <span>Basic Details</span>
-            </a>
-            <a href="#section-employment" className={styles.quickNavItem}>
-              <span className={styles.quickNavNumber}>02</span>
-              <span>Employment Details</span>
-            </a>
-            <a href="#section-salary" className={styles.quickNavItem}>
-              <span className={styles.quickNavNumber}>03</span>
-              <span>Salary & Statutory</span>
-            </a>
-            <a href="#section-bank" className={styles.quickNavItem}>
-              <span className={styles.quickNavNumber}>04</span>
-              <span>Bank Details</span>
-            </a>
-            <a href="#section-address" className={styles.quickNavItem}>
-              <span className={styles.quickNavNumber}>05</span>
-              <span>Address & Family</span>
-            </a>
-            <a href="#section-documents" className={styles.quickNavItem}>
-              <span className={styles.quickNavNumber}>06</span>
-              <span>Documents</span>
-            </a>
-          </div>
-        ) : (
-          <div className={styles.stepperWrapper}>
-            <div className={styles.stepper} role={isEditMode ? 'tablist' : 'list'} aria-label="Form steps">
-              {STEPS.map((step, idx) => {
-                const isDone = idx < currentStep;
-                const isCurrent = idx === currentStep;
-
-                if (isEditMode) {
+          <div className={styles.stackedLayout}>
+            {/* Quick Section Navigator (Sticky Left Sidebar) */}
+            <aside className={styles.quickNavWrapper}>
+              <div className={styles.quickNavHeader}>
+                <span className={styles.quickNavTitle}>Quick Navigation</span>
+              </div>
+              <nav className={styles.quickNavList} aria-label="Section navigation">
+                {QUICK_NAV_SECTIONS.map((item) => {
+                  const isActive = activeSection === item.id;
                   return (
-                    <button
-                      key={step.id}
-                      type="button"
-                      disabled={isSubmitting}
-                      className={`${styles.stepItem} ${styles.stepItemClickable} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
-                      onClick={() => {
-                        if (isSubmitting) return;
-                        setErrors({});
-                        setCurrentStep(idx);
-                      }}
-                      title={`Go to Step ${idx + 1}: ${step.label}`}
-                      role="tab"
-                      aria-selected={isCurrent}
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      onClick={(e) => scrollToSection(e, item.id)}
+                      className={`${styles.quickNavItem} ${isActive ? styles.quickNavItemActive : ''}`}
                     >
-                      <div className={styles.stepCircle}>
-                        {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
-                      </div>
-                      <span className={styles.stepLabel}>{step.label}</span>
-                      {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
-                    </button>
+                      <span className={`${styles.quickNavNumber} ${isActive ? styles.quickNavNumberActive : ''}`}>
+                        {item.number}
+                      </span>
+                      <span className={styles.quickNavLabel}>{item.label}</span>
+                    </a>
                   );
-                }
+                })}
+              </nav>
+            </aside>
 
-                return (
-                  <div
-                    key={step.id}
-                    className={`${styles.stepItem} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
-                    role="listitem"
-                    aria-current={isCurrent ? 'step' : undefined}
-                  >
-                    <div className={styles.stepCircle}>
-                      {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
-                    </div>
-                    <span className={styles.stepLabel}>{step.label}</span>
-                    {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Form Content: Stacked Together for Page Mode (Add & Edit), Stepped for Modal Mode */}
-        {isStackedMode ? (
-          <div className={styles.allSectionsWrapper}>
+            {/* Form Content on Right */}
+            <div className={styles.allSectionsWrapper}>
             {/* 01. Basic Details */}
             <section id="section-basic" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
@@ -644,22 +651,6 @@ function EmployeeForm({
                     <p className={styles.sectionSubtitle}>Personal information, contact details, identity and profile picture</p>
                   </div>
                 </div>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    className={styles.sectionHeaderSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    title="Save changes for Basic Details"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={13} className={styles.spinner} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                )}
               </div>
               <div className={styles.sectionBody}>
                 <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
@@ -698,22 +689,6 @@ function EmployeeForm({
                     <p className={styles.sectionSubtitle}>Client company allocation, site location, designation, department and shift roster</p>
                   </div>
                 </div>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    className={styles.sectionHeaderSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    title="Save changes for Employment Details"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={13} className={styles.spinner} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                )}
               </div>
               <div className={styles.sectionBody}>
                 <EmploymentStep
@@ -764,22 +739,6 @@ function EmployeeForm({
                     <p className={styles.sectionSubtitle}>Wage structure, basic salary, allowances, PF, ESIC, PT, LWF and compliance</p>
                   </div>
                 </div>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    className={styles.sectionHeaderSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    title="Save changes for Salary & Statutory Details"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={13} className={styles.spinner} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                )}
               </div>
               <div className={styles.sectionBody}>
                 <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
@@ -818,22 +777,6 @@ function EmployeeForm({
                     <p className={styles.sectionSubtitle}>Salary disbursement bank account, branch, IFSC and payment mode</p>
                   </div>
                 </div>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    className={styles.sectionHeaderSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    title="Save changes for Bank Details"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={13} className={styles.spinner} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                )}
               </div>
               <div className={styles.sectionBody}>
                 <BankDetailsStep
@@ -877,22 +820,6 @@ function EmployeeForm({
                     <p className={styles.sectionSubtitle}>Present & permanent residential address, family members and insurance nominees</p>
                   </div>
                 </div>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    className={styles.sectionHeaderSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    title="Save changes for Address & Family Information"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={13} className={styles.spinner} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                )}
               </div>
               <div className={styles.sectionBody}>
                 <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
@@ -931,22 +858,6 @@ function EmployeeForm({
                     <p className={styles.sectionSubtitle}>Driving & armed licenses, KYC documents and administrative verification</p>
                   </div>
                 </div>
-                {isEditMode && (
-                  <button
-                    type="button"
-                    className={styles.sectionHeaderSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                    title="Save changes for Documents & Licenses"
-                  >
-                    {isSubmitting ? (
-                      <Loader2 size={13} className={styles.spinner} />
-                    ) : (
-                      <Check size={13} />
-                    )}
-                    <span>Save Changes</span>
-                  </button>
-                )}
               </div>
               <div className={styles.sectionBody}>
                 <DocumentsStep
@@ -980,7 +891,58 @@ function EmployeeForm({
               )}
             </section>
           </div>
-        ) : (
+        </div>
+      ) : (
+        <>
+          <div className={styles.stepperWrapper}>
+            <div className={styles.stepper} role={isEditMode ? 'tablist' : 'list'} aria-label="Form steps">
+              {STEPS.map((step, idx) => {
+                const isDone = idx < currentStep;
+                const isCurrent = idx === currentStep;
+
+                if (isEditMode) {
+                  return (
+                    <button
+                      key={step.id}
+                      type="button"
+                      disabled={isSubmitting}
+                      className={`${styles.stepItem} ${styles.stepItemClickable} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
+                      onClick={() => {
+                        if (isSubmitting) return;
+                        setErrors({});
+                        setCurrentStep(idx);
+                      }}
+                      title={`Go to Step ${idx + 1}: ${step.label}`}
+                      role="tab"
+                      aria-selected={isCurrent}
+                    >
+                      <div className={styles.stepCircle}>
+                        {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
+                      </div>
+                      <span className={styles.stepLabel}>{step.label}</span>
+                      {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
+                    </button>
+                  );
+                }
+
+                return (
+                  <div
+                    key={step.id}
+                    className={`${styles.stepItem} ${isDone ? styles.stepDone : ''} ${isCurrent ? styles.stepActive : ''}`}
+                    role="listitem"
+                    aria-current={isCurrent ? 'step' : undefined}
+                  >
+                    <div className={styles.stepCircle}>
+                      {isDone ? <Check size={13} strokeWidth={3} /> : step.number}
+                    </div>
+                    <span className={styles.stepLabel}>{step.label}</span>
+                    {idx < STEPS.length - 1 && <div className={`${styles.stepConnector} ${isDone ? styles.stepConnectorDone : ''}`} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className={styles.content}>
             {currentStep === 0 && (
               <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
@@ -1026,7 +988,8 @@ function EmployeeForm({
               <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
             )}
           </div>
-        )}
+        </>
+      )}
 
         {/* Footer Navigation */}
         <footer className={styles.footer}>

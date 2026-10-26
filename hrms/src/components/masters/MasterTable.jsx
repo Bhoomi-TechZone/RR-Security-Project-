@@ -13,12 +13,15 @@ function MasterTable({
   items = [],
   loading = false,
   onAction,
-  onResetSearch
+  onResetSearch,
+  currentPage = 1,
+  itemsPerPage = 8
 }) {
   const getTabLabelPlural = () => {
     switch (activeTab) {
       case 'banks': return 'banks';
-      case 'clients': return 'clients';
+      case 'client-services':
+      case 'clients': return 'client services';
       case 'departments': return 'departments';
       case 'designations': return 'designations';
       case 'employee-types': return 'employee types';
@@ -109,13 +112,11 @@ function MasterTable({
                 </>
               )}
 
-              {activeTab === 'clients' && (
+              {(activeTab === 'client-services' || activeTab === 'clients') && (
                 <>
-                  <th>Client / Company</th>
-                  <th>Client Code</th>
-                  <th>Contact Person</th>
-                  <th>Services Required</th>
-                  <th>Contract Start</th>
+                  <th style={{ width: '70px', textAlign: 'center' }}>S.No.</th>
+                  <th>Service Name</th>
+                  <th>Description</th>
                 </>
               )}
 
@@ -219,8 +220,8 @@ function MasterTable({
             </tr>
           </thead>
           <tbody>
-            {items.map((item) => (
-              <tr key={item.id}>
+            {items.map((item, idx) => (
+              <tr key={item.id || idx}>
                 {/* 1. BANKS */}
                 {activeTab === 'banks' && (
                   <>
@@ -230,30 +231,21 @@ function MasterTable({
                   </>
                 )}
 
-                {/* 2. CLIENTS */}
-                {activeTab === 'clients' && (
+                {/* 2. CLIENT SERVICES */}
+                {(activeTab === 'client-services' || activeTab === 'clients') && (
                   <>
-                    <td><span className={styles.primaryText}>{item.name}</span></td>
-                    <td><span className={styles.codeBadge}>{item.code || '—'}</span></td>
-                    <td>
-                      <div className={styles.contactStack}>
-                        <span className={styles.contactName}>{item.contactPerson || 'N/A'}</span>
-                        {item.contactNumber && <span className={styles.contactPhone}>{item.contactNumber}</span>}
-                      </div>
+                    <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>
+                      {(currentPage - 1) * itemsPerPage + idx + 1}
                     </td>
                     <td>
-                      {Array.isArray(item.servicesRequired) && item.servicesRequired.length > 0 ? (
-                        <div className={styles.tagsStack}>
-                          <span className={styles.tagBadge}>{item.servicesRequired[0]}</span>
-                          {item.servicesRequired.length > 1 && (
-                            <span className={styles.tagMore}>+{item.servicesRequired.length - 1} more</span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className={styles.muted}>All Services</span>
+                      <span className={styles.primaryText}>{item.name}</span>
+                      {item.code && (
+                        <span className={styles.codeBadge} style={{ marginLeft: '8px' }}>
+                          {item.code}
+                        </span>
                       )}
                     </td>
-                    <td><span className={styles.dateText}>{formatDate(item.contractStartDate)}</span></td>
+                    <td><span style={{ fontSize: '13px', color: 'var(--text-secondary, #64748b)' }}>{item.description || '—'}</span></td>
                   </>
                 )}
 

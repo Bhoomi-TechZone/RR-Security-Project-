@@ -43,13 +43,7 @@ const TABS = [
 ];
 
 const TEMPLATE_CATEGORIES = [
-  { id: 'all', label: 'All Templates' },
-  { id: 'salary-slip', label: 'Salary Slip' },
-  { id: 'appointment-letter', label: 'Appointment Letter' },
-  { id: 'joining-letter', label: 'Joining Letter' },
-  { id: 'experience-letter', label: 'Experience Letter' },
-  { id: 'full-final-letter', label: 'Full & Final Letter' },
-  { id: 'email', label: 'Email Templates' }
+  { id: 'all', label: 'Template Setup' }
 ];
 
 const TAB_TITLES = {
@@ -697,7 +691,7 @@ function Templates() {
   };
 
   const handleBackToTemplates = () => {
-    handleTabChange('overview');
+    navigate('/admin/company-setup?category=template-setup');
   };
 
   // Email Templates Search & Filters
@@ -1316,16 +1310,6 @@ function Templates() {
             {/* Active Module Header */}
             <header className={styles.header}>
               <div className={styles.titleArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={handleBackToTemplates}
-                    className={styles.secondaryButton}
-                    style={{ padding: '6px 12px', fontSize: '13px' }}
-                  >
-                    <ArrowLeft size={15} /> Back to Template Setup
-                  </button>
-                </div>
                 <div className={styles.titleWithBadge}>
                   <h1 className={styles.title}>{TAB_TITLES[activeTab] || 'Template Setup'}</h1>
                   <span className={styles.complianceBadge}>Template Editor</span>
@@ -1333,6 +1317,35 @@ function Templates() {
                 <p className={styles.description}>
                   Customize layout, sections, dynamic placeholders, and live document preview.
                 </p>
+              </div>
+
+              <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  onClick={handleBackToTemplates}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '8px 16px',
+                    background: 'rgb(215 119 5)',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgb(180 83 9)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgb(215 119 5)';
+                  }}
+                >
+                  <ArrowLeft size={15} color="#fff" /> Back to Template Setup
+                </button>
               </div>
             </header>
 

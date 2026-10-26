@@ -150,13 +150,13 @@ function AdminDashboard() {
             >
               <ul className={styles.menuList}>
                 <li>
-                  <button className={styles.menuItem} onClick={() => navigate('/admin/clients')}>
+                  <button className={styles.menuItem} onClick={() => navigate('/admin/clients/add')}>
                     <Building size={14} />
                     <span>Add Client</span>
                   </button>
                 </li>
                 <li>
-                  <button className={styles.menuItem} onClick={() => navigate('/admin/employees')}>
+                  <button className={styles.menuItem} onClick={() => navigate('/admin/employees/add')}>
                     <UserPlus size={14} />
                     <span>Add Employee</span>
                   </button>

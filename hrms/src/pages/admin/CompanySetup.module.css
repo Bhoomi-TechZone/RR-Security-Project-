@@ -651,22 +651,26 @@
 .backBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: #ffffff;
-  color: #475569;
-  border: 1px solid var(--border, #cbd5e1);
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
+  gap: 7px;
+  padding: 8px 16px;
+  background: rgb(215, 119, 5);
+  color: #ffffff;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .backBtn:hover {
-  background: #f8fafc;
-  color: #0f172a;
-  border-color: #94a3b8;
+  background: rgb(180, 83, 9);
+  color: #ffffff;
+}
+
+.backBtn svg {
+  color: #ffffff;
+  stroke: #ffffff;
 }
 
 .emptyState {

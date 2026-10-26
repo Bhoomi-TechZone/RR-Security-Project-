@@ -42,7 +42,7 @@ const NAV_GROUPS = [
         subItems: [
           { path: '/admin/clients', name: 'All Clients' },
           { path: '/admin/clients/billing', name: 'Billing' },
-          { path: '/admin/masters?tab=clients', name: 'Client Master' },
+          { path: '/admin/masters?tab=client-services', name: 'Client Services' },
         ]
       },
       {
@@ -99,18 +99,6 @@ const NAV_GROUPS = [
           { path: '/admin/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/admin/payroll?tab=statutory', name: 'Statutory Reports' },
         ]
-      },
-      {
-        path: '/admin/payroll-setup',
-        name: 'Payroll Setup',
-        icon: SlidersHorizontal,
-        moduleKey: 'payroll_setup'
-      },
-      {
-        path: '/admin/statutory-setup',
-        name: 'Statutory Setup',
-        icon: Landmark,
-        moduleKey: 'statutory_setup'
       },
       {
         path: '/admin/advances-loans',
@@ -240,12 +228,6 @@ const NAV_GROUPS = [
           { path: '/admin/preferences?tab=notifications', name: 'Notification Settings' },
           { path: '/admin/preferences?tab=approvals', name: 'Approval Settings' },
         ]
-      },
-      {
-        path: '/admin/templates',
-        name: 'Template Setup',
-        icon: FileText,
-        moduleKey: 'templates'
       },
       {
         path: '/admin/letter-management',

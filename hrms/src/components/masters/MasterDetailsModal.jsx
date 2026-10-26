@@ -39,6 +39,7 @@ function MasterDetailsModal({
   const getHeaderIcon = () => {
     switch (activeTab) {
       case 'banks': return <Landmark size={20} />;
+      case 'client-services':
       case 'clients': return <Briefcase size={20} />;
       case 'departments': return <Layers size={20} />;
       case 'designations': return <Award size={20} />;
@@ -57,7 +58,8 @@ function MasterDetailsModal({
   const getTitle = () => {
     switch (activeTab) {
       case 'banks': return 'Bank Details';
-      case 'clients': return 'Client Details';
+      case 'client-services':
+      case 'clients': return 'Client Service Details';
       case 'departments': return 'Department Details';
       case 'designations': return 'Designation Details';
       case 'employee-types': return 'Employee Type Details';
@@ -149,49 +151,23 @@ function MasterDetailsModal({
             </div>
           )}
 
-          {/* 2. CLIENTS */}
-          {activeTab === 'clients' && (
+          {/* 2. CLIENT SERVICES */}
+          {(activeTab === 'client-services' || activeTab === 'clients') && (
             <div className={styles.detailsList}>
               <div className={styles.detailRow}>
-                <span className={styles.label}>Client Name</span>
+                <span className={styles.label}>Service Name</span>
                 <span className={styles.value}>{item.name}</span>
               </div>
-              <div className={styles.detailRow}>
-                <span className={styles.label}>Client Code</span>
-                <span className={styles.codeBadge}>{item.code || '—'}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <span className={styles.label}>Contact Person</span>
-                <span className={styles.value}>{item.contactPerson || 'N/A'}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <span className={styles.label}>Phone Number</span>
-                <span className={styles.value}>{item.contactNumber || 'N/A'}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <span className={styles.label}>Email Address</span>
-                <span className={styles.value}>{item.email || 'N/A'}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <span className={styles.label}>Location</span>
-                <span className={styles.value}>{item.city ? `${item.city}, ${item.state}` : item.address || 'N/A'}</span>
-              </div>
-              <div className={styles.detailRow}>
-                <span className={styles.label}>Contract Start</span>
-                <span className={styles.value}>{formatDate(item.contractStartDate)}</span>
-              </div>
-              {Array.isArray(item.servicesRequired) && (
+              {item.code && (
                 <div className={styles.detailRow}>
-                  <span className={styles.label}>Services</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {item.servicesRequired.map((s, i) => (
-                      <span key={i} style={{ fontSize: '11px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>
-                        {s}
-                      </span>
-                    ))}
-                  </div>
+                  <span className={styles.label}>Service Code</span>
+                  <span className={styles.codeBadge}>{item.code}</span>
                 </div>
               )}
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Description</span>
+                <span className={styles.value}>{item.description || '—'}</span>
+              </div>
               <div className={styles.detailRow}>
                 <span className={styles.label}>Status</span>
                 <StatusBadge status={item.status} />
