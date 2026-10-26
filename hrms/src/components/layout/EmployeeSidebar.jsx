@@ -9,7 +9,8 @@ import {
   LogOut,
   Shirt,
   Zap,
-  ChevronDown
+  ChevronDown,
+  HandCoins
 } from 'lucide-react';
 import styles from './EmployeeSidebar.module.css';
 import { useCompany } from '../../context/CompanyContext';
@@ -32,6 +33,20 @@ const ALL_NAV_ITEMS = [
   },
   { path: '/employee/leave', name: 'My Leave', icon: CalendarDays, key: 'allowLeaves' },
   { path: '/employee/salary-slips', name: 'My Salary Slips', icon: FileText, key: 'allowSalarySlips' },
+  {
+    path: '/employee/advances-loans',
+    name: 'Advances & Loans',
+    icon: HandCoins,
+    key: 'allowAdvancesLoans',
+    hasDropdown: true,
+    subItems: [
+      { path: '/employee/advances-loans', name: 'All Requests' },
+      { path: '/employee/advances-loans?tab=advances', name: 'Advances' },
+      { path: '/employee/advances-loans?tab=loans', name: 'Loans' },
+      { path: '/employee/advances-loans?tab=schedule', name: 'Deduction Schedule' },
+      { path: '/employee/advances-loans?tab=history', name: 'Deduction History' },
+    ]
+  },
   { path: '/employee/assets', name: 'Assets / Uniform', icon: Shirt, key: 'allowAssetsUniform' },
   { path: '/employee/notifications', name: 'Notifications', icon: Bell, key: 'allowNotifications' }
 ];
@@ -46,6 +61,7 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
     allowAttendance: true,
     allowLeaves: true,
     allowSalarySlips: true,
+    allowAdvancesLoans: true,
     allowAssetsUniform: true,
     allowProfile: true,
     allowNotifications: true
@@ -54,17 +70,24 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
   // Track open dropdowns
   const [openDropdowns, setOpenDropdowns] = useState(() => ({
     '/employee/attendance': location.pathname.startsWith('/employee/attendance'),
+    '/employee/advances-loans': location.pathname.startsWith('/employee/advances-loans'),
   }));
 
   const currentUser = authService.getCurrentUser();
   const companyId = activeCompany?.companyId || activeCompany?.id || currentUser?.companyId || 'RRS8392014SEC';
 
-  // Automatically expand dropdown if user navigates to attendance
+  // Automatically expand dropdown if user navigates to attendance or advances-loans
   useEffect(() => {
     if (location.pathname.startsWith('/employee/attendance')) {
       setOpenDropdowns((prev) => ({
         ...prev,
         '/employee/attendance': true,
+      }));
+    }
+    if (location.pathname.startsWith('/employee/advances-loans')) {
+      setOpenDropdowns((prev) => ({
+        ...prev,
+        '/employee/advances-loans': true,
       }));
     }
   }, [location.pathname]);

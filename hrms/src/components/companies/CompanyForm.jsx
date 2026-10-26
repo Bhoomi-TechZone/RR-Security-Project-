@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, ChevronLeft } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import clientService from '../../services/clientService';
+import masterService from '../../services/masterService';
+import { getInitialClientServices } from '../../data/masters/clientServicesData';
 import styles from './CompanyForm.module.css';
 
 /**
- * CompanyForm Modal component
- * Handles both Add and Edit actions depending on company prop.
+ * CompanyForm component
+ * Supports both full-page mode (isPageMode=true) and modal dialog mode.
  */
 function CompanyForm({
   isOpen,
+  isPageMode = false,
   onClose,
   onSubmit,
   company = null // if present, we are in EDIT mode
@@ -17,6 +20,10 @@ function CompanyForm({
   const { activeCompany } = useCompany();
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
   const [autoClientId, setAutoClientId] = useState('CLI-001');
+  const [availableServices, setAvailableServices] = useState(() => {
+    return getInitialClientServices(currentCompanyId);
+  });
+  const shouldShow = isPageMode || isOpen;
 
   const [formData, setFormData] = useState({
     clientId: '',
@@ -45,7 +52,7 @@ function CompanyForm({
 
   useEffect(() => {
     let isMounted = true;
-    if (!company && isOpen && currentCompanyId) {
+    if (!company && shouldShow && currentCompanyId) {
       clientService.getNextClientId(currentCompanyId)
         .then((nextId) => {
           if (isMounted && nextId) {
@@ -56,7 +63,36 @@ function CompanyForm({
         .catch(() => {});
     }
     return () => { isMounted = false; };
-  }, [company, isOpen, currentCompanyId]);
+  }, [company, shouldShow, currentCompanyId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadServices = async () => {
+      if (!currentCompanyId) return;
+      try {
+        const services = await masterService.getMasters('client-services', currentCompanyId);
+        if (isMounted && Array.isArray(services) && services.length > 0) {
+          setAvailableServices(services);
+          return;
+        }
+      } catch (e) {}
+      if (isMounted) {
+        setAvailableServices(getInitialClientServices(currentCompanyId));
+      }
+    };
+
+    loadServices();
+
+    const handleServicesUpdated = () => {
+      loadServices();
+    };
+
+    window.addEventListener('client-services-updated', handleServicesUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('client-services-updated', handleServicesUpdated);
+    };
+  }, [currentCompanyId]);
 
   useEffect(() => {
     if (company) {
@@ -105,19 +141,19 @@ function CompanyForm({
       });
     }
     setErrors({});
-  }, [company, isOpen, autoClientId]);
+  }, [company, shouldShow, autoClientId]);
 
-  // Escape key closes modal
+  // Escape key closes modal (only when modal mode)
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || isPageMode) return;
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
     };
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, isPageMode, onClose]);
 
-  if (!isOpen) return null;
+  if (!shouldShow) return null;
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -150,7 +186,7 @@ function CompanyForm({
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     if (isSubmitting) return;
 
     const initials = formData.name
@@ -187,28 +223,9 @@ function CompanyForm({
     }
   };
 
-  return (
-    <div className={styles.overlay} onClick={isSubmitting ? undefined : onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <div>
-            <h2 className={styles.title}>
-              {company ? 'Edit Client' : 'Add Client'}
-            </h2>
-            <p className={styles.subtitle}>
-              {company 
-                ? 'Modify the details of this client company.' 
-                : 'Add a new client company to your organization.'}
-            </p>
-          </div>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form" disabled={isSubmitting}>
-            <X size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className={styles.form}>
-          <div className={styles.grid}>
-            {/* Client ID (Auto-Generated & Unique per Company) */}
+  const renderBasicDetailsFields = () => (
+    <>
+      {/* Client ID (Auto-Generated & Unique per Company) */}
             <div className={styles.formGroup}>
               <label htmlFor="clientId" className={styles.label}>
                 Client ID
@@ -354,15 +371,18 @@ function CompanyForm({
                   onChange={handleChange}
                 >
                   <option value="">Select service type</option>
-                  <option value="SecurityGuard">Security Guard</option>
-                  <option value="Housekeeping">Housekeeping</option>
-                  <option value="Manufacturing">Manufacturing</option>
-                  <option value="UnarmedSecurity">Unarmed Security</option>
-                  <option value="ArmedSecurity">Armed Security</option>
-                  <option value="Finance">Finance</option>
-                  <option value="Retail">Retail</option>
-                  <option value="Construction">Construction</option>
-                  <option value="Other">Other</option>
+                  {/* Keep custom/legacy service value if already selected but not in active list */}
+                  {formData.typeOfService && 
+                    !availableServices.some(s => s.name === formData.typeOfService || s.code === formData.typeOfService) && (
+                      <option value={formData.typeOfService}>{formData.typeOfService}</option>
+                  )}
+                  {availableServices
+                    .filter(s => !s.status || s.status === 'active')
+                    .map(service => (
+                      <option key={service.id || service._id || service.name} value={service.name}>
+                        {service.name}{service.code ? ` (${service.code})` : ''}
+                      </option>
+                  ))}
                 </select>
               </div>
               {errors.typeOfService && (
@@ -405,12 +425,12 @@ function CompanyForm({
               />
               {errors.address && <span className={styles.errorText}>{errors.address}</span>}
             </div>
-          </div>
+    </>
+  );
 
-          {/* Compliance Checkboxes Section */}
-          <div className={styles.complianceContainer}>
-            <div className={styles.complianceGrid}>
-              {/* PF */}
+  const renderComplianceFields = () => (
+    <>
+      {/* PF */}
               <div className={styles.complianceItem}>
                 <div className={styles.complianceLabel}>PF (Provident Fund)</div>
                 <div className={styles.checkboxRow}>
@@ -700,6 +720,138 @@ function CompanyForm({
                   </select>
                 </div>
               </div>
+    </>
+  );
+
+  if (isPageMode) {
+    return (
+      <div className={styles.pageContainer}>
+        <div className={styles.pageCard}>
+          <div className={styles.pageHeader}>
+            <div>
+              <h1 className={styles.pageTitle}>
+                {company ? 'Edit Client' : 'Add Client'}
+              </h1>
+              <p className={styles.pageSubtitle}>
+                {company
+                  ? 'Modify client details across sections below'
+                  : 'Fill out all client details below across sections'}
+              </p>
+            </div>
+            <div className={styles.pageHeaderActions}>
+              {onClose && (
+                <button
+                  type="button"
+                  className={styles.pageBackBtn}
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                >
+                  <ChevronLeft size={16} />
+                  <span>Back</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} style={{ width: '100%' }}>
+            <div className={styles.allSectionsWrapper}>
+              {/* Section 01: Basic Details */}
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <div className={styles.sectionNumber}>01</div>
+                    <div>
+                      <h3 className={styles.sectionTitle}>Basic Details</h3>
+                      <p className={styles.sectionSubtitle}>
+                        Client identity, contact information, service details, and address
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.grid}>
+                  {renderBasicDetailsFields()}
+                </div>
+              </div>
+
+              {/* Section 02: Statutory & Compliance */}
+              <div className={styles.sectionCard}>
+                <div className={styles.sectionHeader}>
+                  <div className={styles.sectionHeaderLeft}>
+                    <div className={styles.sectionNumber}>02</div>
+                    <div>
+                      <h3 className={styles.sectionTitle}>Statutory & Compliance</h3>
+                      <p className={styles.sectionSubtitle}>
+                        PF, ESI, LWF, TDS and Overtime setup for this client
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.complianceContainer}>
+                  <div className={styles.complianceGrid}>
+                    {renderComplianceFields()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Section Footer */}
+              <div className={styles.sectionFooter}>
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={onClose}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <Loader2 size={16} className={styles.spinner} />
+                      <span>Saving...</span>
+                    </span>
+                  ) : (
+                    company ? 'Save Changes' : 'Add Client'
+                  )}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.overlay} onClick={isSubmitting ? undefined : onClose}>
+      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.header}>
+          <div>
+            <h2 className={styles.title}>
+              {company ? 'Edit Client' : 'Add Client'}
+            </h2>
+            <p className={styles.subtitle}>
+              {company 
+                ? 'Modify the details of this client company.' 
+                : 'Add a new client company to your organization.'}
+            </p>
+          </div>
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close form" disabled={isSubmitting}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.grid}>
+            {renderBasicDetailsFields()}
+          </div>
+
+          <div className={styles.complianceContainer}>
+            <div className={styles.complianceGrid}>
+              {renderComplianceFields()}
             </div>
           </div>
 

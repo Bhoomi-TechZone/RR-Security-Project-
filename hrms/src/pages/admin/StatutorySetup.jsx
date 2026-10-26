@@ -32,14 +32,7 @@ const TABS = [
 ];
 
 const STATUTORY_CATEGORIES = [
-  { id: 'all', label: 'All Modules' },
-  { id: 'pf', label: 'Provident Fund (PF)' },
-  { id: 'esi', label: 'ESI' },
-  { id: 'pt', label: 'Professional Tax (PT)' },
-  { id: 'tds', label: 'TDS (Income Tax)' },
-  { id: 'bonus', label: 'Statutory Bonus' },
-  { id: 'gratuity', label: 'Gratuity' },
-  { id: 'lwf', label: 'Labour Welfare Fund (LWF)' }
+  { id: 'all', label: 'Statutory Setup' }
 ];
 
 const TAB_TITLES = {
@@ -183,8 +176,7 @@ function StatutorySetup() {
   };
 
   const handleBackToStatutory = () => {
-    setActiveTab('overview');
-    setSearchParams({}, { state: location.state });
+    navigate('/admin/company-setup?category=statutory-setup');
   };
 
   // Loading and saving states
@@ -755,16 +747,6 @@ function StatutorySetup() {
             {/* Active Module Header */}
             <header className={styles.header}>
               <div className={styles.titleArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={handleBackToStatutory}
-                    className={styles.secondaryButton}
-                    style={{ padding: '6px 12px', fontSize: '13px' }}
-                  >
-                    <ArrowLeft size={15} /> Back to Statutory Setup
-                  </button>
-                </div>
                 <div className={styles.titleWithBadge}>
                   <h1 className={styles.title}>{TAB_TITLES[activeTab] || 'Statutory Setup'}</h1>
                   <span className={styles.complianceBadge}>Compliance & Statutory Rules</span>
@@ -775,6 +757,32 @@ function StatutorySetup() {
               </div>
 
               <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  onClick={handleBackToStatutory}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '8px 16px',
+                    background: 'rgb(215 119 5)',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgb(180 83 9)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgb(215 119 5)';
+                  }}
+                >
+                  <ArrowLeft size={15} color="#fff" /> Back to Statutory Setup
+                </button>
                 <button
                   type="button"
                   className={styles.secondaryButton}

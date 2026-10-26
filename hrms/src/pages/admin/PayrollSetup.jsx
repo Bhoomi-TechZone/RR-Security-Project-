@@ -36,13 +36,8 @@ const TABS = [
 ];
 
 const SETUP_CATEGORIES = [
-  { id: 'all', label: 'All Modules' },
-  { id: 'pay-groups', label: 'Pay Groups' },
-  { id: 'salary-components', label: 'Salary Components' },
-  { id: 'pay-schedules', label: 'Pay Schedules' },
-  { id: 'pay-cycles', label: 'Pay Cycles' },
-  { id: 'pay-days', label: 'Pay Days' },
-  { id: 'calculation-methods', label: 'Salary Calculation Methods' }
+  { id: 'master-setup', label: 'Master Setup', route: '/admin/company-setup' },
+  { id: 'payroll-setup', label: 'Payroll Setup', route: '/admin/payroll-setup' }
 ];
 
 const ALL_SETUP_CATALOG = [
@@ -127,7 +122,7 @@ function PayrollSetup() {
   const [activeTab, setActiveTab] = useState(initialTab);
   
   const [catalogSearch, setCatalogSearch] = useState('');
-  const [explorerCategory, setExplorerCategory] = useState('all');
+  const [explorerCategory, setExplorerCategory] = useState('payroll-setup');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [frequencyFilter, setFrequencyFilter] = useState('all');
@@ -153,7 +148,7 @@ function PayrollSetup() {
   };
 
   const handleBackToSetup = () => {
-    setSearchParams({});
+    navigate('/admin/company-setup?category=payroll-setup');
   };
 
   // MongoDB State Collections
@@ -257,14 +252,15 @@ function PayrollSetup() {
   };
 
   const getCategoryCount = (catId) => {
-    if (catId === 'all') return ALL_SETUP_CATALOG.length;
+    if (catId === 'master-setup') return 6;
+    if (catId === 'payroll-setup' || catId === 'all') return ALL_SETUP_CATALOG.length;
     return getModuleCount(catId);
   };
 
   const filteredCatalog = useMemo(() => {
     return ALL_SETUP_CATALOG.filter((item) => {
       const matchesCategory =
-        explorerCategory === 'all' || item.id === explorerCategory;
+        explorerCategory === 'all' || explorerCategory === 'payroll-setup' || item.id === explorerCategory;
       const q = catalogSearch.trim().toLowerCase();
       const matchesSearch =
         !q ||
@@ -503,7 +499,7 @@ function PayrollSetup() {
               </span>
               <span className={styles.separator}>/</span>
               <span className={styles.crumbActive}>Payroll Setup</span>
-              {explorerCategory !== 'all' && (
+              {explorerCategory !== 'all' && explorerCategory !== 'payroll-setup' && (
                 <>
                   <span className={styles.separator}>/</span>
                   <span className={styles.crumbActive}>
@@ -582,7 +578,13 @@ function PayrollSetup() {
                           <button
                             type="button"
                             className={`${styles.categoryBtn} ${isActive ? styles.categoryBtnActive : ''}`}
-                            onClick={() => setExplorerCategory(cat.id)}
+                            onClick={() => {
+                              if (cat.route && cat.route !== '/admin/payroll-setup') {
+                                navigate(cat.route);
+                              } else {
+                                setExplorerCategory(cat.id);
+                              }
+                            }}
                           >
                             <span className={isActive ? styles.sidebarActiveDot : styles.sidebarDot} />
                             <span>{cat.label}</span>
@@ -602,10 +604,10 @@ function PayrollSetup() {
                       <button
                         type="button"
                         className={styles.secondaryButton}
-                        onClick={() => { setCatalogSearch(''); setExplorerCategory('all'); }}
+                        onClick={() => { setCatalogSearch(''); setExplorerCategory('payroll-setup'); }}
                         style={{ marginTop: '12px', fontSize: '13px' }}
                       >
-                        Show All Modules
+                        Show All Setup Modules
                       </button>
                     </div>
                   ) : (
@@ -671,16 +673,6 @@ function PayrollSetup() {
             {/* Header */}
             <header className={styles.header}>
               <div className={styles.titleArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                  <button
-                    type="button"
-                    onClick={handleBackToSetup}
-                    className={styles.secondaryButton}
-                    style={{ padding: '6px 12px', fontSize: '13px' }}
-                  >
-                    <ArrowLeft size={15} /> Back to Payroll Setup
-                  </button>
-                </div>
                 <div className={styles.titleWithBadge}>
                   <h1 className={styles.title}>{TAB_LABELS[activeTab] || 'Payroll Setup'}</h1>
                   <span className={styles.adminBadge}>Admin Configuration</span>
@@ -691,6 +683,32 @@ function PayrollSetup() {
               </div>
 
               <div className={styles.headerActions}>
+                <button
+                  type="button"
+                  onClick={handleBackToSetup}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '8px 16px',
+                    background: 'rgb(215 119 5)',
+                    color: '#ffffff',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgb(180 83 9)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgb(215 119 5)';
+                  }}
+                >
+                  <ArrowLeft size={15} color="#fff" /> Back to Payroll Setup
+                </button>
                 <button
                   type="button"
                   className={styles.secondaryBtn}

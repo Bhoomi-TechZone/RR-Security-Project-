@@ -19,8 +19,9 @@ function MasterToolbar({
     switch (activeTab) {
       case 'banks':
         return { placeholder: 'Search bank name or code...', addLabel: 'Add Bank' };
+      case 'client-services':
       case 'clients':
-        return { placeholder: 'Search client, code, or contact...', addLabel: 'Add Client' };
+        return { placeholder: 'Search service name or description...', addLabel: 'Add Services' };
       case 'departments':
         return { placeholder: 'Search department name or code...', addLabel: 'Add Department' };
       case 'designations':

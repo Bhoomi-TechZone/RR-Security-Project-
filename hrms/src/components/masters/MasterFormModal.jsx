@@ -40,10 +40,6 @@ function MasterFormModal({
         if (activeTab === 'banks') {
           defaultState.branches = 0;
           defaultState.branchList = [];
-        } else if (activeTab === 'clients') {
-          defaultState.servicesRequired = ['Security Guard Services', 'Security Supervisor Services'];
-          defaultState.state = 'Karnataka';
-          defaultState.city = 'Bangalore';
         } else if (activeTab === 'designations') {
           const firstDept = departments.find(d => !d.status || d.status === 'active') || (departments.length > 0 ? departments[0] : null);
           defaultState.department = firstDept ? firstDept.name : '';
@@ -114,11 +110,6 @@ function MasterFormModal({
 
     if (activeTab === 'banks') {
       if (!formData.code?.trim()) newErrors.code = 'Short code is required.';
-    } else if (activeTab === 'clients') {
-      if (!formData.contactPerson?.trim()) newErrors.contactPerson = 'Contact person is required.';
-      if (formData.pinCode && !/^\d{6}$/.test(formData.pinCode.trim())) {
-        newErrors.pinCode = 'Must be a 6-digit Indian PIN code.';
-      }
     } else if (activeTab === 'designations') {
       if (!formData.department?.trim()) newErrors.department = 'Department is required.';
     } else if (activeTab === 'sites') {
@@ -153,7 +144,8 @@ function MasterFormModal({
     const action = isEdit ? 'Edit' : 'Add';
     switch (activeTab) {
       case 'banks': return `${action} Bank`;
-      case 'clients': return `${action} Client`;
+      case 'client-services':
+      case 'clients': return isEdit ? 'Edit Service' : 'Add Services';
       case 'departments': return `${action} Department`;
       case 'designations': return `${action} Designation`;
       case 'employee-types': return `${action} Employee Type`;
@@ -362,156 +354,35 @@ function MasterFormModal({
             </>
           )}
 
-          {/* 2. CLIENTS */}
-          {activeTab === 'clients' && (
+          {/* 2. CLIENT SERVICES */}
+          {(activeTab === 'client-services' || activeTab === 'clients') && (
             <>
-              <div className={styles.row}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Client / Company Name <span className={styles.required}>*</span></label>
-                  <input
-                    type="text"
-                    className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
-                    placeholder="e.g. Tech Mahindra Ltd"
-                    value={formData.name || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, name: e.target.value });
-                      if (errors.name) setErrors({ ...errors, name: null });
-                    }}
-                  />
-                  {errors.name && <span className={styles.errorText}>{errors.name}</span>}
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Client Code</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    placeholder="e.g. CLI-001"
-                    value={formData.code || ''}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.row}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Contact Person <span className={styles.required}>*</span></label>
-                  <input
-                    type="text"
-                    className={`${styles.input} ${errors.contactPerson ? styles.inputError : ''}`}
-                    placeholder="e.g. Rahul Sharma"
-                    value={formData.contactPerson || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, contactPerson: e.target.value });
-                      if (errors.contactPerson) setErrors({ ...errors, contactPerson: null });
-                    }}
-                  />
-                  {errors.contactPerson && <span className={styles.errorText}>{errors.contactPerson}</span>}
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Phone Number</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    placeholder="+91 98765 43210"
-                    value={formData.contactNumber || ''}
-                    onChange={(e) => setFormData({ ...formData, contactNumber: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.row}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Email Address</label>
-                  <input
-                    type="email"
-                    className={styles.input}
-                    placeholder="client@company.com"
-                    value={formData.email || ''}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  />
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>Contract Start Date</label>
-                  <input
-                    type="date"
-                    className={styles.input}
-                    value={formData.contractStartDate || ''}
-                    onChange={(e) => setFormData({ ...formData, contractStartDate: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className={styles.rowThree}>
-                <div className={styles.field}>
-                  <label className={styles.label}>City</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    placeholder="City"
-                    value={formData.city || ''}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  />
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>State</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    placeholder="State"
-                    value={formData.state || ''}
-                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
-                  />
-                </div>
-
-                <div className={styles.field}>
-                  <label className={styles.label}>PIN Code</label>
-                  <input
-                    type="text"
-                    maxLength="6"
-                    className={`${styles.input} ${errors.pinCode ? styles.inputError : ''}`}
-                    placeholder="6-digit PIN"
-                    value={formData.pinCode || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, pinCode: e.target.value.replace(/\D/g, '') });
-                      if (errors.pinCode) setErrors({ ...errors, pinCode: null });
-                    }}
-                  />
-                  {errors.pinCode && <span className={styles.errorText}>{errors.pinCode}</span>}
-                </div>
-              </div>
-
               <div className={styles.field}>
-                <label className={styles.label}>Address</label>
+                <label className={styles.label}>
+                  Service Name <span className={styles.required}>*</span>
+                </label>
                 <input
                   type="text"
-                  className={styles.input}
-                  placeholder="Registered office / site address"
-                  value={formData.address || ''}
-                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
+                  placeholder="e.g. Security Guard, Housekeeping, Facility Management"
+                  value={formData.name || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    if (errors.name) setErrors({ ...errors, name: null });
+                  }}
                 />
+                {errors.name && <span className={styles.errorText}>{errors.name}</span>}
               </div>
 
               <div className={styles.field}>
-                <label className={styles.label}>Services Required (Multi-Select)</label>
-                <div className={styles.servicesGrid}>
-                  {MANPOWER_SERVICE_OPTIONS.map((srv) => {
-                    const isChecked = (formData.servicesRequired || []).includes(srv);
-                    return (
-                      <label key={srv} className={`${styles.serviceCheckbox} ${isChecked ? styles.serviceChecked : ''}`}>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleServiceToggle(srv)}
-                        />
-                        <span>{srv}</span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <label className={styles.label}>Description</label>
+                <textarea
+                  className={styles.textarea || styles.input}
+                  rows={3}
+                  placeholder="Enter details about this service category..."
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
               </div>
             </>
           )}

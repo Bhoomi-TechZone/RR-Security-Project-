@@ -8,6 +8,7 @@ export const mockEmployeePortalConfig = {
   allowAttendance: true,
   allowLeaves: true,
   allowSalarySlips: true,
+  allowAdvancesLoans: true,
   allowAssetsUniform: true,
   allowProfile: true,
   allowNotifications: true,

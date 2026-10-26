@@ -10,6 +10,7 @@ import EmployeeDashboard from './pages/dashboards/EmployeeDashboard'
 import MyAttendance from './pages/employee/MyAttendance'
 import MyLeave from './pages/employee/MyLeave'
 import MySalarySlips from './pages/employee/MySalarySlips'
+import MyAdvancesLoans from './pages/employee/MyAdvancesLoans'
 import EmployeeNotifications from './pages/employee/EmployeeNotifications'
 import MyAssetsUniform from './pages/employee/MyAssetsUniform'
 import EmployeeLayout from './components/layout/EmployeeLayout'
@@ -23,6 +24,8 @@ import ClientNotifications from './pages/client/ClientNotifications'
 import ClientProfile from './pages/client/ClientProfile'
 import Companies from './pages/admin/Companies'
 import CompanyDetails from './pages/admin/CompanyDetails'
+import AddClient from './pages/admin/AddClient'
+import EditClient from './pages/admin/EditClient'
 import ClientBillingAdmin from './pages/admin/ClientBillingAdmin'
 import Employees from './pages/admin/Employees'
 import AddEmployee from './pages/admin/AddEmployee'
@@ -83,11 +86,15 @@ function App() {
       <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
 
       <Route path="/admin/clients" element={<AdminRoute><Companies /></AdminRoute>} />
+      <Route path="/admin/clients/add" element={<AdminRoute><AddClient /></AdminRoute>} />
       <Route path="/admin/clients/billing" element={<AdminRoute><ClientBillingAdmin /></AdminRoute>} />
       <Route path="/admin/clients/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
+      <Route path="/admin/clients/:id/edit" element={<AdminRoute><EditClient /></AdminRoute>} />
       <Route path="/admin/companies" element={<AdminRoute><Companies /></AdminRoute>} />
+      <Route path="/admin/companies/add" element={<AdminRoute><AddClient /></AdminRoute>} />
       <Route path="/admin/companies/billing" element={<AdminRoute><ClientBillingAdmin /></AdminRoute>} />
       <Route path="/admin/companies/:id" element={<AdminRoute><CompanyDetails /></AdminRoute>} />
+      <Route path="/admin/companies/:id/edit" element={<AdminRoute><EditClient /></AdminRoute>} />
 
       <Route path="/admin/employees" element={<AdminRoute><Employees /></AdminRoute>} />
       <Route path="/admin/employees/add" element={<AdminRoute><AddEmployee /></AdminRoute>} />
@@ -130,11 +137,15 @@ function App() {
 
         {/* Workforce Modules */}
         <Route path="clients" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
+        <Route path="clients/add" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Add Client"><AddClient /></ModulePermissionRoute>} />
         <Route path="clients/billing" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Client Billing"><ClientBillingAdmin /></ModulePermissionRoute>} />
         <Route path="clients/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
+        <Route path="clients/:id/edit" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Edit Client"><EditClient /></ModulePermissionRoute>} />
         <Route path="companies" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
+        <Route path="companies/add" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Add Client"><AddClient /></ModulePermissionRoute>} />
         <Route path="companies/billing" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Client Billing"><ClientBillingAdmin /></ModulePermissionRoute>} />
         <Route path="companies/:id" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><CompanyDetails /></ModulePermissionRoute>} />
+        <Route path="companies/:id/edit" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Edit Client"><EditClient /></ModulePermissionRoute>} />
         <Route path="employees" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><Employees /></ModulePermissionRoute>} />
         <Route path="employees/add" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Add Employee"><AddEmployee /></ModulePermissionRoute>} />
         <Route path="employees/transfer" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employee Transfer"><EmployeeTransfer /></ModulePermissionRoute>} />
@@ -176,6 +187,7 @@ function App() {
         <Route path="attendance" element={<MyAttendance />} />
         <Route path="leave" element={<MyLeave />} />
         <Route path="salary-slips" element={<MySalarySlips />} />
+        <Route path="advances-loans" element={<MyAdvancesLoans />} />
         <Route path="assets" element={<MyAssetsUniform />} />
         <Route path="uniforms" element={<MyAssetsUniform />} />
         <Route path="notifications" element={<EmployeeNotifications />} />

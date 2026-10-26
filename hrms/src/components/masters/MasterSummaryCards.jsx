@@ -19,8 +19,9 @@ function MasterSummaryCards({ activeTab, items = [] }) {
     switch (activeTab) {
       case 'banks':
         return { singular: 'Bank', plural: 'Banks', icon: Landmark };
+      case 'client-services':
       case 'clients':
-        return { singular: 'Client', plural: 'Clients', icon: Briefcase };
+        return { singular: 'Client Service', plural: 'Client Services', icon: Briefcase };
       case 'departments':
         return { singular: 'Department', plural: 'Departments', icon: Layers };
       case 'designations':

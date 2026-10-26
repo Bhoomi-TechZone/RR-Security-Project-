@@ -334,32 +334,39 @@ function WorkLocations() {
         {/* Page Header */}
         <header className={styles.header}>
           <div className={styles.titleArea}>
+            <h1 className={styles.title}>Branch / Work Locations</h1>
+            <p className={styles.description}>
+              Manage offices, branches and work locations used across the HRMS for{' '}
+              <strong>{activeCompany?.name || 'RR Security'}</strong>.
+            </p>
+          </div>
+          <div>
             <button
               type="button"
               onClick={() => navigate('/admin/company-setup')}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                background: '#ffffff',
-                color: '#475569',
-                border: '1px solid #cbd5e1',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: 500,
+                gap: '7px',
+                padding: '8px 16px',
+                background: 'rgb(215 119 5)',
+                color: '#ffffff',
+                borderRadius: '8px',
+                fontSize: '12.5px',
+                fontWeight: 600,
                 cursor: 'pointer',
-                marginBottom: '10px',
-                width: 'fit-content'
+                transition: 'all 0.15s ease',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgb(180 83 9)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgb(215 119 5)';
               }}
             >
-              <ArrowLeft size={15} /> Back to Organization Setup
+              <ArrowLeft size={15} color="#fff" /> Back to Master Setup
             </button>
-            <h1 className={styles.title}>Branch / Work Locations</h1>
-            <p className={styles.description}>
-              Manage offices, branches and work locations used across the HRMS for{' '}
-              <strong>{activeCompany?.name || 'RR Security'}</strong>.
-            </p>
           </div>
         </header>
 

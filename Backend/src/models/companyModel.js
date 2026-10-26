@@ -157,6 +157,7 @@ const companySchema = new mongoose.Schema(
           allowApplyLeave: true,
           allowLeaveBalance: true,
           allowSalarySlips: true,
+          allowAdvancesLoans: true,
           allowProfile: true,
           allowNotifications: true,
           lastUpdated: new Date().toISOString(),

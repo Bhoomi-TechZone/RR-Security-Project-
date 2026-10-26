@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import styles from './Companies.module.css';
 
@@ -22,6 +22,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 function Companies() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isUserPanel = location.pathname.startsWith('/user');
+  const addClientPath = isUserPanel ? '/user/clients/add' : '/admin/clients/add';
   const [searchParams] = useSearchParams();
   const { activeCompany } = useCompany();
   const { canAdd, canEdit, canDelete } = usePermissions();
@@ -312,15 +315,15 @@ function Companies() {
 
   // Handle single action menu choices
   const handleActionClick = (actionType, company) => {
+    const clientKey = company.id || company.clientId || company._id;
     if (actionType === 'view') {
-      navigate(`/admin/clients/${company.id || company.clientId || company._id}`);
+      navigate(isUserPanel ? `/user/clients/${clientKey}` : `/admin/clients/${clientKey}`);
     } else if (actionType === 'credentials') {
       setCredentialsModal({ isOpen: true, client: company });
     } else if (actionType === 'edit') {
-      setEditingCompany(company);
-      setIsFormOpen(true);
+      navigate(isUserPanel ? `/user/clients/${clientKey}/edit` : `/admin/clients/${clientKey}/edit`);
     } else if (actionType === 'employees') {
-      navigate(`/admin/employees?companyId=${company.id || company.clientId || company._id}`);
+      navigate(isUserPanel ? `/user/employees?companyId=${clientKey}` : `/admin/employees?companyId=${clientKey}`);
     } else if (actionType === 'deactivate') {
       setConfirmModal({
         isOpen: true,
@@ -574,10 +577,7 @@ function Companies() {
           {canAdd('clients') && (
             <button
               className={styles.addBtn}
-              onClick={() => {
-                setEditingCompany(null);
-                setIsFormOpen(true);
-              }}
+              onClick={() => navigate(addClientPath)}
               aria-label="Add a new client"
             >
               <Plus size={16} />

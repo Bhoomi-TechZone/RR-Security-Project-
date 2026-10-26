@@ -487,9 +487,10 @@ function Preferences() {
                         employeePortal.allowAttendance,
                         employeePortal.allowLeaves !== undefined ? employeePortal.allowLeaves : (employeePortal.allowApplyLeave || employeePortal.allowLeaveBalance),
                         employeePortal.allowSalarySlips,
+                        employeePortal.allowAdvancesLoans,
                         employeePortal.allowProfile,
                         employeePortal.allowNotifications
-                      ].filter(Boolean).length} / 6 Allowed
+                      ].filter(Boolean).length} / 7 Allowed
                     </span>
                   </div>
                 </div>
@@ -710,6 +711,21 @@ function Preferences() {
                     <div className={styles.checklistText}>
                       <span className={styles.checklistLabel}>Salary Slip</span>
                       <span className={styles.checklistDesc}>View and download monthly generated payslips in secure PDF format.</span>
+                    </div>
+                  </label>
+
+                  {/* Advances & Loans */}
+                  <label className={`${styles.checklistItem} ${employeePortal.allowAdvancesLoans ? styles.checklistItemActive : ''}`}>
+                    <input 
+                      type="checkbox" 
+                      className={styles.checkboxInput}
+                      checked={Boolean(employeePortal.allowAdvancesLoans)}
+                      disabled={!employeePortal.enabled}
+                      onChange={(e) => setEmployeePortal({ ...employeePortal, allowAdvancesLoans: e.target.checked })}
+                    />
+                    <div className={styles.checklistText}>
+                      <span className={styles.checklistLabel}>Advances & Loans</span>
+                      <span className={styles.checklistDesc}>Apply for salary advances/loans, track approval progress and deduction schedules.</span>
                     </div>
                   </label>
 

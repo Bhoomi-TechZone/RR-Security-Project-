@@ -58,7 +58,7 @@ const USER_NAV_GROUPS = [
         subItems: [
           { path: '/user/clients', name: 'All Clients' },
           { path: '/user/clients/billing', name: 'Billing' },
-          { path: '/user/masters?tab=clients', name: 'Client Master' },
+          { path: '/user/masters?tab=client-services', name: 'Client Services' },
         ]
       },
       { 
