@@ -48,11 +48,14 @@ function AttendanceSummaryCards({ records }) {
     records.forEach((r) => {
       const s = String(r.status || '').toLowerCase().replace(/[-_ ]/g, '');
       if (s === 'present') counts.present++;
-      else if (s === 'absent') counts.absent++;
-      else if (s === 'halfday') counts.halfDay++;
-      else if (s === 'leave' || s === 'onleave') counts.leave++;
+      else if (s === 'absent' || s === 'lwp') counts.absent++;
+      else if (s === 'halfday' || s === 'half_day') counts.halfDay++;
+      else if (s === 'leave' || s === 'onleave' || s === 'cl' || s === 'sl' || s === 'el') counts.leave++;
       else if (s === 'late' || s === 'earlyout' || Number(r.lateMinutes || 0) > 0) counts.lateEarly++;
       else if (s === 'pendingcorrection') counts.pendingCorrection++;
+      else if (s === 'weekoff' || s === 'weeklyoff' || s === 'holiday') {
+        // Scheduled rest days and public holidays
+      }
       else if (s) counts.present++;
     });
     return counts;

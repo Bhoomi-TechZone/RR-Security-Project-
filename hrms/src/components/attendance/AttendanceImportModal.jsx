@@ -11,6 +11,34 @@ import styles from './AttendanceImportModal.module.css';
  * EMPID, EMPLOYEE NAME, FATHER NAME, MONTH, YEAR, PRESENT, WEEK OFF, HOLIDAYS, CL, SL, EL
  * (CL = Casual Leave, SL = Sick Leave, EL = Earn Leave)
  */
+export const formatEmployeeCode = (rawId, employeesList = []) => {
+  if (!rawId) return '';
+  const s = String(rawId).trim();
+
+  // 1. If an existing employee matches by clean ID, code, or name
+  if (Array.isArray(employeesList) && employeesList.length > 0) {
+    const cleanRaw = s.replace(/[-_/\s]/g, '').toLowerCase();
+    const found = employeesList.find((emp) => {
+      const eId = String(emp.employeeId || emp.employeeCode || '').replace(/[-_/\s]/g, '').toLowerCase();
+      const eName = String(emp.name || emp.employeeName || '').trim().toLowerCase();
+      return eId === cleanRaw || (cleanRaw && eName === s.toLowerCase());
+    });
+    if (found && (found.employeeId || found.employeeCode)) {
+      return found.employeeId || found.employeeCode;
+    }
+  }
+
+  // 2. Standardize pattern: RR001, RR_001, RR 001, RR-001, EMP001 -> RR-001 / EMP-001
+  const match = s.match(/^([A-Za-z]+)?[-_/\s]*(\d+)$/);
+  if (match) {
+    const prefix = match[1] ? match[1].toUpperCase() : 'RR';
+    const num = match[2].padStart(3, '0');
+    return `${prefix}-${num}`;
+  }
+
+  return s;
+};
+
 function AttendanceImportModal({
   isOpen,
   onClose,
@@ -19,7 +47,8 @@ function AttendanceImportModal({
   activeCompanyId = '',
   currentDate,
   currentMonth,
-  activeTab = 'daily'
+  activeTab = 'daily',
+  employees = [],
 }) {
   if (!isOpen) return null;
 
@@ -241,7 +270,7 @@ function AttendanceImportModal({
     const companyKey = findKey(['companyname', 'company_name', 'clientname', 'client_name', 'client', 'company']);
     const siteKey = findKey(['site', 'location', 'branch']);
     const deptKey = findKey(['department', 'dept']);
-    const dateKey = findKey(['date', 'attendancedate', 'attendance_date', 'day']);
+    const dateKey = findKey(['attendancedate', 'attendance_date', 'att_date', 'exact_date', 'date']);
     const checkInKey = findKey(['checkin', 'check_in', 'intime', 'in_time']);
     const checkOutKey = findKey(['checkout', 'check_out', 'outtime', 'out_time']);
     const hoursKey = findKey(['workinghours', 'working_hours', 'totalhours', 'total_hours', 'hours']);
@@ -256,8 +285,9 @@ function AttendanceImportModal({
     const formattedRows = [];
 
     rawRows.forEach((row, i) => {
-      const empId = (empIdKey ? row[empIdKey] : row[headers[0]]) || `EMP${String(i + 1).padStart(3, '0')}`;
+      const rawEmpId = (empIdKey ? row[empIdKey] : row[headers[0]]) || `EMP${String(i + 1).padStart(3, '0')}`;
       const empName = (empNameKey ? row[empNameKey] : row[headers[1]]) || 'Employee';
+      const empId = formatEmployeeCode(rawEmpId, employees);
       const fatherName = fatherNameKey && row[fatherNameKey] !== undefined ? String(row[fatherNameKey]).trim() : '';
       
       let parsedMonthStr = monthKey && row[monthKey] !== undefined ? String(row[monthKey]).trim() : (targetMonth ? targetMonth.split('-')[1] : currentMonthName);
@@ -286,12 +316,12 @@ function AttendanceImportModal({
       const site = (siteKey ? row[siteKey] : '') || 'Main Site';
       const department = (deptKey ? row[deptKey] : '') || 'Security';
 
-      // Determine standard date
+      // Determine standard date: For monthly records, standard start date is 1st of that month
       let rowDate = defaultDate;
-      if (dateKey && row[dateKey]) {
-        rowDate = normalizeDate(row[dateKey]);
-      } else if (parsedYearStr && parsedMonthStr) {
+      if (parsedYearStr && parsedMonthStr) {
         rowDate = `${parsedYearStr}-${mNum}-01`;
+      } else if (dateKey && row[dateKey]) {
+        rowDate = normalizeDate(row[dateKey]);
       }
 
       const checkIn = normalizeTime(checkInKey ? row[checkInKey] : '');

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw, CalendarDays, CalendarRange } from 'lucide-react';
+import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw, CalendarDays, CalendarRange, LayoutDashboard } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AttendanceSummaryCards from '../../components/attendance/AttendanceSummaryCards';
@@ -20,10 +20,22 @@ import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
 import attendanceService from '../../services/attendanceService';
 import { clientService } from '../../services/clientService';
+import employeeService from '../../services/employeeService';
 import styles from './Attendance.module.css';
 
-function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onConfirm }) {
+const getLocalDateStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onConfirm, activeTab, selectedMonth }) {
   if (!isOpen || !record) return null;
+
+  const isMonthlyDelete = activeTab === 'overview' || Boolean(record.workingDays && record.workingDays > 1);
+  const monthDisplay = record.month || selectedMonth || (record.date ? record.date.slice(0, 7) : 'this month');
 
   return (
     <div
@@ -48,7 +60,7 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
           borderRadius: 'var(--radius-lg, 12px)',
           boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
           width: '100%',
-          maxWidth: 480,
+          maxWidth: 500,
           overflow: 'hidden',
         }}
       >
@@ -78,8 +90,12 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
               <Trash2 size={18} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#991b1b' }}>Delete Attendance Record</h3>
-              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#b91c1c' }}>Permanent removal from database</p>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#991b1b' }}>
+                {isMonthlyDelete ? 'Delete Monthly Attendance' : 'Delete Attendance Record'}
+              </h3>
+              <p style={{ margin: '2px 0 0', fontSize: 11, color: '#b91c1c' }}>
+                {isMonthlyDelete ? 'Permanent removal of all daily records for this month' : 'Permanent removal from database'}
+              </p>
             </div>
           </div>
           <button
@@ -93,9 +109,20 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
         </div>
 
         <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary, #0f172a)', lineHeight: 1.5 }}>
-            Are you sure you want to permanently delete the attendance record for <strong>{record.employeeName}</strong> (<code>{record.employeeId}</code>) on <strong>{record.date}</strong>?
-          </p>
+          {isMonthlyDelete ? (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary, #0f172a)', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete all attendance records for <strong>{record.employeeName}</strong> (<code>{record.employeeId}</code>) for <strong>{monthDisplay}</strong>?
+              <br />
+              <span style={{ color: '#b91c1c', fontWeight: 600, display: 'inline-block', marginTop: 4 }}>
+                This will delete all {record.workingDays || 30} individual daily attendance records of this month from the database.
+              </span>
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-primary, #0f172a)', lineHeight: 1.5 }}>
+              Are you sure you want to permanently delete the attendance record for <strong>{record.employeeName}</strong> (<code>{record.employeeId}</code>) on <strong>{record.date}</strong>?
+            </p>
+          )}
+
           <div
             style={{
               background: '#f8fafc',
@@ -108,10 +135,21 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
               gap: 4,
             }}
           >
-            <div><strong>Client / Site:</strong> {record.companyName || record.clientName} · {record.site}</div>
-            <div><strong>Timing:</strong> In: {record.checkIn || '—'} | Out: {record.checkOut || '—'} ({record.workingHours || '—'})</div>
-            <div><strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{record.status}</span></div>
+            <div><strong>Client / Site:</strong> {record.companyName || record.clientName} · {record.site || 'Main Site'}</div>
+            {isMonthlyDelete ? (
+              <>
+                <div><strong>Month / Year:</strong> {monthDisplay}</div>
+                <div><strong>Breakdown:</strong> Present: {record.present || 0}d · Off/Hol: {(Number(record.weekOff) || 0) + (Number(record.holidays) || 0)}d · Leaves: {(Number(record.cl) || 0) + (Number(record.sl) || 0) + (Number(record.el) || 0)}d</div>
+                <div><strong>Total Days:</strong> <strong>{record.workingDays || 30} Days</strong></div>
+              </>
+            ) : (
+              <>
+                <div><strong>Timing:</strong> In: {record.checkIn || '—'} | Out: {record.checkOut || '—'} ({record.workingHours || '—'})</div>
+                <div><strong>Current Status:</strong> <span style={{ textTransform: 'capitalize', fontWeight: 600 }}>{record.status}</span></div>
+              </>
+            )}
           </div>
+
           <div
             style={{
               display: 'flex',
@@ -125,7 +163,11 @@ function DeleteAttendanceConfirmModal({ isOpen, record, isDeleting, onClose, onC
             }}
           >
             <AlertTriangle size={16} style={{ flexShrink: 0 }} />
-            <span>This action is immediate and permanently removes this record from database.</span>
+            <span>
+              {isMonthlyDelete
+                ? 'All daily records for this employee for this month will be permanently wiped.'
+                : 'This action is immediate and permanently removes this record from database.'}
+            </span>
           </div>
         </div>
 
@@ -190,7 +232,8 @@ const INITIAL_FILTERS = {
   companyId: '',
   site: '',
   department: '',
-  status: ''
+  status: '',
+  employeeId: ''
 };
 
 const sanitizeRecords = (list) => {
@@ -258,11 +301,12 @@ function Attendance() {
   const [records, setRecords] = useState([]);
   const [corrections, setCorrections] = useState([]);
   const [clientsList, setClientsList] = useState([]);
+  const [employeesList, setEmployeesList] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // --- Granular Filter View Mode & Date States ---
   const [searchParams, setSearchParams] = useSearchParams();
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.slice(0, 7);
   const currentYearStr = String(new Date().getFullYear());
 
@@ -281,6 +325,7 @@ function Attendance() {
     if (t === 'corrections') return 'corrections';
     if (t === 'weekly') return 'weekly';
     if (t === 'monthly') return 'monthly';
+    if (t === 'overview') return 'overview';
     return 'daily';
   });
 
@@ -309,14 +354,18 @@ function Attendance() {
     setToast({ message, type });
   };
 
-  // Fetch Master Clients
+  // Fetch Master Clients & Employees
   useEffect(() => {
     const fetchMasters = async () => {
       try {
-        const cls = await clientService.getClients(compId).catch(() => []);
+        const [cls, emps] = await Promise.all([
+          clientService.getClients(compId).catch(() => []),
+          employeeService.getEmployees(compId).catch(() => [])
+        ]);
         setClientsList(cls || []);
+        setEmployeesList(Array.isArray(emps) ? emps : (emps?.employees || []));
       } catch (err) {
-        console.warn('Error fetching clients master:', err);
+        console.warn('Error fetching master records:', err);
       }
     };
     fetchMasters();
@@ -329,14 +378,18 @@ function Attendance() {
       const params = {};
 
       if (activeTab === 'daily') {
-        if (selectedDate) params.date = selectedDate;
+        if (selectedDate) {
+          params.date = selectedDate;
+        }
+      } else if (activeTab === 'monthly' || activeTab === 'overview') {
+        if (selectedMonth) {
+          params.month = selectedMonth;
+        }
       } else if (activeTab === 'weekly') {
         if (weekRange.start && weekRange.end) {
           params.fromDate = weekRange.start;
           params.toDate = weekRange.end;
         }
-      } else if (activeTab === 'monthly') {
-        if (selectedMonth) params.month = selectedMonth;
       } else if (viewMode === 'year' && selectedYear) {
         params.year = selectedYear;
       } else if (viewMode === 'range' && fromDate && toDate) {
@@ -345,6 +398,7 @@ function Attendance() {
       }
 
       if (filters.search) params.search = filters.search;
+      if (filters.employeeId) params.employeeId = filters.employeeId;
       if (filters.companyId) params.clientName = filters.companyId;
       if (filters.site) params.site = filters.site;
       if (filters.department) params.department = filters.department;
@@ -379,6 +433,7 @@ function Attendance() {
         next.delete('tab');
       } else {
         next.set('tab', tabKey);
+        next.delete('date');
       }
       return next;
     });
@@ -391,6 +446,12 @@ function Attendance() {
 
   const handleNextWeek = () => {
     setSelectedWeekDate((prev) => addDays(prev, 7));
+    setCurrentPage(1);
+  };
+
+  const handleWeekDateChange = (newDate) => {
+    if (!newDate) return;
+    setSelectedWeekDate(newDate);
     setCurrentPage(1);
   };
 
@@ -438,8 +499,22 @@ function Attendance() {
   };
 
   const handleResetFilters = () => {
+    const today = getLocalDateStr();
     setFilters(INITIAL_FILTERS);
+    setSelectedDate(today);
+    setSelectedWeekDate(today);
+    setSelectedMonth(today.slice(0, 7));
+    setSelectedYear(String(new Date().getFullYear()));
+    setFromDate('');
+    setToDate('');
     setCurrentPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('search');
+      next.delete('status');
+      next.delete('date');
+      return next;
+    });
   };
 
   // Sync URL search params for tabs and dates
@@ -451,6 +526,8 @@ function Attendance() {
       setActiveTab('weekly');
     } else if (tab === 'monthly') {
       setActiveTab('monthly');
+    } else if (tab === 'overview') {
+      setActiveTab('overview');
     } else {
       setActiveTab('daily');
     }
@@ -468,19 +545,32 @@ function Attendance() {
 
   // Filtered records for active view mode and search/dropdown filters
   const filteredRecords = useMemo(() => {
-    return records.filter((r) => {
-      // Tab Date/Range Filtering
+    const list = records.filter((r) => {
       if (activeTab === 'daily') {
         if (selectedDate && r.date && r.date !== selectedDate) return false;
+      } else if (activeTab === 'monthly') {
+        if (selectedMonth && r.date && !r.date.startsWith(selectedMonth)) return false;
       } else if (activeTab === 'weekly') {
         if (weekRange.start && weekRange.end && r.date) {
           if (r.date < weekRange.start || r.date > weekRange.end) return false;
         }
-      } else if (activeTab === 'monthly') {
+      } else if (activeTab === 'overview') {
         if (selectedMonth) {
-          const matchDate = r.date && r.date.startsWith(selectedMonth);
-          const matchMonth = r.month && (r.month === selectedMonth || selectedMonth.toLowerCase().includes(String(r.month).toLowerCase()));
-          if (!matchDate && !matchMonth) return false;
+          const [selY, selM] = selectedMonth.split('-');
+          const monthNames = [
+            'january', 'february', 'march', 'april', 'may', 'june',
+            'july', 'august', 'september', 'october', 'november', 'december'
+          ];
+          const selMonthName = selM ? monthNames[parseInt(selM, 10) - 1] : '';
+          const matchDate = r.date && (r.date.startsWith(selectedMonth) || (selMonthName && String(r.date).toLowerCase().includes(selMonthName)));
+          const rMonthLower = String(r.month || '').toLowerCase();
+          const matchMonth = r.month && (
+            r.month === selectedMonth ||
+            rMonthLower.includes(selectedMonth.toLowerCase()) ||
+            (selMonthName && rMonthLower.includes(selMonthName))
+          );
+          const rYearMatch = !selY || !r.year || String(r.year) === String(selY) || (r.date && r.date.startsWith(selY));
+          if (!matchDate && !(matchMonth && rYearMatch)) return false;
         }
       } else if (viewMode === 'year' && selectedYear) {
         const matchDate = r.date && r.date.startsWith(selectedYear);
@@ -500,6 +590,15 @@ function Attendance() {
         if (!matchesName && !matchesId && !matchesClient) return false;
       }
 
+      // Employee ID filter
+      if (filters.employeeId) {
+        const empIdFilter = String(filters.employeeId).toLowerCase();
+        const empId = String(r.employeeId || '').toLowerCase();
+        const empCode = String(r.employeeCode || '').toLowerCase();
+        const empName = String(r.employeeName || '').toLowerCase();
+        if (empId !== empIdFilter && empCode !== empIdFilter && empName !== empIdFilter) return false;
+      }
+
       // Client / Company
       if (filters.companyId && r.companyName !== filters.companyId && r.clientName !== filters.companyId) return false;
       // Site
@@ -516,26 +615,74 @@ function Attendance() {
       return true;
     });
 
-    // When viewing Monthly attendance tab, consolidate by employeeId so each employee has ONLY ONE record
-    if (activeTab === 'monthly') {
+    // When viewing Overview attendance tab, consolidate by employeeId so each employee has ONLY ONE record
+    if (activeTab === 'overview') {
       const empMap = new Map();
       list.forEach((r) => {
-        const key = String(r.employeeId || '').trim().toLowerCase();
+        const key = String(r.employeeId || r.employeeCode || r.employeeName || '').replace(/[-_ ]/g, '').toLowerCase();
         if (!key) return;
+
+        const isPres = r.status === 'present' || (r.present && Number(r.present) > 0);
+        const presCount = (r.present !== undefined && Number(r.present) > 1)
+          ? Number(r.present)
+          : (isPres ? 1 : 0);
+        const woCount = Number(r.weekOff) || (r.status === 'weekOff' ? 1 : 0);
+        const holCount = Number(r.holidays) || (r.status === 'holiday' ? 1 : 0);
+        const clCount = Number(r.cl) || 0;
+        const slCount = Number(r.sl) || 0;
+        const elCount = Number(r.el) || 0;
+        const lwpCount = Number(r.lwp) || (r.status === 'absent' && !clCount && !slCount && !elCount ? 1 : 0);
+
         if (!empMap.has(key)) {
-          empMap.set(key, r);
+          empMap.set(key, {
+            ...r,
+            present: presCount,
+            weekOff: woCount,
+            holidays: holCount,
+            cl: clCount,
+            sl: slCount,
+            el: elCount,
+            lwp: lwpCount,
+            _totalDaysCount: 1,
+            _hasSummary: (r.present && Number(r.present) > 1) || (r.workingDays && Number(r.workingDays) > 1),
+          });
         } else {
-          const existing = empMap.get(key);
-          const currentIsMonthly = (r.workingDays && Number(r.workingDays) > 1) || (r.present && Number(r.present) > 1);
-          const existingIsMonthly = (existing.workingDays && Number(existing.workingDays) > 1) || (existing.present && Number(existing.present) > 1);
-          if (currentIsMonthly && !existingIsMonthly) {
-            empMap.set(key, r);
-          } else if ((r.present || 0) > (existing.present || 0)) {
-            empMap.set(key, r);
+          const acc = empMap.get(key);
+          if ((r.present && Number(r.present) > 1) || (r.workingDays && Number(r.workingDays) > 1)) {
+            empMap.set(key, {
+              ...r,
+              present: Number(r.present) || 0,
+              weekOff: Number(r.weekOff) || 0,
+              holidays: Number(r.holidays) || 0,
+              cl: Number(r.cl) || 0,
+              sl: Number(r.sl) || 0,
+              el: Number(r.el) || 0,
+              lwp: Number(r.lwp) || 0,
+              workingDays: Number(r.workingDays) || 30,
+              _hasSummary: true,
+            });
+          } else if (!acc._hasSummary) {
+            acc.present += presCount;
+            acc.weekOff += woCount;
+            acc.holidays += holCount;
+            acc.cl += clCount;
+            acc.sl += slCount;
+            acc.el += elCount;
+            acc.lwp += lwpCount;
+            acc._totalDaysCount += 1;
+            acc.workingDays = acc._totalDaysCount;
           }
         }
       });
-      return Array.from(empMap.values());
+
+      return Array.from(empMap.values()).map((row) => {
+        const [y, m] = (selectedMonth || row.date || '').split('-');
+        const daysInMonth = (y && m) ? new Date(Number(y), Number(m), 0).getDate() : 30;
+        return {
+          ...row,
+          workingDays: (row.workingDays && row.workingDays > 1) ? row.workingDays : daysInMonth,
+        };
+      });
     }
 
     return list;
@@ -564,11 +711,22 @@ function Attendance() {
     if (!deleteModalRecord) return;
     try {
       setIsDeletingRecord(true);
+      const isOverview = activeTab === 'overview' || Boolean(deleteModalRecord.workingDays && deleteModalRecord.workingDays > 1);
       const recordId = deleteModalRecord._id || deleteModalRecord.id || deleteModalRecord.employeeId;
-      await attendanceService.deleteAttendanceRecord(compId, recordId);
+      
+      const targetMonth = deleteModalRecord.month || selectedMonth || (deleteModalRecord.date ? deleteModalRecord.date.slice(0, 7) : '');
+      const empId = deleteModalRecord.employeeId;
+
+      const deleteOptions = {
+        month: targetMonth,
+        employeeId: empId,
+        deleteAllMonth: isOverview,
+      };
+
+      const res = await attendanceService.deleteAttendanceRecord(compId, recordId, deleteOptions);
       setDeleteModalRecord(null);
-      showToast(`✓ Attendance record for ${deleteModalRecord.employeeName || deleteModalRecord.employeeId} (${deleteModalRecord.date}) deleted.`);
-      fetchRecords();
+      showToast(res.message || `✓ Attendance records for ${deleteModalRecord.employeeName || deleteModalRecord.employeeId} deleted successfully.`);
+      await fetchRecords();
     } catch (err) {
       showToast(`Failed to delete attendance: ${err.message}`, 'danger');
     } finally {
@@ -579,27 +737,53 @@ function Attendance() {
   // Instant Edit Handler
   const handleEditRecordSubmit = async (formData) => {
     try {
-      const present = Number(formData.present) || 0;
-      const weekOff = Number(formData.weekOff) || 0;
-      const holidays = Number(formData.holidays) || 0;
-      const cl = Number(formData.cl) || 0;
-      const sl = Number(formData.sl) || 0;
-      const el = Number(formData.el) || 0;
-      const lwp = Number(formData.lwp) || 0;
-      const totalPaidDays = formData.totalPaidDays !== undefined 
-        ? Number(formData.totalPaidDays) 
-        : (present + weekOff + holidays + cl + sl + el);
-      const workingDays = formData.workingDays !== undefined
-        ? Number(formData.workingDays)
-        : totalPaidDays;
+      const status = formData.status || 'present';
+      const isPres = status === 'present' || status === 'late';
+      const isWO = status === 'weekOff';
+      const isHol = status === 'holiday';
+      const isHalf = status === 'halfDay';
+      const isLeave = status === 'onLeave';
+      const isAbs = status === 'absent';
+
+      const isSingleDay = !formData.workingDays || Number(formData.workingDays) <= 1;
+
+      const present = isSingleDay
+        ? (isPres ? 1 : (isHalf ? 0.5 : 0))
+        : (formData.present !== undefined ? Number(formData.present) : (isPres ? 1 : 0));
+      const weekOff = isSingleDay
+        ? (isWO ? 1 : 0)
+        : (formData.weekOff !== undefined ? Number(formData.weekOff) : 0);
+      const holidays = isSingleDay
+        ? (isHol ? 1 : 0)
+        : (formData.holidays !== undefined ? Number(formData.holidays) : 0);
+      const cl = isSingleDay
+        ? (isLeave ? 1 : 0)
+        : (formData.cl !== undefined ? Number(formData.cl) : 0);
+      const sl = isSingleDay ? 0 : (formData.sl !== undefined ? Number(formData.sl) : 0);
+      const el = isSingleDay ? 0 : (formData.el !== undefined ? Number(formData.el) : 0);
+      const lwp = isSingleDay
+        ? (isAbs ? 1 : 0)
+        : (formData.lwp !== undefined ? Number(formData.lwp) : 0);
+
+      const totalPaidDays = isSingleDay
+        ? ((isPres || isWO || isHol || isLeave) ? 1 : (isHalf ? 0.5 : 0))
+        : (formData.totalPaidDays !== undefined ? Number(formData.totalPaidDays) : (present + weekOff + holidays + cl + sl + el));
+      const workingDays = isSingleDay
+        ? 1
+        : (formData.workingDays !== undefined ? Number(formData.workingDays) : totalPaidDays);
+
+      const defaultHours = isPres ? '8h 00m' : (isHalf ? '4h 00m' : '—');
+      const workingHours = formData.workingHours && !formData.workingHours.includes('day')
+        ? formData.workingHours
+        : defaultHours;
 
       const payload = {
         companyId: compId,
         employeeId: formData.employeeId,
         employeeName: formData.employeeName,
         fatherName: formData.fatherName || '',
-        month: formData.month || '',
-        year: Number(formData.year) || new Date().getFullYear(),
+        month: formData.month || (formData.date ? formData.date.slice(0, 7) : ''),
+        year: Number(formData.year) || (formData.date ? Number(formData.date.slice(0, 4)) : new Date().getFullYear()),
         present,
         weekOff,
         holidays,
@@ -614,18 +798,18 @@ function Attendance() {
         site: formData.site || 'Main Site',
         department: formData.department || 'Security',
         date: formData.date || selectedDate,
-        checkIn: formData.checkIn || null,
-        checkOut: formData.checkOut || null,
-        workingHours: `${present} days`,
-        status: formData.status || (present > 0 ? 'present' : 'present'),
-        lateMinutes: Number(formData.lateMinutes) || 0,
+        checkIn: isPres ? (formData.checkIn || '09:00 AM') : (isHalf ? '09:00 AM' : null),
+        checkOut: isPres ? (formData.checkOut || '05:00 PM') : (isHalf ? '01:00 PM' : null),
+        workingHours,
+        status,
+        lateMinutes: status === 'late' ? 15 : 0,
         remarks: formData.remarks || '',
       };
 
       await attendanceService.saveAttendanceRecord(compId, payload);
       await fetchRecords();
       setEditModalRecord(null);
-      showToast(`✓ Attendance updated instantly for ${formData.employeeName || 'employee'}.`);
+      showToast(`✓ Attendance status updated to "${status}" for ${formData.employeeName || 'employee'}.`);
     } catch (err) {
       showToast(`Failed to update attendance: ${err.message}`, 'danger');
     }
@@ -789,7 +973,7 @@ function Attendance() {
 
     try {
       setIsLoading(true);
-      const isMonthlyImport = activeTab === 'monthly' || Boolean(isMonthly);
+      const isMonthlyImport = activeTab === 'monthly' || activeTab === 'overview' || Boolean(isMonthly);
       const res = await attendanceService.bulkImportAttendance(compId, {
         ...importPayload,
         isMonthly: isMonthlyImport,
@@ -898,6 +1082,15 @@ function Attendance() {
 
           <button
             type="button"
+            className={`${styles.tabBtn} ${activeTab === 'overview' ? styles.activeTab : ''}`}
+            onClick={() => handleTabChange('overview')}
+          >
+            <LayoutDashboard size={16} />
+            <span>Overview</span>
+          </button>
+
+          <button
+            type="button"
             className={`${styles.tabBtn} ${activeTab === 'corrections' ? styles.activeTab : ''}`}
             onClick={() => handleTabChange('corrections')}
           >
@@ -926,6 +1119,8 @@ function Attendance() {
               activeTab={activeTab}
               selectedDate={selectedDate}
               onDateChange={handleDateChange}
+              selectedWeekDate={selectedWeekDate}
+              onWeekDateChange={handleWeekDateChange}
               weekRange={weekRange}
               onPrevWeek={handlePrevWeek}
               onNextWeek={handleNextWeek}
@@ -938,11 +1133,14 @@ function Attendance() {
               onRangeChange={handleRangeChange}
               records={records}
               clients={clientsList}
+              employees={employeesList}
             />
 
             {/* Attendance Table */}
             <AttendanceTable
               records={paginatedRecords}
+              activeTab={activeTab}
+              isLoading={isLoading}
               onView={(rec) => setViewDrawerRecord(rec)}
               onEdit={(rec) => setEditModalRecord(rec)}
               onDelete={(rec) => handleDeleteRecord(rec)}
@@ -957,7 +1155,7 @@ function Attendance() {
             />
 
             {/* Pagination */}
-            {filteredRecords.length > 0 && (
+            {!isLoading && filteredRecords.length > 0 && (
               <Pagination
                 currentPage={currentPage}
                 totalItems={filteredRecords.length}
@@ -1007,6 +1205,7 @@ function Attendance() {
           isOpen={!!editModalRecord}
           onClose={() => setEditModalRecord(null)}
           onSubmit={handleEditRecordSubmit}
+          activeTab={activeTab}
         />
 
         <CorrectionReviewDrawer
@@ -1030,6 +1229,9 @@ function Attendance() {
           currentDate={selectedDate}
           currentMonth={selectedMonth}
           activeTab={activeTab}
+          employees={employeesList}
+          activeCompanyName={activeCompany?.companyName || activeCompany?.name || 'RSAG Sealing Solutions Pvt Ltd'}
+          activeCompanyId={compId}
         />
 
         <DeleteAttendanceConfirmModal
@@ -1038,6 +1240,8 @@ function Attendance() {
           isDeleting={isDeletingRecord}
           onClose={() => setDeleteModalRecord(null)}
           onConfirm={handleConfirmDeleteRecord}
+          activeTab={activeTab}
+          selectedMonth={selectedMonth}
         />
       </div>
     </AdminLayout>

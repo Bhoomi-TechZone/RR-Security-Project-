@@ -76,12 +76,15 @@ export default function MusterRollFormXVIReportView({
   };
 
   const getAttendanceClass = (mark) => {
-    if (!mark) return styles.markP;
+    if (!mark) return styles.markEmpty;
     const m = mark.toUpperCase();
     if (m === 'P') return styles.markP;
     if (m === 'WO' || m === 'OFF') return styles.markWO;
     if (m === 'A') return styles.markA;
     if (m === 'HD') return styles.markHD;
+    if (m === 'H' || m === 'HOL') return styles.markH;
+    if (m === 'L' || m === 'CL' || m === 'SL' || m === 'EL') return styles.markL;
+    if (m === '—' || m === '-') return styles.markEmpty;
     return styles.markP;
   };
 
@@ -169,6 +172,17 @@ export default function MusterRollFormXVIReportView({
             <span>Print Form XVI</span>
           </button>
         </div>
+      </div>
+
+      {/* Statutory Attendance Legend */}
+      <div className={styles.legendBar}>
+        <span className={styles.legendTitle}>Statutory Attendance Marks:</span>
+        <span className={styles.legendItem}><strong className={styles.markP}>P</strong> Present (1.0)</span>
+        <span className={styles.legendItem}><strong className={styles.markHD}>HD</strong> Half Day (0.5)</span>
+        <span className={styles.legendItem}><strong className={styles.markWO}>WO</strong> Weekly Off</span>
+        <span className={styles.legendItem}><strong className={styles.markH}>H</strong> Public Holiday</span>
+        <span className={styles.legendItem}><strong className={styles.markL}>L</strong> Leave (CL/SL/EL)</span>
+        <span className={styles.legendItem}><strong className={styles.markA}>A</strong> Absent / LWP</span>
       </div>
 
       {/* 3. Statutory Document Frame (Matching Image 1) */}
@@ -300,7 +314,7 @@ export default function MusterRollFormXVIReportView({
 
                       {/* Daily Attendance cells */}
                       {dayColumns.map((day) => {
-                        const mark = record.dailyAttendance?.[day] || 'P';
+                        const mark = record.dailyAttendance?.[day] || '—';
                         return (
                           <td
                             key={`att-${srNo}-${day}`}

@@ -598,14 +598,20 @@ export default function PayrollManagement() {
   };
 
   // Actions: Run Payroll Batch (Completing whole cycle in MongoDB)
-  const handleCompleteRunPayroll = async () => {
+  const handleCompleteRunPayroll = async (targetMonth, customRecords) => {
     try {
-      notify(`Processing and locking ${monthLabel} payroll...`, 'info');
-      await payrollService.runPayroll(activeCompanyId, selectedMonth, records);
-      await payrollService.generateSalarySlips(activeCompanyId, selectedMonth);
+      const runMonth = targetMonth || selectedMonth;
+      const [y, m] = runMonth.split('-');
+      const d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, 1);
+      const runLabel = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+
+      notify(`Processing and locking ${runLabel} payroll...`, 'info');
+      await payrollService.runPayroll(activeCompanyId, runMonth, customRecords || records);
+      await payrollService.generateSalarySlips(activeCompanyId, runMonth);
+      setSelectedMonth(runMonth);
       setActiveTab('slips');
-      notify(`✓ ${monthLabel} payroll processed successfully. Slips generated.`, 'success');
-      fetchAllPayrollData();
+      notify(`✓ ${runLabel} payroll processed successfully. Slips generated.`, 'success');
+      await fetchAllPayrollData();
     } catch (err) {
       notify(err.message || 'Failed to run payroll', 'error');
     }
@@ -1312,6 +1318,7 @@ export default function PayrollManagement() {
             estimatedDeductions={summaryKPI.estimatedDeductions}
             estimatedNet={summaryKPI.totalNetPayroll}
             records={records}
+            companyId={activeCompanyId}
             onComplete={handleCompleteRunPayroll}
             onViewIssues={() => {
               setStatusFilter('on_hold');

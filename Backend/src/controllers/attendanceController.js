@@ -6,6 +6,215 @@ import { resolveClient, buildAssignedEmployeeFilter } from './clientPortalContro
 const escapeRegex = (s) => String(s || '').replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
 
 /**
+ * Distribute monthly muster counts into individual daily attendance records for each day of the month.
+ */
+export const generateDailyAttendanceForMonth = ({
+  empId,
+  empName,
+  fatherName,
+  initials,
+  clientId,
+  client,
+  site,
+  department,
+  targetCompanyId,
+  adminEmail,
+  targetYear,
+  targetMonthNum,
+  present = 0,
+  weekOff = 0,
+  holidays = 0,
+  cl = 0,
+  sl = 0,
+  el = 0,
+  lwp = 0,
+  checkIn,
+  checkOut,
+  workingHours,
+}) => {
+  const y = Number(targetYear) || new Date().getFullYear();
+  const m = String(targetMonthNum).padStart(2, '0');
+  const daysInMonth = new Date(y, Number(m), 0).getDate();
+  const monthKey = `${y}-${m}`;
+
+  // Build calendar days array for the month
+  const days = [];
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dayDate = new Date(y, Number(m) - 1, d);
+    const dayOfWeek = dayDate.getDay(); // 0 = Sunday, 6 = Saturday
+    const dateStr = `${y}-${m}-${String(d).padStart(2, '0')}`;
+    days.push({
+      day: d,
+      dateStr,
+      dayOfWeek,
+      status: null,
+      leaveType: null,
+    });
+  }
+
+  // Parse count numbers
+  let remWO = Math.max(0, Number(weekOff) || 0);
+  let remHol = Math.max(0, Number(holidays) || 0);
+  let remCL = Math.max(0, Number(cl) || 0);
+  let remSL = Math.max(0, Number(sl) || 0);
+  let remEL = Math.max(0, Number(el) || 0);
+  let remPresent = Math.max(0, Number(present) || 0);
+  let remLWP = Math.max(0, Number(lwp) || 0);
+
+  // 1. Allocate Week Offs (Priority 1: Sundays)
+  if (remWO > 0) {
+    for (const item of days) {
+      if (item.dayOfWeek === 0 && !item.status && remWO > 0) {
+        item.status = 'weekOff';
+        remWO--;
+      }
+    }
+  }
+  // Allocate Week Offs (Priority 2: Saturdays)
+  if (remWO > 0) {
+    for (const item of days) {
+      if (item.dayOfWeek === 6 && !item.status && remWO > 0) {
+        item.status = 'weekOff';
+        remWO--;
+      }
+    }
+  }
+  // Allocate any excess Week Offs to unassigned days
+  if (remWO > 0) {
+    for (const item of days) {
+      if (!item.status && remWO > 0) {
+        item.status = 'weekOff';
+        remWO--;
+      }
+    }
+  }
+
+  // 2. Allocate Public Holidays
+  if (remHol > 0) {
+    for (const item of days) {
+      if (!item.status && remHol > 0) {
+        item.status = 'holiday';
+        remHol--;
+      }
+    }
+  }
+
+  // 3. Allocate Leaves (Casual, Sick, Earned)
+  if (remCL > 0) {
+    for (const item of days) {
+      if (!item.status && remCL > 0) {
+        item.status = 'onLeave';
+        item.leaveType = 'cl';
+        remCL--;
+      }
+    }
+  }
+  if (remSL > 0) {
+    for (const item of days) {
+      if (!item.status && remSL > 0) {
+        item.status = 'onLeave';
+        item.leaveType = 'sl';
+        remSL--;
+      }
+    }
+  }
+  if (remEL > 0) {
+    for (const item of days) {
+      if (!item.status && remEL > 0) {
+        item.status = 'onLeave';
+        item.leaveType = 'el';
+        remEL--;
+      }
+    }
+  }
+
+  // 4. Allocate Presents
+  if (remPresent > 0) {
+    for (const item of days) {
+      if (!item.status && remPresent > 0) {
+        item.status = 'present';
+        remPresent--;
+      }
+    }
+  }
+
+  // 5. Allocate LWP (Leave Without Pay / Unpaid)
+  if (remLWP > 0) {
+    for (const item of days) {
+      if (!item.status && remLWP > 0) {
+        item.status = 'absent';
+        item.leaveType = 'lwp';
+        remLWP--;
+      }
+    }
+  }
+
+  // 6. Any remaining unassigned days in the month
+  for (const item of days) {
+    if (!item.status) {
+      if (remPresent > 0) {
+        item.status = 'present';
+        remPresent--;
+      } else if (
+        present > 0 &&
+        Number(weekOff || 0) === 0 &&
+        Number(holidays || 0) === 0 &&
+        Number(cl || 0) === 0 &&
+        Number(sl || 0) === 0 &&
+        Number(el || 0) === 0 &&
+        Number(lwp || 0) === 0
+      ) {
+        // Full month present upload (e.g. 30 presents in 30 days)
+        item.status = 'present';
+      } else {
+        item.status = 'absent';
+      }
+    }
+  }
+
+  // Construct individual daily documents
+  return days.map((item) => {
+    const isPres = item.status === 'present';
+    const isWO = item.status === 'weekOff';
+    const isHol = item.status === 'holiday';
+    const isLeave = item.status === 'onLeave';
+    const isAbs = item.status === 'absent';
+
+    return {
+      companyId: targetCompanyId,
+      employeeId: empId,
+      employeeName: empName,
+      fatherName: fatherName || '',
+      initials: initials || 'EM',
+      clientId: clientId || '',
+      clientName: client,
+      companyName: client,
+      site: site || 'Main Site',
+      department: department || 'Security',
+      date: item.dateStr,
+      month: monthKey,
+      year: y,
+      present: isPres ? 1 : 0,
+      weekOff: isWO ? 1 : 0,
+      holidays: isHol ? 1 : 0,
+      cl: item.leaveType === 'cl' ? 1 : 0,
+      sl: item.leaveType === 'sl' ? 1 : 0,
+      el: item.leaveType === 'el' ? 1 : 0,
+      lwp: item.leaveType === 'lwp' ? 1 : 0,
+      totalPaidDays: (isPres || isWO || isHol || isLeave) ? 1 : 0,
+      workingDays: 1,
+      checkIn: isPres ? (checkIn || '09:00 AM') : null,
+      checkOut: isPres ? (checkOut || '05:00 PM') : null,
+      workingHours: isPres ? (workingHours || '8h 00m') : '-',
+      status: item.status,
+      lateMinutes: 0,
+      earlyOutMinutes: 0,
+      adminEmail: adminEmail || '',
+    };
+  });
+};
+
+/**
  * @desc    Get attendance records (filtered by date, client, site, dept, status) directly from MongoDB
  * @route   GET /api/attendance
  * @access  Private (Admin & Employee)
@@ -101,9 +310,30 @@ export const getAttendanceRecords = async (req, res) => {
     } else if (fromDate && toDate) {
       query.date = { $gte: fromDate, $lte: toDate };
     } else if (month) {
-      query.date = { $regex: new RegExp(`^${escapeRegex(month)}`) };
+      const monthConditions = [{ date: { $regex: new RegExp(`^${escapeRegex(month)}`) } }];
+      if (month.includes('-')) {
+        const [y, m] = month.split('-');
+        const monthNum = parseInt(m, 10);
+        const monthNames = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        const mName = monthNames[monthNum - 1];
+        if (mName) {
+          monthConditions.push({ month: { $regex: new RegExp(mName, 'i') } });
+          monthConditions.push({ date: { $regex: new RegExp(mName, 'i') } });
+        }
+        monthConditions.push({ month: { $regex: new RegExp(`^${escapeRegex(month)}`) } });
+      } else {
+        monthConditions.push({ month: { $regex: new RegExp(escapeRegex(month), 'i') } });
+      }
+      query.$or = query.$or ? [...query.$or, ...monthConditions] : monthConditions;
     } else if (year) {
-      query.date = { $regex: new RegExp(`^${escapeRegex(year)}`) };
+      const yearConditions = [
+        { date: { $regex: new RegExp(`^${escapeRegex(year)}`) } },
+        { year: Number(year) }
+      ];
+      query.$or = query.$or ? [...query.$or, ...yearConditions] : yearConditions;
     }
 
     const clientFilter = clientName || companyName;
@@ -144,6 +374,124 @@ export const getAttendanceRecords = async (req, res) => {
       const fallbackQuery = { ...query };
       delete fallbackQuery.companyId;
       records = await Attendance.find(fallbackQuery).sort({ date: -1, employeeId: 1 });
+    }
+
+    // Auto-expand any monthly summary muster records in the queried month/date range into daily records
+    let expandedAny = false;
+    let targetMonthPrefix = null;
+    if (date && typeof date === 'string' && date.includes('-')) {
+      const parts = date.split('-');
+      targetMonthPrefix = `${parts[0]}-${parts[1]}`;
+    } else if (fromDate && typeof fromDate === 'string' && fromDate.includes('-')) {
+      const parts = fromDate.split('-');
+      targetMonthPrefix = `${parts[0]}-${parts[1]}`;
+    } else if (month && typeof month === 'string') {
+      if (month.includes('-')) {
+        targetMonthPrefix = month.slice(0, 7);
+      } else {
+        const monthsMap = {
+          january: '01', jan: '01',
+          february: '02', feb: '02',
+          march: '03', mar: '03',
+          april: '04', apr: '04',
+          may: '05',
+          june: '06', jun: '06',
+          july: '07', jul: '07',
+          august: '08', aug: '08',
+          september: '09', sept: '09', sep: '09',
+          october: '10', oct: '10',
+          november: '11', nov: '11',
+          december: '12', dec: '12'
+        };
+        const mNum = monthsMap[month.toLowerCase()] || (parseInt(month, 10) ? String(month).padStart(2, '0') : null);
+        const yNum = year || new Date().getFullYear();
+        if (mNum) {
+          targetMonthPrefix = `${yNum}-${mNum}`;
+        }
+      }
+    }
+
+    if (targetMonthPrefix) {
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const mIdx = parseInt(targetMonthPrefix.split('-')[1], 10) - 1;
+      const engMonthName = (mIdx >= 0 && mIdx < 12) ? monthNames[mIdx] : '';
+
+      const summaryQueryConditions = [
+        { date: { $regex: new RegExp(`^${escapeRegex(targetMonthPrefix)}`) } },
+        { month: { $regex: new RegExp(`^${escapeRegex(targetMonthPrefix)}`) } },
+      ];
+      if (engMonthName) {
+        summaryQueryConditions.push({ month: { $regex: new RegExp(engMonthName, 'i') } });
+      }
+
+      const summaryRecords = await Attendance.find({
+        ...(companyId ? { companyId } : {}),
+        $and: [
+          { $or: summaryQueryConditions },
+          {
+            $or: [
+              { present: { $gt: 1 } },
+              { workingDays: { $gt: 1 } },
+            ],
+          },
+        ],
+      }).lean();
+
+      if (summaryRecords.length > 0) {
+        const [tYear, tMonth] = targetMonthPrefix.split('-');
+        for (const sRec of summaryRecords) {
+          const dailyRecs = generateDailyAttendanceForMonth({
+            empId: sRec.employeeId,
+            empName: sRec.employeeName,
+            fatherName: sRec.fatherName,
+            initials: sRec.initials,
+            clientId: sRec.clientId,
+            client: sRec.clientName || sRec.companyName,
+            site: sRec.site,
+            department: sRec.department,
+            targetCompanyId: sRec.companyId || companyId,
+            adminEmail: sRec.adminEmail,
+            targetYear: Number(tYear),
+            targetMonthNum: tMonth,
+            present: sRec.present,
+            weekOff: sRec.weekOff,
+            holidays: sRec.holidays,
+            cl: sRec.cl,
+            sl: sRec.sl,
+            el: sRec.el,
+            lwp: sRec.lwp,
+            checkIn: sRec.checkIn,
+            checkOut: sRec.checkOut,
+            workingHours: sRec.workingHours,
+          });
+
+          if (sRec._id) {
+            await Attendance.deleteOne({ _id: sRec._id });
+          }
+
+          const bulkOps = dailyRecs.map((dRec) => ({
+            updateOne: {
+              filter: {
+                companyId: sRec.companyId || companyId,
+                employeeId: sRec.employeeId,
+                date: dRec.date,
+              },
+              update: { $set: dRec },
+              upsert: true,
+            },
+          }));
+
+          await Attendance.bulkWrite(bulkOps);
+          expandedAny = true;
+        }
+
+        if (expandedAny) {
+          records = await Attendance.find(query).sort({ date: -1, employeeId: 1 });
+        }
+      }
     }
 
     // Auto-seed for queried date if database has employees and zero records for that specific date
@@ -221,67 +569,7 @@ export const getAttendanceRecords = async (req, res) => {
       }
     }
 
-    // When querying by month (Monthly attendance view), consolidate by employeeId so each employee has ONLY ONE record
-    if (month && !date) {
-      const targetYear = Number(month.split('-')[0]) || new Date().getFullYear();
-      const targetMonthNum = Number(month.split('-')[1]) || (new Date().getMonth() + 1);
-      const daysInThisMonth = new Date(targetYear, targetMonthNum, 0).getDate();
-
-      const empMap = new Map();
-      const duplicateIdsToDelete = [];
-
-      for (const rec of records) {
-        const empKey = String(rec.employeeId || '').trim().toLowerCase();
-        if (!empKey) continue;
-
-        if (!empMap.has(empKey)) {
-          const rawRec = typeof rec.toJSON === 'function' ? rec.toJSON() : { ...rec };
-          if (!rawRec.workingDays || rawRec.workingDays <= 1) {
-            rawRec.workingDays = daysInThisMonth;
-          }
-          empMap.set(empKey, rawRec);
-        } else {
-          const existing = empMap.get(empKey);
-          const currentIsMonthly = (rec.workingDays && rec.workingDays > 1) || (rec.present && rec.present > 1);
-          const existingIsMonthly = (existing.workingDays && existing.workingDays > 1) || (existing.present && existing.present > 1);
-
-          if (currentIsMonthly && !existingIsMonthly) {
-            duplicateIdsToDelete.push(existing._id || existing.id);
-            const rawRec = typeof rec.toJSON === 'function' ? rec.toJSON() : { ...rec };
-            if (!rawRec.workingDays || rawRec.workingDays <= 1) {
-              rawRec.workingDays = daysInThisMonth;
-            }
-            empMap.set(empKey, rawRec);
-          } else if (!currentIsMonthly && existingIsMonthly) {
-            duplicateIdsToDelete.push(rec._id || rec.id);
-          } else {
-            // Pick the one with more complete data or most recently updated
-            if (
-              (rec.present || 0) > (existing.present || 0) ||
-              new Date(rec.updatedAt || rec.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)
-            ) {
-              duplicateIdsToDelete.push(existing._id || existing.id);
-              const rawRec = typeof rec.toJSON === 'function' ? rec.toJSON() : { ...rec };
-              if (!rawRec.workingDays || rawRec.workingDays <= 1) {
-                rawRec.workingDays = daysInThisMonth;
-              }
-              empMap.set(empKey, rawRec);
-            } else {
-              duplicateIdsToDelete.push(rec._id || rec.id);
-            }
-          }
-        }
-      }
-
-      // Automatically clean up duplicate database records in MongoDB
-      if (duplicateIdsToDelete.length > 0) {
-        Attendance.deleteMany({ _id: { $in: duplicateIdsToDelete } }).catch((delErr) => {
-          console.warn('Auto-cleanup of duplicate monthly attendance entries failed:', delErr.message);
-        });
-      }
-
-      records = Array.from(empMap.values());
-    }
+    // When querying by month or range, preserve all individual daily records for every employee so both daily, weekly, and monthly views display all days.
 
     // Calculate dynamic summary metrics
     const total = records.length;
@@ -347,18 +635,42 @@ export const bulkImportAttendance = async (req, res) => {
       const rawEmpName = (rec.employeeName || 'Employee').trim();
       const rawFatherName = (rec.fatherName || '').trim();
 
-      // Look up corresponding employee in system to align employeeId, employeeName and fatherName
+      // Normalize employee ID (e.g. RR001 matches RR-001 or RR_001)
+      const cleanEmpId = rawEmpId.replace(/[-_ ]/g, '');
+      const flexIdRegex = cleanEmpId ? new RegExp(`^${cleanEmpId.split('').join('[-_ ]?')}$`, 'i') : null;
+      const cleanEmpName = rawEmpName.trim();
+      const flexNameRegex = new RegExp(`^${escapeRegex(cleanEmpName)}$`, 'i');
+
+      const empSearchConditions = [
+        { name: { $regex: flexNameRegex } },
+      ];
+      if (flexIdRegex) {
+        empSearchConditions.push({ employeeId: { $regex: flexIdRegex } });
+        empSearchConditions.push({ employeeCode: { $regex: flexIdRegex } });
+      }
+      empSearchConditions.push({ employeeId: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } });
+      empSearchConditions.push({ employeeCode: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } });
+
       const matchedEmp = await Employee.findOne({
-        $or: [
-          { employeeId: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
-          { employeeCode: { $regex: new RegExp(`^${escapeRegex(rawEmpId)}$`, 'i') } },
-          { name: { $regex: new RegExp(`^${escapeRegex(rawEmpName)}$`, 'i') } },
-        ],
+        $or: empSearchConditions,
       });
 
-      const empId = matchedEmp?.employeeId || rawEmpId;
+      // Standardize employee code into system configured format (RR001, RR_001, RR 001 -> RR-001)
+      let formattedEmpCode = matchedEmp?.employeeId || matchedEmp?.employeeCode || '';
+      if (!formattedEmpCode) {
+        const match = rawEmpId.match(/^([A-Za-z]+)?[-_/\s]*(\d+)$/);
+        if (match) {
+          const prefix = match[1] ? match[1].toUpperCase() : 'RR';
+          const num = match[2].padStart(3, '0');
+          formattedEmpCode = `${prefix}-${num}`;
+        } else {
+          formattedEmpCode = rawEmpId;
+        }
+      }
+
+      const empId = formattedEmpCode;
       const empName = matchedEmp?.name || rawEmpName;
-      const fatherName = rawFatherName || matchedEmp?.fatherName || '';
+      const fatherName = rawFatherName || matchedEmp?.fatherName || matchedEmp?.fatherHusbandName || '';
       const targetCompanyId = matchedEmp?.companyId || companyId;
       const client = (rec.clientName || rec.companyName || matchedEmp?.clientName || 'RR Security').trim();
       const clientId = (rec.clientId || matchedEmp?.clientId || '').trim();
@@ -429,59 +741,47 @@ export const bulkImportAttendance = async (req, res) => {
 
       let updated;
       if (isMonthlyRecord) {
-        // Upsert single whole-month attendance record for employee for this month
-        updated = await Attendance.findOneAndUpdate(
-          {
-            companyId: targetCompanyId,
-            employeeId: empId,
-            $or: [
-              { date: monthDateKey },
-              { month: monthKey },
-              { date: { $regex: new RegExp(`^${monthKey}`) } }
-            ]
-          },
-          {
-            $set: {
-              employeeName: empName,
-              fatherName,
-              initials,
-              clientId,
-              clientName: client,
-              companyName: client,
-              site,
-              department,
-              date: monthDateKey,
-              month: monthKey,
-              year: targetYear,
-              present,
-              weekOff,
-              holidays,
-              cl,
-              sl,
-              el,
-              lwp,
-              totalPaidDays,
-              workingDays,
-              checkIn: rec.checkIn || null,
-              checkOut: rec.checkOut || null,
-              workingHours: `${present} days`,
-              status: present > 0 ? 'present' : (lwp > 0 ? 'absent' : (cl + sl + el > 0 ? 'onLeave' : 'absent')),
-              lateMinutes: 0,
-              earlyOutMinutes: 0,
-              adminEmail,
-              companyId: targetCompanyId,
-            },
-          },
-          { upsert: true, new: true, setDefaultsOnInsert: true }
-        );
-
-        // Delete any other records for this employee in this month so ONLY ONE record exists
-        await Attendance.deleteMany({
-          companyId: targetCompanyId,
-          employeeId: empId,
-          date: { $regex: new RegExp(`^${monthKey}`) },
-          _id: { $ne: updated._id }
+        // Generate daily attendance records for every day of the month as per presents, absent, leaves, holidays, weekOff
+        const dailyRecords = generateDailyAttendanceForMonth({
+          empId,
+          empName,
+          fatherName,
+          initials,
+          clientId,
+          client,
+          site,
+          department,
+          targetCompanyId,
+          adminEmail,
+          targetYear,
+          targetMonthNum,
+          present,
+          weekOff,
+          holidays,
+          cl,
+          sl,
+          el,
+          lwp,
+          checkIn: rec.checkIn,
+          checkOut: rec.checkOut,
+          workingHours: rec.workingHours,
         });
+
+        // Clean up previous records for this employee for this month
+        await Attendance.deleteMany({
+          date: { $regex: new RegExp(`^${monthKey}`) },
+          $or: [
+            { employeeId: empId },
+            { employeeId: rawEmpId },
+            ...(flexIdRegex ? [{ employeeId: { $regex: flexIdRegex } }] : []),
+          ],
+        });
+
+        // Insert all individual daily records into MongoDB
+        if (dailyRecords.length > 0) {
+          const inserted = await Attendance.insertMany(dailyRecords, { ordered: false });
+          savedRecords.push(...inserted.map((d) => (typeof d.toJSON === 'function' ? d.toJSON() : d)));
+        }
       } else {
         // Daily attendance record import
         updated = await Attendance.findOneAndUpdate(
@@ -526,7 +826,9 @@ export const bulkImportAttendance = async (req, res) => {
         );
       }
 
-      savedRecords.push(updated.toJSON());
+      if (updated) {
+        savedRecords.push(typeof updated.toJSON === 'function' ? updated.toJSON() : updated);
+      }
     }
 
     return res.status(200).json({
@@ -672,6 +974,7 @@ export const saveAttendanceRecord = async (req, res) => {
           status: status || 'present',
           lateMinutes: Number(lateMinutes) || 0,
           earlyOutMinutes: Number(earlyOutMinutes) || 0,
+          remarks: req.body.remarks !== undefined ? req.body.remarks : '',
           adminEmail,
           companyId: finalCompanyId,
         },
@@ -703,12 +1006,101 @@ export const deleteAttendanceRecord = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const { month, employeeId, deleteAllMonth } = req.query;
 
+    const shouldDeleteAllMonth = deleteAllMonth === 'true' || deleteAllMonth === true;
+
+    // 1. If deleteAllMonth is requested with month and employeeId
+    if (shouldDeleteAllMonth && (month || employeeId)) {
+      const targetEmpId = employeeId || id;
+      const targetMonth = month || '';
+
+      const cleanEmpId = String(targetEmpId).replace(/[-_ ]/g, '');
+      const flexIdRegex = cleanEmpId ? new RegExp(`^${cleanEmpId.split('').join('[-_ ]?')}$`, 'i') : null;
+
+      let monthRegex = null;
+      if (targetMonth && /^\d{4}-\d{1,2}$/.test(targetMonth)) {
+        monthRegex = new RegExp(`^${escapeRegex(targetMonth)}`);
+      } else if (targetMonth) {
+        const parts = String(targetMonth).trim().split(' ');
+        const mName = parts[0];
+        const yName = parts[1] || new Date().getFullYear();
+        const monthsMap = {
+          january: '01', jan: '01',
+          february: '02', feb: '02',
+          march: '03', mar: '03',
+          april: '04', apr: '04',
+          may: '05',
+          june: '06', jun: '06',
+          july: '07', jul: '07',
+          august: '08', aug: '08',
+          september: '09', sept: '09', sep: '09',
+          october: '10', oct: '10',
+          november: '11', nov: '11',
+          december: '12', dec: '12'
+        };
+        const mNum = monthsMap[mName.toLowerCase()] || (parseInt(mName, 10) ? String(mName).padStart(2, '0') : null);
+        if (mNum) {
+          monthRegex = new RegExp(`^${yName}-${mNum}`);
+        } else {
+          monthRegex = new RegExp(`^${escapeRegex(targetMonth)}`);
+        }
+      }
+
+      const conditions = [
+        {
+          $or: [
+            { employeeId: targetEmpId },
+            ...(flexIdRegex ? [{ employeeId: { $regex: flexIdRegex } }] : []),
+          ],
+        },
+      ];
+
+      if (monthRegex) {
+        conditions.push({
+          $or: [
+            { date: { $regex: monthRegex } },
+            { month: { $regex: monthRegex } },
+            { month: new RegExp(escapeRegex(targetMonth), 'i') },
+          ],
+        });
+      }
+
+      const filter = {
+        ...(companyId ? { companyId } : {}),
+        $and: conditions,
+      };
+
+      const delResult = await Attendance.deleteMany(filter);
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully deleted all ${delResult.deletedCount} daily attendance records for ${targetEmpId} (${targetMonth || 'month'}).`,
+        deletedCount: delResult.deletedCount,
+      });
+    }
+
+    // 2. Look up record by ID or employee ID
     let record = null;
     try {
       record = await Attendance.findById(id);
     } catch {
-      record = await Attendance.findOne({ companyId, $or: [{ id }, { employeeId: id }] });
+      record = await Attendance.findOne({
+        ...(companyId ? { companyId } : {}),
+        $or: [{ id }, { employeeId: id }],
+      });
+    }
+
+    if (!record) {
+      const cleanId = String(id).replace(/[-_ ]/g, '');
+      const flexRegex = cleanId ? new RegExp(`^${cleanId.split('').join('[-_ ]?')}$`, 'i') : null;
+      record = await Attendance.findOne({
+        ...(companyId ? { companyId } : {}),
+        $or: [
+          { employeeId: id },
+          ...(flexRegex ? [{ employeeId: { $regex: flexRegex } }] : []),
+        ],
+      });
     }
 
     if (!record) {
@@ -718,6 +1110,40 @@ export const deleteAttendanceRecord = async (req, res) => {
       });
     }
 
+    // 3. If deleteAllMonth was requested without explicit month param, use the found record's month
+    if (shouldDeleteAllMonth) {
+      const recDate = record.date || '';
+      const recMonth = record.month || (recDate.includes('-') ? recDate.slice(0, 7) : '');
+      const recEmpId = record.employeeId;
+
+      const cleanEmpId = String(recEmpId).replace(/[-_ ]/g, '');
+      const flexIdRegex = cleanEmpId ? new RegExp(`^${cleanEmpId.split('').join('[-_ ]?')}$`, 'i') : null;
+
+      const delResult = await Attendance.deleteMany({
+        ...(companyId ? { companyId } : {}),
+        $or: [
+          { employeeId: recEmpId },
+          ...(flexIdRegex ? [{ employeeId: { $regex: flexIdRegex } }] : []),
+        ],
+        $and: [
+          {
+            $or: [
+              { date: { $regex: new RegExp(`^${escapeRegex(recMonth)}`) } },
+              { month: { $regex: new RegExp(`^${escapeRegex(recMonth)}`) } },
+              { month: new RegExp(escapeRegex(recMonth), 'i') },
+            ],
+          },
+        ],
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully deleted all ${delResult.deletedCount} daily attendance records for ${record.employeeName || recEmpId} (${recMonth}).`,
+        deletedCount: delResult.deletedCount,
+      });
+    }
+
+    // 4. Default: single record deletion
     await Attendance.deleteOne({ _id: record._id });
 
     return res.status(200).json({
@@ -734,9 +1160,53 @@ export const deleteAttendanceRecord = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get all distinct months that have attendance records in MongoDB
+ * @route   GET /api/attendance/months
+ * @access  Private
+ */
+export const getAttendanceMonths = async (req, res) => {
+  try {
+    const companyId = req.headers['x-company-id'] || req.query.companyId;
+    const records = await Attendance.find(companyId ? { companyId } : {}).select('date month employeeId').lean();
+
+    const monthMap = new Map();
+    records.forEach((r) => {
+      let m = '';
+      if (r.month && /^\d{4}-\d{2}$/.test(r.month)) {
+        m = r.month;
+      } else if (r.date && /^\d{4}-\d{2}/.test(r.date)) {
+        m = r.date.slice(0, 7);
+      }
+      if (m) {
+        monthMap.set(m, (monthMap.get(m) || 0) + 1);
+      }
+    });
+
+    const months = Array.from(monthMap.entries())
+      .map(([month, count]) => {
+        const [y, mNum] = month.split('-');
+        const d = new Date(Number(y), Number(mNum) - 1, 1);
+        const label = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+        return {
+          month,
+          label,
+          count,
+        };
+      })
+      .sort((a, b) => b.month.localeCompare(a.month));
+
+    return res.status(200).json({
+      success: true,
+      months,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
 
 /**
- * @desc    Get all correction requests from MongoDB
+ * @desc    Get all correction requests
  * @route   GET /api/attendance/corrections
  * @access  Private
  */

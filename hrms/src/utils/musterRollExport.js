@@ -76,6 +76,18 @@ export const downloadMusterRollExcel = (
     aoa.push(row);
   });
 
+  // Summary and Legend Row
+  aoa.push(['']);
+  aoa.push([
+    'Statutory Attendance Marks Legend:',
+    'P: Present (1.0)',
+    'HD: Half Day (0.5)',
+    'WO: Weekly Off',
+    'H: Public Holiday (1.0)',
+    'L: Leave (CL/SL/EL)',
+    'A: Absent / LWP',
+  ]);
+
   const ws = XLSX.utils.aoa_to_sheet(aoa);
 
   // Set merges

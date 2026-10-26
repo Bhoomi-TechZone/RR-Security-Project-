@@ -360,6 +360,13 @@
   white-space: nowrap;
 }
 
+.dateText {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary, #0f172a);
+  white-space: nowrap;
+}
+
 .viewModeToggle {
   display: inline-flex;
   background: var(--background);

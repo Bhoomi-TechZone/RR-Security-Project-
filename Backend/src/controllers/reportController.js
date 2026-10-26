@@ -24,6 +24,7 @@ import Overtime from '../models/overtimeModel.js';
 import Leave from '../models/leaveModel.js';
 import LeaveBalance from '../models/leaveBalanceModel.js';
 import AccidentBook from '../models/accidentBookModel.js';
+import { generateDailyAttendanceForMonth } from './attendanceController.js';
 
 
 // Helper to get total days in a month string "YYYY-MM"
@@ -3441,16 +3442,148 @@ export const getMusterRollReport = async (req, res) => {
       return idA.localeCompare(idB, undefined, { numeric: true });
     });
 
-    // 3. Fetch Attendance Records for this month
+    // 3. Fetch Attendance Records for this month (both daily & monthly format)
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    const mIdx = monthNum - 1;
+    const engMonthName = (mIdx >= 0 && mIdx < 12) ? monthNames[mIdx] : '';
+
+    const attQueryConditions = [
+      { date: { $regex: new RegExp(`^${targetMonth}`) } },
+      { month: { $regex: new RegExp(`^${targetMonth}`) } },
+    ];
+    if (engMonthName) {
+      attQueryConditions.push({ month: { $regex: new RegExp(engMonthName, 'i') } });
+    }
+
     const attendanceRecords = await Attendance.find({
-      date: { $regex: new RegExp(`^${targetMonth}`) },
+      $or: attQueryConditions,
     }).lean();
 
+    const normalizeEmpCode = (c) => String(c || '').trim().toUpperCase().replace(/[-_\s]/g, '');
+    const cleanEmpName = (n) => String(n || '').trim().toUpperCase();
+
+    // Comprehensive Status Normalizer for Statutory Form XVI
+    const normalizeStatusToMark = (rawStatus, isSunday = false) => {
+      if (!rawStatus) {
+        return isSunday ? 'WO' : '—';
+      }
+      const s = String(rawStatus).trim().toLowerCase().replace(/[\s_-]/g, '');
+
+      // 1. Present / On Duty / Late
+      if (['present', 'p', 'late', 'onduty', 'duty', 'work', 'worked'].includes(s)) {
+        return 'P';
+      }
+      // 2. Half Day
+      if (['halfday', 'hd', 'half'].includes(s)) {
+        return 'HD';
+      }
+      // 3. Weekly Off (Sunday / Rest Day)
+      if (['weekoff', 'weeklyoff', 'wo', 'off', 'sunday'].includes(s)) {
+        return 'WO';
+      }
+      // 4. Holiday (Public / National / Festival Holiday)
+      if (['holiday', 'holidays', 'hol', 'h', 'festivalholiday', 'nationalholiday', 'publicholiday', 'ph'].includes(s)) {
+        return 'H';
+      }
+      // 5. Approved Leaves (CL, SL, EL, General Leave)
+      if (['cl', 'casualleave'].includes(s)) {
+        return 'CL';
+      }
+      if (['sl', 'sickleave'].includes(s)) {
+        return 'SL';
+      }
+      if (['el', 'pl', 'earnedleave', 'privilegeleave'].includes(s)) {
+        return 'EL';
+      }
+      if (['onleave', 'leave', 'leaves', 'paidleave', 'l'].includes(s)) {
+        return 'L';
+      }
+      // 6. Absent / LWP
+      if (['absent', 'a', 'abs', 'lwp', 'leavewithoutpay', 'unpaid', 'lossofpay'].includes(s)) {
+        return 'A';
+      }
+
+      if (s === 'wo') return 'WO';
+      if (s === 'h') return 'H';
+      if (s === 'hd') return 'HD';
+      if (s === 'a') return 'A';
+      if (s === 'l') return 'L';
+      if (s === 'p') return 'P';
+
+      return isSunday ? 'WO' : 'P';
+    };
+
     const attMap = new Map();
+
     attendanceRecords.forEach((att) => {
-      const dateStr = att.date ? (typeof att.date === 'string' ? att.date.slice(0, 10) : new Date(att.date).toISOString().slice(0, 10)) : '';
-      const key = `${att.employeeId || att.employeeCode}_${dateStr}`;
-      attMap.set(key, att.status || 'present');
+      const hasSummaryCounts =
+        (Number(att.present) > 1 || Number(att.workingDays) > 1 || Number(att.totalPaidDays) > 1) &&
+        (Number(att.weekOff) > 0 || Number(att.holidays) > 0 || Number(att.cl) > 0 || Number(att.sl) > 0 || Number(att.el) > 0 || Number(att.lwp) > 0);
+
+      if (hasSummaryCounts) {
+        // Expand summary record into individual daily records
+        const dailyGenerated = generateDailyAttendanceForMonth({
+          empId: att.employeeId,
+          empName: att.employeeName,
+          fatherName: att.fatherName,
+          initials: att.initials,
+          clientId: att.clientId,
+          client: att.clientName || att.companyName,
+          site: att.site,
+          department: att.department,
+          targetCompanyId: att.companyId,
+          adminEmail: att.adminEmail,
+          targetYear: yearNum,
+          targetMonthNum: monthNum,
+          present: att.present,
+          weekOff: att.weekOff,
+          holidays: att.holidays,
+          cl: att.cl,
+          sl: att.sl,
+          el: att.el,
+          lwp: att.lwp,
+          checkIn: att.checkIn,
+          checkOut: att.checkOut,
+          workingHours: att.workingHours,
+        });
+
+        dailyGenerated.forEach((d) => {
+          const dateStr = d.date;
+          const status = d.status || 'present';
+          const keys = [
+            `${normalizeEmpCode(att.employeeId)}_${dateStr}`,
+            `${normalizeEmpCode(att.employeeCode)}_${dateStr}`,
+            `${cleanEmpName(att.employeeName)}_${dateStr}`,
+          ];
+          keys.forEach((k) => {
+            if (!attMap.has(k)) {
+              attMap.set(k, { status, leaveType: d.leaveType });
+            }
+          });
+        });
+      } else {
+        // Daily record
+        const dateStr = att.date
+          ? (typeof att.date === 'string' ? att.date.slice(0, 10) : new Date(att.date).toISOString().slice(0, 10))
+          : '';
+
+        if (dateStr) {
+          const status = att.status || (Number(att.present) === 0.5 ? 'halfDay' : 'present');
+          const keys = [
+            `${normalizeEmpCode(att.employeeId)}_${dateStr}`,
+            `${normalizeEmpCode(att.employeeCode)}_${dateStr}`,
+            `${cleanEmpName(att.employeeName)}_${dateStr}`,
+            `${att.employeeId}_${dateStr}`,
+            `${att.employeeCode}_${dateStr}`,
+          ];
+          keys.forEach((k) => {
+            if (k) attMap.set(k, { status, leaveType: att.leaveType || null });
+          });
+        }
+      }
     });
 
     let totalWorkDaysSum = 0;
@@ -3480,41 +3613,68 @@ export const getMusterRollReport = async (req, res) => {
       const workNameLocation = establishmentName !== '—' ? `At ${establishmentName}` : '—';
       const principalEmployer = matchedClient?.principalEmployer || matchedClient?.contactPerson || (establishmentName !== '—' ? establishmentName : '—');
 
+      const empIdNorm = normalizeEmpCode(empId);
+      const empCodeNorm = normalizeEmpCode(empCode);
+      const empNameNorm = cleanEmpName(emp.name);
+
       // Build daily attendance array (days 1..daysInMonth)
       const dailyAttendance = {};
       let employeeWorkedDays = 0;
+      let presentCount = 0;
+      let halfDayCount = 0;
+      let weekOffCount = 0;
+      let holidayCount = 0;
+      let leaveCount = 0;
+      let absentCount = 0;
 
       for (let day = 1; day <= daysInMonth; day++) {
         const dayStr = String(day).padStart(2, '0');
         const dateKey = `${targetMonth}-${dayStr}`;
-        const attKey = `${empId}_${dateKey}`;
-        const altAttKey = `${empCode}_${dateKey}`;
-        const rawStatus = attMap.get(attKey) || attMap.get(altAttKey);
+        const dObj = new Date(yearNum, monthNum - 1, day);
+        const isSunday = dObj.getDay() === 0;
+
+        const attEntry =
+          attMap.get(`${empIdNorm}_${dateKey}`) ||
+          attMap.get(`${empCodeNorm}_${dateKey}`) ||
+          attMap.get(`${empNameNorm}_${dateKey}`) ||
+          attMap.get(`${empId}_${dateKey}`) ||
+          attMap.get(`${empCode}_${dateKey}`);
 
         let mark = '—';
-        if (rawStatus) {
-          const s = String(rawStatus).toLowerCase();
-          if (s === 'present' || s === 'late') mark = 'P';
-          else if (s === 'absent') mark = 'A';
-          else if (s === 'halfday') mark = 'HD';
-          else if (s === 'weeklyoff' || s === 'wo') mark = 'WO';
-          else if (s === 'onleave' || s === 'leave') mark = 'L';
-          else mark = 'P';
+        if (attEntry && attEntry.status) {
+          mark = normalizeStatusToMark(attEntry.status, isSunday);
         } else {
-          // If no record: Sunday is Weekly Off, otherwise unrecorded
-          const dObj = new Date(yearNum, monthNum - 1, day);
-          const isSunday = dObj.getDay() === 0;
+          // If no specific punch record exists: Sunday is Weekly Off, otherwise unrecorded dash
           mark = isSunday ? 'WO' : '—';
         }
 
         dailyAttendance[day] = mark;
 
-        if (mark === 'P') employeeWorkedDays += 1;
-        else if (mark === 'HD') employeeWorkedDays += 0.5;
-        else if (mark === 'WO') employeeWorkedDays += 1;
+        if (mark === 'P') {
+          employeeWorkedDays += 1;
+          presentCount++;
+        } else if (mark === 'HD') {
+          employeeWorkedDays += 0.5;
+          halfDayCount++;
+        } else if (mark === 'WO') {
+          weekOffCount++;
+        } else if (mark === 'H' || mark === 'HOL') {
+          employeeWorkedDays += 1;
+          holidayCount++;
+        } else if (['L', 'CL', 'SL', 'EL'].includes(mark)) {
+          leaveCount++;
+        } else if (mark === 'A') {
+          absentCount++;
+        }
       }
 
       totalWorkDaysSum += employeeWorkedDays;
+
+      const remarkParts = ['Present / Verified'];
+      if (leaveCount > 0) remarkParts.push(`${leaveCount} Leaves`);
+      if (halfDayCount > 0) remarkParts.push(`${halfDayCount} Half-Day`);
+      if (absentCount > 0) remarkParts.push(`${absentCount} Absent`);
+      if (holidayCount > 0) remarkParts.push(`${holidayCount} Holiday`);
 
       return {
         srNo,
@@ -3533,7 +3693,13 @@ export const getMusterRollReport = async (req, res) => {
         principalEmployer,
         dailyAttendance,
         totalDaysWorked: employeeWorkedDays,
-        remarks: 'Present / Verified',
+        presentCount,
+        halfDayCount,
+        weekOffCount,
+        holidayCount,
+        leaveCount,
+        absentCount,
+        remarks: remarkParts.join(' | '),
       };
     });
 

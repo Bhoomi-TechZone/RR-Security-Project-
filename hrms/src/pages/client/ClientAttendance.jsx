@@ -78,6 +78,29 @@ const formatMonthYearDisplay = (rec) => {
   return '—';
 };
 
+const formatDisplayDate = (dateVal) => {
+  if (!dateVal) return '—';
+  const str = String(dateVal).trim();
+  if (str.includes('T')) {
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const [y, m, d] = str.split('-').map(Number);
+    const dateObj = new Date(y, m - 1, d);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+  return str;
+};
+
 export const getDaysInMonth = (monthName, year) => {
   const months = {
     january: 0, jan: 0,
@@ -203,24 +226,38 @@ function ClientAttendance() {
     }
 
     try {
-      const dataToExport = filteredRecords.map((r, i) => ({
-        'Sr.': i + 1,
-        'Employee Name': r.employeeName || '—',
-        'Employee ID': r.employeeCode || r.employeeId || '—',
-        'Designation': r.designation || '—',
-        'Father Name': r.fatherName || '—',
-        'Client / Company': r.companyName || r.clientName || clientCompany?.name || '—',
-        'Month / Year': formatMonthYearDisplay(r),
-        'Present': r.present ?? 0,
-        'Week Off': r.weekOff ?? 0,
-        'Holidays': r.holidays ?? 0,
-        'CL': r.cl ?? 0,
-        'SL': r.sl ?? 0,
-        'EL': r.el ?? 0,
-        'LWP': r.lwp ?? 0,
-        'Working Days': r.workingDays ?? (r.present ?? 0),
-        'Status': r.status ? r.status.toUpperCase() : 'PRESENT'
-      }));
+      const dataToExport = filteredRecords.map((r, i) => {
+        if (viewMode === 'date') {
+          return {
+            'Sr.': i + 1,
+            'Employee Name': r.employeeName || '—',
+            'Employee ID': r.employeeCode || r.employeeId || '—',
+            'Designation': r.designation || '—',
+            'Father Name': r.fatherName || '—',
+            'Client / Company': r.companyName || r.clientName || clientCompany?.name || '—',
+            'Date': formatDisplayDate(r.date),
+            'Status': r.status ? r.status.toUpperCase() : 'PRESENT'
+          };
+        }
+        return {
+          'Sr.': i + 1,
+          'Employee Name': r.employeeName || '—',
+          'Employee ID': r.employeeCode || r.employeeId || '—',
+          'Designation': r.designation || '—',
+          'Father Name': r.fatherName || '—',
+          'Client / Company': r.companyName || r.clientName || clientCompany?.name || '—',
+          'Month / Year': formatMonthYearDisplay(r),
+          'Present': r.present ?? 0,
+          'Week Off': r.weekOff ?? 0,
+          'Holidays': r.holidays ?? 0,
+          'CL': r.cl ?? 0,
+          'SL': r.sl ?? 0,
+          'EL': r.el ?? 0,
+          'LWP': r.lwp ?? 0,
+          'Working Days': r.workingDays ?? (r.present ?? 0),
+          'Status': r.status ? r.status.toUpperCase() : 'PRESENT'
+        };
+      });
 
       const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
@@ -418,32 +455,42 @@ function ClientAttendance() {
         <div className={styles.tableResponsive}>
           <table className={styles.dataTable}>
             <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Father Name</th>
-                <th>Client / Company</th>
-                <th>Month / Year</th>
-                <th style={{ color: '#16a34a', textAlign: 'center' }}>Present</th>
-                <th style={{ color: '#2563eb', textAlign: 'center' }}>Week Off</th>
-                <th style={{ color: '#d97706', textAlign: 'center' }}>Holidays</th>
-                <th style={{ color: '#7c3aed', textAlign: 'center' }} title="Casual Leave">CL</th>
-                <th style={{ color: '#0284c7', textAlign: 'center' }} title="Sick Leave">SL</th>
-                <th style={{ color: '#0d9488', textAlign: 'center' }} title="Earned Leave">EL</th>
-                <th style={{ color: '#dc2626', textAlign: 'center' }} title="Leave Without Pay">LWP</th>
-                <th>Working Days</th>
-                <th>Status</th>
-              </tr>
+              {viewMode === 'date' ? (
+                <tr>
+                  <th>Employee</th>
+                  <th>Father Name</th>
+                  <th>Client / Company</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              ) : (
+                <tr>
+                  <th>Employee</th>
+                  <th>Father Name</th>
+                  <th>Client / Company</th>
+                  <th>Month / Year</th>
+                  <th style={{ color: '#16a34a', textAlign: 'center' }}>Present</th>
+                  <th style={{ color: '#2563eb', textAlign: 'center' }}>Week Off</th>
+                  <th style={{ color: '#d97706', textAlign: 'center' }}>Holidays</th>
+                  <th style={{ color: '#7c3aed', textAlign: 'center' }} title="Casual Leave">CL</th>
+                  <th style={{ color: '#0284c7', textAlign: 'center' }} title="Sick Leave">SL</th>
+                  <th style={{ color: '#0d9488', textAlign: 'center' }} title="Earned Leave">EL</th>
+                  <th style={{ color: '#dc2626', textAlign: 'center' }} title="Leave Without Pay">LWP</th>
+                  <th>Working Days</th>
+                  <th>Status</th>
+                </tr>
+              )}
             </thead>
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="13" className={styles.emptyCell}>
+                  <td colSpan={viewMode === 'date' ? 5 : 13} className={styles.emptyCell}>
                     Fetching assigned attendance records...
                   </td>
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="13" className={styles.emptyCell}>
+                  <td colSpan={viewMode === 'date' ? 5 : 13} className={styles.emptyCell}>
                     No attendance records found for {clientCompany?.name || 'your assigned workforce'} on {viewMode === 'date' ? selectedDate : selectedMonth}.
                   </td>
                 </tr>
@@ -464,6 +511,57 @@ function ClientAttendance() {
                         : (rec.month && rec.year
                           ? getDaysInMonth(rec.month, rec.year)
                           : (present + weekOff + holidays + cl + sl + el || 1)));
+
+                  if (viewMode === 'date') {
+                    return (
+                      <tr
+                        key={rec.id || rec._id || `${rec.employeeId}-${rec.date}`}
+                        className={styles.clickableRow}
+                        onClick={() => setSelectedRecord({ ...rec, present, weekOff, holidays, cl, sl, el, lwp, workingDays })}
+                        title="Click to view full attendance & muster details"
+                      >
+                        {/* 1. Employee */}
+                        <td>
+                          <div className={styles.empCell}>
+                            <div
+                              className={styles.avatar}
+                              style={{ background: getInitialsBg(rec.initials) }}
+                            >
+                              {rec.initials || 'EM'}
+                            </div>
+                            <div>
+                              <span className={styles.empName}>{rec.employeeName}</span>
+                              <span className={styles.empCode}>{rec.employeeCode || rec.employeeId} • {rec.designation || 'Staff'}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* 2. Father Name */}
+                        <td>
+                          <span className={styles.fatherNameText}>{rec.fatherName || '—'}</span>
+                        </td>
+
+                        {/* 3. Client / Company */}
+                        <td>
+                          <span className={styles.companyText}>
+                            {rec.companyName || rec.clientName || clientCompany?.name || '—'}
+                          </span>
+                        </td>
+
+                        {/* 4. Date */}
+                        <td>
+                          <span className={styles.dateText}>{formatDisplayDate(rec.date)}</span>
+                        </td>
+
+                        {/* 5. Status */}
+                        <td>
+                          <StatusBadge status={rec.status === 'no_record' ? 'Pending Upload' : (rec.status || 'present')}>
+                            {rec.status === 'no_record' ? 'Pending Upload' : (rec.status === 'present' ? 'Present' : (rec.status || 'Present'))}
+                          </StatusBadge>
+                        </td>
+                      </tr>
+                    );
+                  }
 
                   return (
                     <tr
