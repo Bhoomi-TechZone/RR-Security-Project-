@@ -15,7 +15,8 @@ function MasterTable({
   onAction,
   onResetSearch,
   currentPage = 1,
-  itemsPerPage = 8
+  itemsPerPage = 8,
+  subTab = null
 }) {
   const getTabLabelPlural = () => {
     switch (activeTab) {
@@ -30,7 +31,7 @@ function MasterTable({
       case 'shifts': return 'shifts';
       case 'leave-types': return 'leave types';
       case 'holidays': return 'holidays';
-      case 'salary-components': return 'salary components';
+      case 'salary-components': return subTab === 'deductions' ? 'deductions' : 'salary components';
       case 'document-types': return 'document types';
       default: return 'records';
     }
@@ -197,11 +198,7 @@ function MasterTable({
               {activeTab === 'salary-components' && (
                 <>
                   <th>Component Name</th>
-                  <th>Code</th>
-                  <th>Type</th>
-                  <th>Calculation Type</th>
-                  <th>Default Value</th>
-                  <th>Taxable</th>
+                  <th>{subTab === 'deductions' ? 'Deduction Type' : 'Component Type'}</th>
                 </>
               )}
 
@@ -351,18 +348,27 @@ function MasterTable({
                 {/* 11. SALARY COMPONENTS */}
                 {activeTab === 'salary-components' && (
                   <>
-                    <td><span className={styles.primaryText}>{item.name}</span></td>
-                    <td><span className={styles.codeBadge}>{item.code}</span></td>
                     <td>
-                      <span className={`${styles.typeBadge} ${item.type === 'earning' ? styles.typeEarning : styles.typeDeduction}`}>
-                        {item.type === 'earning' ? 'Earning (+)' : 'Deduction (-)'}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className={styles.primaryText}>{item.name}</span>
+                        {(item.shortName || item.code) && (
+                          <span className={styles.codeBadge}>{item.shortName || item.code}</span>
+                        )}
+                      </div>
                     </td>
-                    <td><span className={styles.descText}>{item.calculationType || 'Fixed'}</span></td>
-                    <td><span className={styles.countText}>{item.defaultValue || '—'}</span></td>
                     <td>
-                      <span className={styles.flagText}>
-                        {item.taxable === 'taxable' ? 'Taxable' : 'Non-Taxable'}
+                      <span
+                        style={{
+                          display: 'inline-block',
+                          padding: '3px 10px',
+                          borderRadius: '12px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          background: '#5c1d38',
+                          color: '#ffffff'
+                        }}
+                      >
+                        {item.deductionType || item.componentType || item.calculationType || (item.type === 'deduction' ? 'Fixed' : 'Fixed Salary')}
                       </span>
                     </td>
                   </>
@@ -390,6 +396,7 @@ function MasterTable({
                 <td className={styles.textCenter}>
                   <MasterActionMenu
                     item={item}
+                    activeTab={activeTab}
                     onAction={(actionType) => onAction(actionType, item)}
                   />
                 </td>

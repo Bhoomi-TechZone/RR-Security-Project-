@@ -16,6 +16,10 @@ import ConfirmModal from '../../components/common/ConfirmModal';
 
 import PTSlabModal from '../../components/statutorySetup/PTSlabModal';
 import LWFStateModal from '../../components/statutorySetup/LWFStateModal';
+import PFRateModal from '../../components/statutorySetup/PFRateModal';
+import PFConfigurationTab from '../../components/statutorySetup/PFConfigurationTab';
+import ESIConfigurationTab from '../../components/statutorySetup/ESIConfigurationTab';
+import PTConfigurationTab from '../../components/statutorySetup/PTConfigurationTab';
 
 import { useCompany } from '../../context/CompanyContext';
 import statutoryService from '../../services/statutoryService';
@@ -64,6 +68,68 @@ const INITIAL_PF = {
   createdDate: '',
   lastUpdatedBy: '',
   lastUpdatedDate: ''
+};
+
+const DEFAULT_PF_APPLICABILITY = [
+  { id: 'basic', name: 'Basic Salary - Basic', type: 'Paid Days', badgeType: 'paidDays', selected: false },
+  { id: 'da', name: 'Dearness Allowance - DA', type: 'Paid Days', badgeType: 'paidDays', selected: false },
+  { id: 'hra', name: 'House Rent Allowance - HRA', type: 'Paid Days', badgeType: 'paidDays', selected: false },
+  { id: 'ca', name: 'Conveyance Allowance - CA', type: 'Paid Days', badgeType: 'paidDays', selected: false },
+  { id: 'sa', name: 'Special Allowance - SA', type: 'Paid Days', badgeType: 'paidDays', selected: false },
+  { id: 'oa', name: 'Other Allowance - OA', type: 'Paid Days', badgeType: 'paidDays', selected: false },
+  { id: 'rmb', name: 'Reimbursements - RMB', type: 'Variable', badgeType: 'variable', selected: false },
+  { id: 'leave', name: 'Leave Encashment - Leave', type: 'Variable', badgeType: 'variable', selected: false },
+  { id: 'bonus', name: 'Bonus - Bonus', type: 'Variable', badgeType: 'variable', selected: false },
+  { id: 'graty', name: 'Gratuity - Graty', type: 'Variable', badgeType: 'variable', selected: false },
+  { id: 'loan', name: 'Loan - Loan', type: 'System', badgeType: 'system', selected: false },
+  { id: 'petro', name: 'PETROL - PETRO', type: 'Variable', badgeType: 'variable', selected: false },
+  { id: 'ot', name: 'Overtime (Hours) - OT', type: 'System', badgeType: 'system', selected: false },
+  { id: 'otd', name: 'Overtime (Days) - OTD', type: 'System', badgeType: 'system', selected: false },
+  { id: 'rtb', name: 'Retention Bonus - RTB', type: 'System', badgeType: 'system', selected: false }
+];
+
+const DEFAULT_PF_RATES = [
+  {
+    id: 'rate-1',
+    enabled: true,
+    effectiveDate: '2026-09-01',
+    displayDate: '01-Sep-2026',
+    employeeRate: 12,
+    employerRate: 3.67,
+    pensionRate: 8.33,
+    seniorEmployeeRate: 12,
+    seniorEmployerRate: 3.67,
+    seniorPensionRate: 8.33,
+    edliAdminRate: 1,
+    wageCeiling: 15000,
+    seniorAge: 58
+  },
+  {
+    id: 'rate-2',
+    enabled: false,
+    effectiveDate: '1975-04-01',
+    displayDate: '01-Apr-1975',
+    employeeRate: 12,
+    employerRate: 3.67,
+    pensionRate: 8.33,
+    seniorEmployeeRate: 12,
+    seniorEmployerRate: 3.67,
+    seniorPensionRate: 8.33,
+    edliAdminRate: 1,
+    wageCeiling: 0,
+    seniorAge: 58
+  }
+];
+
+const formatPFDate = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = months[d.getMonth()];
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
 };
 
 const INITIAL_ESI = {
@@ -309,6 +375,128 @@ function StatutorySetup() {
   const [isLWFModalOpen, setIsLWFModalOpen] = useState(false);
   const [editingLWFRule, setEditingLWFRule] = useState(null);
 
+  // PF Specific UI states
+  const [pfApplicabilityList, setPfApplicabilityList] = useState(() => {
+    try {
+      const saved = localStorage.getItem('novaspark_pf_applicability');
+      return saved ? JSON.parse(saved) : DEFAULT_PF_APPLICABILITY;
+    } catch {
+      return DEFAULT_PF_APPLICABILITY;
+    }
+  });
+
+  const [pfRateChanges, setPfRateChanges] = useState(() => {
+    try {
+      const saved = localStorage.getItem('novaspark_pf_rates');
+      return saved ? JSON.parse(saved) : DEFAULT_PF_RATES;
+    } catch {
+      return DEFAULT_PF_RATES;
+    }
+  });
+
+  const [vpfEnabled, setVpfEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('novaspark_pf_vpf');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [wageCeilingProRata, setWageCeilingProRata] = useState(() => {
+    try {
+      const saved = localStorage.getItem('novaspark_pf_prorata');
+      return saved !== null ? JSON.parse(saved) : false;
+    } catch {
+      return false;
+    }
+  });
+
+  const [isPFRateModalOpen, setIsPFRateModalOpen] = useState(false);
+  const [editingPFRate, setEditingPFRate] = useState(null);
+
+  const handleTogglePFApplicability = (id) => {
+    setPfApplicabilityList(prev => {
+      const updated = prev.map(item => item.id === id ? { ...item, selected: !item.selected } : item);
+      try {
+        localStorage.setItem('novaspark_pf_applicability', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save applicability', e);
+      }
+      return updated;
+    });
+  };
+
+  const handleOpenAddPFRate = () => {
+    setEditingPFRate(null);
+    setIsPFRateModalOpen(true);
+  };
+
+  const handleOpenEditPFRate = (rateItem) => {
+    setEditingPFRate(rateItem);
+    setIsPFRateModalOpen(true);
+  };
+
+  const handleDeletePFRate = (rateId) => {
+    setPfRateChanges(prev => {
+      const updated = prev.filter(r => r.id !== rateId);
+      try {
+        localStorage.setItem('novaspark_pf_rates', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to delete rate', e);
+      }
+      return updated;
+    });
+    showToast('✓ PF Rate Change entry deleted.');
+  };
+
+  const handleSavePFRate = (rateData) => {
+    const formattedDate = formatPFDate(rateData.effectiveDate);
+    const completeData = {
+      ...rateData,
+      displayDate: formattedDate
+    };
+
+    setPfRateChanges(prev => {
+      const exists = prev.some(r => r.id === completeData.id);
+      const updated = exists 
+        ? prev.map(r => r.id === completeData.id ? completeData : r)
+        : [completeData, ...prev];
+      try {
+        localStorage.setItem('novaspark_pf_rates', JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save rate', e);
+      }
+      return updated;
+    });
+
+    setIsPFRateModalOpen(false);
+    setEditingPFRate(null);
+    showToast(editingPFRate ? '✓ PF Rate Change updated successfully.' : '✓ New PF Rate Change added successfully.');
+  };
+
+  const handleToggleVPF = (e) => {
+    const nextVal = e.target.checked;
+    setVpfEnabled(nextVal);
+    try {
+      localStorage.setItem('novaspark_pf_vpf', JSON.stringify(nextVal));
+    } catch (err) {
+      console.error(err);
+    }
+    showToast(`✓ Voluntary Provident Fund ${nextVal ? 'enabled' : 'disabled'}.`);
+  };
+
+  const handleToggleWageCeilingProRata = (e) => {
+    const nextVal = e.target.checked;
+    setWageCeilingProRata(nextVal);
+    try {
+      localStorage.setItem('novaspark_pf_prorata', JSON.stringify(nextVal));
+    } catch (err) {
+      console.error(err);
+    }
+    showToast(`✓ Wage ceiling pro-rata calculation ${nextVal ? 'enabled' : 'disabled'}.`);
+  };
+
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -535,6 +723,14 @@ function StatutorySetup() {
           onClose={() => { setIsLWFModalOpen(false); setEditingLWFRule(null); }}
           onSubmit={handleLWFSubmit}
           editingItem={editingLWFRule}
+        />
+
+        {/* PF Rate Modal */}
+        <PFRateModal
+          isOpen={isPFRateModalOpen}
+          onClose={() => { setIsPFRateModalOpen(false); setEditingPFRate(null); }}
+          onSubmit={handleSavePFRate}
+          editingItem={editingPFRate}
         />
 
         {/* Disable Confirmation Modal */}
@@ -816,7 +1012,18 @@ function StatutorySetup() {
               <>
 
             {/* TAB 1: PF CONFIGURATION */}
+            {/* NEW PF CONFIGURATION */}
             {activeTab === 'pf' && (
+              <PFConfigurationTab
+                showToast={showToast}
+                pfConfig={pfConfig}
+                setPFConfig={setPFConfig}
+                compId={compId}
+              />
+            )}
+
+            {/* LEGACY PF FORM (INACTIVE) */}
+            {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>
@@ -948,7 +1155,18 @@ function StatutorySetup() {
             )}
 
             {/* TAB 2: ESI CONFIGURATION */}
+            {/* NEW ESI CONFIGURATION */}
             {activeTab === 'esi' && (
+              <ESIConfigurationTab
+                showToast={showToast}
+                esiConfig={esiConfig}
+                setESIConfig={setESIConfig}
+                compId={compId}
+              />
+            )}
+
+            {/* LEGACY ESI FORM (INACTIVE) */}
+            {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>
@@ -1074,7 +1292,18 @@ function StatutorySetup() {
             )}
 
             {/* TAB 3: PT SLABS CONFIGURATION */}
+            {/* NEW PT CONFIGURATION */}
             {activeTab === 'pt' && (
+              <PTConfigurationTab
+                showToast={showToast}
+                ptConfig={ptConfig}
+                setPTConfig={setPTConfig}
+                compId={compId}
+              />
+            )}
+
+            {/* LEGACY PT FORM (INACTIVE) */}
+            {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>

@@ -69,3 +69,20 @@
 .activate:hover svg {
   color: var(--success);
 }
+
+.deleteItem {
+  color: #ef4444;
+}
+
+.deleteItem svg {
+  color: #ef4444;
+}
+
+.deleteItem:hover {
+  color: #dc2626;
+  background-color: #fef2f2;
+}
+
+.deleteItem:hover svg {
+  color: #dc2626;
+}

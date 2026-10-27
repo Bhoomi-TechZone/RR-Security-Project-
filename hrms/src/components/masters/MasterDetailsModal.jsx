@@ -68,7 +68,7 @@ function MasterDetailsModal({
       case 'shifts': return 'Shift Details';
       case 'leave-types': return 'Leave Type Details';
       case 'holidays': return 'Holiday Details';
-      case 'salary-components': return 'Salary Component Details';
+      case 'salary-components': return item.type === 'deduction' ? 'Deduction Details' : 'Salary Component Details';
       case 'document-types': return 'Document Type Details';
       default: return 'Record Details';
     }
@@ -429,33 +429,80 @@ function MasterDetailsModal({
             </div>
           )}
 
-          {/* 11. SALARY COMPONENTS */}
-          {activeTab === 'salary-components' && (
+          {/* 11. SALARY COMPONENTS & DEDUCTIONS */}
+          {activeTab === 'salary-components' && item.type === 'deduction' && (
+            <div className={styles.detailsList}>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Name</span>
+                <span className={styles.value}>{item.name}</span>
+              </div>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Short Name (Alias)</span>
+                <span className={styles.codeBadge}>{item.shortName || item.code}</span>
+              </div>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Deduction Type</span>
+                <span className={styles.value}>{item.deductionType || item.componentType || 'Fixed'}</span>
+              </div>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Exclude from CTC</span>
+                <span className={styles.value}>{item.excludeFromCtc ? 'Yes' : 'No'}</span>
+              </div>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Payback on Exit</span>
+                <span className={styles.value}>{item.paybackOnExit ? 'Yes' : 'No'}</span>
+              </div>
+              {item.description && (
+                <div className={styles.detailRow}>
+                  <span className={styles.label}>Description</span>
+                  <span className={styles.value}>{item.description}</span>
+                </div>
+              )}
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Status</span>
+                <StatusBadge status={item.status} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'salary-components' && item.type !== 'deduction' && (
             <div className={styles.detailsList}>
               <div className={styles.detailRow}>
                 <span className={styles.label}>Component Name</span>
                 <span className={styles.value}>{item.name}</span>
               </div>
               <div className={styles.detailRow}>
-                <span className={styles.label}>Code</span>
-                <span className={styles.codeBadge}>{item.code}</span>
+                <span className={styles.label}>Short Name (Alias)</span>
+                <span className={styles.codeBadge}>{item.shortName || item.code}</span>
               </div>
               <div className={styles.detailRow}>
                 <span className={styles.label}>Component Type</span>
-                <span className={styles.value}>{item.type === 'earning' ? 'Earning (+)' : 'Deduction (-)'}</span>
+                <span className={styles.value}>{item.componentType || item.type}</span>
               </div>
               <div className={styles.detailRow}>
-                <span className={styles.label}>Calculation Type</span>
-                <span className={styles.value}>{item.calculationType}</span>
+                <span className={styles.label}>Exclude from Gross Salary</span>
+                <span className={styles.value}>{item.excludeFromGrossSalary ? 'Yes' : 'No'}</span>
               </div>
               <div className={styles.detailRow}>
-                <span className={styles.label}>Default Value / Formula</span>
-                <span className={styles.value}>{item.defaultValue || '—'}</span>
+                <span className={styles.label}>Hide in CTC Reports</span>
+                <span className={styles.value}>{item.hideInCtcReports ? 'Yes' : 'No'}</span>
               </div>
               <div className={styles.detailRow}>
-                <span className={styles.label}>Taxable</span>
-                <span className={styles.value}>{item.taxable === 'taxable' ? 'Taxable' : 'Exempt'}</span>
+                <span className={styles.label}>Not Payable</span>
+                <span className={styles.value}>{item.notPayable ? 'Yes' : 'No'}</span>
               </div>
+              {['Paid Days', 'Paid Hours', 'Daily Salary'].includes(item.componentType) && (
+                <>
+                  <div className={styles.detailRow}>
+                    <span className={styles.label}>Exclude Holidays</span>
+                    <span className={styles.value}>{item.excludeHolidays ? 'Yes' : 'No'}</span>
+                  </div>
+                  <div className={styles.detailRow}>
+                    <span className={styles.label}>Exclude Weekoffs</span>
+                    <span className={styles.value}>{item.excludeWeekoffs ? 'Yes' : 'No'}</span>
+                  </div>
+                </>
+              )}
               {item.description && (
                 <div className={styles.detailRow}>
                   <span className={styles.label}>Description</span>
