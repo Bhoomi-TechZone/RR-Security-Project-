@@ -5,7 +5,6 @@ import {
   MapPin, Shield, CalendarDays, CalendarOff, CalendarHeart, FileCheck, Briefcase 
 } from 'lucide-react';
 import styles from './Masters.module.css';
-
 import AdminLayout from '../../components/layout/AdminLayout';
 import MasterSummaryCards from '../../components/masters/MasterSummaryCards';
 import MasterToolbar from '../../components/masters/MasterToolbar';
@@ -15,21 +14,17 @@ import MasterDetailsModal from '../../components/masters/MasterDetailsModal';
 import ConfirmModal from '../../components/common/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
-
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
 import masterService from '../../services/masterService';
 import { workLocationService } from '../../services/workLocationService';
 import clientService from '../../services/clientService';
-
 // Mock master data for non-dynamic / fallback datasets
 import { getInitialClients } from '../../data/masters/clientData';
 import { mockShiftMaster } from '../../data/masters/shiftMasterData';
 import { mockWorkLocations } from '../../data/workLocationsData';
 import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
-
 const ITEMS_PER_PAGE = 8;
-
 const TAB_LABELS = {
   'banks': 'Banks',
   'client-services': 'Client Services',
@@ -45,7 +40,6 @@ const TAB_LABELS = {
   'salary-components': 'Salary Components',
   'document-types': 'Document Types'
 };
-
 const DYNAMIC_TABS = [
   'banks',
   'client-services',
@@ -61,11 +55,9 @@ const DYNAMIC_TABS = [
   'salary-components',
   'document-types'
 ];
-
 const MASTER_CATEGORIES = [
   { id: 'all', label: 'All Masters Setup' }
 ];
-
 const ALL_MASTERS_CATALOG = [
   {
     id: 'banks',
@@ -158,45 +150,36 @@ const ALL_MASTERS_CATALOG = [
     iconColor: '#0f172a'
   }
 ];
-
 function Masters() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
-
   const { canAdd, canEdit, canDelete } = usePermissions();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || 'comp_rr_security';
-
   // Active Master Tab & Explorer View Detection
   const rawTab = searchParams.get('tab');
   const isExplorerView = !rawTab;
   const activeTab = rawTab && TAB_LABELS[rawTab] ? rawTab : 'banks';
-
   const [searchTerm, setSearchTerm] = useState('');
   const [holidayYear, setHolidayYear] = useState('2026');
   const [currentPage, setCurrentPage] = useState(1);
   const [salaryComponentSubTab, setSalaryComponentSubTab] = useState('earnings');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
   // Explorer view filter states
   const [catalogSearch, setCatalogSearch] = useState('');
   const [explorerCategory, setExplorerCategory] = useState('all');
-
   const handleOpenMaster = (tabId) => {
     setSearchParams({ tab: tabId }, { state: location.state });
   };
-
   const handleBackToMasters = () => {
     setSearchParams({}, { state: location.state });
   };
-
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId }, { state: location.state });
   };
-
   // Dynamic Master Data States (Managed via API with Company Isolation & MongoDB Persistence)
   const [banks, setBanks] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -218,10 +201,8 @@ function Masters() {
     return mockSalaryComponents;
   });
   const [documentTypes, setDocumentTypes] = useState([]);
-
   // Client Services Master Data State (Dynamic from MongoDB)
   const [clientServices, setClientServices] = useState([]);
-
   // Clients & Work Locations for Masters Lookups (Loaded dynamically from API)
   const [clients, setClients] = useState(() => {
     const saved = localStorage.getItem(`novaspark_clients_${companyId}`);
@@ -233,7 +214,6 @@ function Masters() {
     }
     return [];
   });
-
   const [workLocations, setWorkLocations] = useState(() => {
     const saved = localStorage.getItem(`novaspark_work_locations_${companyId}`);
     if (saved) {
@@ -244,15 +224,12 @@ function Masters() {
     }
     return [];
   });
-
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [isSavingMaster, setIsSavingMaster] = useState(false);
-
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
-
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: '',
@@ -262,29 +239,24 @@ function Masters() {
     item: null,
     actionType: null // 'activate' | 'deactivate'
   });
-
   // Toast
   const [toast, setToast] = useState({ message: '', type: 'success' });
-
   // Persistence for lookups caching
   useEffect(() => {
     if (clientServices.length > 0) {
       localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(clientServices));
     }
   }, [clientServices, companyId]);
-
   useEffect(() => {
     if (clients.length > 0) {
       localStorage.setItem(`novaspark_clients_${companyId}`, JSON.stringify(clients));
     }
   }, [clients, companyId]);
-
   useEffect(() => {
     if (workLocations.length > 0) {
       localStorage.setItem(`novaspark_work_locations_${companyId}`, JSON.stringify(workLocations));
     }
   }, [workLocations, companyId]);
-
   useEffect(() => {
     if (salaryComponents.length > 0) {
       localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(salaryComponents));
@@ -299,11 +271,9 @@ function Masters() {
       }
     } catch {}
   }, [companyId]);
-
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
-
   // Helper to update specific tab's state
   const setTabData = useCallback((tab, data) => {
     switch (tab) {
@@ -323,14 +293,11 @@ function Masters() {
       default: break;
     }
   }, []);
-
   // Fetch dynamic master records from API
   const fetchMasterData = useCallback(async (tab, silent = false) => {
     if (!DYNAMIC_TABS.includes(tab) || !companyId) return;
-
     if (!silent) setLoading(true);
     setError(null);
-
     try {
       if (tab === 'client-services' || tab === 'clients') {
         const data = await masterService.getMasters('client-services', companyId, true);
@@ -374,14 +341,12 @@ function Masters() {
       if (!silent) setLoading(false);
     }
   }, [companyId, setTabData]);
-
   // Load active tab data on mount or activeTab / companyId change
   useEffect(() => {
     if (DYNAMIC_TABS.includes(activeTab)) {
       fetchMasterData(activeTab);
     }
   }, [activeTab, companyId, fetchMasterData]);
-
   // Listen to cross-module client updates
   useEffect(() => {
     const handleClientsUpdated = () => {
@@ -390,7 +355,6 @@ function Masters() {
     window.addEventListener('clients-updated', handleClientsUpdated);
     return () => window.removeEventListener('clients-updated', handleClientsUpdated);
   }, [fetchMasterData]);
-
   // Preload supplementary datasets (clients, work locations, departments for modals)
   useEffect(() => {
     if (companyId) {
@@ -400,7 +364,6 @@ function Masters() {
           if (Array.isArray(depts)) setDepartments(depts);
         })
         .catch(err => console.log('Preload depts notice:', err.message));
-
       // Preload clients dynamically from API
       clientService.getClients(companyId)
         .then(clientList => {
@@ -410,7 +373,6 @@ function Masters() {
           }
         })
         .catch(err => console.log('Preload clients notice:', err.message));
-
       // Preload work locations dynamically from API
       workLocationService.getWorkLocations(companyId)
         .then(locs => {
@@ -420,7 +382,6 @@ function Masters() {
           }
         })
         .catch(err => console.log('Preload work locations notice:', err.message));
-
       // Preload all masters to calculate live counts on explorer cards and sidebar badges
       masterService.getMasters('', companyId)
         .then((allData) => {
@@ -449,7 +410,6 @@ function Masters() {
         .catch((err) => console.log('Notice: Preload all masters count:', err.message));
     }
   }, [companyId]);
-
   // Sync event listener across modules
   useEffect(() => {
     const handleSync = (e) => {
@@ -472,12 +432,10 @@ function Masters() {
       window.removeEventListener('leaves-updated', handleSync);
     };
   }, [fetchMasterData, activeTab]);
-
   // Reset pagination when tab, search, or year filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, searchTerm, holidayYear, salaryComponentSubTab]);
-
   // Retrieve current active dataset
   const getCurrentDataset = () => {
     switch (activeTab) {
@@ -502,7 +460,6 @@ function Masters() {
       default: return [];
     }
   };
-
   const getMasterCount = (tabId) => {
     switch (tabId) {
       case 'banks': return banks.length;
@@ -521,12 +478,10 @@ function Masters() {
       default: return 0;
     }
   };
-
   const getCategoryCount = (catId) => {
     if (catId === 'all') return ALL_MASTERS_CATALOG.length;
     return getMasterCount(catId);
   };
-
   const filteredCatalog = useMemo(() => {
     return ALL_MASTERS_CATALOG.filter((item) => {
       const matchesCategory =
@@ -540,19 +495,14 @@ function Masters() {
       return matchesCategory && matchesSearch;
     });
   }, [explorerCategory, catalogSearch]);
-
-
   // Filter current active dataset based on search term and holiday year
   const getFilteredItems = () => {
     let dataset = getCurrentDataset();
-
     if (activeTab === 'holidays' && holidayYear && holidayYear !== 'all') {
       dataset = dataset.filter(h => h.date && h.date.startsWith(holidayYear));
     }
-
     if (!searchTerm.trim()) return dataset;
     const term = searchTerm.toLowerCase();
-
     switch (activeTab) {
       case 'banks':
         return dataset.filter(b =>
@@ -642,9 +592,7 @@ function Masters() {
         return dataset;
     }
   };
-
   const filteredItems = getFilteredItems();
-
   const earningsCount = useMemo(
     () => salaryComponents.filter((c) => (c.type || 'earning') === 'earning').length,
     [salaryComponents]
@@ -657,7 +605,6 @@ function Masters() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
-
   const getEntityName = () => {
     switch (activeTab) {
       case 'banks': return 'Bank';
@@ -676,13 +623,11 @@ function Masters() {
       default: return 'Record';
     }
   };
-
   // Handle Form Submission (Add or Edit)
   const handleFormSubmit = async (formData) => {
     if (isSavingMaster) return;
     setIsSavingMaster(true);
     const entityName = getEntityName();
-
     try {
       if (DYNAMIC_TABS.includes(activeTab)) {
         if (editingItem) {
@@ -691,7 +636,6 @@ function Masters() {
           const updated = await masterService.updateMaster(companyId, itemId, formData);
           const merged = { ...editingItem, ...(updated || {}), ...formData, id: itemId, _id: itemId };
           const updateList = (list) => list.map(item => ((item.id || item._id) === itemId) ? merged : item);
-
           if (activeTab === 'banks') setBanks(updateList);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(updateList);
@@ -714,7 +658,6 @@ function Masters() {
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
           else if (activeTab === 'document-types') setDocumentTypes(updateList);
-
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
           if (activeTab === 'shifts') {
             window.dispatchEvent(new CustomEvent('shifts-updated'));
@@ -729,10 +672,8 @@ function Masters() {
             type: activeTab === 'clients' ? 'client-services' : activeTab,
             ...formData
           });
-
           const createdItem = { ...formData, ...(created || {}), id: created?.id || created?._id, _id: created?._id || created?.id };
           const updateCreated = (prev) => [createdItem, ...prev.filter(p => (p.id || p._id) !== (createdItem.id || createdItem._id))];
-
           if (activeTab === 'banks') setBanks(updateCreated);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(updateCreated);
@@ -749,14 +690,12 @@ function Masters() {
           else if (activeTab === 'salary-components') {
             setSalaryComponents(prev => {
               const next = updateCreated(prev);
-              localStorage.setItem(
-ovaspark_salary_components_${companyId}, JSON.stringify(next));
+              localStorage.setItem("novaspark_salary_components_" + companyId, JSON.stringify(next));
               return next;
             });
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
           else if (activeTab === 'document-types') setDocumentTypes(updateCreated);
-
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
           if (activeTab === 'shifts') {
             window.dispatchEvent(new CustomEvent('shifts-updated'));
@@ -767,7 +706,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
           showToast(`✓ ${entityName} created successfully.`, 'success');
         }
       }
-
       setIsFormOpen(false);
       setEditingItem(null);
     } catch (err) {
@@ -778,7 +716,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
       setIsSavingMaster(false);
     }
   };
-
   // Handle Record Actions (View, Edit, Activate/Deactivate, Delete)
   const handleAction = (actionType, item) => {
     if (actionType === 'view') {
@@ -829,22 +766,17 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
       });
     }
   };
-
   // Handle Confirm Dialog execution
   const handleConfirmAction = async () => {
     const { item, actionType } = confirmModal;
     if (!item) return;
-
     const itemId = item.id || item._id;
-
     const entityName = getEntityName();
-
     try {
       if (DYNAMIC_TABS.includes(activeTab)) {
         if (actionType === 'delete') {
           await masterService.deleteMaster(companyId, itemId);
           const filterList = (list) => list.filter(i => (i.id || i._id) !== itemId);
-
           if (activeTab === 'banks') setBanks(filterList);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(filterList);
@@ -871,16 +803,13 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
           else if (activeTab === 'document-types') setDocumentTypes(filterList);
-
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
           showToast(`✓ ${entityName} deleted successfully.`, 'success');
           return;
         }
-
         const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
         await masterService.toggleMasterStatus(companyId, itemId, newStatus);
         const updateList = (list) => list.map(i => (i.id || i._id) === itemId ? { ...i, status: newStatus } : i);
-
         if (activeTab === 'banks') setBanks(updateList);
         else if (activeTab === 'client-services' || activeTab === 'clients') {
           setClientServices(updateList);
@@ -896,7 +825,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
         else if (activeTab === 'holidays') setHolidays(updateList);
         else if (activeTab === 'salary-components') setSalaryComponents(updateList);
         else if (activeTab === 'document-types') setDocumentTypes(updateList);
-
         window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
         if (activeTab === 'shifts') {
           window.dispatchEvent(new CustomEvent('shifts-updated'));
@@ -905,7 +833,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
           window.dispatchEvent(new CustomEvent('leaves-updated'));
         }
       }
-
       showToast(
         `✓ ${entityName} ${actionType === 'deactivate' ? 'deactivated' : 'activated'} successfully.`,
         'success'
@@ -925,7 +852,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
       });
     }
   };
-
   const getPaginationLabel = () => {
     switch (activeTab) {
       case 'banks': return 'banks';
@@ -943,7 +869,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
       default: return 'records';
     }
   };
-
   return (
     <AdminLayout>
       <div className={styles.container}>
@@ -953,7 +878,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
           type={toast.type}
           onClose={() => setToast({ message: '', type: 'success' })}
         />
-
         {/* Add/Edit Form Modal */}
         <MasterFormModal
           isOpen={isFormOpen}
@@ -971,7 +895,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
           componentCategory={salaryComponentSubTab === 'deductions' ? 'deduction' : 'earning'}
           isSubmitting={isSavingMaster}
         />
-
         {/* Details View Modal */}
         <MasterDetailsModal
           isOpen={isDetailsOpen}
@@ -982,7 +905,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
           activeTab={activeTab}
           item={selectedItem}
         />
-
         {/* Confirmation Modal */}
         <ConfirmModal
           isOpen={confirmModal.isOpen}
@@ -993,7 +915,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
           onConfirm={handleConfirmAction}
           onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         />
-
         {isExplorerView ? (
           <>
             {/* Explorer Breadcrumb */}
@@ -1012,7 +933,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                 </>
               )}
             </div>
-
             {/* Explorer Header */}
             <header className={styles.header} style={{ marginBottom: '16px' }}>
               <div className={styles.titleArea}>
@@ -1025,7 +945,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                 </p>
               </div>
             </header>
-
             {/* 2-Column Masters Explorer Layout */}
             <div className={styles.mastersExplorerLayout}>
               {/* Left Sidebar Filter Panel */}
@@ -1053,7 +972,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                     </span>
                   )}
                 </div>
-
                 <ul className={styles.categoryList}>
                   {MASTER_CATEGORIES.map((cat) => {
                     const count = getCategoryCount(cat.id);
@@ -1074,7 +992,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                   })}
                 </ul>
               </aside>
-
               {/* Right Grid of Master Cards */}
               <main style={{ minWidth: 0 }}>
                 {filteredCatalog.length === 0 ? (
@@ -1180,7 +1097,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
               )}
               <span className={styles.crumbActive}>{TAB_LABELS[activeTab] || activeTab}</span>
             </div>
-
             {/* Page Header */}
             <header className={styles.header}>
               <div className={styles.titleArea}>
@@ -1203,7 +1119,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                     : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
                 </p>
               </div>
-
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 {activeTab === 'departments' || activeTab === 'designations' ? (
                   <button
@@ -1316,14 +1231,12 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                 )}
               </div>
             </header>
-
             {/* Dynamic Summary Cards for Active Tab */}
             <MasterSummaryCards
               activeTab={activeTab}
               items={getCurrentDataset()}
               subTab={activeTab === 'salary-components' ? salaryComponentSubTab : null}
             />
-
             {/* Sub-tab Switcher for Salary Components vs Deductions */}
             {activeTab === 'salary-components' && (
               <div className={styles.salarySubTabsContainer}>
@@ -1345,7 +1258,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                 </button>
               </div>
             )}
-
             {/* Toolbar with Search and Contextual Add Button */}
             <MasterToolbar
               activeTab={activeTab}
@@ -1360,7 +1272,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                 setIsFormOpen(true);
               }}
             />
-
             {/* Dynamic Master Table */}
             {error ? (
               <div className={styles.errorState}>
@@ -1381,7 +1292,6 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
                   itemsPerPage={ITEMS_PER_PAGE}
                   subTab={activeTab === 'salary-components' ? salaryComponentSubTab : null}
                 />
-
                 {!loading && filteredItems.length > 0 && (
                   <Pagination
                     currentPage={currentPage}
@@ -1400,5 +1310,4 @@ ovaspark_salary_components_${companyId}, JSON.stringify(next));
     </AdminLayout>
   );
 }
-
 export default Masters;
