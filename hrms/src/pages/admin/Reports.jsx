@@ -2888,61 +2888,12 @@ function ReportBody({
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '0 0 8px 0' }}>
             Report Ready to Generate
           </h3>
-          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto', lineHeight: 1.5 }}>
             Configure your filters above and click <strong>"Generate Report"</strong> to query database records and render the {meta.title}.
           </p>
-          <button
-            type="button"
-            className={styles.primaryButton}
-            onClick={onGenerateReport}
-            disabled={isLoading}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '14px' }}
-          >
-            <RefreshCw size={15} className={isLoading ? styles.spinIcon : ''} />
-            {isLoading ? 'Generating...' : 'Generate Report'}
-          </button>
         </div>
       ) : (
         <>
-          {/* Selected Period Preview Card */}
-          <div className={styles.reportPreviewCard}>
-            <div className={styles.previewGrid}>
-              <div>
-                <span>Selected Period</span>
-                <strong>{reportData?.period?.monthLabel || filters.month || 'Current Month'}</strong>
-              </div>
-              <div>
-                <span>Company / Client</span>
-                <strong>{filters.company || 'All Clients'}</strong>
-              </div>
-              <div>
-                <span>Site</span>
-                <strong>{filters.site || 'All Sites'}</strong>
-              </div>
-              <div>
-                <span>Total Records</span>
-                <strong>{records.length} Records</strong>
-              </div>
-            </div>
-          </div>
-
-          {/* Dynamic Summary Cards */}
-          {summaryCards.length > 0 && (
-            <div className={styles.dynamicSummaryGrid}>
-              {summaryCards.map(({ label, value, tone }) => (
-                <div key={label} className={styles.summaryCard}>
-                  <div className={styles.summaryContent}>
-                    <span className={styles.summaryLabel}>{label}</span>
-                    <strong className={styles.summaryValue}>{value}</strong>
-                  </div>
-                  <span className={`${styles.summaryIcon} ${styles[tone] || styles.cardBlue}`}>
-                    <CheckCircle2 size={20} />
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
           {/* Search Toolbar */}
           <div className={styles.toolbarRow}>
             <div className={styles.searchBox}>
@@ -5494,50 +5445,6 @@ function Reports() {
                   <h1 style={{ margin: 0, fontSize: '22px' }}>{reportMeta[activeReport]?.title}</h1>
                 </div>
                 <p className={styles.pageDescription} style={{ marginTop: '6px' }}>{reportMeta[activeReport]?.description}</p>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={handlePrintReport}
-                  disabled={!isReportGenerated || !reportData}
-                  style={{
-                    padding: '8px 14px',
-                    fontSize: '13px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    opacity: !isReportGenerated || !reportData ? 0.5 : 1,
-                    cursor: !isReportGenerated || !reportData ? 'not-allowed' : 'pointer',
-                  }}
-                  title={!isReportGenerated || !reportData ? 'Generate report first to print' : 'Print Report'}
-                >
-                  <Printer size={15} /> Print
-                </button>
-                <button
-                  type="button"
-                  className={styles.primaryButton}
-                  onClick={() => {
-                    if (!isReportGenerated || !reportData) {
-                      alert('Please click "Generate Report" before exporting.');
-                      return;
-                    }
-                    setIsExportOpen(true);
-                  }}
-                  disabled={!isReportGenerated || !reportData}
-                  style={{
-                    padding: '8px 16px',
-                    fontSize: '13px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    opacity: !isReportGenerated || !reportData ? 0.5 : 1,
-                    cursor: !isReportGenerated || !reportData ? 'not-allowed' : 'pointer',
-                  }}
-                  title={!isReportGenerated || !reportData ? 'Generate report first to export' : 'Export Report'}
-                >
-                  <Download size={15} /> Export Report
-                </button>
               </div>
             </header>
 

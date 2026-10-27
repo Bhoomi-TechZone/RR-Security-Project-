@@ -3,7 +3,6 @@ import { X, Loader2, ChevronLeft } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import clientService from '../../services/clientService';
 import masterService from '../../services/masterService';
-import { getInitialClientServices } from '../../data/masters/clientServicesData';
 import styles from './CompanyForm.module.css';
 
 /**
@@ -20,9 +19,7 @@ function CompanyForm({
   const { activeCompany } = useCompany();
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
   const [autoClientId, setAutoClientId] = useState('CLI-001');
-  const [availableServices, setAvailableServices] = useState(() => {
-    return getInitialClientServices(currentCompanyId);
-  });
+  const [availableServices, setAvailableServices] = useState([]);
   const shouldShow = isPageMode || isOpen;
 
   const [formData, setFormData] = useState({
@@ -70,14 +67,16 @@ function CompanyForm({
     const loadServices = async () => {
       if (!currentCompanyId) return;
       try {
-        const services = await masterService.getMasters('client-services', currentCompanyId);
-        if (isMounted && Array.isArray(services) && services.length > 0) {
+        const services = await masterService.getMasters('client-services', currentCompanyId, true);
+        if (isMounted && Array.isArray(services)) {
           setAvailableServices(services);
           return;
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('Failed to load client services in form:', e);
+      }
       if (isMounted) {
-        setAvailableServices(getInitialClientServices(currentCompanyId));
+        setAvailableServices([]);
       }
     };
 
@@ -88,9 +87,11 @@ function CompanyForm({
     };
 
     window.addEventListener('client-services-updated', handleServicesUpdated);
+    window.addEventListener('masters-updated', handleServicesUpdated);
     return () => {
       isMounted = false;
       window.removeEventListener('client-services-updated', handleServicesUpdated);
+      window.removeEventListener('masters-updated', handleServicesUpdated);
     };
   }, [currentCompanyId]);
 
@@ -377,12 +378,15 @@ function CompanyForm({
                       <option value={formData.typeOfService}>{formData.typeOfService}</option>
                   )}
                   {availableServices
-                    .filter(s => !s.status || s.status === 'active')
+                    .filter(s => !s.status || s.status.toLowerCase() === 'active')
                     .map(service => (
                       <option key={service.id || service._id || service.name} value={service.name}>
-                        {service.name}{service.code ? ` (${service.code})` : ''}
+                        {service.name}
                       </option>
                   ))}
+                  {availableServices.filter(s => !s.status || s.status.toLowerCase() === 'active').length === 0 && (
+                    <option value="" disabled>No active client services found (create in Client Services master)</option>
+                  )}
                 </select>
               </div>
               {errors.typeOfService && (

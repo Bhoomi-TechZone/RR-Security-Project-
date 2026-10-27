@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileText,
   FileSpreadsheet,
-  Printer,
   Download,
   ShieldCheck,
   Building2,
   Calendar,
   Users,
+  Loader2,
 } from 'lucide-react';
 import {
   downloadSalarySheetFormat2Pdf,
@@ -105,57 +105,75 @@ export default function SalarySheetFormat2View({
   const grandDeductions = totals?.grandDeductions ?? records.reduce((s, r) => s + (Number(r.grossDeduct) || 0), 0);
   const grandNet = totals?.grandNet ?? records.reduce((s, r) => s + (Number(r.netPayableNumber ?? r.netPayable) || 0), 0);
 
-  // Exporters
-  const handleDownloadPdf = () => {
-    downloadSalarySheetFormat2Pdf(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      lwfSummary,
-      { mode: 'download', clientInfo, filters }
-    );
+  const [downloadingFormat, setDownloadingFormat] = useState(null);
+
+  // Exporters with dynamic loading spinner
+  const handleDownloadPdf = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('pdf');
+      await new Promise((r) => setTimeout(r, 60));
+      await downloadSalarySheetFormat2Pdf(
+        records,
+        companyInfo,
+        period,
+        totals,
+        pfSummary,
+        esiSummary,
+        lwfSummary,
+        { mode: 'download', clientInfo, filters }
+      );
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
-  const handlePrint = () => {
-    downloadSalarySheetFormat2Pdf(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      lwfSummary,
-      { mode: 'print', clientInfo, filters }
-    );
+  const handleDownloadExcel = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('excel');
+      await new Promise((r) => setTimeout(r, 80));
+      await downloadSalarySheetFormat2Excel(
+        records,
+        companyInfo,
+        period,
+        totals,
+        pfSummary,
+        esiSummary,
+        lwfSummary,
+        { format: 'xlsx', clientInfo, filters }
+      );
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (err) {
+      console.error('Excel export failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
-  const handleDownloadExcel = () => {
-    downloadSalarySheetFormat2Excel(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      lwfSummary,
-      { format: 'xlsx', clientInfo, filters }
-    );
-  };
-
-  const handleDownloadCsv = () => {
-    downloadSalarySheetFormat2Csv(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      lwfSummary,
-      { clientInfo, filters }
-    );
+  const handleDownloadCsv = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('csv');
+      await new Promise((r) => setTimeout(r, 80));
+      await downloadSalarySheetFormat2Csv(
+        records,
+        companyInfo,
+        period,
+        totals,
+        pfSummary,
+        esiSummary,
+        lwfSummary,
+        { clientInfo, filters }
+      );
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (err) {
+      console.error('CSV export failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
   return (
@@ -183,54 +201,53 @@ export default function SalarySheetFormat2View({
             type="button"
             className={`${styles.actionBtn} ${styles.btnPdf}`}
             onClick={handleDownloadPdf}
+            disabled={Boolean(downloadingFormat)}
             title="Download Official PDF Report"
           >
-            <Download size={14} /> PDF
+            {downloadingFormat === 'pdf' ? (
+              <>
+                <Loader2 size={14} className={styles.spinner} /> Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download size={14} /> PDF
+              </>
+            )}
           </button>
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.btnExcel}`}
             onClick={handleDownloadExcel}
+            disabled={Boolean(downloadingFormat)}
             title="Download Excel Workbook (.xlsx)"
           >
-            <FileSpreadsheet size={14} /> Excel
+            {downloadingFormat === 'excel' ? (
+              <>
+                <Loader2 size={14} className={styles.spinner} /> Preparing Excel...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet size={14} /> Excel
+              </>
+            )}
           </button>
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.btnCsv}`}
             onClick={handleDownloadCsv}
+            disabled={Boolean(downloadingFormat)}
             title="Download CSV"
           >
-            <FileText size={14} /> CSV
+            {downloadingFormat === 'csv' ? (
+              <>
+                <Loader2 size={14} className={styles.spinner} /> Exporting CSV...
+              </>
+            ) : (
+              <>
+                <FileText size={14} /> CSV
+              </>
+            )}
           </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Official Document"
-          >
-            <Printer size={14} /> Print
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiBar}>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Total Employees</span>
-          <span className={`${styles.kpiValue} ${styles.kpiBlue}`}>{records.length}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Total Wages / Gross</span>
-          <span className={styles.kpiValue}>₹{grandGross.toLocaleString('en-IN')}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Total Deductions</span>
-          <span className={`${styles.kpiValue} ${styles.kpiPurple}`}>₹{grandDeductions.toLocaleString('en-IN')}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Net Payable</span>
-          <span className={`${styles.kpiValue} ${styles.kpiGreen}`}>₹{grandNet.toLocaleString('en-IN')}</span>
         </div>
       </div>
 

@@ -1,11 +1,11 @@
 import React from 'react';
-import { Eye, Edit2, Power, MoreVertical } from 'lucide-react';
+import { Eye, Edit2, Power, MoreVertical, Trash2 } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './MasterActionMenu.module.css';
 
 /**
  * MasterActionMenu Component
- * Action menu for Master records (View, Edit, Activate/Deactivate).
+ * Action menu for Master records (View, Edit, Activate/Deactivate, Delete).
  */
 function MasterActionMenu({ item, onAction }) {
   const isActive = item.status === 'active';
@@ -39,6 +39,15 @@ function MasterActionMenu({ item, onAction }) {
           >
             <Power size={14} />
             <span>{isActive ? 'Deactivate' : 'Activate'}</span>
+          </button>
+        </li>
+        <li>
+          <button 
+            className={`${styles.menuItem} ${styles.deactivate}`}
+            onClick={() => onAction('delete', item)}
+          >
+            <Trash2 size={14} />
+            <span>Delete</span>
           </button>
         </li>
       </ul>
