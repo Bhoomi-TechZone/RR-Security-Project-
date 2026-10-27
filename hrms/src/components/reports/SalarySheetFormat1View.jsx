@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileText,
   FileSpreadsheet,
-  Printer,
   Download,
   Building2,
   Calendar,
   Users,
   IndianRupee,
   ShieldCheck,
+  Loader2,
 } from 'lucide-react';
 import {
   downloadSalarySheetFormat1Pdf,
@@ -37,6 +37,8 @@ export default function SalarySheetFormat1View({
   deductionSummary = {},
   filters = {},
 }) {
+  const [downloadingFormat, setDownloadingFormat] = useState(null);
+
   // Resolve configured company statutory codes strictly from Company Setup
   let savedSetup = {};
   try {
@@ -99,70 +101,80 @@ export default function SalarySheetFormat1View({
     records[0]?.site ||
     '';
 
-  // Dynamic sums fallback from records if totals not fully provided
-  const grandGross = totals?.grandGross ?? records.reduce((s, r) => s + (Number(r.grossSalary) || 0), 0);
-  const grandDeductions = totals?.grandDeductions ?? records.reduce((s, r) => s + (Number(r.grossDeduct) || 0), 0);
-  const grandNet = totals?.grandNet ?? records.reduce((s, r) => s + (Number(r.netPayableNumber ?? r.netPayable) || 0), 0);
-
-  // Exporters
-  const handleDownloadPdf = () => {
-    downloadSalarySheetFormat1Pdf(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      ptSummary,
-      earningSummary,
-      deductionSummary,
-      { mode: 'download', clientInfo, filters }
-    );
+  // Exporters with dynamic loading spinner
+  const handleDownloadPdf = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('pdf');
+      // allow React state update / spinner animation to render immediately
+      await new Promise((r) => setTimeout(r, 60));
+      await downloadSalarySheetFormat1Pdf(
+        records,
+        companyInfo,
+        period,
+        totals,
+        pfSummary,
+        esiSummary,
+        ptSummary,
+        earningSummary,
+        deductionSummary,
+        { mode: 'download', clientInfo, filters }
+      );
+    } catch (err) {
+      console.error('PDF export failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
-  const handlePrint = () => {
-    downloadSalarySheetFormat1Pdf(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      ptSummary,
-      earningSummary,
-      deductionSummary,
-      { mode: 'print', clientInfo, filters }
-    );
+  const handleDownloadExcel = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('excel');
+      await new Promise((r) => setTimeout(r, 80));
+      await downloadSalarySheetFormat1Excel(
+        records,
+        companyInfo,
+        period,
+        totals,
+        pfSummary,
+        esiSummary,
+        ptSummary,
+        earningSummary,
+        deductionSummary,
+        { format: 'xlsx', clientInfo, filters }
+      );
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (err) {
+      console.error('Excel export failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
-  const handleDownloadExcel = () => {
-    downloadSalarySheetFormat1Excel(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      ptSummary,
-      earningSummary,
-      deductionSummary,
-      { format: 'xlsx', clientInfo, filters }
-    );
-  };
-
-  const handleDownloadCsv = () => {
-    downloadSalarySheetFormat1Csv(
-      records,
-      companyInfo,
-      period,
-      totals,
-      pfSummary,
-      esiSummary,
-      ptSummary,
-      earningSummary,
-      deductionSummary,
-      { clientInfo, filters }
-    );
+  const handleDownloadCsv = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('csv');
+      await new Promise((r) => setTimeout(r, 80));
+      await downloadSalarySheetFormat1Csv(
+        records,
+        companyInfo,
+        period,
+        totals,
+        pfSummary,
+        esiSummary,
+        ptSummary,
+        earningSummary,
+        deductionSummary,
+        { clientInfo, filters }
+      );
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (err) {
+      console.error('CSV export failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
   return (
@@ -195,54 +207,53 @@ export default function SalarySheetFormat1View({
             type="button"
             className={`${styles.actionBtn} ${styles.btnPdf}`}
             onClick={handleDownloadPdf}
+            disabled={Boolean(downloadingFormat)}
             title="Download Official PDF Report"
           >
-            <Download size={14} /> PDF
+            {downloadingFormat === 'pdf' ? (
+              <>
+                <Loader2 size={14} className={styles.spinner} /> Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download size={14} /> PDF
+              </>
+            )}
           </button>
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.btnExcel}`}
             onClick={handleDownloadExcel}
+            disabled={Boolean(downloadingFormat)}
             title="Download Excel Workbook (.xlsx)"
           >
-            <FileSpreadsheet size={14} /> Excel
+            {downloadingFormat === 'excel' ? (
+              <>
+                <Loader2 size={14} className={styles.spinner} /> Preparing Excel...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet size={14} /> Excel
+              </>
+            )}
           </button>
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.btnCsv}`}
             onClick={handleDownloadCsv}
+            disabled={Boolean(downloadingFormat)}
             title="Download CSV"
           >
-            <FileText size={14} /> CSV
+            {downloadingFormat === 'csv' ? (
+              <>
+                <Loader2 size={14} className={styles.spinner} /> Exporting CSV...
+              </>
+            ) : (
+              <>
+                <FileText size={14} /> CSV
+              </>
+            )}
           </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Official Document"
-          >
-            <Printer size={14} /> Print
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Summary Cards (Web UI only - excluded from official report document) */}
-      <div className={`${styles.kpiBar} no-print`} data-no-print="true" data-html2canvas-ignore="true">
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Total Employees</span>
-          <span className={`${styles.kpiValue} ${styles.kpiBlue}`}>{records.length}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Total Gross Salary</span>
-          <span className={styles.kpiValue}>₹{grandGross.toLocaleString('en-IN')}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Total Deductions</span>
-          <span className={`${styles.kpiValue} ${styles.kpiPurple}`}>₹{grandDeductions.toLocaleString('en-IN')}</span>
-        </div>
-        <div className={styles.kpiCard}>
-          <span className={styles.kpiLabel}>Net Payable</span>
-          <span className={`${styles.kpiValue} ${styles.kpiGreen}`}>₹{grandNet.toLocaleString('en-IN')}</span>
         </div>
       </div>
 

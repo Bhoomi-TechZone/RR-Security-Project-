@@ -18,6 +18,8 @@ const masterSchema = new mongoose.Schema(
       required: true,
       enum: [
         'banks',
+        'client-services',
+        'clients',
         'departments',
         'designations',
         'employee-types',

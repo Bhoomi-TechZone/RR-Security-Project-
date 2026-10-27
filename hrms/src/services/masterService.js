@@ -20,9 +20,9 @@ export const masterService = {
   /**
    * Fetch all master records for a given category type and company
    */
-  async getMasters(type, companyId) {
+  async getMasters(type, companyId, forceRefresh = false) {
     const cacheKey = `${companyId || 'all'}_${type || 'all'}`;
-    if (mastersCache.has(cacheKey)) {
+    if (!forceRefresh && mastersCache.has(cacheKey)) {
       return mastersCache.get(cacheKey);
     }
 
