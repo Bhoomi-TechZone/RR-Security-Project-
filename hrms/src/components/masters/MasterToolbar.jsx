@@ -13,7 +13,8 @@ function MasterToolbar({
   onAddNew,
   holidayYear,
   onHolidayYearChange,
-  canAdd = true
+  canAdd = true,
+  customAddLabel = null
 }) {
   const getTabConfig = () => {
     switch (activeTab) {
@@ -48,6 +49,7 @@ function MasterToolbar({
   };
 
   const { placeholder, addLabel } = getTabConfig();
+  const effectiveAddLabel = customAddLabel || addLabel;
 
   return (
     <div className={styles.toolbarContainer}>
@@ -86,10 +88,10 @@ function MasterToolbar({
           type="button"
           className={styles.addBtn}
           onClick={onAddNew}
-          aria-label={addLabel}
+          aria-label={effectiveAddLabel}
         >
           <Plus size={16} />
-          <span>{addLabel}</span>
+          <span>{effectiveAddLabel}</span>
         </button>
       )}
     </div>

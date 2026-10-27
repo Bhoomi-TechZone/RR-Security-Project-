@@ -10,7 +10,7 @@ import styles from './MasterSummaryCards.module.css';
  * MasterSummaryCards Component
  * Displays 3 summary cards (Total, Active, Inactive) tailored to the active master tab.
  */
-function MasterSummaryCards({ activeTab, items = [] }) {
+function MasterSummaryCards({ activeTab, items = [], subTab = null }) {
   const total = items.length;
   const active = items.filter(item => item.status === 'active').length;
   const inactive = items.filter(item => item.status === 'inactive').length;
@@ -39,6 +39,9 @@ function MasterSummaryCards({ activeTab, items = [] }) {
       case 'holidays':
         return { singular: 'Holiday', plural: 'Holidays', icon: CalendarHeart };
       case 'salary-components':
+        if (subTab === 'deductions') {
+          return { singular: 'Deduction', plural: 'Deductions', icon: DollarSign };
+        }
         return { singular: 'Salary Component', plural: 'Salary Components', icon: DollarSign };
       case 'document-types':
         return { singular: 'Document Type', plural: 'Document Types', icon: FileCheck };

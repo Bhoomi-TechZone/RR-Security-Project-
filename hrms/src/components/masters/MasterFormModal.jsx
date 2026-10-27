@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { X, Save } from 'lucide-react';
 import { MANPOWER_SERVICE_OPTIONS } from '../../data/masters/clientData';
 import styles from './MasterFormModal.module.css';
 
@@ -15,7 +15,8 @@ function MasterFormModal({
   editingItem = null,
   departments = [],
   clients = [],
-  workLocations = []
+  workLocations = [],
+  componentCategory = 'earning'
 }) {
   const [formData, setFormData] = useState({});
   const [branchInput, setBranchInput] = useState('');
@@ -31,7 +32,19 @@ function MasterFormModal({
       if (editingItem) {
         setFormData({
           ...editingItem,
-          branchList: Array.isArray(editingItem.branchList) ? editingItem.branchList : []
+          type: editingItem.type || componentCategory || 'earning',
+          branchList: Array.isArray(editingItem.branchList) ? editingItem.branchList : [],
+          shortName: editingItem.shortName || editingItem.code || '',
+          componentType: editingItem.componentType || (['Paid Days', 'Paid Hours', 'Fixed Salary', 'Daily Salary', 'Rate Based', 'Variable'].includes(editingItem.type) ? editingItem.type : '') || '',
+          deductionType: editingItem.deductionType || editingItem.componentType || '',
+          status: editingItem.status || 'active',
+          excludeFromGrossSalary: Boolean(editingItem.excludeFromGrossSalary),
+          hideInCtcReports: Boolean(editingItem.hideInCtcReports),
+          notPayable: Boolean(editingItem.notPayable),
+          excludeHolidays: Boolean(editingItem.excludeHolidays),
+          excludeWeekoffs: Boolean(editingItem.excludeWeekoffs),
+          excludeFromCtc: Boolean(editingItem.excludeFromCtc),
+          paybackOnExit: Boolean(editingItem.paybackOnExit)
         });
       } else {
         // Defaults for Add per activeTab
@@ -70,7 +83,20 @@ function MasterFormModal({
           defaultState.applicableLocation = 'All Locations';
           defaultState.date = new Date().toISOString().split('T')[0];
         } else if (activeTab === 'salary-components') {
-          defaultState.type = 'earning';
+          defaultState.type = componentCategory || 'earning';
+          defaultState.name = '';
+          defaultState.shortName = '';
+          defaultState.code = '';
+          defaultState.componentType = '';
+          defaultState.deductionType = '';
+          defaultState.status = 'active';
+          defaultState.excludeFromGrossSalary = false;
+          defaultState.hideInCtcReports = false;
+          defaultState.notPayable = false;
+          defaultState.excludeHolidays = false;
+          defaultState.excludeWeekoffs = false;
+          defaultState.excludeFromCtc = false;
+          defaultState.paybackOnExit = false;
           defaultState.calculationType = 'fixed';
           defaultState.taxable = 'taxable';
         } else if (activeTab === 'document-types') {
@@ -82,7 +108,7 @@ function MasterFormModal({
         setFormData(defaultState);
       }
     }
-  }, [isOpen, editingItem, activeTab, departments, clients, workLocations]);
+  }, [isOpen, editingItem, activeTab, departments, clients, workLocations, componentCategory]);
 
   useEffect(() => {
     if (isOpen && modalRef.current) {
@@ -126,8 +152,18 @@ function MasterFormModal({
     } else if (activeTab === 'holidays') {
       if (!formData.date) newErrors.date = 'Holiday date is required.';
     } else if (activeTab === 'salary-components') {
-      if (!formData.code?.trim()) newErrors.code = 'Component code is required.';
-      if (!formData.type) newErrors.type = 'Component type is required.';
+      if (!formData.name?.trim()) newErrors.name = 'Name is required.';
+      if (!formData.shortName?.trim() && !formData.code?.trim()) newErrors.shortName = 'Short Name (Alias) is required.';
+      const isDed = isEdit ? (editingItem?.type === 'deduction' || formData.type === 'deduction') : componentCategory === 'deduction';
+      if (isDed) {
+        if (!formData.deductionType && !formData.componentType) {
+          newErrors.deductionType = 'Deduction Type is required.';
+        }
+      } else {
+        if (!formData.componentType) {
+          newErrors.componentType = 'Component Type is required.';
+        }
+      }
     }
 
     setErrors(newErrors);
@@ -137,7 +173,21 @@ function MasterFormModal({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!validate()) return;
-    onSubmit(formData);
+    const payload = { ...formData };
+    if (activeTab === 'salary-components') {
+      const alias = (payload.shortName || payload.code || '').trim();
+      payload.code = alias;
+      payload.shortName = alias;
+      const isDed = isEdit ? (editingItem?.type === 'deduction' || payload.type === 'deduction') : componentCategory === 'deduction';
+      payload.type = isDed ? 'deduction' : 'earning';
+      if (isDed) {
+        payload.deductionType = payload.deductionType || payload.componentType || 'Fixed';
+        payload.componentType = payload.deductionType;
+      } else {
+        payload.componentType = payload.componentType || 'Fixed Salary';
+      }
+    }
+    onSubmit(payload);
   };
 
   const getTitle = () => {
@@ -154,7 +204,10 @@ function MasterFormModal({
       case 'shifts': return `${action} Shift`;
       case 'leave-types': return `${action} Leave Type`;
       case 'holidays': return `${action} Holiday`;
-      case 'salary-components': return `${action} Salary Component`;
+      case 'salary-components': {
+        const isDed = isEdit ? (editingItem?.type === 'deduction' || formData.type === 'deduction') : componentCategory === 'deduction';
+        return `${action} ${isDed ? 'Deduction' : 'Component'}`;
+      }
       case 'document-types': return `${action} Document Type`;
       default: return `${action} Record`;
     }
@@ -1065,104 +1118,273 @@ function MasterFormModal({
             </>
           )}
 
-          {/* 11. SALARY COMPONENTS */}
-          {activeTab === 'salary-components' && (
-            <>
-              <div className={styles.row}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Component Name <span className={styles.required}>*</span></label>
-                  <input
-                    type="text"
-                    className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
-                    placeholder="e.g. Basic Salary, HRA, PF"
-                    value={formData.name || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, name: e.target.value });
-                      if (errors.name) setErrors({ ...errors, name: null });
-                    }}
-                  />
-                  {errors.name && <span className={styles.errorText}>{errors.name}</span>}
+          {/* 11. SALARY COMPONENTS & DEDUCTIONS */}
+          {activeTab === 'salary-components' && (() => {
+            const isDed = isEdit ? (editingItem?.type === 'deduction' || formData.type === 'deduction') : componentCategory === 'deduction';
+            return (
+              <>
+                <div className={styles.salaryFormRow}>
+                  <label className={styles.salaryFormLabel}>
+                    Name <span className={styles.requiredStar}>*</span>
+                  </label>
+                  <div className={styles.salaryFormInputWrapper}>
+                    <input
+                      type="text"
+                      className={`${styles.salaryFormInput} ${errors.name ? styles.inputError : ''}`}
+                      placeholder=""
+                      value={formData.name || ''}
+                      onChange={(e) => {
+                        setFormData({ ...formData, name: e.target.value });
+                        if (errors.name) setErrors({ ...errors, name: null });
+                      }}
+                    />
+                    {errors.name && <span className={styles.errorText}>{errors.name}</span>}
+                  </div>
                 </div>
 
-                <div className={styles.field}>
-                  <label className={styles.label}>Component Code <span className={styles.required}>*</span></label>
-                  <input
-                    type="text"
-                    className={`${styles.input} ${errors.code ? styles.inputError : ''}`}
-                    placeholder="e.g. BASIC, HRA, PF"
-                    value={formData.code || ''}
-                    onChange={(e) => {
-                      setFormData({ ...formData, code: e.target.value.toUpperCase() });
-                      if (errors.code) setErrors({ ...errors, code: null });
-                    }}
-                  />
-                  {errors.code && <span className={styles.errorText}>{errors.code}</span>}
-                </div>
-              </div>
-
-              <div className={styles.rowThree}>
-                <div className={styles.field}>
-                  <label className={styles.label}>Component Type <span className={styles.required}>*</span></label>
-                  <select
-                    className={styles.select}
-                    value={formData.type || 'earning'}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  >
-                    <option value="earning">Earning (+)</option>
-                    <option value="deduction">Deduction (-)</option>
-                  </select>
+                <div className={styles.salaryFormRow}>
+                  <label className={styles.salaryFormLabel}>
+                    Short Name (Alias) <span className={styles.requiredStar}>*</span>
+                  </label>
+                  <div className={styles.salaryFormInputWrapper}>
+                    <input
+                      type="text"
+                      className={`${styles.salaryFormInputShort} ${errors.shortName ? styles.inputError : ''}`}
+                      placeholder=""
+                      value={formData.shortName || formData.code || ''}
+                      onChange={(e) => {
+                        setFormData({ ...formData, shortName: e.target.value, code: e.target.value });
+                        if (errors.shortName) setErrors({ ...errors, shortName: null });
+                      }}
+                    />
+                    {errors.shortName && <span className={styles.errorText}>{errors.shortName}</span>}
+                  </div>
                 </div>
 
-                <div className={styles.field}>
-                  <label className={styles.label}>Calculation Type</label>
-                  <select
-                    className={styles.select}
-                    value={formData.calculationType || 'fixed'}
-                    onChange={(e) => setFormData({ ...formData, calculationType: e.target.value })}
-                  >
-                    <option value="fixed">Fixed Amount</option>
-                    <option value="percentage_basic">% of Basic</option>
-                    <option value="percentage_gross">% of Gross</option>
-                    <option value="variable">Variable / Slab</option>
-                  </select>
-                </div>
+                {isDed ? (
+                  <>
+                    <div className={styles.salaryFormRow}>
+                      <label className={styles.salaryFormLabel}>
+                        Deduction Type <span className={styles.requiredStar}>*</span>
+                      </label>
+                      <div className={styles.salaryFormInputWrapper}>
+                        <select
+                          className={`${styles.salaryFormSelect} ${errors.deductionType ? styles.inputError : ''}`}
+                          value={formData.deductionType || formData.componentType || ''}
+                          onChange={(e) => {
+                            setFormData({ ...formData, deductionType: e.target.value, componentType: e.target.value });
+                            if (errors.deductionType) setErrors({ ...errors, deductionType: null });
+                          }}
+                        >
+                          <option value="">- Select -</option>
+                          <option value="Fixed">Fixed</option>
+                          <option value="Variable">Variable</option>
+                          <option value="Percent Based">Percent Based</option>
+                          <option value="Strike Based">Strike Based</option>
+                          <option value="Attendance Based">Attendance Based</option>
+                          <option value="Time Based">Time Based</option>
+                        </select>
+                        {errors.deductionType && <span className={styles.errorText}>{errors.deductionType}</span>}
+                      </div>
+                    </div>
 
-                <div className={styles.field}>
-                  <label className={styles.label}>Taxable Status</label>
-                  <select
-                    className={styles.select}
-                    value={formData.taxable || 'taxable'}
-                    onChange={(e) => setFormData({ ...formData, taxable: e.target.value })}
-                  >
-                    <option value="taxable">Taxable</option>
-                    <option value="non-taxable">Non-Taxable / Exempt</option>
-                  </select>
-                </div>
-              </div>
+                    <div className={styles.salaryTogglesList}>
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={formData.status === 'active'}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.checked ? 'active' : 'inactive' })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Active
+                        </span>
+                      </label>
 
-              <div className={styles.field}>
-                <label className={styles.label}>Default Value / Formula</label>
-                <input
-                  type="text"
-                  className={styles.input}
-                  placeholder="e.g. 50% of Basic, 12% of Basic, or Fixed Value"
-                  value={formData.defaultValue || ''}
-                  onChange={(e) => setFormData({ ...formData, defaultValue: e.target.value })}
-                />
-              </div>
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(formData.excludeFromCtc)}
+                            onChange={(e) => setFormData({ ...formData, excludeFromCtc: e.target.checked })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Exclude from CTC
+                          <span
+                            className={styles.infoBadge}
+                            title="Exclude this deduction from CTC computation."
+                          >
+                            i
+                          </span>
+                        </span>
+                      </label>
 
-              <div className={styles.field}>
-                <label className={styles.label}>Description</label>
-                <textarea
-                  className={styles.textarea}
-                  rows="2"
-                  placeholder="Statutory compliance rules and calculation instructions..."
-                  value={formData.description || ''}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                />
-              </div>
-            </>
-          )}
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(formData.paybackOnExit)}
+                            onChange={(e) => setFormData({ ...formData, paybackOnExit: e.target.checked })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Payback on Exit
+                          <span
+                            className={styles.infoBadge}
+                            title="Reimburse or settle accumulated deductions upon employee separation."
+                          >
+                            i
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.salaryFormRow}>
+                      <label className={styles.salaryFormLabel}>
+                        Component Type <span className={styles.requiredStar}>*</span>
+                      </label>
+                      <div className={styles.salaryFormInputWrapper}>
+                        <select
+                          className={`${styles.salaryFormSelect} ${errors.componentType ? styles.inputError : ''}`}
+                          value={formData.componentType || ''}
+                          onChange={(e) => {
+                            setFormData({ ...formData, componentType: e.target.value });
+                            if (errors.componentType) setErrors({ ...errors, componentType: null });
+                          }}
+                        >
+                          <option value="">- Select -</option>
+                          <option value="Paid Days">Paid Days</option>
+                          <option value="Paid Hours">Paid Hours</option>
+                          <option value="Fixed Salary">Fixed Salary</option>
+                          <option value="Daily Salary">Daily Salary</option>
+                          <option value="Rate Based">Rate Based</option>
+                          <option value="Variable">Variable</option>
+                        </select>
+                        {errors.componentType && <span className={styles.errorText}>{errors.componentType}</span>}
+
+                        {['Paid Days', 'Paid Hours', 'Daily Salary'].includes(formData.componentType) && (
+                          <div className={styles.salarySubTogglesRow}>
+                            <label className={styles.salaryToggleInline}>
+                              <div className={styles.salarySwitch}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(formData.excludeHolidays)}
+                                  onChange={(e) => setFormData({ ...formData, excludeHolidays: e.target.checked })}
+                                />
+                                <span className={styles.salarySlider}></span>
+                              </div>
+                              <span className={styles.salaryToggleLabelText}>Exclude Holidays</span>
+                            </label>
+
+                            <label className={styles.salaryToggleInline}>
+                              <div className={styles.salarySwitch}>
+                                <input
+                                  type="checkbox"
+                                  checked={Boolean(formData.excludeWeekoffs)}
+                                  onChange={(e) => setFormData({ ...formData, excludeWeekoffs: e.target.checked })}
+                                />
+                                <span className={styles.salarySlider}></span>
+                              </div>
+                              <span className={styles.salaryToggleLabelText}>Exclude Weekoffs</span>
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className={styles.salaryTogglesList}>
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={formData.status === 'active'}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.checked ? 'active' : 'inactive' })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Active
+                          <span
+                            className={styles.infoBadge}
+                            title="Active components are available in pay groups and payroll calculations."
+                          >
+                            i
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(formData.excludeFromGrossSalary)}
+                            onChange={(e) => setFormData({ ...formData, excludeFromGrossSalary: e.target.checked })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Exclude from Gross Salary
+                          <span
+                            className={styles.infoBadge}
+                            title="Exclude this component when calculating the total gross salary."
+                          >
+                            i
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(formData.hideInCtcReports)}
+                            onChange={(e) => setFormData({ ...formData, hideInCtcReports: e.target.checked })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Hide in CTC Reports
+                          <span
+                            className={styles.infoBadge}
+                            title="Hide this salary component from employee CTC statements and reports."
+                          >
+                            i
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className={styles.salaryToggleItem}>
+                        <div className={styles.salarySwitch}>
+                          <input
+                            type="checkbox"
+                            checked={Boolean(formData.notPayable)}
+                            onChange={(e) => setFormData({ ...formData, notPayable: e.target.checked })}
+                          />
+                          <span className={styles.salarySlider}></span>
+                        </div>
+                        <span className={styles.salaryToggleLabel}>
+                          Not Payable
+                          <span
+                            className={styles.infoBadge}
+                            title="Component used for statutory or tracking calculation only and not disbursed to employee."
+                          >
+                            i
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+                  </>
+                )}
+              </>
+            );
+          })()}
 
           {/* 12. DOCUMENT TYPES */}
           {activeTab === 'document-types' && (
@@ -1247,39 +1469,54 @@ function MasterFormModal({
           )}
 
           {/* COMMON STATUS FIELD */}
-          <div className={styles.field}>
-            <label className={styles.label}>Status</label>
-            <div className={styles.radioGroup}>
-              <label className={styles.radioLabel}>
-                <input
-                  type="radio"
-                  name="status"
-                  value="active"
-                  checked={formData.status === 'active'}
-                  onChange={() => setFormData({ ...formData, status: 'active' })}
-                />
-                <span>Active</span>
-              </label>
-              <label className={styles.radioLabel}>
-                <input
-                  type="radio"
-                  name="status"
-                  value="inactive"
-                  checked={formData.status === 'inactive'}
-                  onChange={() => setFormData({ ...formData, status: 'inactive' })}
-                />
-                <span>Inactive</span>
-              </label>
+          {activeTab !== 'salary-components' && (
+            <div className={styles.field}>
+              <label className={styles.label}>Status</label>
+              <div className={styles.radioGroup}>
+                <label className={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="status"
+                    value="active"
+                    checked={formData.status === 'active'}
+                    onChange={() => setFormData({ ...formData, status: 'active' })}
+                  />
+                  <span>Active</span>
+                </label>
+                <label className={styles.radioLabel}>
+                  <input
+                    type="radio"
+                    name="status"
+                    value="inactive"
+                    checked={formData.status === 'inactive'}
+                    onChange={() => setFormData({ ...formData, status: 'inactive' })}
+                  />
+                  <span>Inactive</span>
+                </label>
+              </div>
             </div>
-          </div>
+          )}
 
           <footer className={styles.footer}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className={styles.submitBtn}>
-              {isEdit ? 'Save Changes' : 'Create Record'}
-            </button>
+            {activeTab === 'salary-components' ? (
+              <div className={styles.salaryFooterActions}>
+                <button type="button" className={styles.salaryCloseBtnText} onClick={onClose}>
+                  Close
+                </button>
+                <button type="submit" className={styles.salarySaveBtn}>
+                  <Save size={16} /> Save
+                </button>
+              </div>
+            ) : (
+              <>
+                <button type="button" className={styles.cancelBtn} onClick={onClose}>
+                  Cancel
+                </button>
+                <button type="submit" className={styles.submitBtn}>
+                  {isEdit ? 'Save Changes' : 'Create Record'}
+                </button>
+              </>
+            )}
           </footer>
         </form>
       </div>

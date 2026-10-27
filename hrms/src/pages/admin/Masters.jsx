@@ -27,6 +27,7 @@ import { getInitialClients } from '../../data/masters/clientData';
 import { getInitialClientServices } from '../../data/masters/clientServicesData';
 import { mockShiftMaster } from '../../data/masters/shiftMasterData';
 import { mockWorkLocations } from '../../data/workLocationsData';
+import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -177,6 +178,7 @@ function Masters() {
   const [searchTerm, setSearchTerm] = useState('');
   const [holidayYear, setHolidayYear] = useState('2026');
   const [currentPage, setCurrentPage] = useState(1);
+  const [salaryComponentSubTab, setSalaryComponentSubTab] = useState('earnings');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -206,7 +208,16 @@ function Masters() {
   const [shifts, setShifts] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [holidays, setHolidays] = useState([]);
-  const [salaryComponents, setSalaryComponents] = useState([]);
+  const [salaryComponents, setSalaryComponents] = useState(() => {
+    const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return mockSalaryComponents;
+  });
   const [documentTypes, setDocumentTypes] = useState([]);
 
   // Client Services Master Data State
@@ -274,6 +285,12 @@ function Masters() {
     }
   }, [workLocations, companyId]);
 
+  useEffect(() => {
+    if (salaryComponents.length > 0) {
+      localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(salaryComponents));
+    }
+  }, [salaryComponents, companyId]);
+
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
   };
@@ -321,10 +338,34 @@ function Masters() {
           setClientServices(initial);
         }
       } else {
+        if (tab === 'salary-components') {
+          const data = await masterService.getMasters(tab, companyId).catch(() => null);
+          if (Array.isArray(data) && data.length > 0) {
+            setSalaryComponents(data);
+            localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(data));
+          } else {
+            const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  setSalaryComponents(parsed);
+                  return;
+                }
+              } catch (e) {}
+            }
+            setSalaryComponents(mockSalaryComponents);
+          }
+          return;
+        }
         const data = await masterService.getMasters(tab, companyId);
         setTabData(tab, data);
       }
     } catch (err) {
+      if (tab === 'salary-components') {
+        setSalaryComponents(mockSalaryComponents);
+        return;
+      }
       console.error(`Error loading master ${tab}:`, err);
       if (!silent) {
         setError(err.message || 'Failed to load master records.');
@@ -436,7 +477,7 @@ function Masters() {
   // Reset pagination when tab, search, or year filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab, searchTerm, holidayYear]);
+  }, [activeTab, searchTerm, holidayYear, salaryComponentSubTab]);
 
   // Retrieve current active dataset
   const getCurrentDataset = () => {
@@ -452,7 +493,12 @@ function Masters() {
       case 'shifts': return shifts;
       case 'leave-types': return leaveTypes;
       case 'holidays': return holidays;
-      case 'salary-components': return salaryComponents;
+      case 'salary-components':
+        return salaryComponents.filter(c =>
+          salaryComponentSubTab === 'deductions'
+            ? c.type === 'deduction'
+            : (c.type || 'earning') === 'earning'
+        );
       case 'document-types': return documentTypes;
       default: return [];
     }
@@ -582,6 +628,9 @@ function Masters() {
           sc.name?.toLowerCase().includes(term) ||
           (sc.code && sc.code.toLowerCase().includes(term)) ||
           (sc.type && sc.type.toLowerCase().includes(term)) ||
+          (sc.shortName && sc.shortName.toLowerCase().includes(term)) ||
+          (sc.componentType && sc.componentType.toLowerCase().includes(term)) ||
+          (sc.deductionType && sc.deductionType.toLowerCase().includes(term)) ||
           (sc.description && sc.description.toLowerCase().includes(term))
         );
       case 'document-types':
@@ -596,6 +645,15 @@ function Masters() {
   };
 
   const filteredItems = getFilteredItems();
+
+  const earningsCount = useMemo(
+    () => salaryComponents.filter((c) => (c.type || 'earning') === 'earning').length,
+    [salaryComponents]
+  );
+  const deductionsCount = useMemo(
+    () => salaryComponents.filter((c) => c.type === 'deduction').length,
+    [salaryComponents]
+  );
   const paginatedItems = filteredItems.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -614,7 +672,7 @@ function Masters() {
       case 'shifts': return 'Shift';
       case 'leave-types': return 'Leave Type';
       case 'holidays': return 'Holiday';
-      case 'salary-components': return 'Salary Component';
+      case 'salary-components': return salaryComponentSubTab === 'deductions' ? 'Deduction' : 'Salary Component';
       case 'document-types': return 'Document Type';
       default: return 'Record';
     }
@@ -654,7 +712,14 @@ function Masters() {
           else if (activeTab === 'shifts') setShifts(updateList);
           else if (activeTab === 'leave-types') setLeaveTypes(updateList);
           else if (activeTab === 'holidays') setHolidays(updateList);
-          else if (activeTab === 'salary-components') setSalaryComponents(updateList);
+          else if (activeTab === 'salary-components') {
+            setSalaryComponents(prev => {
+              const next = updateList(prev);
+              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(next));
+              return next;
+            });
+            window.dispatchEvent(new CustomEvent('salary-components-updated'));
+          }
           else if (activeTab === 'document-types') setDocumentTypes(updateList);
 
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
@@ -697,7 +762,14 @@ function Masters() {
           else if (activeTab === 'shifts') setShifts(prev => [created, ...prev]);
           else if (activeTab === 'leave-types') setLeaveTypes(prev => [created, ...prev]);
           else if (activeTab === 'holidays') setHolidays(prev => [created, ...prev]);
-          else if (activeTab === 'salary-components') setSalaryComponents(prev => [created, ...prev]);
+          else if (activeTab === 'salary-components') {
+            setSalaryComponents(prev => {
+              const next = [created, ...prev];
+              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(next));
+              return next;
+            });
+            window.dispatchEvent(new CustomEvent('salary-components-updated'));
+          }
           else if (activeTab === 'document-types') setDocumentTypes(prev => [created, ...prev]);
 
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
@@ -724,6 +796,16 @@ function Masters() {
     if (actionType === 'view') {
       setSelectedItem(item);
       setIsDetailsOpen(true);
+    } else if (actionType === 'delete') {
+      setConfirmModal({
+        isOpen: true,
+        title: `Delete ${item.name}?`,
+        description: `Are you sure you want to delete ${item.name}? This action cannot be undone.`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+        item,
+        actionType: 'delete'
+      });
     } else if (actionType === 'edit') {
       setEditingItem(item);
       setIsFormOpen(true);
@@ -754,6 +836,65 @@ function Masters() {
   const handleConfirmAction = async () => {
     const { item, actionType } = confirmModal;
     if (!item) return;
+
+    if (actionType === 'delete') {
+      try {
+        if (DYNAMIC_TABS.includes(activeTab)) {
+          try {
+            await masterService.deleteMaster(companyId, item.id);
+          } catch (e) {}
+
+          const filterList = (list) => list.filter(i => i.id !== item.id);
+
+          if (activeTab === 'salary-components') {
+            setSalaryComponents(filterList);
+            const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                const nextList = parsed.filter(i => i.id !== item.id);
+                localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(nextList));
+              } catch (e) {}
+            }
+            window.dispatchEvent(new CustomEvent('salary-components-updated'));
+          }
+          else if (activeTab === 'banks') setBanks(filterList);
+          else if (activeTab === 'client-services' || activeTab === 'clients') {
+            setClientServices(filterList);
+            const nextList = filterList(clientServices);
+            localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(nextList));
+            window.dispatchEvent(new CustomEvent('client-services-updated'));
+          }
+          else if (activeTab === 'departments') setDepartments(filterList);
+          else if (activeTab === 'designations') setDesignations(filterList);
+          else if (activeTab === 'employee-types') setEmployeeTypes(filterList);
+          else if (activeTab === 'sites') setSites(filterList);
+          else if (activeTab === 'posts') setPosts(filterList);
+          else if (activeTab === 'shifts') setShifts(filterList);
+          else if (activeTab === 'leave-types') setLeaveTypes(filterList);
+          else if (activeTab === 'holidays') setHolidays(filterList);
+          else if (activeTab === 'document-types') setDocumentTypes(filterList);
+
+          window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
+        }
+
+        showToast(`✓ ${entityName} deleted successfully.`, 'success');
+      } catch (err) {
+        console.error('Error deleting master:', err);
+        showToast(err.message || `Failed to delete ${entityName}.`, 'error');
+      } finally {
+        setConfirmModal({
+          isOpen: false,
+          title: '',
+          description: '',
+          confirmLabel: '',
+          variant: 'danger',
+          item: null,
+          actionType: null
+        });
+      }
+      return;
+    }
 
     const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
     const entityName = getEntityName();
@@ -824,7 +965,7 @@ function Masters() {
       case 'shifts': return 'shifts';
       case 'leave-types': return 'leave types';
       case 'holidays': return 'holidays';
-      case 'salary-components': return 'salary components';
+      case 'salary-components': return salaryComponentSubTab === 'deductions' ? 'deductions' : 'salary components';
       case 'document-types': return 'document types';
       default: return 'records';
     }
@@ -853,6 +994,7 @@ function Masters() {
           departments={departments}
           clients={clients}
           workLocations={workLocations}
+          componentCategory={salaryComponentSubTab === 'deductions' ? 'deduction' : 'earning'}
         />
 
         {/* Details View Modal */}
@@ -1204,7 +1346,30 @@ function Masters() {
             <MasterSummaryCards
               activeTab={activeTab}
               items={getCurrentDataset()}
+              subTab={activeTab === 'salary-components' ? salaryComponentSubTab : null}
             />
+
+            {/* Sub-tab Switcher for Salary Components vs Deductions */}
+            {activeTab === 'salary-components' && (
+              <div className={styles.salarySubTabsContainer}>
+                <button
+                  type="button"
+                  className={`${styles.salarySubTabBtn} ${salaryComponentSubTab === 'earnings' ? styles.salarySubTabBtnActive : ''}`}
+                  onClick={() => setSalaryComponentSubTab('earnings')}
+                >
+                  Earnings
+                  <span className={styles.salarySubTabBadge}>{earningsCount}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.salarySubTabBtn} ${salaryComponentSubTab === 'deductions' ? styles.salarySubTabBtnActive : ''}`}
+                  onClick={() => setSalaryComponentSubTab('deductions')}
+                >
+                  Deductions
+                  <span className={styles.salarySubTabBadge}>{deductionsCount}</span>
+                </button>
+              </div>
+            )}
 
             {/* Toolbar with Search and Contextual Add Button */}
             <MasterToolbar
@@ -1214,6 +1379,7 @@ function Masters() {
               holidayYear={holidayYear}
               onHolidayYearChange={setHolidayYear}
               canAdd={canAdd('masters')}
+              customAddLabel={activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Add Deduction' : 'Add Component') : null}
               onAddNew={() => {
                 setEditingItem(null);
                 setIsFormOpen(true);
@@ -1238,6 +1404,7 @@ function Masters() {
                   onResetSearch={() => setSearchTerm('')}
                   currentPage={currentPage}
                   itemsPerPage={ITEMS_PER_PAGE}
+                  subTab={activeTab === 'salary-components' ? salaryComponentSubTab : null}
                 />
 
                 {!loading && filteredItems.length > 0 && (
@@ -1245,6 +1412,7 @@ function Masters() {
                     currentPage={currentPage}
                     totalItems={filteredItems.length}
                     itemsPerPage={ITEMS_PER_PAGE}
+                  subTab={activeTab === 'salary-components' ? salaryComponentSubTab : null}
                     onPageChange={setCurrentPage}
                     label={getPaginationLabel()}
                   />

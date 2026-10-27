@@ -9,7 +9,7 @@
   overflow-x: auto;
   overflow-y: visible;
   min-height: 280px;
-  padding-bottom: 70px;
+  padding-bottom: 0px;
 }
 
 .table {
@@ -172,12 +172,35 @@
   display: inline-block;
 }
 
-.typePaid { background: #dcfce7; color: #166534; }
-.typeUnpaid { background: #fee2e2; color: #991b1b; }
-.typeEarning { background: #dbeafe; color: #1e40af; }
-.typeDeduction { background: #fef3c7; color: #92400e; }
-.typeRequired { background: #fef2f2; color: #b91c1c; }
-.typeOptional { background: #f1f5f9; color: #475569; }
+.typePaid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.typeUnpaid {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.typeEarning {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.typeDeduction {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.typeRequired {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.typeOptional {
+  background: #f1f5f9;
+  color: #475569;
+}
 
 .holidayTypeBadge {
   font-size: 10.5px;
@@ -190,10 +213,25 @@
   color: #475569;
 }
 
-.national { background: #e0e7ff; color: #3730a3; }
-.festival { background: #fef3c7; color: #92400e; }
-.company { background: #ecfdf5; color: #065f46; }
-.optional { background: #f3e8ff; color: #6b21a8; }
+.national {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.festival {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.company {
+  background: #ecfdf5;
+  color: #065f46;
+}
+
+.optional {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
 
 .flagText {
   font-size: var(--text-sm);
@@ -261,8 +299,13 @@
 }
 
 @keyframes loadingShimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 /* Responsive mobile view */
@@ -331,9 +374,11 @@
   .tableWrapper {
     display: none;
   }
+
   .mobileList {
     display: flex;
   }
+
   .container {
     border: none;
     background: transparent;
