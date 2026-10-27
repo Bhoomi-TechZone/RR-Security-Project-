@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileSpreadsheet,
   FileText,
-  Printer,
   Users,
   Clock,
   IndianRupee,
   ShieldCheck,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import {
   downloadWagesRegisterExcel,
@@ -30,6 +30,8 @@ export default function WagesRegisterFormXVIILReportView({
   esiSummary = {},
   filters = {},
 }) {
+  const [downloadingFormat, setDownloadingFormat] = useState(null);
+
   const est = establishmentInfo || {};
   const contractorName = est.contractorName || companyInfo?.name || 'RR SECURITY & FACILITIES';
   const contractorAddress =
@@ -52,66 +54,36 @@ export default function WagesRegisterFormXVIILReportView({
   const totalGross = totals?.grandGrossEarned ?? records.reduce((s, r) => s + (Number(r.earnings?.totalEarned) || 0), 0);
   const totalNet = totals?.grandNetPaid ?? records.reduce((s, r) => s + (Number(r.netPaid) || 0), 0);
 
-  const handleExportExcel = () => {
-    downloadWagesRegisterExcel(records, companyInfo, period, totals, pfSummary, esiSummary, establishmentInfo);
+  const handleExportExcel = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('excel');
+      await new Promise((r) => setTimeout(r, 80));
+      await downloadWagesRegisterExcel(records, companyInfo, period, totals, pfSummary, esiSummary, establishmentInfo);
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (err) {
+      console.error('Export Excel failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
-  const handleExportPdf = () => {
-    downloadWagesRegisterPdf(records, companyInfo, period, totals, pfSummary, esiSummary, establishmentInfo);
-  };
-
-  const handlePrint = () => {
-    downloadWagesRegisterPdf(records, companyInfo, period, totals, pfSummary, esiSummary, establishmentInfo, {
-      mode: 'print',
-    });
+  const handleExportPdf = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('pdf');
+      await new Promise((r) => setTimeout(r, 60));
+      await downloadWagesRegisterPdf(records, companyInfo, period, totals, pfSummary, esiSummary, establishmentInfo);
+    } catch (err) {
+      console.error('Export PDF failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Workforce</span>
-            <span className={styles.kpiValue}>{totalEmployees} Workmen</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <Clock size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Days Worked</span>
-            <span className={styles.kpiValue}>{Number(totalDays).toFixed(1)} Days</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <IndianRupee size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Gross Wages Earned</span>
-            <span className={styles.kpiValue}>₹{Number(totalGross).toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Net Wages Paid</span>
-            <span className={styles.kpiValue}>₹{Number(totalNet).toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Action Toolbar */}
+      {/* Action Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <span className={styles.badgeWorkforce}>
@@ -125,28 +97,35 @@ export default function WagesRegisterFormXVIILReportView({
             type="button"
             className={`${styles.btnAction} ${styles.btnExcel}`}
             onClick={handleExportExcel}
+            disabled={Boolean(downloadingFormat)}
             title="Download Statutory Form XVII as Excel spreadsheet"
           >
-            <FileSpreadsheet size={16} />
-            Export Excel
+            {downloadingFormat === 'excel' ? (
+              <>
+                <Loader2 size={16} className={styles.spinner} /> Preparing Excel...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet size={16} /> Export Excel
+              </>
+            )}
           </button>
           <button
             type="button"
             className={`${styles.btnAction} ${styles.btnPdf}`}
             onClick={handleExportPdf}
+            disabled={Boolean(downloadingFormat)}
             title="Download Official Form XVII Printable PDF"
           >
-            <FileText size={16} />
-            Export PDF
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Form XVII Register of Wages"
-          >
-            <Printer size={16} />
-            Print Form XVII
+            {downloadingFormat === 'pdf' ? (
+              <>
+                <Loader2 size={16} className={styles.spinner} /> Generating PDF...
+              </>
+            ) : (
+              <>
+                <FileText size={16} /> Export PDF
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -5,7 +5,7 @@ import styles from './MasterActionMenu.module.css';
 
 /**
  * MasterActionMenu Component
- * Action menu for Master records (View, Edit, Delete / Activate-Deactivate).
+ * Action menu for Master records (View, Edit, Activate/Deactivate, Delete).
  */
 function MasterActionMenu({ item, onAction, activeTab }) {
   const isActive = item.status === 'active';

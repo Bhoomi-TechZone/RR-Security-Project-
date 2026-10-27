@@ -60,7 +60,11 @@ export const getMasters = async (req, res) => {
 
     const query = { companyId: { $in: companyIds } };
     if (type) {
-      query.type = type;
+      if (type === 'client-services' || type === 'clients') {
+        query.type = { $in: ['client-services', 'clients'] };
+      } else {
+        query.type = type;
+      }
     }
 
     // If fetching shifts, ensure any records in Shift collection are reflected in Master (batched)
@@ -212,25 +216,38 @@ export const createMaster = async (req, res) => {
       metadata
     } = req.body;
 
-    if (!type || !name) {
-      return res.status(400).json({
-        success: false,
-        message: 'Master category type and name are required.'
-      });
-    }
+    let targetType = type === 'clients' ? 'client-services' : type;
 
     // Handle salary component type distinction
     let type_kind = undefined;
-    if (type === 'salary-components') {
+    if (targetType === 'salary-components') {
       type_kind = req.body.type_kind || req.body.type || 'earning';
     }
+
+    const companyIds = await resolveCompanyIds(companyId, adminEmail);
+
+    // Prevent duplicate records for the same category and company
+    const existing = await Master.findOne({
+      companyId: { $in: companyIds },
+      type: targetType,
+      name: { $regex: new RegExp(`^${name.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: `A record with the name "${name.trim()}" already exists in this category.`
+      });
+    }
+
+    const finalCode = code ? code.trim() : '';
 
     const newMaster = new Master({
       companyId,
       adminEmail,
-      type,
+      type: targetType,
       name: name.trim(),
-      code: code ? code.trim() : '',
+      code: finalCode,
       description: description ? description.trim() : '',
       status: status || 'active',
       branches: Number(branches) || (Array.isArray(branchList) ? branchList.length : 0),
@@ -390,6 +407,10 @@ export const updateMaster = async (req, res) => {
     delete updates._id;
     delete updates.id;
     delete updates.companyId;
+
+    if (updates.type === 'clients') {
+      updates.type = 'client-services';
+    }
 
     if (item.type === 'salary-components' && updates.type) {
       updates.type_kind = updates.type;

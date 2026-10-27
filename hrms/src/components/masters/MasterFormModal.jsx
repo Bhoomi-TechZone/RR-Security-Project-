@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save } from 'lucide-react';
+import { X, Save, Loader2 } from 'lucide-react';
 import { MANPOWER_SERVICE_OPTIONS } from '../../data/masters/clientData';
 import styles from './MasterFormModal.module.css';
 
@@ -16,17 +16,21 @@ function MasterFormModal({
   departments = [],
   clients = [],
   workLocations = [],
-  componentCategory = 'earning'
+  componentCategory = 'earning',
+  isSubmitting = false
 }) {
   const [formData, setFormData] = useState({});
   const [branchInput, setBranchInput] = useState('');
   const [errors, setErrors] = useState({});
+  const [internalSubmitting, setInternalSubmitting] = useState(false);
   const modalRef = useRef(null);
 
+  const submitting = isSubmitting || internalSubmitting;
   const isEdit = !!editingItem;
 
   useEffect(() => {
     if (isOpen) {
+      setInternalSubmitting(false);
       setErrors({});
       setBranchInput('');
       if (editingItem) {
@@ -170,8 +174,9 @@ function MasterFormModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
     if (!validate()) return;
     const payload = { ...formData };
     if (activeTab === 'salary-components') {
@@ -187,7 +192,14 @@ function MasterFormModal({
         payload.componentType = payload.componentType || 'Fixed Salary';
       }
     }
-    onSubmit(payload);
+    try {
+      setInternalSubmitting(true);
+      await onSubmit(payload);
+    } catch (err) {
+      console.error('Submit error:', err);
+    } finally {
+      setInternalSubmitting(false);
+    }
   };
 
   const getTitle = () => {
@@ -262,7 +274,7 @@ function MasterFormModal({
       >
         <header className={styles.header}>
           <h2 id="master-form-title" className={styles.title}>{getTitle()}</h2>
-          <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal">
+          <button className={styles.closeBtn} onClick={onClose} aria-label="Close modal" disabled={submitting}>
             <X size={16} />
           </button>
         </header>
@@ -1500,20 +1512,40 @@ function MasterFormModal({
           <footer className={styles.footer}>
             {activeTab === 'salary-components' ? (
               <div className={styles.salaryFooterActions}>
-                <button type="button" className={styles.salaryCloseBtnText} onClick={onClose}>
+                <button
+                  type="button"
+                  className={styles.salaryCloseBtnText}
+                  onClick={onClose}
+                  disabled={submitting}
+                >
                   Close
                 </button>
-                <button type="submit" className={styles.salarySaveBtn}>
-                  <Save size={16} /> Save
+                <button
+                  type="submit"
+                  className={styles.salarySaveBtn}
+                  disabled={submitting}
+                >
+                  {submitting ? <Loader2 size={16} className={styles.spinner} /> : <Save size={16} />}
+                  <span>{submitting ? 'Saving...' : 'Save'}</span>
                 </button>
               </div>
             ) : (
               <>
-                <button type="button" className={styles.cancelBtn} onClick={onClose}>
+                <button
+                  type="button"
+                  className={styles.cancelBtn}
+                  onClick={onClose}
+                  disabled={submitting}
+                >
                   Cancel
                 </button>
-                <button type="submit" className={styles.submitBtn}>
-                  {isEdit ? 'Save Changes' : 'Create Record'}
+                <button
+                  type="submit"
+                  className={styles.submitBtn}
+                  disabled={submitting}
+                >
+                  {submitting && <Loader2 size={16} className={styles.spinner} />}
+                  <span>{submitting ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save Changes' : 'Create Record')}</span>
                 </button>
               </>
             )}

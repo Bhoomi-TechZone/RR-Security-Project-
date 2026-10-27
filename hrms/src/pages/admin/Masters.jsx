@@ -24,7 +24,6 @@ import clientService from '../../services/clientService';
 
 // Mock master data for non-dynamic / fallback datasets
 import { getInitialClients } from '../../data/masters/clientData';
-import { getInitialClientServices } from '../../data/masters/clientServicesData';
 import { mockShiftMaster } from '../../data/masters/shiftMasterData';
 import { mockWorkLocations } from '../../data/workLocationsData';
 import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
@@ -220,8 +219,8 @@ function Masters() {
   });
   const [documentTypes, setDocumentTypes] = useState([]);
 
-  // Client Services Master Data State
-  const [clientServices, setClientServices] = useState(() => getInitialClientServices(companyId));
+  // Client Services Master Data State (Dynamic from MongoDB)
+  const [clientServices, setClientServices] = useState([]);
 
   // Clients & Work Locations for Masters Lookups (Loaded dynamically from API)
   const [clients, setClients] = useState(() => {
@@ -249,6 +248,7 @@ function Masters() {
   // Modal states
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [isSavingMaster, setIsSavingMaster] = useState(false);
 
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
@@ -290,6 +290,15 @@ function Masters() {
       localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(salaryComponents));
     }
   }, [salaryComponents, companyId]);
+  // Clean up any stale legacy mock client services from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`novaspark_client_services_${companyId}`);
+      if (saved && (saved.includes('srv_1') || saved.includes('srv_2') || saved.includes('srv_'))) {
+        localStorage.removeItem(`novaspark_client_services_${companyId}`);
+      }
+    } catch {}
+  }, [companyId]);
 
   const showToast = (message, type = 'success') => {
     setToast({ message, type });
@@ -324,19 +333,9 @@ function Masters() {
 
     try {
       if (tab === 'client-services' || tab === 'clients') {
-        try {
-          const data = await masterService.getMasters('client-services', companyId);
-          if (Array.isArray(data) && data.length > 0) {
-            setClientServices(data);
-            localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(data));
-          } else {
-            const initial = getInitialClientServices(companyId);
-            setClientServices(initial);
-          }
-        } catch {
-          const initial = getInitialClientServices(companyId);
-          setClientServices(initial);
-        }
+        const data = await masterService.getMasters('client-services', companyId, true);
+        const list = Array.isArray(data) ? data : [];
+        setClientServices(list);
       } else {
         if (tab === 'salary-components') {
           const data = await masterService.getMasters(tab, companyId).catch(() => null);
@@ -680,28 +679,22 @@ function Masters() {
 
   // Handle Form Submission (Add or Edit)
   const handleFormSubmit = async (formData) => {
+    if (isSavingMaster) return;
+    setIsSavingMaster(true);
     const entityName = getEntityName();
 
     try {
       if (DYNAMIC_TABS.includes(activeTab)) {
         if (editingItem) {
           // Dynamic Edit mode
-          let updated = null;
-          try {
-            updated = await masterService.updateMaster(companyId, editingItem.id, formData);
-          } catch (e) {
-            updated = { ...editingItem, ...formData };
-          }
-          if (!updated || !updated.id) {
-            updated = { ...editingItem, ...formData };
-          }
-          const updateList = (list) => list.map(item => item.id === editingItem.id ? { ...item, ...updated, ...formData } : item);
+          const itemId = editingItem.id || editingItem._id;
+          const updated = await masterService.updateMaster(companyId, itemId, formData);
+          const merged = { ...editingItem, ...(updated || {}), ...formData, id: itemId, _id: itemId };
+          const updateList = (list) => list.map(item => ((item.id || item._id) === itemId) ? merged : item);
 
           if (activeTab === 'banks') setBanks(updateList);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(updateList);
-            const nextList = updateList(clientServices);
-            localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(nextList));
             window.dispatchEvent(new CustomEvent('client-services-updated'));
           }
           else if (activeTab === 'departments') setDepartments(updateList);
@@ -732,45 +725,37 @@ function Masters() {
           showToast(`✓ ${entityName} updated successfully.`, 'success');
         } else {
           // Dynamic Add mode
-          let created = null;
-          try {
-            created = await masterService.createMaster(companyId, {
-              type: activeTab === 'clients' ? 'client-services' : activeTab,
-              ...formData
-            });
-          } catch (e) {
-            created = { id: `srv_${Date.now()}`, ...formData, status: formData.status || 'active' };
-          }
-          if (!created || !created.id) {
-            created = { id: `srv_${Date.now()}`, ...formData, status: formData.status || 'active' };
-          }
+          const created = await masterService.createMaster(companyId, {
+            type: activeTab === 'clients' ? 'client-services' : activeTab,
+            ...formData
+          });
 
-          if (activeTab === 'banks') setBanks(prev => [created, ...prev]);
+          const createdItem = { ...formData, ...(created || {}), id: created?.id || created?._id, _id: created?._id || created?.id };
+          const updateCreated = (prev) => [createdItem, ...prev.filter(p => (p.id || p._id) !== (createdItem.id || createdItem._id))];
+
+          if (activeTab === 'banks') setBanks(updateCreated);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
-            setClientServices(prev => {
-              const next = [created, ...prev];
-              localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(next));
-              return next;
-            });
+            setClientServices(updateCreated);
             window.dispatchEvent(new CustomEvent('client-services-updated'));
           }
-          else if (activeTab === 'departments') setDepartments(prev => [created, ...prev]);
-          else if (activeTab === 'designations') setDesignations(prev => [created, ...prev]);
-          else if (activeTab === 'employee-types') setEmployeeTypes(prev => [created, ...prev]);
-          else if (activeTab === 'sites') setSites(prev => [created, ...prev]);
-          else if (activeTab === 'posts') setPosts(prev => [created, ...prev]);
-          else if (activeTab === 'shifts') setShifts(prev => [created, ...prev]);
-          else if (activeTab === 'leave-types') setLeaveTypes(prev => [created, ...prev]);
-          else if (activeTab === 'holidays') setHolidays(prev => [created, ...prev]);
+          else if (activeTab === 'departments') setDepartments(updateCreated);
+          else if (activeTab === 'designations') setDesignations(updateCreated);
+          else if (activeTab === 'employee-types') setEmployeeTypes(updateCreated);
+          else if (activeTab === 'sites') setSites(updateCreated);
+          else if (activeTab === 'posts') setPosts(updateCreated);
+          else if (activeTab === 'shifts') setShifts(updateCreated);
+          else if (activeTab === 'leave-types') setLeaveTypes(updateCreated);
+          else if (activeTab === 'holidays') setHolidays(updateCreated);
           else if (activeTab === 'salary-components') {
             setSalaryComponents(prev => {
-              const next = [created, ...prev];
-              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(next));
+              const next = updateCreated(prev);
+              localStorage.setItem(
+ovaspark_salary_components_${companyId}, JSON.stringify(next));
               return next;
             });
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
-          else if (activeTab === 'document-types') setDocumentTypes(prev => [created, ...prev]);
+          else if (activeTab === 'document-types') setDocumentTypes(updateCreated);
 
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
           if (activeTab === 'shifts') {
@@ -788,10 +773,13 @@ function Masters() {
     } catch (err) {
       console.error('Error submitting master form:', err);
       showToast(err.message || `Failed to save ${entityName}.`, 'error');
+      throw err;
+    } finally {
+      setIsSavingMaster(false);
     }
   };
 
-  // Handle Record Actions (View, Edit, Activate/Deactivate)
+  // Handle Record Actions (View, Edit, Activate/Deactivate, Delete)
   const handleAction = (actionType, item) => {
     if (actionType === 'view') {
       setSelectedItem(item);
@@ -829,6 +817,16 @@ function Masters() {
         item,
         actionType: 'activate'
       });
+    } else if (actionType === 'delete') {
+      setConfirmModal({
+        isOpen: true,
+        title: `Delete ${item.name}?`,
+        description: `Are you sure you want to permanently delete "${item.name}"? This action cannot be undone.`,
+        confirmLabel: 'Delete',
+        variant: 'danger',
+        item,
+        actionType: 'delete'
+      });
     }
   };
 
@@ -837,32 +835,19 @@ function Masters() {
     const { item, actionType } = confirmModal;
     if (!item) return;
 
-    if (actionType === 'delete') {
-      try {
-        if (DYNAMIC_TABS.includes(activeTab)) {
-          try {
-            await masterService.deleteMaster(companyId, item.id);
-          } catch (e) {}
+    const itemId = item.id || item._id;
 
-          const filterList = (list) => list.filter(i => i.id !== item.id);
+    const entityName = getEntityName();
 
-          if (activeTab === 'salary-components') {
-            setSalaryComponents(filterList);
-            const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-            if (saved) {
-              try {
-                const parsed = JSON.parse(saved);
-                const nextList = parsed.filter(i => i.id !== item.id);
-                localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(nextList));
-              } catch (e) {}
-            }
-            window.dispatchEvent(new CustomEvent('salary-components-updated'));
-          }
-          else if (activeTab === 'banks') setBanks(filterList);
+    try {
+      if (DYNAMIC_TABS.includes(activeTab)) {
+        if (actionType === 'delete') {
+          await masterService.deleteMaster(companyId, itemId);
+          const filterList = (list) => list.filter(i => (i.id || i._id) !== itemId);
+
+          if (activeTab === 'banks') setBanks(filterList);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(filterList);
-            const nextList = filterList(clientServices);
-            localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(nextList));
             window.dispatchEvent(new CustomEvent('client-services-updated'));
           }
           else if (activeTab === 'departments') setDepartments(filterList);
@@ -873,44 +858,32 @@ function Masters() {
           else if (activeTab === 'shifts') setShifts(filterList);
           else if (activeTab === 'leave-types') setLeaveTypes(filterList);
           else if (activeTab === 'holidays') setHolidays(filterList);
+          else if (activeTab === 'salary-components') {
+            setSalaryComponents(filterList);
+            const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
+            if (saved) {
+              try {
+                const parsed = JSON.parse(saved);
+                const nextList = parsed.filter(i => (i.id || i._id) !== itemId);
+                localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(nextList));
+              } catch (e) {}
+            }
+            window.dispatchEvent(new CustomEvent('salary-components-updated'));
+          }
           else if (activeTab === 'document-types') setDocumentTypes(filterList);
 
           window.dispatchEvent(new CustomEvent('masters-updated', { detail: { tab: activeTab } }));
+          showToast(`✓ ${entityName} deleted successfully.`, 'success');
+          return;
         }
 
-        showToast(`✓ ${entityName} deleted successfully.`, 'success');
-      } catch (err) {
-        console.error('Error deleting master:', err);
-        showToast(err.message || `Failed to delete ${entityName}.`, 'error');
-      } finally {
-        setConfirmModal({
-          isOpen: false,
-          title: '',
-          description: '',
-          confirmLabel: '',
-          variant: 'danger',
-          item: null,
-          actionType: null
-        });
-      }
-      return;
-    }
-
-    const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
-    const entityName = getEntityName();
-
-    try {
-      if (DYNAMIC_TABS.includes(activeTab)) {
-        try {
-          await masterService.toggleMasterStatus(companyId, item.id, newStatus);
-        } catch (e) {}
-        const updateList = (list) => list.map(i => i.id === item.id ? { ...i, status: newStatus } : i);
+        const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
+        await masterService.toggleMasterStatus(companyId, itemId, newStatus);
+        const updateList = (list) => list.map(i => (i.id || i._id) === itemId ? { ...i, status: newStatus } : i);
 
         if (activeTab === 'banks') setBanks(updateList);
         else if (activeTab === 'client-services' || activeTab === 'clients') {
           setClientServices(updateList);
-          const nextList = updateList(clientServices);
-          localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(nextList));
           window.dispatchEvent(new CustomEvent('client-services-updated'));
         }
         else if (activeTab === 'departments') setDepartments(updateList);
@@ -985,6 +958,7 @@ function Masters() {
         <MasterFormModal
           isOpen={isFormOpen}
           onClose={() => {
+            if (isSavingMaster) return;
             setIsFormOpen(false);
             setEditingItem(null);
           }}
@@ -995,6 +969,7 @@ function Masters() {
           clients={clients}
           workLocations={workLocations}
           componentCategory={salaryComponentSubTab === 'deductions' ? 'deduction' : 'earning'}
+          isSubmitting={isSavingMaster}
         />
 
         {/* Details View Modal */}

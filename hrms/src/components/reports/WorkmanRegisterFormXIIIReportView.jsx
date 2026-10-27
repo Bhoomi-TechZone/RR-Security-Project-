@@ -1,13 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   FileSpreadsheet,
   FileText,
-  Printer,
   Users,
   UserCheck,
   UserX,
   ShieldCheck,
   AlertTriangle,
+  Loader2,
 } from 'lucide-react';
 import {
   downloadWorkmanRegisterExcel,
@@ -28,6 +28,8 @@ export default function WorkmanRegisterFormXIIIReportView({
   totals = {},
   filters = {},
 }) {
+  const [downloadingFormat, setDownloadingFormat] = useState(null);
+
   const est = establishmentInfo || {};
   const contractorName = est.contractorName || companyInfo?.name || 'RR SECURITY & FACILITIES';
   const contractorAddress =
@@ -48,66 +50,36 @@ export default function WorkmanRegisterFormXIIIReportView({
   const activeCount = totals?.activeWorkmen ?? records.filter((r) => r.status === 'Active').length;
   const terminatedCount = totals?.terminatedWorkmen ?? records.filter((r) => r.status !== 'Active').length;
 
-  const handleExportExcel = () => {
-    downloadWorkmanRegisterExcel(records, companyInfo, period, totals, establishmentInfo);
+  const handleExportExcel = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('excel');
+      await new Promise((r) => setTimeout(r, 80));
+      await downloadWorkmanRegisterExcel(records, companyInfo, period, totals, establishmentInfo);
+      await new Promise((r) => setTimeout(r, 300));
+    } catch (err) {
+      console.error('Export Excel failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
-  const handleExportPdf = () => {
-    downloadWorkmanRegisterPdf(records, companyInfo, period, totals, establishmentInfo);
-  };
-
-  const handlePrint = () => {
-    downloadWorkmanRegisterPdf(records, companyInfo, period, totals, establishmentInfo, {
-      mode: 'print',
-    });
+  const handleExportPdf = async () => {
+    if (downloadingFormat) return;
+    try {
+      setDownloadingFormat('pdf');
+      await new Promise((r) => setTimeout(r, 60));
+      await downloadWorkmanRegisterPdf(records, companyInfo, period, totals, establishmentInfo);
+    } catch (err) {
+      console.error('Export PDF failed:', err);
+    } finally {
+      setDownloadingFormat(null);
+    }
   };
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Contract Workmen</span>
-            <span className={styles.kpiValue}>{totalCount} Enrolled</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <UserCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Active Workmen</span>
-            <span className={styles.kpiValue}>{activeCount} On Duty</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <UserX size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Terminated / Exited</span>
-            <span className={styles.kpiValue}>{terminatedCount} Exited</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Statutory Rule</span>
-            <span className={styles.kpiValue}>Form XIII [Rule 75]</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Action Toolbar */}
+      {/* Action Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
           <span className={styles.badgeWorkforce}>
@@ -121,28 +93,35 @@ export default function WorkmanRegisterFormXIIIReportView({
             type="button"
             className={`${styles.btnAction} ${styles.btnExcel}`}
             onClick={handleExportExcel}
+            disabled={Boolean(downloadingFormat)}
             title="Download Statutory Form XIII as Excel spreadsheet"
           >
-            <FileSpreadsheet size={16} />
-            Export Excel
+            {downloadingFormat === 'excel' ? (
+              <>
+                <Loader2 size={16} className={styles.spinner} /> Preparing Excel...
+              </>
+            ) : (
+              <>
+                <FileSpreadsheet size={16} /> Export Excel
+              </>
+            )}
           </button>
           <button
             type="button"
             className={`${styles.btnAction} ${styles.btnPdf}`}
             onClick={handleExportPdf}
+            disabled={Boolean(downloadingFormat)}
             title="Download Official Form XIII Printable PDF"
           >
-            <FileText size={16} />
-            Export PDF
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Form XIII Register of Workmen"
-          >
-            <Printer size={16} />
-            Print Form XIII
+            {downloadingFormat === 'pdf' ? (
+              <>
+                <Loader2 size={16} className={styles.spinner} /> Generating PDF...
+              </>
+            ) : (
+              <>
+                <FileText size={16} /> Export PDF
+              </>
+            )}
           </button>
         </div>
       </div>
