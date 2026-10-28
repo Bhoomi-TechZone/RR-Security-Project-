@@ -1,5 +1,8 @@
 import React, { useState } from 'react';
-import { Building2, X, Plus, CheckCircle2, Shield, MapPin, FileText, Phone, Mail } from 'lucide-react';
+import {
+  Building2, X, Plus, CheckCircle2, Shield, MapPin, FileText,
+  Phone, Mail, KeyRound, Lock, Eye, EyeOff, Sparkles
+} from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import styles from './AddCompanyProfileModal.module.css';
 
@@ -7,11 +10,14 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
   const { addCompanyProfile } = useCompany();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
     code: '',
     industry: 'Security & Facility Management',
+    adminEmail: '',
+    adminPassword: '',
     email: '',
     phone: '',
     address: '',
@@ -21,6 +27,8 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
     gstin: '',
     pan: '',
     tan: '',
+    employerPfCode: '',
+    employerEsiCode: ''
   });
 
   if (!isOpen) return null;
@@ -44,12 +52,26 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
       .substring(0, 4)
       .toUpperCase();
 
-    setFormData(prev => ({
-      ...prev,
-      name: val,
-      code: prev.code ? prev.code : generatedCode
-    }));
+    setFormData(prev => {
+      const currentCode = prev.code || generatedCode;
+      return {
+        ...prev,
+        name: val,
+        code: currentCode,
+        adminEmail: prev.adminEmail ? prev.adminEmail : (currentCode ? `admin@${currentCode.toLowerCase()}security.com` : '')
+      };
+    });
     if (error) setError('');
+  };
+
+  const handleGeneratePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+    let pass = '';
+    for (let i = 0; i < 10; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData(prev => ({ ...prev, adminPassword: pass }));
+    setShowPassword(true);
   };
 
   const handleSubmit = async (e) => {
@@ -58,12 +80,32 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
       setError('Company Name is required.');
       return;
     }
+    if (!formData.adminEmail.trim()) {
+      setError('Admin Email is required for company login access.');
+      return;
+    }
+    if (!formData.adminPassword.trim()) {
+      setError('Admin Password is required for company login access.');
+      return;
+    }
+    if (formData.adminPassword.trim().length < 6) {
+      setError('Admin Password must be at least 6 characters long.');
+      return;
+    }
 
     setIsSubmitting(true);
     setError('');
 
     try {
-      const created = await addCompanyProfile(formData);
+      const payload = {
+        ...formData,
+        email: formData.email.trim() || formData.adminEmail.trim(),
+        adminEmail: formData.adminEmail.trim().toLowerCase(),
+        password: formData.adminPassword.trim(),
+        adminPassword: formData.adminPassword.trim()
+      };
+
+      const created = await addCompanyProfile(payload);
       setIsSubmitting(false);
       if (onSuccess) onSuccess(created);
       onClose();
@@ -85,7 +127,7 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
             <div>
               <h2 className={styles.title}>Setup New Company Profile</h2>
               <p className={styles.subtitle}>
-                Create an isolated company workspace with separate workforce and records.
+                Create an isolated company workspace with separate admin login credentials and records.
               </p>
             </div>
           </div>
@@ -162,6 +204,107 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
               </div>
             </div>
 
+            {/* Admin Login Credentials Section */}
+            <div className={styles.sectionGroup}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <h3 className={styles.sectionTitle} style={{ margin: 0 }}>
+                  <KeyRound size={14} color="#2563eb" /> Admin Login Credentials
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleGeneratePassword}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#2563eb',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: 0
+                  }}
+                >
+                  <Sparkles size={13} />
+                  <span>Generate Password</span>
+                </button>
+              </div>
+
+              <div
+                style={{
+                  padding: '9px 12px',
+                  background: '#eff6ff',
+                  borderRadius: '8px',
+                  border: '1px solid #bfdbfe',
+                  fontSize: '12px',
+                  color: '#1e40af',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <Lock size={14} style={{ flexShrink: 0 }} />
+                <span>
+                  The company administrator can immediately log in to the HRMS portal using this email and password.
+                </span>
+              </div>
+
+              <div className={styles.grid2}>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Admin Email (Login Username) *</label>
+                  <input
+                    type="email"
+                    name="adminEmail"
+                    value={formData.adminEmail}
+                    onChange={handleChange}
+                    placeholder="e.g. admin@apexsecurity.com"
+                    className={styles.input}
+                    required
+                  />
+                </div>
+
+                <div className={styles.formField}>
+                  <label className={styles.label}>Admin Login Password *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="adminPassword"
+                      value={formData.adminPassword}
+                      onChange={handleChange}
+                      placeholder="Min. 6 characters"
+                      className={styles.input}
+                      style={{ paddingRight: '40px' }}
+                      minLength={6}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(p => !p)}
+                      style={{
+                        position: 'absolute',
+                        right: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}
+                      tabIndex={-1}
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Contact Details */}
             <div className={styles.sectionGroup}>
               <h3 className={styles.sectionTitle}>
@@ -169,13 +312,13 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
               </h3>
               <div className={styles.grid2}>
                 <div className={styles.formField}>
-                  <label className={styles.label}>Official Company Email</label>
+                  <label className={styles.label}>Official Company Email (Optional)</label>
                   <input
                     type="email"
                     name="email"
                     value={formData.email}
                     onChange={handleChange}
-                    placeholder="contact@company.com"
+                    placeholder="contact@company.com (defaults to admin email)"
                     className={styles.input}
                   />
                 </div>
@@ -294,6 +437,30 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
                     style={{ textTransform: 'uppercase' }}
                   />
                 </div>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Employer PF Code</label>
+                  <input
+                    type="text"
+                    name="employerPfCode"
+                    value={formData.employerPfCode}
+                    onChange={handleChange}
+                    placeholder="DLCPM0012345000"
+                    className={styles.input}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
+                <div className={styles.formField}>
+                  <label className={styles.label}>Employer ESI Code</label>
+                  <input
+                    type="text"
+                    name="employerEsiCode"
+                    value={formData.employerEsiCode}
+                    onChange={handleChange}
+                    placeholder="31000123450000101"
+                    className={styles.input}
+                    style={{ textTransform: 'uppercase' }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -314,7 +481,7 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
               disabled={isSubmitting}
             >
               <Plus size={16} />
-              {isSubmitting ? 'Creating Profile...' : 'Save & Set as Active Profile'}
+              {isSubmitting ? 'Creating Profile & Admin Account...' : 'Create Company & Admin Account'}
             </button>
           </div>
         </form>

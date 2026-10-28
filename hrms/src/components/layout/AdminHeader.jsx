@@ -26,7 +26,6 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     location.state?.organisationSettingsOpen === true
   );
   const [isLinksDrawerOpen, setIsLinksDrawerOpen] = useState(false);
-  const [isAddCompanyModalOpen, setIsAddCompanyModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [toast, setToast] = useState(null);
 
@@ -251,6 +250,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
   const getBreadcrumb = () => {
     const path = location.pathname;
     if (path.startsWith('/admin/dashboard')) return 'Dashboard';
+    if (path.startsWith('/admin/all-companies') || path.startsWith('/admin/all-company')) return 'Organization / All Company';
     if (path.startsWith('/admin/settings') || path.startsWith('/admin/organization-settings')) return 'System / Organisation Settings';
     if (path.startsWith('/admin/company-setup')) return 'System / Organization Setup';
     if (path.startsWith('/admin/work-locations')) return 'System / Work Locations';
@@ -498,88 +498,20 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
         {/* Vertical divider */}
         <span className={styles.divider} />
 
-        {/* User profile dropdown */}
-        <Dropdown 
-          align="right"
-          trigger={
-            <button className={styles.profileTrigger} aria-label="Profile options menu">
-              <Avatar 
-                src={activeCompany?.logo} 
-                initials={activeCompany?.code ? activeCompany.code.substring(0, 2) : 'RR'} 
-                name={activeCompany?.name || 'RR Security'}
-                size="sm" 
-                status={null} 
-              />
-              <div className={styles.profileMeta}>
-                <span className={styles.profileName}>{isAdmin ? (currentUser?.name || activeCompany?.name || 'RR Security Administrator') : (currentUser?.name || 'Administrator')}</span>
-                <span className={styles.profileRole}>{isAdmin ? 'Administrator' : (userRole || 'Administrator')}</span>
-              </div>
-              <ChevronDown size={14} className={styles.chevron} />
-            </button>
-          }
-        >
-          <ul className={styles.dropdownMenu}>
-            {/* Add Company Profile action */}
-            <li className={styles.dropdownItem}>
-              <button
-                type="button"
-                onClick={() => setIsAddCompanyModalOpen(true)}
-                className={`${styles.dropdownLink} ${styles.addProfileOption}`}
-              >
-                <Plus size={15} strokeWidth={2.5} />
-                <span>Add Company Profile</span>
-              </button>
-            </li>
-
-            <li className={styles.dropdownItemDivider} />
-
-            {/* List of Company Profiles */}
-            <div className={styles.dropdownSectionTitle}>
-              Switch Company Profile ({(companies || []).length})
-            </div>
-
-            {(companies || []).map((comp) => {
-              const isActive = comp.id === activeCompany?.id || comp.companyId === activeCompany?.companyId;
-              return (
-                <li key={comp.id || comp.companyId} className={styles.dropdownItem}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      switchCompany(comp.id || comp.companyId);
-                      setToast({
-                        message: `Switched to ${comp.name} profile`,
-                        type: 'success'
-                      });
-                    }}
-                    className={`${styles.dropdownLink} ${isActive ? styles.companyItemActive : ''}`}
-                    title={comp.name}
-                  >
-                    {comp.logo ? (
-                      <img src={comp.logo} alt={comp.name} className={styles.companyDropdownLogo} />
-                    ) : (
-                      <Building2 size={14} />
-                    )}
-                    <div className={styles.companyItemMeta}>
-                      <span className={styles.companyItemName}>{comp.name}</span>
-                      <span className={styles.companyItemCode}>{comp.code}</span>
-                    </div>
-                    {isActive && <Check size={14} color="#2563eb" strokeWidth={2.5} />}
-                  </button>
-                </li>
-              );
-            })}
-
-            <li className={styles.dropdownItemDivider} />
-
-            {/* Logout option */}
-            <li className={styles.dropdownItem}>
-              <button onClick={onLogout} className={`${styles.dropdownLink} ${styles.logoutOption}`}>
-                <LogOut size={14} />
-                <span>Logout</span>
-              </button>
-            </li>
-          </ul>
-        </Dropdown>
+        {/* User profile card (unclickable display) */}
+        <div className={styles.profileStatic} aria-label="Current user profile">
+          <Avatar 
+            src={activeCompany?.logo} 
+            initials={activeCompany?.code ? activeCompany.code.substring(0, 2) : 'RR'} 
+            name={activeCompany?.name || 'RR Security'}
+            size="sm" 
+            status={null} 
+          />
+          <div className={styles.profileMeta}>
+            <span className={styles.profileName}>{isAdmin ? (currentUser?.name || activeCompany?.name || 'RR Security Administrator') : (currentUser?.name || 'Administrator')}</span>
+            <span className={styles.profileRole}>{isAdmin ? 'Administrator' : (userRole || 'Administrator')}</span>
+          </div>
+        </div>
 
         {/* External Portals / Apps Trigger (9-dots icon) */}
         <button
@@ -615,17 +547,6 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
         onClose={() => setIsLinksDrawerOpen(false)}
       />
 
-      {/* Add Company Profile Modal */}
-      <AddCompanyProfileModal
-        isOpen={isAddCompanyModalOpen}
-        onClose={() => setIsAddCompanyModalOpen(false)}
-        onSuccess={(newCompany) => {
-          setToast({
-            message: `✓ Company "${newCompany.name}" profile created and activated!`,
-            type: 'success'
-          });
-        }}
-      />
 
       {/* Action Toast Alert */}
       {toast && (

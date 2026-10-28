@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/userModel.js';
+import Company from '../models/companyModel.js';
 import Employee from '../models/employeeModel.js';
 import UserRole from '../models/userRoleModel.js';
 import Client from '../models/clientModel.js';
@@ -68,6 +69,32 @@ export const login = async (req, res) => {
         });
       }
 
+      // Block login if associated company workspace is deactivated
+      const isMasterAdmin = 
+        user.email.toLowerCase() === 'rrsecurity@gmail.com' ||
+        user.email.toLowerCase() === 'admin@rrsecurity.com';
+
+      if (!isMasterAdmin) {
+        let userCompany = null;
+        if (user.companyId && user.companyId !== 'RRS8392014SEC') {
+          userCompany = await Company.findOne({ companyId: user.companyId });
+        } else if (!user.companyId) {
+          userCompany = await Company.findOne({
+            $or: [
+              { adminEmail: user.email.toLowerCase() },
+              { email: user.email.toLowerCase() }
+            ]
+          });
+        }
+
+        if (userCompany && userCompany.status === 'Inactive') {
+          return res.status(403).json({
+            success: false,
+            message: `Company workspace "${userCompany.name}" is currently deactivated. Access has been suspended. Please contact RR Security Master Administration.`
+          });
+        }
+      }
+
       const isMatch = await user.comparePassword(password);
 
       if (isMatch) {
@@ -94,6 +121,8 @@ export const login = async (req, res) => {
         const safeUser = {
           ...user.toJSON(),
           role: user.role || 'admin',
+          companyId: isMasterAdmin ? 'RRS8392014SEC' : (user.companyId || ''),
+          companyName: isMasterAdmin ? 'RR Security & Facilities' : (user.companyName || ''),
           roleName,
           permissions,
           redirect: user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'
@@ -121,6 +150,17 @@ export const login = async (req, res) => {
     }).select('+password');
 
     if (employeeDoc) {
+      // Block login if employee's company workspace is deactivated
+      if (employeeDoc.companyId && employeeDoc.companyId !== 'RRS8392014SEC') {
+        const empCompany = await Company.findOne({ companyId: employeeDoc.companyId });
+        if (empCompany && empCompany.status === 'Inactive') {
+          return res.status(403).json({
+            success: false,
+            message: `Company workspace "${empCompany.name}" is currently deactivated. Employee portal login is suspended. Please contact your company administrator.`
+          });
+        }
+      }
+
       const empStatus = employeeDoc.employeeStatus || employeeDoc.status || 'Active';
 
       if (employeeDoc.enablePortalAccess === false || employeeDoc.enablePortalAccess === 'false') {
@@ -180,6 +220,17 @@ export const login = async (req, res) => {
     }).select('+password');
 
     if (clientDoc) {
+      // Block login if client's company workspace is deactivated
+      if (clientDoc.companyId && clientDoc.companyId !== 'RRS8392014SEC') {
+        const clientComp = await Company.findOne({ companyId: clientDoc.companyId });
+        if (clientComp && clientComp.status === 'Inactive') {
+          return res.status(403).json({
+            success: false,
+            message: `Company workspace "${clientComp.name}" is currently deactivated. Client portal access is suspended. Please contact RR Security Master Administration.`
+          });
+        }
+      }
+
       if (clientDoc.enablePortalAccess === false || clientDoc.enablePortalAccess === 'false') {
         return res.status(403).json({
           success: false,
@@ -230,6 +281,17 @@ export const login = async (req, res) => {
     }).select('+password');
 
     if (userRoleDoc) {
+      // Block login if user role's company workspace is deactivated
+      if (userRoleDoc.companyId && userRoleDoc.companyId !== 'RRS8392014SEC') {
+        const roleComp = await Company.findOne({ companyId: userRoleDoc.companyId });
+        if (roleComp && roleComp.status === 'Inactive') {
+          return res.status(403).json({
+            success: false,
+            message: `Company workspace "${roleComp.name}" is currently deactivated. Portal login is suspended. Please contact RR Security Master Administration.`
+          });
+        }
+      }
+
       if (userRoleDoc.status !== 'Active') {
         return res.status(403).json({
           success: false,

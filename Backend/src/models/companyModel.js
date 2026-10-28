@@ -146,6 +146,10 @@ const companySchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
+    adminInitialPassword: {
+      type: String,
+      default: '',
+    },
     preferences: {
       type: mongoose.Schema.Types.Mixed,
       default: () => ({

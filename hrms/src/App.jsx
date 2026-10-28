@@ -23,6 +23,7 @@ import ClientReports from './pages/client/ClientReports'
 import ClientNotifications from './pages/client/ClientNotifications'
 import ClientProfile from './pages/client/ClientProfile'
 import Companies from './pages/admin/Companies'
+import AllCompanies from './pages/admin/AllCompanies'
 import CompanyDetails from './pages/admin/CompanyDetails'
 import AddClient from './pages/admin/AddClient'
 import EditClient from './pages/admin/EditClient'
@@ -118,6 +119,8 @@ function App() {
       <Route path="/admin/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
       <Route path="/admin/roles-permissions" element={<AdminRoute><RolePermissions /></AdminRoute>} />
       <Route path="/admin/users" element={<AdminRoute><AdminUserManagement /></AdminRoute>} />
+      <Route path="/admin/all-companies" element={<AdminRoute><AllCompanies /></AdminRoute>} />
+      <Route path="/admin/all-company" element={<Navigate to="/admin/all-companies" replace />} />
       <Route path="/admin/company-setup" element={<AdminRoute><CompanySetup /></AdminRoute>} />
       <Route path="/admin/work-locations" element={<AdminRoute><WorkLocations /></AdminRoute>} />
       <Route path="/admin/payroll-setup" element={<AdminRoute><PayrollSetup /></AdminRoute>} />
@@ -169,6 +172,8 @@ function App() {
         <Route path="reports" element={<ModulePermissionRoute moduleKey="reports" moduleTitle="Reports"><Reports /></ModulePermissionRoute>} />
 
         {/* System & Settings Modules */}
+        <Route path="all-companies" element={<AllCompanies />} />
+        <Route path="all-company" element={<Navigate to="/admin/all-companies" replace />} />
         <Route path="company-setup" element={<ModulePermissionRoute moduleKey="company_setup" moduleTitle="Organization Setup"><CompanySetup /></ModulePermissionRoute>} />
         <Route path="work-locations" element={<ModulePermissionRoute moduleKey="work_locations" moduleTitle="Work Locations"><WorkLocations /></ModulePermissionRoute>} />
         <Route path="masters" element={<ModulePermissionRoute moduleKey="masters" moduleTitle="Masters"><Masters /></ModulePermissionRoute>} />
