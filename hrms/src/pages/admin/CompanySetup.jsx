@@ -4,7 +4,8 @@ import {
   Building2, MapPin, Phone, Mail, Upload, X, FileText, 
   Calendar, UserCheck, Sparkles, Hash, SlidersHorizontal, ShieldCheck,
   Search, ArrowRight, ArrowLeft, Layers, DollarSign, Clock, CalendarDays, Calculator,
-  Landmark, Shield, Gift, HeartHandshake, FileCheck, Award
+  Landmark, Shield, Gift, HeartHandshake, FileCheck, Award,
+  CalendarOff, CalendarHeart
 } from 'lucide-react';
 import styles from './CompanySetup.module.css';
 
@@ -25,10 +26,12 @@ import {
 } from '../../data/numberSeriesData';
 
 const SETUP_CATEGORIES = [
-  { id: 'master-setup', label: 'Master Setup' },
+  { id: 'master-setup', label: 'Company Setup' },
+
   { id: 'payroll-setup', label: 'Payroll Setup' },
   { id: 'statutory-setup', label: 'Statutory Setup' },
-  { id: 'template-setup', label: 'Template Setup' }
+  { id: 'template-setup', label: 'Template Setup' },
+  { id: 'all-masters-setup', label: 'All Masters Setup' }
 ];
 
 const SETUP_MODULES = [
@@ -104,6 +107,104 @@ const SETUP_MODULES = [
     iconColor: '#e11d48',
     route: '/admin/company-setup?section=pf-code',
     isExternal: false
+  },
+
+  // --- All Masters Setup Modules ---
+  {
+    id: 'banks',
+    title: 'Bank Master',
+    desc: 'Configure company bank accounts, IFSC codes, branches and salary disbursement settings.',
+    category: 'all-masters-setup',
+    icon: Landmark,
+    badge: 'Banking',
+    iconBg: '#fef3c7',
+    iconColor: '#d97706',
+    route: '/admin/masters?tab=banks',
+    isExternal: true
+  },
+  {
+    id: 'employee-types',
+    title: 'Employee Types',
+    desc: 'Manage employment classifications such as permanent, contract, probation, and temporary.',
+    category: 'all-masters-setup',
+    icon: UserCheck,
+    badge: 'Staffing',
+    iconBg: '#e0f2fe',
+    iconColor: '#0284c7',
+    route: '/admin/masters?tab=employee-types',
+    isExternal: true
+  },
+  {
+    id: 'sites',
+    title: 'Site Master',
+    desc: 'Configure operational branch sites, client deployment locations, and geofenced zones.',
+    category: 'all-masters-setup',
+    icon: MapPin,
+    badge: 'Locations',
+    iconBg: '#fdf2f8',
+    iconColor: '#db2777',
+    route: '/admin/masters?tab=sites',
+    isExternal: true
+  },
+  {
+    id: 'posts',
+    title: 'Post Master',
+    desc: 'Manage on-site guard posts, workstation assignments, and designated duty checkpoints.',
+    category: 'all-masters-setup',
+    icon: Shield,
+    badge: 'Security',
+    iconBg: '#f1f5f9',
+    iconColor: '#475569',
+    route: '/admin/masters?tab=posts',
+    isExternal: true
+  },
+  {
+    id: 'shifts',
+    title: 'Shift Master',
+    desc: 'Define standard shifts, rotational schedules, start/end timings, and grace periods.',
+    category: 'all-masters-setup',
+    icon: CalendarDays,
+    badge: 'Attendance',
+    iconBg: '#e0e7ff',
+    iconColor: '#4f46e5',
+    route: '/admin/masters?tab=shifts',
+    isExternal: true
+  },
+  {
+    id: 'leave-types',
+    title: 'Leave Types',
+    desc: 'Configure leave categories, quotas, carry-forward policies, and encashment rules.',
+    category: 'all-masters-setup',
+    icon: CalendarOff,
+    badge: 'Leaves',
+    iconBg: '#fef2f2',
+    iconColor: '#dc2626',
+    route: '/admin/masters?tab=leave-types',
+    isExternal: true
+  },
+  {
+    id: 'holidays',
+    title: 'Holiday Calendar',
+    desc: 'Declare national, festival, state, and optional floating holidays for the calendar year.',
+    category: 'all-masters-setup',
+    icon: CalendarHeart,
+    badge: 'Calendar',
+    iconBg: '#fff1f2',
+    iconColor: '#e11d48',
+    route: '/admin/masters?tab=holidays',
+    isExternal: true
+  },
+  {
+    id: 'document-types',
+    title: 'Document Types',
+    desc: 'Configure mandatory KYC, ID cards, certificates, and compliance document formats.',
+    category: 'all-masters-setup',
+    icon: FileCheck,
+    badge: 'Compliance',
+    iconBg: '#f8fafc',
+    iconColor: '#0f172a',
+    route: '/admin/masters?tab=document-types',
+    isExternal: true
   },
 
   // --- Payroll Setup Modules ---
@@ -1032,7 +1133,7 @@ function CompanySetup() {
                   onClick={() => navigate('/admin/company-setup')}
                   className={styles.backBtn}
                 >
-                  <ArrowLeft size={15} /> Back to Master Setup
+                  <ArrowLeft size={15} /> Back to Company Setup
                 </button>
               </div>
             </header>
