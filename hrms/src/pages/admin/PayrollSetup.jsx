@@ -36,7 +36,7 @@ const TABS = [
 ];
 
 const SETUP_CATEGORIES = [
-  { id: 'master-setup', label: 'Master Setup', route: '/admin/company-setup' },
+  { id: 'master-setup', label: 'Company Setup', route: '/admin/company-setup' },
   { id: 'payroll-setup', label: 'Payroll Setup', route: '/admin/payroll-setup' }
 ];
 

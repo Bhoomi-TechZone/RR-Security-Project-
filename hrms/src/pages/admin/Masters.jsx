@@ -174,8 +174,15 @@ function Masters() {
   const handleOpenMaster = (tabId) => {
     setSearchParams({ tab: tabId }, { state: location.state });
   };
+  // If navigating to /admin/masters root without a tab, redirect to Central Organization Setup
+  useEffect(() => {
+    if (!rawTab) {
+      navigate('/admin/company-setup?category=all-masters-setup', { replace: true });
+    }
+  }, [rawTab, navigate]);
+
   const handleBackToMasters = () => {
-    setSearchParams({}, { state: location.state });
+    navigate('/admin/company-setup?category=all-masters-setup');
   };
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId }, { state: location.state });
@@ -1090,7 +1097,7 @@ function Masters() {
                     onClick={handleBackToMasters}
                     style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
                   >
-                    Masters
+                    All Masters Setup
                   </span>
                   <span className={styles.separator}>/</span>
                 </>
@@ -1145,7 +1152,7 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to Master Setup
+                    <ArrowLeft size={15} color="#fff" /> Back to Company Setup
                   </button>
                 ) : activeTab === 'salary-components' ? (
                   <button
@@ -1226,7 +1233,7 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to All Masters
+                    <ArrowLeft size={15} color="#fff" /> Back to All Masters Setup
                   </button>
                 )}
               </div>

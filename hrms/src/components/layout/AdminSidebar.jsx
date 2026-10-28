@@ -185,12 +185,6 @@ const NAV_GROUPS = [
     title: 'SETTINGS',
     items: [
       {
-        path: '/admin/masters',
-        name: 'Masters',
-        icon: Settings2,
-        moduleKey: 'masters'
-      },
-      {
         path: '/admin/roles-permissions',
         name: 'Role & Permissions',
         icon: ShieldCheck,
@@ -283,11 +277,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/overtime': location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/'),
       '/admin/leave': location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/'),
       '/admin/inventory': location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/'),
-      '/admin/masters': (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
-        !location.search.includes('tab=departments') &&
-        !location.search.includes('tab=designations') &&
-        !location.search.includes('tab=clients') &&
-        !location.search.includes('tab=salary-components'),
       '/admin/roles-permissions': location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/'),
       '/admin/users': location.pathname === '/admin/users' || location.pathname.startsWith('/admin/users/'),
       '/admin/preferences': location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/'),
@@ -410,21 +399,12 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                         location.pathname.startsWith('/admin/work-locations') ||
                         (location.pathname === '/admin/masters' && (location.search.includes('tab=departments') || location.search.includes('tab=designations')))
                       )
-                    : item.path === '/admin/masters'
-                    ? (
-                        (location.pathname === '/admin/masters' || location.pathname.startsWith('/admin/masters/')) &&
-                        !location.search.includes('tab=departments') &&
-                        !location.search.includes('tab=designations') &&
-                        !location.search.includes('tab=clients') &&
-                        !location.search.includes('tab=salary-components')
-                      )
                     : item.path === '/admin/clients'
                     ? (
                         location.pathname.startsWith('/admin/clients') ||
                         location.pathname.startsWith('/admin/companies') ||
                         (location.pathname === '/admin/masters' && location.search.includes('tab=clients'))
                       )
-
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
                   return (
@@ -553,20 +533,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
         {/* Sidebar Footer (Profile / Logout) */}
         <div className={styles.sidebarFooter}>
-          {/* <div className={styles.profileRow}>
-            <Avatar
-              initials={isAdmin ? 'AD' : (currentUser?.initials || 'AD')}
-              size={isCollapsed ? 'sm' : 'md'}
-              name={isAdmin ? 'Administrator' : (currentUser?.name || 'Administrator')}
-            />
-            {!isCollapsed && (
-              <div className={styles.profileInfo}>
-                <span className={styles.profileName}>{isAdmin ? (currentUser?.name || 'RR Security Administrator') : (currentUser?.name || 'Administrator')}</span>
-                <span className={styles.profileRole}>Administrator</span>
-              </div>
-            )}
-          </div> */}
-
           <button
             type="button"
             className={styles.logoutBtn}
