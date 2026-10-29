@@ -111,6 +111,14 @@ import LeaveRegisterReportView from '../../components/reports/LeaveRegisterRepor
 import FormILeaveReportView from '../../components/reports/FormILeaveReportView';
 import OvertimeRegisterFormIVReportView from '../../components/reports/OvertimeRegisterFormIVReportView';
 import EmployeePayslipReportView from '../../components/reports/EmployeePayslipReportView';
+import EmployeePayslipOptions from '../../components/reports/EmployeePayslipOptions';
+import { getDefaultSelectedOptions as getDefaultSelectedOptionsPayslip } from '../../components/reports/employeePayslipConfig';
+import EmployeeMasterOptions from '../../components/reports/EmployeeMasterOptions';
+import { getDefaultSelectedOptions as getDefaultSelectedOptionsEmployeeMaster } from '../../components/reports/employeeMasterConfig';
+import EmployeeMasterReportView from '../../components/reports/EmployeeMasterReportView';
+import WageSalaryRegisterOptions from '../../components/reports/WageSalaryRegisterOptions';
+import WageSalaryRegisterTable from '../../components/reports/WageSalaryRegisterTable';
+import { getDefaultSelectedOptions as getDefaultSelectedOptionsPayroll } from '../../components/reports/wageSalaryRegisterConfig';
 import {
   downloadFormIVOvertimeExcel,
   downloadFormIVOvertimeCsv,
@@ -130,12 +138,16 @@ import {
   downloadFormIFinesPdf,
 } from '../../utils/finesFormIExport';
 import SalarySheetFormat1View from '../../components/reports/SalarySheetFormat1View';
+import SalarySheetFormat1Options from '../../components/reports/SalarySheetFormat1Options';
+import { getDefaultSelectedOptions } from '../../components/reports/salarySheetFormat1Config';
 import {
   downloadSalarySheetFormat1Excel,
   downloadSalarySheetFormat1Csv,
   downloadSalarySheetFormat1Pdf,
 } from '../../utils/salarySheetFormat1Export';
 import SalarySheetFormat2View from '../../components/reports/SalarySheetFormat2View';
+import SalarySheetFormat2Options from '../../components/reports/SalarySheetFormat2Options';
+import { getDefaultSelectedOptions as getDefaultSelectedOptionsFormat2 } from '../../components/reports/salarySheetFormat2Config';
 import {
   downloadSalarySheetFormat2Excel,
   downloadSalarySheetFormat2Csv,
@@ -557,6 +569,12 @@ const reportMeta = {
     description: '[FORM IV, Rules 25 (2)] Overtime register for workers (Salary Reports module).',
     filters: ['month', 'company', 'department', 'employee'],
     placeholder: 'Search workman by name, ID, designation...'
+  },
+  'employee-payslip-report': {
+    title: 'Employee Payslip',
+    description: 'Monthly employee salary payslip with earnings breakdown, deductions, and net payable summary.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, designation...'
   },
   'employee-payslip': {
     title: 'Employee Payslip',
@@ -1318,11 +1336,16 @@ const ALL_REPORTS_CATALOG = [
     title: 'Employee Payslip',
     desc: 'Monthly salary payslip with earnings, deductions, and net pay.',
     category: 'salary',
-    targetTab: 'employee-payslip',
+    targetTab: 'employee-payslip', formats: ['pdf'] }, /*
     formats: ['pdf']
   },
   {
-    id: 'register-deductions-damage-salary',
+    category: 'salary',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+*/ { id: 'register-deductions-damage-salary',
     title: 'Register of Deductions for Damage or Loss',
     desc: '[FORM II, Rules 21 (4)] Record of deductions made from wages for damages or loss.',
     category: 'salary',
@@ -1398,13 +1421,18 @@ const ALL_REPORTS_CATALOG = [
   {
     id: 'employee-payslip-report',
     title: 'Employee Payslip',
-    desc: 'Monthly salary payslip with gross wages and deductions.',
+    desc: 'Monthly salary payslip with gross wages and deductions.', category: 'employee', targetTab: 'payroll', formats: ['pdf'] }, /*
     category: 'employee',
     targetTab: 'payroll',
     formats: ['pdf']
   },
   {
-    id: 'salary-certificate-report',
+    category: 'employee',
+    targetTab: 'payroll',
+    formats: ['pdf']
+  },
+  {
+*/ { id: 'salary-certificate-report',
     title: 'Salary Certificate',
     desc: 'Official employee salary certificate for banks and verification.',
     category: 'employee',
@@ -1416,7 +1444,7 @@ const ALL_REPORTS_CATALOG = [
 /* =========================================================
    1. Wage / Salary Register Table (Matching Image 2 Layout)
    ========================================================= */
-function WageSalaryRegisterTable({ reportData }) {
+function WageSalaryRegisterTableLegacy({ reportData }) {
   const records = reportData?.records || [];
   const company = reportData?.companyInfo || {};
   const period = reportData?.period || {};
@@ -1783,22 +1811,59 @@ function BillingTable({ rows }) {
 /* =========================================================
    4. Employee Master Table
    ========================================================= */
-function EmployeeMasterTable({ rows }) {
+function EmployeeMasterTable({ rows, selectedOptions = {} }) {
+  return <EmployeeMasterReportView rows={rows} selectedOptions={selectedOptions} />;
+}
+function _unusedEmployeeMasterTable({ rows, selectedOptions = {} }) {
+  const opt = selectedOptions;
+  const displayRows = useMemo(() => {
+    let result = rows;
+    if (opt.recordScope === 'active' || opt.excludeInactive) {
+      result = result.filter(item => {
+        const st = String(typeof item.status === 'object' ? item.status?.name : item.status || 'Active').toLowerCase();
+        return st === 'active';
+      });
+    } else if (opt.recordScope === 'inactive') {
+      result = result.filter(item => {
+        const st = String(typeof item.status === 'object' ? item.status?.name : item.status || 'Active').toLowerCase();
+        return st !== 'active';
+      });
+    }
+    return result;
+  }, [rows, opt.recordScope, opt.excludeInactive]);
   return (
     <div className={styles.tableWrap}>
       <table className={styles.dataTable}>
         <thead>
           <tr>
-            <th>Employee Name</th>
-            <th>Emp. ID</th>
-            <th>Father / Husband</th>
-            <th>Company / Client</th>
+            {opt.showSrNo !== false && <th style={{ width: '45px', textAlign: 'center' }}>Sr.</th>}
+            {opt.name !== false && <th>Employee Name</th>}
+            {opt.employeeCode !== false && <th>Emp. ID</th>}
+            {opt.gender !== false && <th>Gender</th>}
+            {opt.dob !== false && <th>Date of Birth</th>}
+            {opt.fatherHusbandName !== false && <th>Father / Husband</th>}
+            {opt.companyName !== false && <th>Company / Client</th>}
+            {opt.siteLocation !== false && <th>Site / Location</th>}
+            {opt.department !== false && <th>Department</th>}
+            {opt.designation !== false && <th>Designation</th>}
+            {opt.joiningDate !== false && <th>Joining Date</th>}
+            {opt.grossSalary !== false && <th style={{ textAlign: 'right' }}>Gross Salary</th>}
+            {opt.contact !== false && <th>Contact</th>}
+            {opt.pan !== false && <th>PAN</th>}
+            {opt.aadhaar !== false && <th>Aadhaar</th>}
+            {(opt.bankName !== false || opt.accountNumber !== false || opt.ifsc !== false) && <th>Bank & A/C</th>}
+            {(opt.uan !== false || opt.pfNo !== false || opt.esicNo !== false) && <th>UAN / PF / ESI</th>}
+            {(opt.presentAddress !== false || opt.permanentAddress !== false) && <th>Address</th>}
+            {opt.status !== false && <th>Status</th>}
+
+
+
             <th>Department</th>
             <th>Designation</th>
-            <th>Joining Date</th>
-            <th>Contact</th>
-            <th>Bank & A/C</th>
-            <th>UAN / PF No</th>
+
+
+
+
             <th>Status</th>
           </tr>
         </thead>
@@ -2193,7 +2258,7 @@ function ReportFilters({
           </div>
         )}
 
-        <div className={styles.fieldGroup} style={{ alignSelf: 'flex-end', minWidth: 'max-content' }}>
+        <div className={styles.filterActionsGroup}>
           <label style={{ visibility: 'hidden', height: '17px', margin: 0 }}>&nbsp;</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
             <button
@@ -2218,7 +2283,7 @@ function ReportFilters({
               className={styles.secondaryButton}
               onClick={onResetFilters}
               disabled={isLoading}
-              style={{ height: '42px', padding: '0 14px' }}
+              style={{ height: '42px', padding: '0 14px', whiteSpace: 'nowrap' }}
             >
               Reset
             </button>
@@ -2250,6 +2315,16 @@ function ReportBody({
   const activeCompany = passedCompany || companyCtx?.activeCompany || null;
   const meta = reportMeta[activeReport] || reportMeta.payroll;
   const summaryCards = reportData?.summaryCards || [];
+  const isSalarySheet1 = activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1';
+  const [salarySheet1Options, setSalarySheet1Options] = useState(() => getDefaultSelectedOptions());
+  const isSalarySheet2 = activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2';
+  const [salarySheet2Options, setSalarySheet2Options] = useState(() => getDefaultSelectedOptionsFormat2());
+  const isEmployeePayslip = activeReport === 'employee-payslip' || activeReport === 'payslip';
+  const [payslipOptions, setPayslipOptions] = useState(() => getDefaultSelectedOptionsPayslip());
+  const isEmployeeMaster = activeReport === 'employee' || activeReport === 'employee-master';
+  const [employeeMasterOptions, setEmployeeMasterOptions] = useState(() => getDefaultSelectedOptionsEmployeeMaster());
+  const isPayroll = activeReport === 'payroll' || activeReport === 'employee-payslip-report';
+  const [payrollOptions, setPayrollOptions] = useState(() => getDefaultSelectedOptionsPayroll());
   const records = reportData?.records || [];
 
   // Filter records by search term
@@ -2272,8 +2347,8 @@ function ReportBody({
   }, [filteredRows, currentPage, activeReport, isExporting]);
 
   const renderTable = () => {
-    if (activeReport === 'payroll') {
-      return <WageSalaryRegisterTable reportData={{ ...reportData, records: filteredRows }} />;
+    if (activeReport === 'payroll' || activeReport === 'employee-payslip-report') {
+      return <WageSalaryRegisterTable reportData={{ ...reportData, records: filteredRows }} selectedOptions={payrollOptions} />;
     }
     if (activeReport === 'attendance') return <AttendanceTable rows={paginatedRows} />;
     if (activeReport === 'billing') return <BillingTable rows={paginatedRows} />;
@@ -2459,14 +2534,19 @@ function ReportBody({
         />
       );
     }
-    if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+    if (activeReport === 'employee-payslip' || activeReport === 'payslip' || activeReport === 'employee-payslip-report') {
       return (
         <EmployeePayslipReportView
+          selectedOptions={payslipOptions}
+          onOptionsChange={setPayslipOptions}
           records={reportData?.records || filteredRows}
           companyInfo={reportData?.companyInfo}
           period={reportData?.period}
           totals={reportData?.totals}
           selectedEmployeeData={reportData?.selectedEmployeeData}
+
+
+          showOptions={false}
           filters={filters}
         />
       );
@@ -2528,6 +2608,9 @@ function ReportBody({
           ptSummary={reportData?.ptSummary}
           earningSummary={reportData?.earningSummary}
           deductionSummary={reportData?.deductionSummary}
+          selectedOptions={salarySheet1Options}
+          onOptionsChange={setSalarySheet1Options}
+          showOptions={false}
           filters={filters}
         />
       );
@@ -2552,6 +2635,9 @@ function ReportBody({
           pfSummary={reportData?.pfSummary}
           esiSummary={reportData?.esiSummary}
           lwfSummary={reportData?.lwfSummary}
+          selectedOptions={salarySheet2Options}
+          onOptionsChange={setSalarySheet2Options}
+          showOptions={false}
           filters={filters}
         />
       );
@@ -2821,6 +2907,9 @@ function ReportBody({
         <FormILeaveReportView
           records={reportData?.records || filteredRows}
           selectedEmployeeData={reportData?.selectedEmployeeData}
+
+
+          showOptions={false}
           employees={reportData?.employees}
           companyInfo={reportData?.companyInfo}
           period={reportData?.period}
@@ -2841,7 +2930,17 @@ function ReportBody({
         />
       );
     }
-    if (activeReport === 'employee') {
+    if (activeReport === 'employee' || activeReport === 'employee-master') {
+      return (
+        <EmployeeMasterReportView
+          records={filteredRows}
+          rows={paginatedRows}
+          selectedOptions={employeeMasterOptions}
+          companyInfo={reportData?.companyInfo}
+        />
+      );
+    }
+    if (false && activeReport === 'employee') {
       return <EmployeeMasterTable rows={paginatedRows} />;
     }
     if (activeReport === 'inventory') return <InventoryTable rows={paginatedRows} />;
@@ -2860,6 +2959,76 @@ function ReportBody({
         onResetFilters={onResetFilters}
         isLoading={isLoading}
       />
+
+      {/* For Salary Sheet (Format 1): Show Report Options BEFORE Generate Report */}
+      {isSalarySheet1 && (
+        <SalarySheetFormat1Options
+          selectedOptions={salarySheet1Options}
+          onChange={setSalarySheet1Options}
+          onReset={() => setSalarySheet1Options(getDefaultSelectedOptions())}
+          onSave={() => {
+            if (!isReportGenerated) {
+              onGenerateReport();
+            }
+          }}
+        />
+      )}
+
+      {/* For Salary Sheet (Format 2): Show Report Options BEFORE Generate Report */}
+      {isSalarySheet2 && (
+        <SalarySheetFormat2Options
+          selectedOptions={salarySheet2Options}
+          onChange={setSalarySheet2Options}
+          onReset={() => setSalarySheet2Options(getDefaultSelectedOptionsFormat2())}
+          onSave={() => {
+            if (!isReportGenerated) {
+              onGenerateReport();
+            }
+          }}
+        />
+      )}
+
+      {/* For Employee Payslip: Show Report Options BEFORE Generate Report */}
+      {isEmployeePayslip && (
+        <EmployeePayslipOptions
+          selectedOptions={payslipOptions}
+          onChange={setPayslipOptions}
+          onReset={() => setPayslipOptions(getDefaultSelectedOptionsPayslip())}
+          onSave={() => {
+            if (!isReportGenerated) {
+              onGenerateReport();
+            }
+          }}
+        />
+      )}
+
+      {/* For Employee Master Report: Show Report Options BEFORE Generate Report */}
+      {isEmployeeMaster && (
+        <EmployeeMasterOptions
+          selectedOptions={employeeMasterOptions}
+          onChange={setEmployeeMasterOptions}
+          onReset={() => setEmployeeMasterOptions(getDefaultSelectedOptionsEmployeeMaster())}
+          onSave={() => {
+            if (!isReportGenerated) {
+              onGenerateReport();
+            }
+          }}
+        />
+      )}
+
+      {/* For Wage & Salary Register: Show Report Options BEFORE Generate Report */}
+      {isPayroll && (
+        <WageSalaryRegisterOptions
+          selectedOptions={payrollOptions}
+          onChange={setPayrollOptions}
+          onReset={() => setPayrollOptions(getDefaultSelectedOptionsPayroll())}
+          onSave={() => {
+            if (!isReportGenerated) {
+              onGenerateReport();
+            }
+          }}
+        />
+      )}
 
       {/* If Report is NOT generated yet, show clean call-to-action placeholder */}
       {!isReportGenerated || !reportData ? (
@@ -2889,7 +3058,9 @@ function ReportBody({
             Report Ready to Generate
           </h3>
           <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto', lineHeight: 1.5 }}>
-            Configure your filters above and click <strong>"Generate Report"</strong> to query database records and render the {meta.title}.
+            {isSalarySheet1 || isSalarySheet2 || isEmployeePayslip || isEmployeeMaster || isPayroll
+              ? `Configure your filters and report options above, then click "Generate Report" (or "Save" in Report Options) to view the ${meta.title}.`
+              : `Configure your filters above and click "Generate Report" to query database records and render the ${meta.title}.`}
           </p>
         </div>
       ) : (
@@ -3227,7 +3398,7 @@ function ExportReportModal({
     selectedReport === 'form-iv' ||
     selectedReport === 'form-iv-overtime' ||
     selectedReport === 'salary-overtime';
-  const isEmployeePayslipReport = selectedReport === 'employee-payslip' || selectedReport === 'payslip';
+  const isEmployeePayslipReport = selectedReport === 'employee-payslip' || selectedReport === 'payslip' || selectedReport === 'employee-payslip-report';
   const isDamageFormIIReport =
     selectedReport === 'register-deductions-damage-salary' ||
     selectedReport === 'form-ii-damage-loss' ||
@@ -4613,7 +4784,7 @@ function Reports() {
     try {
       let data = null;
       const targetCompId = activeCompanyId || '';
-      if (activeReport === 'payroll') {
+      if (activeReport === 'payroll' || activeReport === 'employee-payslip-report') {
         data = await reportService.getPayrollReport(targetCompId, filters);
       } else if (activeReport === 'attendance') {
         data = await reportService.getAttendanceReport(targetCompId, filters);
@@ -4656,7 +4827,7 @@ function Reports() {
         activeReport === 'salary-overtime'
       ) {
         data = await reportService.getFormIVOvertimeReport(targetCompId, filters);
-      } else if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+      } else if (activeReport === 'employee-payslip' || activeReport === 'payslip' || activeReport === 'employee-payslip-report') {
         data = await reportService.getEmployeePayslipReport(targetCompId, filters);
       } else if (
         activeReport === 'register-deductions-damage-salary' ||
@@ -5183,7 +5354,7 @@ function Reports() {
       });
       return;
     }
-    if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+    if (activeReport === 'employee-payslip' || activeReport === 'payslip' || activeReport === 'employee-payslip-report') {
       const activeSlip = (filters?.employee && filters.employee !== 'All Employees'
         ? (records.find(r => r.employeeName === filters.employee || r.name === filters.employee || r.employeeId === filters.employee || filters.employee.includes(r.employeeName || '') || filters.employee.includes(r.employeeId || '')) || records[0])
         : records[0]) || reportData?.selectedEmployeeData;
@@ -5291,12 +5462,12 @@ function Reports() {
 
             {/* Explorer Page Header */}
             <header className={styles.pageHeader} style={{ marginBottom: '16px' }}>
-              <div className={styles.pageHeaderContent}>
+              <div className={styles.pageHeaderContent} style={{ width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <BarChart3 size={24} color="#2563eb" />
                   <h1 style={{ margin: 0, fontSize: '22px' }}>Reports</h1>
                 </div>
-                <p className={styles.pageDescription} style={{ marginTop: '6px' }}>
+                <p className={styles.pageDescription}>
                   Generate, analyze and export dynamic reports related to attendance, payroll, billing, employee master, PF, ESI and labour laws compliance.
                 </p>
               </div>
@@ -5432,19 +5603,41 @@ function Reports() {
             </div>
 
             <header className={styles.pageHeader}>
-              <div className={styles.pageHeaderContent}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div className={styles.pageHeaderContent} style={{ width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
                   <button
                     type="button"
                     onClick={handleBackToReports}
                     className={styles.secondaryButton}
-                    style={{ padding: '6px 12px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    style={{
+                      order: 2,
+                      marginLeft: 'auto',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '7px',
+                      padding: '8px 16px',
+                      background: 'rgb(215, 119, 5)',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '12.5px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      whiteSpace: 'nowrap'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgb(180, 83, 9)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'rgb(215, 119, 5)';
+                    }}
                   >
-                    <ArrowLeft size={15} /> Back to Reports
+                    <ArrowLeft size={15} color="#fff" /> Back to Reports
                   </button>
-                  <h1 style={{ margin: 0, fontSize: '22px' }}>{reportMeta[activeReport]?.title}</h1>
+                  <h1 style={{ margin: 0, fontSize: '22px', order: 1 }}>{reportMeta[activeReport]?.title}</h1>
                 </div>
-                <p className={styles.pageDescription} style={{ marginTop: '6px' }}>{reportMeta[activeReport]?.description}</p>
+                <p className={styles.pageDescription}>{reportMeta[activeReport]?.description}</p>
               </div>
             </header>
 

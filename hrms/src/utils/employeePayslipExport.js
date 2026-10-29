@@ -14,7 +14,7 @@ import { numberToIndianWords } from './payrollUtils';
  * - Authorised Signatory block
  */
 export function downloadEmployeePayslipPdf(slip, companyInfo = {}, period = {}, options = {}) {
-  const { mode = 'download' } = options;
+  const { mode = 'download', options: opt = {} } = options;
   if (!slip) return;
 
   const doc = new jsPDF({
@@ -268,6 +268,7 @@ export function downloadEmployeePayslipPdf(slip, companyInfo = {}, period = {}, 
   // 6. Attendance Details Row
   const attY = netBoxY + netBoxHeight;
   const attHeight = 30;
+  if (opt.showAttendanceStrip !== false) {
   doc.rect(marginX, attY, contentWidth, attHeight);
 
   const att = slip.attendanceDetails || {};
@@ -292,12 +293,15 @@ export function downloadEmployeePayslipPdf(slip, companyInfo = {}, period = {}, 
     `EL : ${att.el || ''}`,
   ].join('    ');
   doc.text(attLine2, marginX + 70, attY + 23);
+  }
 
   // 7. Authorised Signatory block
-  const signatoryY = marginY + boxHeight - 20;
+  if (opt.showAuthorisedSignatory !== false) {
+    const signatoryY = marginY + boxHeight - 20;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
   doc.text('Authorised Signatory', marginX + contentWidth - 14, signatoryY, { align: 'right' });
+  }
 
   // Mode output
   const fileName = `Payslip_${slip.employeeCode || slip.employeeId || 'Staff'}_${slip.salaryMonth?.replace(/\s+|\//g, '_') || 'Official'}.pdf`;

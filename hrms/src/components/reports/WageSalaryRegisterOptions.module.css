@@ -1,0 +1,383 @@
+/* Report Options Container matching reference screenshot */
+.cardContainer {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 20px 24px;
+  margin-bottom: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  font-family: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Inner wrapper to keep columns and toggles comfortably proportioned */
+.optionsInner {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Header */
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 16px;
+}
+
+.headerTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filterIcon {
+  color: #0284c7; /* Cyan / Sky Blue like screenshot */
+}
+
+.headerTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.headerBadge {
+  font-size: 11px;
+  font-weight: 600;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #bfdbfe;
+}
+
+/* Top Section: Records to Include */
+.recordsIncludeSection {
+  margin-bottom: 18px;
+}
+
+.sectionHeading {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 10px 0;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.toggleGroupLeft {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+
+.toggleItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggleLabel {
+  font-size: 12.5px;
+  color: #374151;
+  font-weight: 500;
+}
+
+/* Custom Coral / Red Pill Switch */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #cbd5e1; /* Inactive soft gray/blue */
+  transition: all 0.2s ease-in-out;
+  border-radius: 20px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: all 0.2s ease-in-out;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.switch input:checked + .slider {
+  background-color: #d32f2f; /* Red / Coral active state matching screenshot */
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(16px);
+}
+
+/* 5-Column Options Grid matching Wage & Salary Register */
+.columnsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 14px;
+  margin-bottom: 20px;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+}
+
+.sectionBlock {
+  margin-bottom: 18px;
+}
+
+.sectionBlockTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0 0 10px 0;
+}
+
+.checkboxList {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.checkboxItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+  line-height: 1.35;
+}
+
+.checkboxItem:hover {
+  color: #111827;
+}
+
+/* Custom Checkbox */
+.customCheckbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 15px;
+  height: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background-color: #ffffff;
+  cursor: pointer;
+  display: inline-grid;
+  place-content: center;
+  margin: 0;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.customCheckbox:checked {
+  background-color: #2563eb; /* Primary Blue checked color */
+  border-color: #2563eb;
+}
+
+.customCheckbox:checked::before {
+  content: "";
+  width: 8px;
+  height: 5px;
+  border-left: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  transform: rotate(-45deg) translate(1px, -1px);
+}
+
+/* Bottom Controls Row: Amount Rounding, Unit Rounding, Records Per Page */
+.bottomControlsRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 20px;
+  margin-top: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.controlField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.controlLabel {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.controlSelect,
+.controlInput {
+  height: 36px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  color: #1e293b;
+  background: #ffffff;
+  outline: none;
+  min-width: 120px;
+  box-sizing: border-box;
+}
+
+.controlSelect:focus,
+.controlInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.controlInputNumber {
+  width: 80px;
+  min-width: 80px;
+}
+
+/* Bottom Actions Row */
+.bottomActionsBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #f1f5f9;
+  padding-top: 16px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.actionsLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.saveButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #c62828; /* Exact Coral/Red color from screenshot */
+  color: #ffffff;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(198, 40, 40, 0.25);
+  transition: background 0.15s ease;
+}
+
+.saveButton:hover {
+  background: #b71c1c;
+}
+
+.saveButtonActive {
+  background: #16a34a;
+}
+
+.savedToast {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.actionsRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #475569;
+  border-radius: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btnSecondary:hover {
+  background: #f8fafc;
+  color: #1e293b;
+  border-color: #cbd5e1;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1280px) {
+  .columnsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .columnsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .cardContainer {
+    padding: 16px;
+  }
+  
+  .columnsGrid {
+    grid-template-columns: 1fr;
+  }
+  
+  .toggleRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .bottomActionsBar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .actionsRight {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
