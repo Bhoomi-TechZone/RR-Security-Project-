@@ -652,7 +652,7 @@ export const getBrandLogo = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      brandLogo: masterCompany?.logo || null
+      brandLogo: masterCompany?.brandLogo || null
     });
   } catch (error) {
     console.error('Error fetching brand logo:', error);
@@ -694,13 +694,13 @@ export const updateBrandLogo = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Master company profile not found.' });
     }
 
-    masterCompany.logo = logo !== undefined ? logo : null;
+    masterCompany.brandLogo = logo !== undefined ? logo : null;
     await masterCompany.save();
 
     return res.status(200).json({
       success: true,
       message: 'Brand logo updated successfully! The new logo is now active across all company sidebars.',
-      brandLogo: masterCompany.logo
+      brandLogo: masterCompany.brandLogo
     });
   } catch (error) {
     console.error('Error updating brand logo:', error);

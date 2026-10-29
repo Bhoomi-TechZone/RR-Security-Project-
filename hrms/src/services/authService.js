@@ -113,6 +113,8 @@ export const authService = {
     localStorage.removeItem('novaspark_auth_token');
     sessionStorage.removeItem('novaspark_auth_token');
     localStorage.removeItem('novaspark_active_user');
+    localStorage.removeItem('novaspark_admin_companies');
+    localStorage.removeItem('novaspark_active_company_id');
     window.dispatchEvent(new CustomEvent('auth-changed', { detail: null }));
   },
 

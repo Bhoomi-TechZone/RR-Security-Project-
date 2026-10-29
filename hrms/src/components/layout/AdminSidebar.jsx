@@ -408,7 +408,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
         ].filter(Boolean).join(' ')}
         aria-label="Admin sidebar navigation"
       >
-        {/* Branding header */}
+        {/* Branding header: Master Brand Logo (common for all companies, customizable only by Master Admin) */}
         <div className={styles.brandHeader}>
           <NavLink to="/admin/dashboard" className={styles.brandLink} title="RR Security & Facilities">
             <img 

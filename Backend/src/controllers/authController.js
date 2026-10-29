@@ -51,13 +51,16 @@ export const login = async (req, res) => {
       lowerIdentifier === 'admin' ||
       lowerIdentifier === 'admin@rrsecurity.com' ||
       lowerIdentifier === 'admin@gmail.com' ||
-      lowerIdentifier === 'rrsecurity';
+      lowerIdentifier === 'rrsecurity' ||
+      lowerIdentifier === 'rrs8392014sec';
 
     // 1. Try finding user in User model (admin, corporate user, etc.)
     const user = await User.findOne({
       $or: [
         { email: lowerIdentifier },
-        ...(isAdminIdentifier ? [{ email: 'rrsecurity@gmail.com' }, { role: 'admin' }] : [])
+        { companyId: cleanIdentifier },
+        { companyId: { $regex: new RegExp(`^${cleanIdentifier}$`, 'i') } },
+        ...(isAdminIdentifier ? [{ email: 'rrsecurity@gmail.com' }] : [])
       ]
     }).select('+password');
 
@@ -72,7 +75,8 @@ export const login = async (req, res) => {
       // Block login if associated company workspace is deactivated
       const isMasterAdmin = 
         user.email.toLowerCase() === 'rrsecurity@gmail.com' ||
-        user.email.toLowerCase() === 'admin@rrsecurity.com';
+        user.email.toLowerCase() === 'admin@rrsecurity.com' ||
+        user.companyId === 'RRS8392014SEC';
 
       if (!isMasterAdmin) {
         let userCompany = null;
@@ -478,11 +482,18 @@ export const getMe = async (req, res) => {
         roleName = roleDoc?.name || user.roleName || 'Custom Role';
       }
 
+      const isMasterAdmin = 
+        user.email?.toLowerCase() === 'rrsecurity@gmail.com' ||
+        user.email?.toLowerCase() === 'admin@rrsecurity.com' ||
+        user.companyId === 'RRS8392014SEC';
+
       return res.status(200).json({
         success: true,
         user: {
           ...user.toJSON(),
           role: user.role || 'admin',
+          companyId: isMasterAdmin ? 'RRS8392014SEC' : (user.companyId || ''),
+          companyName: isMasterAdmin ? 'RR Security & Facilities' : (user.companyName || ''),
           roleName,
           permissions,
           redirect: user.role === 'admin' ? '/admin/dashboard' : '/user/dashboard'
