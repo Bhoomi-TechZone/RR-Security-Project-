@@ -26,6 +26,18 @@ export const authService = {
       if (data.token) {
         localStorage.setItem('novaspark_auth_token', data.token);
         localStorage.setItem('novaspark_active_user', JSON.stringify(data.user));
+
+        const isMaster = 
+          data.user?.email?.toLowerCase() === 'rrsecurity@gmail.com' ||
+          data.user?.email?.toLowerCase() === 'admin@rrsecurity.com' ||
+          data.user?.email?.toLowerCase().includes('rrsecurity');
+
+        if (isMaster) {
+          localStorage.setItem('novaspark_active_company_id', 'RRS8392014SEC');
+        } else if (data.user?.companyId) {
+          localStorage.setItem('novaspark_active_company_id', data.user.companyId);
+        }
+
         if (!rememberMe) {
           sessionStorage.setItem('novaspark_auth_token', data.token);
         }

@@ -297,8 +297,8 @@ const USER_NAV_GROUPS = [
 
 function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const location = useLocation();
-  const { currentUser, canView, isAdmin, userRole } = usePermissions();
-  const { activeCompany } = useCompany();
+  const { activeCompany, brandLogo } = useCompany();
+  const activeBrandLogo = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
 
   // Dropdown states for multi-item accordions
   const [openDropdowns, setOpenDropdowns] = useState(() => ({
@@ -389,7 +389,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
         <div className={styles.brandHeader}>
           <NavLink to="/user/dashboard" className={styles.brandLink} title="RR Security & Facilities">
             <img 
-              src={rrLogo} 
+              src={activeBrandLogo} 
               alt="RR Security & Facilities" 
               className={styles.brandLogoImg} 
             />

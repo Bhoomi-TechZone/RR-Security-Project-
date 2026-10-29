@@ -536,6 +536,15 @@
 }
 
 /* Profile Selector styling */
+.profileStatic {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+  cursor: default;
+  user-select: none;
+}
+
 .profileTrigger {
   display: flex;
   align-items: center;

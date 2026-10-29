@@ -43,6 +43,20 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: 'General',
     },
+    companyId: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    companyName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    savedPassword: {
+      type: String,
+      default: '',
+    },
     status: {
       type: String,
       enum: ['Active', 'Inactive', 'Suspended'],
@@ -64,21 +78,24 @@ const userSchema = new mongoose.Schema(
 
 // Hash password before saving
 userSchema.pre('save', async function () {
-  if (!this.isModified('password')) {
-    return;
+  if (this.isModified('password') && this.password) {
+    this.savedPassword = this.password;
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
   }
-  const salt = await bcrypt.genSalt(10);
-  this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Compare password method
 userSchema.methods.comparePassword = async function (enteredPassword) {
-  if (!this.password) return false;
-  try {
-    const isMatch = await bcrypt.compare(enteredPassword, this.password);
-    if (isMatch) return true;
-  } catch (_) {}
-  return this.password === enteredPassword;
+  if (!this.password && !this.savedPassword) return false;
+  if (this.password) {
+    try {
+      const isMatch = await bcrypt.compare(enteredPassword, this.password);
+      if (isMatch) return true;
+    } catch (_) {}
+    if (this.password === enteredPassword) return true;
+  }
+  return this.savedPassword === enteredPassword;
 };
 
 const User = mongoose.model('User', userSchema);

@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import jwt from 'jsonwebtoken';
 import User from '../models/userModel.js';
+import Company from '../models/companyModel.js';
 import Employee from '../models/employeeModel.js';
 import UserRole from '../models/userRoleModel.js';
 import Client from '../models/clientModel.js';
@@ -193,6 +194,23 @@ export const protect = async (req, res, next) => {
           success: false,
           message: 'Your account is inactive or suspended.'
         });
+      }
+
+      // Check if user's company workspace is deactivated (unless master RR Security admin)
+      if (user.companyId && user.companyId !== 'RRS8392014SEC') {
+        const isMaster = user.email && (
+          user.email.toLowerCase() === 'rrsecurity@gmail.com' ||
+          user.email.toLowerCase() === 'admin@rrsecurity.com'
+        );
+        if (!isMaster) {
+          const comp = await Company.findOne({ companyId: user.companyId });
+          if (comp && comp.status === 'Inactive') {
+            return res.status(403).json({
+              success: false,
+              message: `Company workspace "${comp.name}" is currently deactivated. Access is suspended.`
+            });
+          }
+        }
       }
 
       req.user = user;

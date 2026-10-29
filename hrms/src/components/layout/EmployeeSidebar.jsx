@@ -52,8 +52,9 @@ const ALL_NAV_ITEMS = [
 ];
 
 function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
-  const { activeCompany } = useCompany();
+  const { activeCompany, brandLogo } = useCompany();
   const location = useLocation();
+  const activeBrandLogo = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
 
   const [portalAccess, setPortalAccess] = useState({
     enabled: true,
@@ -146,7 +147,7 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
         <div className={styles.brandHeader}>
           <NavLink to="/employee/dashboard" className={styles.brandLink} title="RR Security & Facilities">
             <img 
-              src={rrLogo} 
+              src={activeBrandLogo} 
               alt="RR Security & Facilities" 
               className={styles.brandLogoImg} 
             />

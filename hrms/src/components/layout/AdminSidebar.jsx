@@ -23,6 +23,12 @@ const NAV_GROUPS = [
     title: 'ORGANIZATION',
     items: [
       {
+        path: '/admin/all-companies',
+        name: 'All Company',
+        icon: Building2,
+        rrSecurityOnly: true
+      },
+      {
         path: '/admin/company-setup',
         name: 'Organization Setup',
         icon: Building2,
@@ -258,9 +264,11 @@ const NAV_GROUPS = [
 ];
 
 function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
-  const { activeCompany } = useCompany();
+  const { activeCompany, brandLogo } = useCompany();
   const { canView, isAdmin, userRole, currentUser } = usePermissions();
   const location = useLocation();
+
+  const activeBrandLogo = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
 
   // Track expanded state of dropdown menus
   const [openDropdowns, setOpenDropdowns] = useState(() => {
@@ -350,8 +358,35 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
   };
 
-  // Admin Sidebar always displays full administration module catalog
-  const filteredNavGroups = NAV_GROUPS;
+  // Determine if the logged-in user is RR Security
+  const isRRSecurity = Boolean(
+    currentUser && (
+      (currentUser.email && (
+        currentUser.email.toLowerCase() === 'rrsecurity@gmail.com' ||
+        currentUser.email.toLowerCase() === 'admin@rrsecurity.com' ||
+        currentUser.email.toLowerCase().includes('rrsecurity')
+      )) ||
+      (currentUser.name && currentUser.name.toLowerCase().includes('rr security')) ||
+      (currentUser.username && currentUser.username.toLowerCase().includes('rrsecurity')) ||
+      (isAdmin && (
+        activeCompany?.code === 'RRS' ||
+        activeCompany?.companyId === 'RRS8392014SEC' ||
+        activeCompany?.isDefault ||
+        activeCompany?.name?.toLowerCase().includes('rr security')
+      ))
+    )
+  );
+
+  // Admin Sidebar displays modules with RR Security exclusivity filtering
+  const filteredNavGroups = NAV_GROUPS.map(group => ({
+    ...group,
+    items: group.items.filter(item => {
+      if (item.rrSecurityOnly && !isRRSecurity) {
+        return false;
+      }
+      return true;
+    })
+  })).filter(group => group.items.length > 0);
 
   return (
     <>
@@ -377,7 +412,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
         <div className={styles.brandHeader}>
           <NavLink to="/admin/dashboard" className={styles.brandLink} title="RR Security & Facilities">
             <img 
-              src={rrLogo} 
+              src={activeBrandLogo} 
               alt="RR Security & Facilities" 
               className={styles.brandLogoImg} 
             />
@@ -501,7 +536,10 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                           end={item.path === '/admin/dashboard'}
                           className={({ isActive }) => [
                             styles.link,
-                            (isActive || (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup'))) ? styles.active : '',
+                            (isActive || 
+                             (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup')) ||
+                             (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company')))
+                            ) ? styles.active : '',
                             item.disabled ? styles.disabledLink : ''
                           ].filter(Boolean).join(' ')}
                           onClick={(e) => {

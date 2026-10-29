@@ -75,9 +75,30 @@ export function CompanyProvider({ children }) {
     return [{ ...DEFAULT_PRIMARY_COMPANY, logo: defLogo }];
   });
 
-  // 2. Active selected company
+  // 2. Active company workspace is strictly locked to authenticated company
   const [activeCompanyId, setActiveCompanyId] = useState(() => {
-    return localStorage.getItem('novaspark_active_company_id') || DEFAULT_PRIMARY_COMPANY.companyId;
+    const user = authService.getCurrentUser();
+    const isMasterRR = 
+      !user || 
+      user?.email?.toLowerCase() === 'rrsecurity@gmail.com' ||
+      user?.email?.toLowerCase() === 'admin@rrsecurity.com' ||
+      user?.email?.toLowerCase().includes('rrsecurity');
+
+    if (isMasterRR) {
+      localStorage.setItem('novaspark_active_company_id', DEFAULT_PRIMARY_COMPANY.companyId);
+      return DEFAULT_PRIMARY_COMPANY.companyId;
+    }
+    const lockedId = user?.companyId || DEFAULT_PRIMARY_COMPANY.companyId;
+    localStorage.setItem('novaspark_active_company_id', lockedId);
+    return lockedId;
+  });
+
+  // Global Master Brand Logo (displayed on sidebar header across all companies)
+  const [brandLogo, setBrandLogo] = useState(() => {
+    return localStorage.getItem('novaspark_master_brand_logo') ||
+      localStorage.getItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`) ||
+      localStorage.getItem('novaspark_company_logo_preview') ||
+      null;
   });
 
   // Sync to localStorage
@@ -89,7 +110,40 @@ export function CompanyProvider({ children }) {
     localStorage.setItem('novaspark_active_company_id', activeCompanyId);
   }, [activeCompanyId]);
 
-  // Fetch companies from backend API dynamically
+  // Listen for brand logo updates from any tab/component
+  useEffect(() => {
+    const handleLogoChange = (e) => {
+      if (e.detail?.logo !== undefined) {
+        setBrandLogo(e.detail.logo);
+      }
+    };
+    window.addEventListener('master-brand-logo-changed', handleLogoChange);
+    return () => window.removeEventListener('master-brand-logo-changed', handleLogoChange);
+  }, []);
+
+  // Listen for auth state changes to dynamically lock workspace to user's assigned company
+  useEffect(() => {
+    const handleAuthChange = (e) => {
+      const user = e.detail || authService.getCurrentUser();
+      const isMasterRR = 
+        !user || 
+        user?.email?.toLowerCase() === 'rrsecurity@gmail.com' ||
+        user?.email?.toLowerCase() === 'admin@rrsecurity.com' ||
+        user?.email?.toLowerCase().includes('rrsecurity');
+
+      if (isMasterRR) {
+        setActiveCompanyId(DEFAULT_PRIMARY_COMPANY.companyId);
+        localStorage.setItem('novaspark_active_company_id', DEFAULT_PRIMARY_COMPANY.companyId);
+      } else if (user?.companyId) {
+        setActiveCompanyId(user.companyId);
+        localStorage.setItem('novaspark_active_company_id', user.companyId);
+      }
+    };
+    window.addEventListener('auth-changed', handleAuthChange);
+    return () => window.removeEventListener('auth-changed', handleAuthChange);
+  }, []);
+
+  // Fetch companies and brand logo from backend API dynamically
   const refreshFromBackend = useCallback(async () => {
     const token = authService.getToken();
     const headers = {
@@ -98,6 +152,17 @@ export function CompanyProvider({ children }) {
     };
 
     try {
+      // Fetch system brand logo (accessible to all companies)
+      fetch(`${API_BASE_URL}/companies/brand-logo`, { headers })
+        .then(res => res.json())
+        .then(brandData => {
+          if (brandData.success && brandData.brandLogo) {
+            setBrandLogo(brandData.brandLogo);
+            localStorage.setItem('novaspark_master_brand_logo', brandData.brandLogo);
+          }
+        })
+        .catch(() => {});
+
       const res = await fetch(`${API_BASE_URL}/companies`, { headers });
       if (res.ok) {
         const data = await res.json();
@@ -107,11 +172,30 @@ export function CompanyProvider({ children }) {
             companyId: c.companyId || c.id
           }));
           setCompanies(formatted);
-          setActiveCompanyId(prev => {
-            if (formatted.some(c => c.companyId === prev || c.id === prev)) {
-              return prev;
+
+          // If master company has logo, also sync as brand logo
+          const master = formatted.find(c => c.isDefault || c.companyId === 'RRS8392014SEC');
+          if (master?.logo) {
+            setBrandLogo(master.logo);
+            localStorage.setItem('novaspark_master_brand_logo', master.logo);
+          }
+          setActiveCompanyId(() => {
+            const currentUser = authService.getCurrentUser();
+            const isMasterRR = 
+              !currentUser ||
+              currentUser?.email?.toLowerCase() === 'rrsecurity@gmail.com' ||
+              currentUser?.email?.toLowerCase() === 'admin@rrsecurity.com' ||
+              currentUser?.email?.toLowerCase().includes('rrsecurity');
+
+            if (isMasterRR) {
+              localStorage.setItem('novaspark_active_company_id', DEFAULT_PRIMARY_COMPANY.companyId);
+              return DEFAULT_PRIMARY_COMPANY.companyId;
             }
-            return formatted[0].companyId || formatted[0].id;
+            if (currentUser?.companyId) {
+              localStorage.setItem('novaspark_active_company_id', currentUser.companyId);
+              return currentUser.companyId;
+            }
+            return DEFAULT_PRIMARY_COMPANY.companyId;
           });
         }
       }
@@ -127,19 +211,16 @@ export function CompanyProvider({ children }) {
   // Active Company Object
   const activeCompany =
     companies.find(c => c.companyId === activeCompanyId || c.id === activeCompanyId) ||
+    companies.find(c => c.companyId === DEFAULT_PRIMARY_COMPANY.companyId || c.isDefault) ||
     companies[0] ||
     DEFAULT_PRIMARY_COMPANY;
 
   /**
-   * Switch Active Company Profile
+   * Workspace switching is completely disabled.
+   * RR Security operates in its own master workspace; created companies operate strictly in their own workspace.
    */
-  const switchCompany = (companyId) => {
-    const found = companies.find(c => c.companyId === companyId || c.id === companyId);
-    if (found) {
-      const targetId = found.companyId || found.id;
-      setActiveCompanyId(targetId);
-      window.dispatchEvent(new CustomEvent('company-profile-changed', { detail: found }));
-    }
+  const switchCompany = () => {
+    return;
   };
 
   /**
@@ -150,9 +231,11 @@ export function CompanyProvider({ children }) {
     let created = null;
 
     const uniqueId = generateCompanyId(companyData.name);
+    const pass = companyData.adminPassword || companyData.password || companyData.adminInitialPassword || '';
     const payload = {
       ...companyData,
-      companyId: uniqueId
+      companyId: uniqueId,
+      adminInitialPassword: pass
     };
 
     if (token) {
@@ -169,7 +252,8 @@ export function CompanyProvider({ children }) {
         created = {
           ...data.company,
           companyId: data.company.companyId || uniqueId,
-          id: data.company.companyId || data.company.id || uniqueId
+          id: data.company.companyId || data.company.id || uniqueId,
+          adminInitialPassword: data.company.adminInitialPassword || pass
         };
       } else {
         throw new Error(data.message || 'Failed to save company profile to database.');
@@ -183,6 +267,8 @@ export function CompanyProvider({ children }) {
         code: (companyData.code || companyData.name.substring(0, 3)).toUpperCase(),
         industry: companyData.industry || 'Security & Facility Management',
         email: companyData.email || 'company@domain.com',
+        adminEmail: companyData.adminEmail || companyData.email || 'admin@domain.com',
+        adminInitialPassword: pass,
         phone: companyData.phone || '',
         address: companyData.address || '',
         city: companyData.city || '',
@@ -203,13 +289,21 @@ export function CompanyProvider({ children }) {
       };
     }
 
+    if (pass) {
+      localStorage.setItem(`novaspark_company_password_${created.companyId || created.id}`, pass);
+    }
+    if (companyData.adminEmail) {
+      localStorage.setItem(`novaspark_company_admin_email_${created.companyId || created.id}`, companyData.adminEmail);
+    }
+
     if (companyData.logo) {
       localStorage.setItem(`novaspark_company_logo_${created.companyId || created.id}`, companyData.logo);
     }
 
     setCompanies(prev => [created, ...prev.filter(c => (c.companyId || c.id) !== (created.companyId || created.id))]);
-    setActiveCompanyId(created.companyId || created.id);
-    window.dispatchEvent(new CustomEvent('company-profile-changed', { detail: created }));
+    // Master RR Security workspace remains locked to DEFAULT_PRIMARY_COMPANY.companyId
+    setActiveCompanyId(DEFAULT_PRIMARY_COMPANY.companyId);
+    localStorage.setItem('novaspark_active_company_id', DEFAULT_PRIMARY_COMPANY.companyId);
     return created;
   };
 
@@ -287,12 +381,58 @@ export function CompanyProvider({ children }) {
     });
   };
 
+  /**
+   * Update Master Brand Logo across the platform (visible to all companies in sidebar header)
+   */
+  const updateMasterBrandLogo = async (logoUrlOrBase64) => {
+    const token = authService.getToken();
+    const cleanLogo = logoUrlOrBase64 ? logoUrlOrBase64.trim() : null;
+
+    setBrandLogo(cleanLogo);
+    if (cleanLogo) {
+      localStorage.setItem('novaspark_master_brand_logo', cleanLogo);
+      localStorage.setItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`, cleanLogo);
+    } else {
+      localStorage.removeItem('novaspark_master_brand_logo');
+      localStorage.removeItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`);
+    }
+
+    if (token) {
+      try {
+        const res = await fetch(`${API_BASE_URL}/companies/brand-logo`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ logo: cleanLogo })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || 'Failed to save brand logo to database.');
+        }
+      } catch (err) {
+        console.error('Error saving brand logo to backend:', err);
+        throw err;
+      }
+    }
+
+    // Broadcast across windows/tabs/components
+    window.dispatchEvent(new CustomEvent('master-brand-logo-changed', {
+      detail: { logo: cleanLogo }
+    }));
+
+    return cleanLogo;
+  };
+
   return (
     <CompanyContext.Provider
       value={{
         companies,
         activeCompany,
         activeCompanyId,
+        brandLogo,
+        updateMasterBrandLogo,
         switchCompany,
         addCompanyProfile,
         updateCompanyProfile,
@@ -312,6 +452,8 @@ export function useCompany() {
       companies: [DEFAULT_PRIMARY_COMPANY],
       activeCompany: DEFAULT_PRIMARY_COMPANY,
       activeCompanyId: DEFAULT_PRIMARY_COMPANY.companyId,
+      brandLogo: null,
+      updateMasterBrandLogo: async () => null,
       switchCompany: () => { },
       addCompanyProfile: async () => DEFAULT_PRIMARY_COMPANY,
       updateCompanyProfile: () => { },

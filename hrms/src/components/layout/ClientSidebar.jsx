@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -59,6 +59,17 @@ const CLIENT_NAV_GROUPS = [
 
 function ClientSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const { clientCompany, clientUser } = useClientAuth();
+  const [activeBrandLogo, setActiveBrandLogo] = useState(() => localStorage.getItem('novaspark_master_brand_logo') || rrLogo);
+
+  useEffect(() => {
+    const handleLogoChange = (e) => {
+      if (e.detail?.logo !== undefined) {
+        setActiveBrandLogo(e.detail.logo || rrLogo);
+      }
+    };
+    window.addEventListener('master-brand-logo-changed', handleLogoChange);
+    return () => window.removeEventListener('master-brand-logo-changed', handleLogoChange);
+  }, []);
 
   const handleItemClick = () => {
     if (setIsDrawerOpen) {
@@ -90,7 +101,7 @@ function ClientSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout })
         <div className={styles.brandHeader}>
           <NavLink to="/client/dashboard" className={styles.brandLink} title="RR Security & Facilities">
             <img 
-              src={rrLogo} 
+              src={activeBrandLogo} 
               alt="RR Security & Facilities" 
               className={styles.brandLogoImg} 
             />
