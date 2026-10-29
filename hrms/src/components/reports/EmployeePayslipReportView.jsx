@@ -11,6 +11,8 @@ import {
   Info,
 } from 'lucide-react';
 import { downloadEmployeePayslipPdf } from '../../utils/employeePayslipExport';
+import EmployeePayslipOptions from './EmployeePayslipOptions';
+import { getDefaultSelectedOptions } from './employeePayslipConfig';
 import styles from './EmployeePayslipReportView.module.css';
 
 /**
@@ -32,8 +34,14 @@ export default function EmployeePayslipReportView({
   totals = {},
   selectedEmployeeData = null,
   filters = {},
+  selectedOptions: propSelectedOptions,
+  onOptionsChange,
+  showOptions = false,
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const [internalSelectedOptions, setInternalSelectedOptions] = useState(() => getDefaultSelectedOptions());
+  const selectedOptions = propSelectedOptions || internalSelectedOptions;
+  const setSelectedOptions = onOptionsChange || setInternalSelectedOptions;
 
   // Active Payslip
   const activeSlip = useMemo(() => {
@@ -45,11 +53,11 @@ export default function EmployeePayslipReportView({
 
   // Handlers
   const handleDownloadPdf = () => {
-    downloadEmployeePayslipPdf(activeSlip, companyInfo, period, { mode: 'download' });
+    downloadEmployeePayslipPdf(activeSlip, companyInfo, period, { mode: 'download', options: selectedOptions });
   };
 
   const handlePrint = () => {
-    downloadEmployeePayslipPdf(activeSlip, companyInfo, period, { mode: 'print' });
+    downloadEmployeePayslipPdf(activeSlip, companyInfo, period, { mode: 'print', options: selectedOptions });
   };
 
   const handlePrev = () => {
@@ -98,6 +106,15 @@ export default function EmployeePayslipReportView({
           <strong>{activeSlip.salaryMonth || period?.monthLabel || 'Current Month'}</strong>
         </span>
       </div>
+
+      {/* Dynamic Report Options UI (Frontend Configurable Options Panel) */}
+      {showOptions && (
+        <EmployeePayslipOptions
+          selectedOptions={selectedOptions}
+          onChange={setSelectedOptions}
+          onReset={() => setSelectedOptions(getDefaultSelectedOptions())}
+        />
+      )}
 
       {/* KPI Cards */}
       <div className={styles.kpiGrid}>
@@ -213,21 +230,27 @@ export default function EmployeePayslipReportView({
       <div className={styles.payslipFrameWrap}>
         <div className={styles.payslipDocument} id="printable-employee-payslip">
           {/* Top Header */}
-          <div className={styles.docHeader}>
-            <div className={styles.docLogoCircle}>
-              <span>RR SECURITY</span>
-              <span style={{ fontSize: '7.5px' }}>&amp; FACILITIES</span>
-            </div>
+          {selectedOptions.showCompanyHeader !== false && (
+            <div className={styles.docHeader}>
+              <div className={styles.docLogoCircle}>
+                <span>RR SECURITY</span>
+                <span style={{ fontSize: '7.5px' }}>&amp; FACILITIES</span>
+              </div>
 
-            <div className={styles.docHeaderCenter}>
-              <div className={styles.titlePayslip}>P A Y S L I P</div>
-              <div className={styles.compName}>{compName}</div>
-              <div className={styles.compAddr}>{compAddr}</div>
-              <div className={styles.compTel}>{compPhone}</div>
-              <div className={styles.compStatutoryCodes}>{compPan}</div>
-              <div className={styles.compStatutoryCodes}>{compEsic}</div>
+              <div className={styles.docHeaderCenter}>
+                <div className={styles.titlePayslip}>P A Y S L I P</div>
+                <div className={styles.compName}>{compName}</div>
+                <div className={styles.compAddr}>{compAddr}</div>
+                <div className={styles.compTel}>{compPhone}</div>
+                {selectedOptions.showCompanyStatutoryCodes !== false && (
+                  <>
+                    <div className={styles.compStatutoryCodes}>{compPan}</div>
+                    <div className={styles.compStatutoryCodes}>{compEsic}</div>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Payslip for the Month Row */}
           <div className={styles.monthRow}>
@@ -237,105 +260,139 @@ export default function EmployeePayslipReportView({
 
           {/* 2-Column Metadata Box */}
           <div className={styles.metadataBox}>
-            {/* Left Column */}
+            {/* Left Column: Employee Profile */}
             <div className={styles.metaColLeft}>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Employee Code</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.employeeCode || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Emp. Card No.</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.empCardNo || ''}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Employee Name</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
-                  {activeSlip.employeeName || '—'}
-                </span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Father/Husb. Name</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.fatherHusbandName || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Designation</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.designation || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Department</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.department || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Location</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.location || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Date of Joining</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.dateOfJoining || '—'}</span>
-              </div>
+              {selectedOptions.employeeCode !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Employee Code</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.employeeCode || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.empCardNo !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Emp. Card No.</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.empCardNo || ''}</span>
+                </div>
+              )}
+              {selectedOptions.employeeName !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Employee Name</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
+                    {activeSlip.employeeName || '—'}
+                  </span>
+                </div>
+              )}
+              {selectedOptions.fatherHusbandName !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Father/Husb. Name</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.fatherHusbandName || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.designation !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Designation</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.designation || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.department !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Department</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.department || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.location !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Location</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.location || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.dateOfJoining !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Date of Joining</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.dateOfJoining || '—'}</span>
+                </div>
+              )}
             </div>
 
-            {/* Right Column */}
+            {/* Right Column: Statutory & Bank */}
             <div className={styles.metaColRight}>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Payment Mode</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.paymentMode || 'Bank'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>A/C No.</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
-                  {activeSlip.accountNo || '—'}
-                </span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Bank Name</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.bankName || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>IFSC Code</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.ifscCode || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>ESI No.</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.esiNo || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>UAN</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
-                  {activeSlip.uan || '—'}
-                </span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>PAN No.</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.pan || '—'}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>LWF No.</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={styles.metaFieldValue}>{activeSlip.lwfNo || ''}</span>
-              </div>
-              <div className={styles.metaField}>
-                <span className={styles.metaFieldLabel}>Days Paid</span>
-                <span className={styles.metaFieldColon}>:</span>
-                <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
-                  {activeSlip.daysPaid ?? 30}
-                </span>
-              </div>
+              {selectedOptions.paymentMode !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Payment Mode</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.paymentMode || 'Bank'}</span>
+                </div>
+              )}
+              {selectedOptions.accountNo !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>A/C No.</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
+                    {activeSlip.accountNo || '—'}
+                  </span>
+                </div>
+              )}
+              {selectedOptions.bankName !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Bank Name</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.bankName || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.ifscCode !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>IFSC Code</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.ifscCode || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.esiNo !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>ESI No.</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.esiNo || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.uan !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>UAN</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
+                    {activeSlip.uan || '—'}
+                  </span>
+                </div>
+              )}
+              {selectedOptions.pan !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>PAN No.</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.pan || '—'}</span>
+                </div>
+              )}
+              {selectedOptions.lwfNo !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>LWF No.</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={styles.metaFieldValue}>{activeSlip.lwfNo || ''}</span>
+                </div>
+              )}
+              {selectedOptions.daysPaid !== false && (
+                <div className={styles.metaField}>
+                  <span className={styles.metaFieldLabel}>Days Paid</span>
+                  <span className={styles.metaFieldColon}>:</span>
+                  <span className={`${styles.metaFieldValue} ${styles.boldValue}`}>
+                    {activeSlip.daysPaid ?? 30}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -344,39 +401,49 @@ export default function EmployeePayslipReportView({
             <table className={styles.slipTable}>
               <thead>
                 <tr>
-                  <th className={styles.colAllowance}>ALLOWANCE</th>
-                  <th className={styles.colRate}>RATE</th>
-                  <th className={styles.colPayable}>PAYABLE</th>
-                  <th className={styles.colDeductions}>DEDUCTIONS</th>
-                  <th className={styles.colAmount}>AMOUNT</th>
+                  {selectedOptions.showAllowances !== false && <th className={styles.colAllowance}>ALLOWANCE</th>}
+                  {selectedOptions.showRate !== false && <th className={styles.colRate}>RATE</th>}
+                  {selectedOptions.showPayable !== false && <th className={styles.colPayable}>PAYABLE</th>}
+                  {selectedOptions.showDeductions !== false && <th className={styles.colDeductions}>DEDUCTIONS</th>}
+                  {selectedOptions.showDeductionAmount !== false && <th className={styles.colAmount}>AMOUNT</th>}
                 </tr>
               </thead>
               <tbody>
                 {tableRows.map((r, i) => (
                   <tr key={`row-${i}`}>
-                    <td className={styles.colAllowance}>{r.allowanceName}</td>
-                    <td className={styles.colRate}>{r.rate}</td>
-                    <td className={styles.colPayable}>{r.payable}</td>
-                    <td className={styles.colDeductions}>{r.deductionName}</td>
-                    <td className={styles.colAmount}>{r.amount}</td>
+                    {selectedOptions.showAllowances !== false && <td className={styles.colAllowance}>{r.allowanceName}</td>}
+                    {selectedOptions.showRate !== false && <td className={styles.colRate}>{r.rate}</td>}
+                    {selectedOptions.showPayable !== false && <td className={styles.colPayable}>{r.payable}</td>}
+                    {selectedOptions.showDeductions !== false && <td className={styles.colDeductions}>{r.deductionName}</td>}
+                    {selectedOptions.showDeductionAmount !== false && <td className={styles.colAmount}>{r.amount}</td>}
                   </tr>
                 ))}
                 {/* Total Row */}
-                <tr className={styles.tableTotalRow}>
-                  <td className={styles.colAllowance} style={{ textAlign: 'right' }}>
-                    Total :
-                  </td>
-                  <td className={styles.colRate}>
-                    {Number(activeSlip.totalRate || 0).toLocaleString('en-IN')}
-                  </td>
-                  <td className={styles.colPayable}>
-                    {Number(activeSlip.totalPayable || 0).toLocaleString('en-IN')}
-                  </td>
-                  <td className={styles.colDeductions}></td>
-                  <td className={styles.colAmount}>
-                    {Number(activeSlip.totalDeductions || 0).toLocaleString('en-IN')}
-                  </td>
-                </tr>
+                {selectedOptions.showTotalRow !== false && (
+                  <tr className={styles.tableTotalRow}>
+                    {selectedOptions.showAllowances !== false && (
+                      <td className={styles.colAllowance} style={{ textAlign: 'right' }}>
+                        Total :
+                      </td>
+                    )}
+                    {selectedOptions.showRate !== false && (
+                      <td className={styles.colRate}>
+                        {Number(activeSlip.totalRate || 0).toLocaleString('en-IN')}
+                      </td>
+                    )}
+                    {selectedOptions.showPayable !== false && (
+                      <td className={styles.colPayable}>
+                        {Number(activeSlip.totalPayable || 0).toLocaleString('en-IN')}
+                      </td>
+                    )}
+                    {selectedOptions.showDeductions !== false && <td className={styles.colDeductions}></td>}
+                    {selectedOptions.showDeductionAmount !== false && (
+                      <td className={styles.colAmount}>
+                        {Number(activeSlip.totalDeductions || 0).toLocaleString('en-IN')}
+                      </td>
+                    )}
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -384,35 +451,41 @@ export default function EmployeePayslipReportView({
           {/* Net Salary & In-Words Strip */}
           <div className={styles.summaryBox}>
             <span className={styles.wordsText}>
-              {activeSlip.netSalaryWords || '—'}
+              {selectedOptions.netSalaryWords !== false ? (activeSlip.netSalaryWords || '—') : ''}
             </span>
-            <span className={styles.netSalaryText}>
-              NET SALARY : &nbsp;&nbsp;{Number(activeSlip.netSalary || 0).toLocaleString('en-IN')}
-            </span>
+            {selectedOptions.netSalary !== false && (
+              <span className={styles.netSalaryText}>
+                NET SALARY : &nbsp;&nbsp;{Number(activeSlip.netSalary || 0).toLocaleString('en-IN')}
+              </span>
+            )}
           </div>
 
           {/* Attendance Strip */}
-          <div className={styles.attBox}>
-            <div className={styles.attLine}>
-              <span className={styles.attLabel}>Att. Details :</span>
-              <span>Month Days : <strong>{att.monthDays || 30}</strong></span>
-              <span>Present : <strong>{att.present || 30}</strong></span>
-              <span>W.Off : <strong>{att.wOff !== undefined ? att.wOff : ''}</strong></span>
-              <span>LWP : <strong>{att.lwp !== undefined ? att.lwp : ''}</strong></span>
-              <span>Payable : <strong>{att.payable || 30}</strong></span>
+          {selectedOptions.showAttendanceStrip !== false && (
+            <div className={styles.attBox}>
+              <div className={styles.attLine}>
+                <span className={styles.attLabel}>Att. Details :</span>
+                {selectedOptions.monthDays !== false && <span>Month Days : <strong>{att.monthDays || 30}</strong></span>}
+                {selectedOptions.present !== false && <span>Present : <strong>{att.present || 30}</strong></span>}
+                {selectedOptions.wOff !== false && <span>W.Off : <strong>{att.wOff !== undefined ? att.wOff : ''}</strong></span>}
+                {selectedOptions.lwp !== false && <span>LWP : <strong>{att.lwp !== undefined ? att.lwp : ''}</strong></span>}
+                {selectedOptions.payable !== false && <span>Payable : <strong>{att.payable || 30}</strong></span>}
+              </div>
+              <div className={styles.attLine} style={{ paddingLeft: '90px' }}>
+                {selectedOptions.holiday !== false && <span>Holiday : <strong>{att.holiday || ''}</strong></span>}
+                {selectedOptions.cl !== false && <span>CL : <strong>{att.cl || ''}</strong></span>}
+                {selectedOptions.sl !== false && <span>SL : <strong>{att.sl || ''}</strong></span>}
+                {selectedOptions.el !== false && <span>EL : <strong>{att.el || ''}</strong></span>}
+              </div>
             </div>
-            <div className={styles.attLine} style={{ paddingLeft: '90px' }}>
-              <span>Holiday : <strong>{att.holiday || ''}</strong></span>
-              <span>CL : <strong>{att.cl || ''}</strong></span>
-              <span>SL : <strong>{att.sl || ''}</strong></span>
-              <span>EL : <strong>{att.el || ''}</strong></span>
-            </div>
-          </div>
+          )}
 
           {/* Authorised Signatory */}
-          <div className={styles.signatoryBox}>
-            <span className={styles.signatoryLabel}>Authorised Signatory</span>
-          </div>
+          {selectedOptions.showAuthorisedSignatory !== false && (
+            <div className={styles.signatoryBox}>
+              <span className={styles.signatoryLabel}>Authorised Signatory</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

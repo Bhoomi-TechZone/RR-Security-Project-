@@ -14,13 +14,15 @@ import {
   downloadSalarySheetFormat2Excel,
   downloadSalarySheetFormat2Csv,
 } from '../../utils/salarySheetFormat2Export';
+import SalarySheetFormat2Options from './SalarySheetFormat2Options';
+import { getDefaultSelectedOptions } from './salarySheetFormat2Config';
 import styles from './SalarySheetFormat2View.module.css';
 
 /**
  * Statutory Register of Payment of Wages (Salary Sheet Format 2) View
  * FORM - IV [Payment of Wages Rules, 1971]
  * Matches exact format from user's reference images (Images 2 & 3).
- * Fully dynamic rendering powered by live MongoDB calculations.
+ * Fully dynamic rendering powered by live MongoDB calculations and configurable Report Options.
  */
 export default function SalarySheetFormat2View({
   records = [],
@@ -33,7 +35,14 @@ export default function SalarySheetFormat2View({
   esiSummary = {},
   lwfSummary = {},
   filters = {},
+  selectedOptions: propSelectedOptions,
+  onOptionsChange,
+  showOptions = false,
 }) {
+  const [internalSelectedOptions, setInternalSelectedOptions] = useState(() => getDefaultSelectedOptions());
+  const selectedOptions = propSelectedOptions || internalSelectedOptions;
+  const setSelectedOptions = onOptionsChange || setInternalSelectedOptions;
+
   const companyName = companyInfo?.name || companyInfo?.companyName || 'RR SECURITY & FACILITIES';
   const companyAddress =
     companyInfo?.address && companyInfo.address !== '—'
@@ -121,7 +130,7 @@ export default function SalarySheetFormat2View({
         pfSummary,
         esiSummary,
         lwfSummary,
-        { mode: 'download', clientInfo, filters }
+        { mode: 'download', clientInfo, filters, options: selectedOptions }
       );
     } catch (err) {
       console.error('PDF export failed:', err);
@@ -143,7 +152,7 @@ export default function SalarySheetFormat2View({
         pfSummary,
         esiSummary,
         lwfSummary,
-        { format: 'xlsx', clientInfo, filters }
+        { format: 'xlsx', clientInfo, filters, options: selectedOptions }
       );
       await new Promise((r) => setTimeout(r, 300));
     } catch (err) {
@@ -166,7 +175,7 @@ export default function SalarySheetFormat2View({
         pfSummary,
         esiSummary,
         lwfSummary,
-        { clientInfo, filters }
+        { clientInfo, filters, options: selectedOptions }
       );
       await new Promise((r) => setTimeout(r, 300));
     } catch (err) {
@@ -250,6 +259,15 @@ export default function SalarySheetFormat2View({
           </button>
         </div>
       </div>
+
+      {/* Dynamic Report Options UI (Frontend Configurable Options Panel) */}
+      {showOptions && (
+        <SalarySheetFormat2Options
+          selectedOptions={selectedOptions}
+          onChange={setSelectedOptions}
+          onReset={() => setSelectedOptions(getDefaultSelectedOptions())}
+        />
+      )}
 
       {/* Document Paper Layout matching Image 2 */}
       <div className={styles.paper}>
@@ -435,34 +453,44 @@ export default function SalarySheetFormat2View({
                   <tr key={row.employeeId ? `${row.employeeId}-${idx}` : `row2-${idx}`}>
                     {/* 1. Sr. No */}
                     <td className={styles.center} style={{ fontWeight: 700 }}>
-                      {row.srNo || idx + 1}
+                      {selectedOptions.srNo !== false ? (row.srNo || idx + 1) : '—'}
                     </td>
 
                     {/* 2. Employee Details Block */}
                     <td>
                       <div className={styles.empDetailsBlock}>
-                        <div style={{ fontWeight: 700 }}>{row.employeeId}</div>
-                        <div className={styles.empNameText}>{row.name}</div>
-                        <div className={styles.dualRow}>
-                          <div className={styles.dualRowLeft}>{row.fatherHusbandName || '-'}</div>
-                          <div className={styles.dualRowRight}>{row.paymentMode || 'Bank'}</div>
-                        </div>
-                        <div className={styles.dualRow}>
-                          <div className={styles.dualRowLeft}>{row.designation}</div>
-                          <div className={styles.dualRowRight} style={{ fontFamily: 'monospace' }}>{row.bankAccountNo || '-'}</div>
-                        </div>
-                        <div className={styles.dualRow}>
-                          <div className={styles.dualRowLeft}>{row.department}</div>
-                          <div className={styles.dualRowRight}>{row.dob || '-'}</div>
-                        </div>
-                        <div className={styles.dualRow}>
-                          <div className={styles.dualRowLeft}>{row.esiNo || '-'}</div>
-                          <div className={styles.dualRowRight}>{row.doj || '-'}</div>
-                        </div>
-                        <div className={styles.dualRow}>
-                          <div className={styles.dualRowLeft}>{row.uan || '-'}</div>
-                          <div className={styles.dualRowRight}>{row.aadhaar || '-'}</div>
-                        </div>
+                        {selectedOptions.employeeId !== false && <div style={{ fontWeight: 700 }}>{row.employeeId}</div>}
+                        {selectedOptions.name !== false && <div className={styles.empNameText}>{row.name}</div>}
+                        {(selectedOptions.fatherHusbandName !== false || selectedOptions.paymentMode !== false) && (
+                          <div className={styles.dualRow}>
+                            <div className={styles.dualRowLeft}>{selectedOptions.fatherHusbandName !== false ? (row.fatherHusbandName || '-') : ''}</div>
+                            <div className={styles.dualRowRight}>{selectedOptions.paymentMode !== false ? (row.paymentMode || 'Bank') : ''}</div>
+                          </div>
+                        )}
+                        {(selectedOptions.designation !== false || selectedOptions.bankAccountNo !== false) && (
+                          <div className={styles.dualRow}>
+                            <div className={styles.dualRowLeft}>{selectedOptions.designation !== false ? row.designation : ''}</div>
+                            <div className={styles.dualRowRight} style={{ fontFamily: 'monospace' }}>{selectedOptions.bankAccountNo !== false ? (row.bankAccountNo || '-') : ''}</div>
+                          </div>
+                        )}
+                        {(selectedOptions.department !== false || selectedOptions.dob !== false) && (
+                          <div className={styles.dualRow}>
+                            <div className={styles.dualRowLeft}>{selectedOptions.department !== false ? row.department : ''}</div>
+                            <div className={styles.dualRowRight}>{selectedOptions.dob !== false ? (row.dob || '-') : ''}</div>
+                          </div>
+                        )}
+                        {(selectedOptions.esiNo !== false || selectedOptions.doj !== false) && (
+                          <div className={styles.dualRow}>
+                            <div className={styles.dualRowLeft}>{selectedOptions.esiNo !== false ? (row.esiNo || '-') : ''}</div>
+                            <div className={styles.dualRowRight}>{selectedOptions.doj !== false ? (row.doj || '-') : ''}</div>
+                          </div>
+                        )}
+                        {(selectedOptions.uan !== false || selectedOptions.aadhaar !== false) && (
+                          <div className={styles.dualRow}>
+                            <div className={styles.dualRowLeft}>{selectedOptions.uan !== false ? (row.uan || '-') : ''}</div>
+                            <div className={styles.dualRowRight}>{selectedOptions.aadhaar !== false ? (row.aadhaar || '-') : ''}</div>
+                          </div>
+                        )}
                       </div>
                     </td>
 
@@ -470,27 +498,27 @@ export default function SalarySheetFormat2View({
                     <td>
                       <div className={styles.attendanceBlock}>
                         <div className={styles.attValuesRow}>
-                          <div>{att.wd || '31'}</div>
+                          <div>{selectedOptions.attWd !== false ? (att.wd || '31') : ''}</div>
                           <div></div>
                         </div>
                         <div className={styles.attValuesRow}>
-                          <div>{att.pd || '0'}</div>
-                          <div>{att.pl || ''}</div>
+                          <div>{selectedOptions.attPd !== false ? (att.pd || '0') : ''}</div>
+                          <div>{selectedOptions.attEl !== false ? (att.el || att.pl || '') : ''}</div>
                         </div>
                         <div className={styles.attValuesRow}>
-                          <div>{att.wo || ''}</div>
-                          <div>{att.cl || ''}</div>
+                          <div>{selectedOptions.attWo !== false ? (att.wo || '') : ''}</div>
+                          <div>{selectedOptions.attCl !== false ? (att.cl || '') : ''}</div>
                         </div>
                         <div className={styles.attValuesRow}>
-                          <div>{att.ph || ''}</div>
-                          <div>{att.sl || ''}</div>
+                          <div>{selectedOptions.attPh !== false ? (att.ph || '') : ''}</div>
+                          <div>{selectedOptions.attSl !== false ? (att.sl || '') : ''}</div>
                         </div>
                         <div className={styles.attValuesRow}>
-                          <div></div>
-                          <div></div>
+                          <div>{selectedOptions.attLwp ? (att.lwp || '') : ''}</div>
+                          <div>{selectedOptions.attOt ? (att.ot || '') : ''}</div>
                         </div>
                         <div className={styles.attBottomRow}>
-                          <div>{att.tot || att.pd || '0'}</div>
+                          <div>{selectedOptions.attTot !== false ? (att.tot || att.pd || '0') : ''}</div>
                           <div></div>
                         </div>
                       </div>
@@ -500,12 +528,12 @@ export default function SalarySheetFormat2View({
                     <td>
                       <div className={styles.dualSubGrid}>
                         <div className={styles.subColItem}>
-                          <span>{rate.basic || 0}</span>
+                          <span>{selectedOptions.rateBasic !== false ? (rate.basic || 0) : ''}</span>
                         </div>
-                        <div></div>
+                        <div>{selectedOptions.rateSpAll !== false && rate.spAll ? rate.spAll : ''}</div>
                       </div>
                       <div className={styles.subGridTotal}>
-                        Total : {rate.total || rate.basic || 0}
+                        Total : {selectedOptions.rateTotal !== false ? (rate.total || rate.basic || 0) : '—'}
                       </div>
                     </td>
 
@@ -513,12 +541,12 @@ export default function SalarySheetFormat2View({
                     <td>
                       <div className={styles.dualSubGrid}>
                         <div className={styles.subColItem}>
-                          <span>{earn.basic || 0}</span>
+                          <span>{selectedOptions.earnBasic !== false ? (earn.basic || 0) : ''}</span>
                         </div>
-                        <div></div>
+                        <div>{selectedOptions.earnSpAll !== false && earn.spAll ? earn.spAll : ''}</div>
                       </div>
                       <div className={styles.subGridTotal}>
-                        Total : {row.grossSalary || earn.basic || 0}
+                        Total : {selectedOptions.grossSalary !== false ? (row.grossSalary || earn.basic || 0) : '—'}
                       </div>
                     </td>
 
@@ -526,21 +554,33 @@ export default function SalarySheetFormat2View({
                     <td>
                       <div className={styles.dualSubGrid}>
                         <div>
-                          {ded.pf > 0 && <div>{ded.pf}</div>}
-                          {ded.esi > 0 && <div>{ded.esi}</div>}
+                          {selectedOptions.dedPf !== false && ded.pf > 0 && <div>{ded.pf}</div>}
+                          {selectedOptions.dedEsi !== false && ded.esi > 0 && <div>{ded.esi}</div>}
+                          {selectedOptions.dedLwf !== false && ded.lwf > 0 && <div>{ded.lwf}</div>}
+                          {selectedOptions.dedAdvance !== false && ded.advance > 0 && <div>{ded.advance}</div>}
                         </div>
-                        <div></div>
+                        <div>
+                          {selectedOptions.dedUni !== false && ded.uni > 0 && <div>{ded.uni}</div>}
+                          {selectedOptions.dedNightSlp !== false && ded.nightSlp > 0 && <div>{ded.nightSlp}</div>}
+                          {selectedOptions.dedLoan !== false && ded.loan > 0 && <div>{ded.loan}</div>}
+                          {selectedOptions.dedOtherDed !== false && ded.otherDed > 0 && <div>{ded.otherDed}</div>}
+                        </div>
                       </div>
                       <div className={styles.subGridTotal}>
-                        Total : {row.grossDeduct || 0}
+                        Total : {selectedOptions.grossDeduct !== false ? (row.grossDeduct || 0) : '—'}
                       </div>
                     </td>
 
                     {/* 7. NET PAYABLE */}
                     <td className={styles.center}>
                       <div style={{ fontWeight: 800, fontSize: '0.82rem' }}>
-                        {(row.netPayable || 0).toLocaleString('en-IN')}
+                        {selectedOptions.netPayable !== false ? (row.netPayable || 0).toLocaleString('en-IN') : '—'}
                       </div>
+                      {selectedOptions.signature !== false && (
+                        <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: '6px' }}>
+                          Signature
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -559,7 +599,7 @@ export default function SalarySheetFormat2View({
                       <div>{records.length * 31}</div>
                       <div>{totals.totalPd || 0}</div>
                       <div style={{ marginTop: '1.5rem', fontWeight: 900, borderTop: '1px solid #000', paddingTop: '2px' }}>
-                        {totals.totalTot || totals.totalPd || 0}
+                        {selectedOptions.attTot !== false ? (totals.totalTot || totals.totalPd || 0) : '—'}
                       </div>
                     </div>
                   </td>
@@ -568,7 +608,7 @@ export default function SalarySheetFormat2View({
                   <td>
                     <div>{totals.totalRateTotal || totals.grandGross || 0}</div>
                     <div style={{ marginTop: '2.5rem', fontWeight: 900, borderTop: '1px solid #000', paddingTop: '2px', textAlign: 'right' }}>
-                      Total : {totals.totalRateTotal || totals.grandGross || 0}
+                      Total : {selectedOptions.rateTotal !== false ? (totals.totalRateTotal || totals.grandGross || 0) : '—'}
                     </div>
                   </td>
 
@@ -576,7 +616,7 @@ export default function SalarySheetFormat2View({
                   <td>
                     <div>{totals.grandGross || 0}</div>
                     <div style={{ marginTop: '2.5rem', fontWeight: 900, borderTop: '1px solid #000', paddingTop: '2px', textAlign: 'right' }}>
-                      Total : {totals.grandGross || 0}
+                      Total : {selectedOptions.grossSalary !== false ? (totals.grandGross || 0) : '—'}
                     </div>
                   </td>
 
@@ -585,13 +625,13 @@ export default function SalarySheetFormat2View({
                     {totals.grandPf > 0 && <div>{totals.grandPf}</div>}
                     {totals.grandEsi > 0 && <div>{totals.grandEsi}</div>}
                     <div style={{ marginTop: totals.grandPf > 0 ? '1.5rem' : '2.5rem', fontWeight: 900, borderTop: '1px solid #000', paddingTop: '2px', textAlign: 'right' }}>
-                      Total : {totals.grandDeductions || 0}
+                      Total : {selectedOptions.grossDeduct !== false ? (totals.grandDeductions || 0) : '—'}
                     </div>
                   </td>
 
                   {/* Net Payable Total */}
                   <td className={styles.center} style={{ fontSize: '0.88rem' }}>
-                    {(totals.grandNet || 0).toLocaleString('en-IN')}
+                    {selectedOptions.netPayable !== false ? (totals.grandNet || 0).toLocaleString('en-IN') : '—'}
                   </td>
                 </tr>
               )}
@@ -602,88 +642,94 @@ export default function SalarySheetFormat2View({
         {/* Bottom Statutory Summary Section matching Image 3 */}
         <div className={styles.bottomSection}>
           {/* Box 1: PF SUMMARY */}
-          <div className={styles.summaryBox}>
-            <div className={styles.summaryHeader}>PF SUMMARY</div>
-            <div className={styles.summaryRow}>
-              <span>TOTAL EPF EMPLOYEES</span>
-              <span>{pfSummary.strn || 0}</span>
+          {selectedOptions.showPfSummary !== false && (
+            <div className={styles.summaryBox}>
+              <div className={styles.summaryHeader}>PF SUMMARY</div>
+              <div className={styles.summaryRow}>
+                <span>TOTAL EPF EMPLOYEES</span>
+                <span>{pfSummary.strn || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>EPF WAGES</span>
+                <span>{pfSummary.pfWages || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>A/C NO. 1(EE_12%)</span>
+                <span>{pfSummary.ee || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>A/C NO. 1(ER_3.67%)</span>
+                <span>{pfSummary.erDiff || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>A/C NO. 2(0.50%)</span>
+                <span>{pfSummary.ac2 || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>A/C NO. 10(8.33%)</span>
+                <span>{pfSummary.ac10 || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>A/C NO. 21(0.50%)</span>
+                <span>{pfSummary.ac21 || 0}</span>
+              </div>
+              <div className={styles.summaryRowBold}>
+                <span>TOTAL EPF CONTRIBUTIO</span>
+                <span>{pfSummary.total || 0}</span>
+              </div>
             </div>
-            <div className={styles.summaryRow}>
-              <span>EPF WAGES</span>
-              <span>{pfSummary.pfWages || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>A/C NO. 1(EE_12%)</span>
-              <span>{pfSummary.ee || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>A/C NO. 1(ER_3.67%)</span>
-              <span>{pfSummary.erDiff || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>A/C NO. 2(0.50%)</span>
-              <span>{pfSummary.ac2 || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>A/C NO. 10(8.33%)</span>
-              <span>{pfSummary.ac10 || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>A/C NO. 21(0.50%)</span>
-              <span>{pfSummary.ac21 || 0}</span>
-            </div>
-            <div className={styles.summaryRowBold}>
-              <span>TOTAL EPF CONTRIBUTIO</span>
-              <span>{pfSummary.total || 0}</span>
-            </div>
-          </div>
+          )}
 
           {/* Box 2: ESI SUMMARY */}
-          <div className={styles.summaryBox}>
-            <div className={styles.summaryHeader}>ESI SUMMARY</div>
-            <div className={styles.summaryRow}>
-              <span>TOTAL ESIC EMPOLYEES</span>
-              <span>{esiSummary.strn || records.length}</span>
+          {selectedOptions.showEsiSummary !== false && (
+            <div className={styles.summaryBox}>
+              <div className={styles.summaryHeader}>ESI SUMMARY</div>
+              <div className={styles.summaryRow}>
+                <span>TOTAL ESIC EMPOLYEES</span>
+                <span>{esiSummary.strn || records.length}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>ESI WAGES</span>
+                <span>{esiSummary.esiWages || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>EE_WAGES_0.75%</span>
+                <span>{esiSummary.eeShare || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>EE_OT_0.75%</span>
+                <span>0</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>ER_3.25%</span>
+                <span>{esiSummary.erShare || 0}</span>
+              </div>
+              <div style={{ flex: 1 }}></div>
+              <div className={styles.summaryRowBold}>
+                <span>TOTAL ESIC CONTRIBUTI</span>
+                <span>{esiSummary.totalEsi || 0}</span>
+              </div>
             </div>
-            <div className={styles.summaryRow}>
-              <span>ESI WAGES</span>
-              <span>{esiSummary.esiWages || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>EE_WAGES_0.75%</span>
-              <span>{esiSummary.eeShare || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>EE_OT_0.75%</span>
-              <span>0</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>ER_3.25%</span>
-              <span>{esiSummary.erShare || 0}</span>
-            </div>
-            <div style={{ flex: 1 }}></div>
-            <div className={styles.summaryRowBold}>
-              <span>TOTAL ESIC CONTRIBUTI</span>
-              <span>{esiSummary.totalEsi || 0}</span>
-            </div>
-          </div>
+          )}
 
           {/* Box 3: LWF SUMMARY */}
-          <div className={styles.summaryBox}>
-            <div className={styles.summaryHeader}>LWF SUMMARY</div>
-            <div className={styles.summaryRow}>
-              <span>TOTAL LWF EMPLOYEES</span>
-              <span>{lwfSummary.totalLwfEmployees || 0}</span>
+          {selectedOptions.showLwfSummary !== false && (
+            <div className={styles.summaryBox}>
+              <div className={styles.summaryHeader}>LWF SUMMARY</div>
+              <div className={styles.summaryRow}>
+                <span>TOTAL LWF EMPLOYEES</span>
+                <span>{lwfSummary.totalLwfEmployees || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>EMPLOYEE SAHRE OF LWF</span>
+                <span>{lwfSummary.employeeShare || 0}</span>
+              </div>
+              <div className={styles.summaryRow}>
+                <span>EMPLOYER SHARE OF LWF</span>
+                <span>{lwfSummary.employerShare || 0}</span>
+              </div>
             </div>
-            <div className={styles.summaryRow}>
-              <span>EMPLOYEE SAHRE OF LWF</span>
-              <span>{lwfSummary.employeeShare || 0}</span>
-            </div>
-            <div className={styles.summaryRow}>
-              <span>EMPLOYER SHARE OF LWF</span>
-              <span>{lwfSummary.employerShare || 0}</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
