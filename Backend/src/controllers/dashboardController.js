@@ -1,9 +1,13 @@
+import mongoose from 'mongoose';
 import Employee from '../models/employeeModel.js';
 import Client from '../models/clientModel.js';
 import Attendance from '../models/attendanceModel.js';
 import Leave from '../models/leaveModel.js';
 import Shift from '../models/shiftModel.js';
 import Company from '../models/companyModel.js';
+import User from '../models/userModel.js';
+import StatutoryConfig from '../models/statutoryModel.js';
+import Notification from '../models/notificationModel.js';
 import InventoryItem from '../models/inventoryItemModel.js';
 import { ReimbursementClaim } from '../models/reimbursementModel.js';
 import { AdvanceLoanRequest } from '../models/advanceLoanModel.js';
@@ -11,71 +15,114 @@ import InventoryRequest from '../models/inventoryRequestModel.js';
 import jwt from 'jsonwebtoken';
 
 /**
- * Helper to resolve company ID, aliases & employees reliably
+ * Helper to resolve company ID, aliases & employees reliably with strict tenant isolation
  */
 const resolveCompanyFilter = async (req) => {
-  const queryCompanyId = req.query.companyId || req.headers['x-company-id'];
   let user = req.user;
   if (!user && req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
     try {
       const token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.decode(token);
-      if (decoded) user = decoded;
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'novaspark_hrms_super_secure_jwt_secret_key_2026') || jwt.decode(token);
+      if (decoded?.id) {
+        user = await User.findById(decoded.id).lean();
+      }
     } catch { }
   }
+
   const adminEmail = user?.email?.toLowerCase();
+  const isMasterRR = Boolean(
+    adminEmail && (
+      adminEmail === 'rrsecurity@gmail.com' ||
+      adminEmail === 'admin@rrsecurity.com' ||
+      adminEmail.includes('rrsecurity')
+    ) || user?.companyId === 'RRS8392014SEC'
+  );
 
-  const candidateIds = new Set();
-  if (queryCompanyId) candidateIds.add(queryCompanyId);
-  if (user?.companyId) candidateIds.add(user.companyId);
-
-  // Check Company collection for aliases
-  const matchingCompanies = await Company.find({
-    $or: [
-      ...(queryCompanyId ? [{ companyId: queryCompanyId }, { code: queryCompanyId }] : []),
-      ...(user?.companyId ? [{ companyId: user.companyId }] : []),
-      { isDefault: true }
-    ]
-  }).lean();
-
-  matchingCompanies.forEach(c => {
-    if (c.companyId) candidateIds.add(c.companyId);
-    if (c._id) candidateIds.add(String(c._id));
-    if (c.code) candidateIds.add(c.code);
-  });
-  candidateIds.add('RRS8392014SEC');
-  candidateIds.add('comp_rr_security');
-
-  const initialResolvedIds = Array.from(candidateIds).filter(Boolean);
-
-  // Check if employees exist under these IDs (exclude heavy base64 attachments)
-  let employees = await Employee.find({
-    $or: [
-      { companyId: { $in: initialResolvedIds } },
-      { companyId: { $in: initialResolvedIds.map(id => new RegExp(`^${id}$`, 'i')) } }
-    ]
-  }).select('-documents -documentList -drivingLicenseCopy').lean();
-
-  if (employees.length === 0) {
-    if (adminEmail) {
-      employees = await Employee.find({ adminEmail }).select('-documents -documentList -drivingLicenseCopy').lean();
-    }
-    if (employees.length === 0) {
-      employees = await Employee.find({}).select('-documents -documentList -drivingLicenseCopy').lean();
-    }
+  // If user is locked to a specific company (not RR master admin), enforce their company
+  const queryCompanyId = req.query.companyId || req.headers['x-company-id'];
+  let requestedCompanyId = queryCompanyId;
+  if (!isMasterRR && user?.companyId) {
+    requestedCompanyId = user.companyId;
+  } else if (!requestedCompanyId && user?.companyId) {
+    requestedCompanyId = user.companyId;
+  }
+  if (!requestedCompanyId && isMasterRR) {
+    requestedCompanyId = 'RRS8392014SEC';
   }
 
-  // If employees found, ensure all their associated companyIds are tracked
-  employees.forEach(e => {
-    if (e.companyId) candidateIds.add(e.companyId);
-  });
-  const resolvedCompanyIds = Array.from(candidateIds).filter(Boolean);
+  // Find target company strictly
+  let companyDoc = null;
+  if (requestedCompanyId) {
+    companyDoc = await Company.findOne({
+      $or: [
+        { companyId: requestedCompanyId },
+        { code: requestedCompanyId },
+        ...(mongoose.Types.ObjectId.isValid(requestedCompanyId) ? [{ _id: requestedCompanyId }] : []),
+        ...(requestedCompanyId === 'comp_rr_security' ? [{ companyId: 'RRS8392014SEC' }, { isDefault: true }] : [])
+      ]
+    }).lean();
+  }
 
-  const primaryCompanyId = queryCompanyId || matchingCompanies[0]?.companyId || 'RRS8392014SEC';
+  // If not found by ID/code and user is not master admin, look up by company admin email
+  if (!companyDoc && adminEmail && !isMasterRR) {
+    companyDoc = await Company.findOne({
+      $or: [
+        { adminEmail: adminEmail },
+        { email: adminEmail }
+      ]
+    }).lean();
+  }
+
+  // If still no company found and the user is master RR admin, load default RR Security
+  if (!companyDoc && (isMasterRR || !requestedCompanyId)) {
+    companyDoc = await Company.findOne({
+      $or: [
+        { companyId: 'RRS8392014SEC' },
+        { isDefault: true }
+      ]
+    }).lean();
+  }
+
+  const candidateIds = new Set();
+  if (requestedCompanyId) candidateIds.add(requestedCompanyId);
+  if (companyDoc) {
+    if (companyDoc.companyId) candidateIds.add(companyDoc.companyId);
+    if (companyDoc._id) candidateIds.add(String(companyDoc._id));
+    if (companyDoc.code) candidateIds.add(companyDoc.code);
+    // Only add RR aliases if the resolved company is actually RR Security
+    if (companyDoc.isDefault || companyDoc.companyId === 'RRS8392014SEC' || companyDoc.code === 'RR' || companyDoc.code === 'RRS') {
+      candidateIds.add('RRS8392014SEC');
+      candidateIds.add('comp_rr_security');
+    }
+  } else if (isMasterRR) {
+    candidateIds.add('RRS8392014SEC');
+    candidateIds.add('comp_rr_security');
+  }
+
+  const resolvedCompanyIds = Array.from(candidateIds).filter(Boolean);
+  const isRRTarget = resolvedCompanyIds.includes('RRS8392014SEC') || resolvedCompanyIds.includes('comp_rr_security');
+
+  // Check if employees exist strictly under this company's resolved IDs
+  const employeeFilter = {
+    $or: [
+      { companyId: { $in: resolvedCompanyIds } },
+      { companyId: { $in: resolvedCompanyIds.map(id => new RegExp(`^${id}$`, 'i')) } },
+      ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+    ]
+  };
+
+  const employees = resolvedCompanyIds.length > 0
+    ? await Employee.find(employeeFilter).select('-documents -documentList -drivingLicenseCopy').lean()
+    : [];
+
+  const primaryCompanyId = companyDoc?.companyId || requestedCompanyId || (isMasterRR ? 'RRS8392014SEC' : '');
+
   return {
     companyId: primaryCompanyId,
     resolvedCompanyIds,
-    employees
+    employees,
+    companyDoc,
+    isRRTarget
   };
 };
 
@@ -86,7 +133,8 @@ const resolveCompanyFilter = async (req) => {
  */
 export const getAdminDashboardStats = async (req, res) => {
   try {
-    const { companyId, resolvedCompanyIds, employees } = await resolveCompanyFilter(req);
+    const { companyId, resolvedCompanyIds, employees, companyDoc, isRRTarget } = await resolveCompanyFilter(req);
+    const defaultTenantName = companyDoc?.name || 'Company Operations';
 
     // 1. Employee Counts & Demographics
     const totalEmployees = employees.length;
@@ -123,13 +171,11 @@ export const getAdminDashboardStats = async (req, res) => {
     const clientFilter = {
       $or: [
         { companyId: { $in: resolvedCompanyIds } },
-        { companyId: { $in: resolvedCompanyIds.map(id => new RegExp(`^${id}$`, 'i')) } }
+        { companyId: { $in: resolvedCompanyIds.map(id => new RegExp(`^${id}$`, 'i')) } },
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
       ]
     };
-    let clients = await Client.find(clientFilter).lean();
-    if (clients.length === 0) {
-      clients = await Client.find({}).lean();
-    }
+    let clients = resolvedCompanyIds.length > 0 ? await Client.find(clientFilter).lean() : [];
 
     // 3. Today's Attendance & Leaves
     const todayStr = now.toISOString().split('T')[0];
@@ -140,12 +186,16 @@ export const getAdminDashboardStats = async (req, res) => {
         .filter(Boolean)
     ));
 
-    const todayAttendance = await Attendance.find({
+    const attendanceFilter = {
+      date: todayStr,
       $or: [
-        { companyId: { $in: resolvedCompanyIds }, date: todayStr },
-        { employeeId: { $in: empIds }, date: todayStr }
+        { companyId: { $in: resolvedCompanyIds } },
+        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
       ]
-    }).lean();
+    };
+
+    const todayAttendance = resolvedCompanyIds.length > 0 ? await Attendance.find(attendanceFilter).lean() : [];
 
     let presentToday = todayAttendance.filter(a =>
       a.status === 'present' || a.status === 'late' || a.status === 'halfDay'
@@ -158,15 +208,18 @@ export const getAdminDashboardStats = async (req, res) => {
       if (emp._id) employeeMap[String(emp._id)] = emp;
     });
 
-    const approvedLeavesToday = await Leave.find({
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        { employeeId: { $in: empIds } }
-      ],
+    const approvedLeavesFilter = {
       status: { $regex: /^approved$/i },
       fromDate: { $lte: todayStr },
-      toDate: { $gte: todayStr }
-    }).lean();
+      toDate: { $gte: todayStr },
+      $or: [
+        { companyId: { $in: resolvedCompanyIds } },
+        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+      ]
+    };
+
+    const approvedLeavesToday = resolvedCompanyIds.length > 0 ? await Leave.find(approvedLeavesFilter).lean() : [];
 
     const onLeaveTodayList = [];
     const seenOnLeaveEmpIds = new Set();
@@ -182,7 +235,7 @@ export const getAdminDashboardStats = async (req, res) => {
         gender: emp.gender || 'Male',
         department: lv.department || emp.department || 'Security',
         designation: emp.designation || lv.employeeRole || 'Staff',
-        clientName: lv.clientName || emp.clientName || emp.companyName || 'RR Security & Facilities',
+        clientName: lv.clientName || emp.clientName || emp.companyName || defaultTenantName,
         contact: emp.contact || emp.mobile || '',
         mobile: emp.mobile || emp.contact || '',
         email: emp.email || '',
@@ -212,7 +265,7 @@ export const getAdminDashboardStats = async (req, res) => {
           gender: emp.gender || 'Male',
           department: att.department || emp.department || 'Security',
           designation: emp.designation || 'Staff',
-          clientName: att.clientName || att.companyName || emp.clientName || 'RR Security & Facilities',
+          clientName: att.clientName || att.companyName || emp.clientName || defaultTenantName,
           contact: emp.contact || emp.mobile || '',
           mobile: emp.mobile || emp.contact || '',
           email: emp.email || '',
@@ -233,12 +286,17 @@ export const getAdminDashboardStats = async (req, res) => {
     const onLeaveToday = onLeaveTodayList.length;
 
     // Fetch all leave requests for company context
-    const allLeaveRequests = await Leave.find({
+    const allLeaveFilter = {
       $or: [
         { companyId: { $in: resolvedCompanyIds } },
-        { employeeId: { $in: empIds } }
+        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
       ]
-    }).sort({ createdAt: -1, fromDate: -1 }).limit(100).lean();
+    };
+
+    const allLeaveRequests = resolvedCompanyIds.length > 0
+      ? await Leave.find(allLeaveFilter).sort({ createdAt: -1, fromDate: -1 }).limit(100).lean()
+      : [];
 
     const formattedAllLeaveRequests = allLeaveRequests.map(lv => {
       const emp = employeeMap[lv.employeeId] || {};
@@ -250,7 +308,7 @@ export const getAdminDashboardStats = async (req, res) => {
         gender: emp.gender || 'Male',
         department: lv.department || emp.department || 'Security',
         designation: emp.designation || lv.employeeRole || 'Staff',
-        clientName: lv.clientName || emp.clientName || emp.companyName || 'RR Security & Facilities',
+        clientName: lv.clientName || emp.clientName || emp.companyName || defaultTenantName,
         contact: emp.contact || emp.mobile || '',
         mobile: emp.mobile || emp.contact || '',
         email: emp.email || '',
@@ -282,13 +340,19 @@ export const getAdminDashboardStats = async (req, res) => {
       : 0;
 
     // 4. Pending Leave Requests
-    const pendingLeaveCount = await Leave.countDocuments({
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        { employeeId: { $in: empIds } }
-      ],
-      status: { $regex: /^pending$/i }
-    });
+    const pendingLeaveCount = resolvedCompanyIds.length > 0
+      ? await Leave.countDocuments({
+          status: { $regex: /^pending$/i },
+          ...(empIds.length > 0
+            ? {
+                $or: [
+                  { companyId: { $in: resolvedCompanyIds } },
+                  { employeeId: { $in: empIds } }
+                ]
+              }
+            : { companyId: { $in: resolvedCompanyIds } })
+        })
+      : 0;
 
     // 5. Birthdays calculation & chronological list
     const currentMonth = now.getMonth() + 1;
@@ -334,7 +398,7 @@ export const getAdminDashboardStats = async (req, res) => {
         gender: emp.gender || 'Male',
         department: emp.department || 'Security',
         designation: emp.designation || 'Staff',
-        clientName: emp.clientName || emp.companyName || 'RR Security & Facilities',
+        clientName: emp.clientName || emp.companyName || defaultTenantName,
         contact: emp.contact || emp.mobile || '',
         mobile: emp.mobile || emp.contact || '',
         email: emp.email || '',
@@ -435,21 +499,27 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // 9. Real Pending Claims (Reimbursements + Advances)
-    const pendingReimbursementsCount = await ReimbursementClaim.countDocuments({
+    const claimsFilter = {
       $or: [
         { companyId: { $in: resolvedCompanyIds } },
-        { employeeId: { $in: empIds } }
-      ],
-      approvalStatus: { $regex: /^pending/i }
-    });
+        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+      ]
+    };
 
-    const pendingAdvancesCount = await AdvanceLoanRequest.countDocuments({
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        { employeeId: { $in: empIds } }
-      ],
-      status: { $regex: /^pending/i }
-    });
+    const pendingReimbursementsCount = resolvedCompanyIds.length > 0
+      ? await ReimbursementClaim.countDocuments({
+          ...claimsFilter,
+          approvalStatus: { $regex: /^pending/i }
+        })
+      : 0;
+
+    const pendingAdvancesCount = resolvedCompanyIds.length > 0
+      ? await AdvanceLoanRequest.countDocuments({
+          ...claimsFilter,
+          status: { $regex: /^pending/i }
+        })
+      : 0;
 
     const totalPendingClaims = pendingReimbursementsCount + pendingAdvancesCount;
 
@@ -471,9 +541,9 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Leaves
-    const latestLeaves = await Leave.find({
-      $or: [{ companyId: { $in: resolvedCompanyIds } }, { employeeId: { $in: empIds } }]
-    }).sort({ createdAt: -1 }).limit(4).lean();
+    const latestLeaves = resolvedCompanyIds.length > 0
+      ? await Leave.find(claimsFilter).sort({ createdAt: -1 }).limit(4).lean()
+      : [];
 
     latestLeaves.forEach(lv => {
       const isApproved = String(lv.status).toLowerCase() === 'approved';
@@ -490,9 +560,9 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Reimbursement Claims
-    const latestClaims = await ReimbursementClaim.find({
-      $or: [{ companyId: { $in: resolvedCompanyIds } }, { employeeId: { $in: empIds } }]
-    }).sort({ createdAt: -1 }).limit(4).lean();
+    const latestClaims = resolvedCompanyIds.length > 0
+      ? await ReimbursementClaim.find(claimsFilter).sort({ createdAt: -1 }).limit(4).lean()
+      : [];
 
     latestClaims.forEach(rc => {
       const isApproved = String(rc.approvalStatus).toLowerCase().includes('approved');
@@ -509,9 +579,9 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Advance / Loan Requests
-    const latestLoans = await AdvanceLoanRequest.find({
-      $or: [{ companyId: { $in: resolvedCompanyIds } }, { employeeId: { $in: empIds } }]
-    }).sort({ createdAt: -1 }).limit(3).lean();
+    const latestLoans = resolvedCompanyIds.length > 0
+      ? await AdvanceLoanRequest.find(claimsFilter).sort({ createdAt: -1 }).limit(3).lean()
+      : [];
 
     latestLoans.forEach(al => {
       const isApproved = String(al.status).toLowerCase() === 'approved';
@@ -528,9 +598,9 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Inventory Requests
-    const latestInv = await InventoryRequest.find({
-      $or: [{ companyId: { $in: resolvedCompanyIds } }, { employeeId: { $in: empIds } }]
-    }).sort({ createdAt: -1 }).limit(3).lean();
+    const latestInv = resolvedCompanyIds.length > 0
+      ? await InventoryRequest.find(claimsFilter).sort({ createdAt: -1 }).limit(3).lean()
+      : [];
 
     latestInv.forEach(inv => {
       const isApproved = String(inv.status).toLowerCase() === 'approved';
@@ -632,11 +702,51 @@ export const getAdminDashboardStats = async (req, res) => {
       };
     };
 
-    upcomingReminders.push(calcStatutoryDeadline(15, 'Provident Fund (PF) ECR Filing', 'pf'));
-    upcomingReminders.push(calcStatutoryDeadline(15, 'ESI Monthly Contribution Return', 'esi'));
-    upcomingReminders.push(calcStatutoryDeadline(20, 'Professional Tax (PT) Challan', 'pt'));
-    upcomingReminders.push(calcStatutoryDeadline(7, 'TDS Section 192 Salary Remittance', 'tds'));
-    upcomingReminders.push(calcStatutoryDeadline(31, 'Quarterly TDS 24Q Statement', 'it'));
+    // Unread Notifications & Reminders dynamically configured for this company
+    const companyNotifications = resolvedCompanyIds.length > 0
+      ? await Notification.find({
+          companyId: { $in: resolvedCompanyIds },
+          isRead: false
+        }).sort({ createdAt: -1 }).limit(5).lean()
+      : [];
+
+    companyNotifications.forEach(n => {
+      upcomingReminders.push({
+        id: `notif-${n._id}`,
+        label: n.title,
+        date: n.message || formatTimeAgo(new Date(n.createdAt)),
+        tagText: 'New',
+        daysLeft: 0,
+        urgency: 'medium',
+        link: n.actionUrl || '/admin/notifications'
+      });
+    });
+
+    // Statutory Compliances: ONLY show if company has registered employees AND has statutory registrations / rules configured
+    if (totalEmployees > 0) {
+      const statutoryDoc = resolvedCompanyIds.length > 0
+        ? await StatutoryConfig.findOne({ companyId: { $in: resolvedCompanyIds } }).lean()
+        : null;
+
+      const hasPfConfigured = Boolean(isRRTarget || companyDoc?.employerPfCode || statutoryDoc?.pf?.enabled);
+      const hasEsiConfigured = Boolean(isRRTarget || companyDoc?.employerEsiCode || statutoryDoc?.esi?.enabled);
+      const hasPtConfigured = Boolean(isRRTarget || statutoryDoc?.pt?.enabled);
+      const hasTdsConfigured = Boolean(isRRTarget || companyDoc?.tan || statutoryDoc?.tds?.enabled);
+
+      if (hasPfConfigured) {
+        upcomingReminders.push(calcStatutoryDeadline(15, 'Provident Fund (PF) ECR Filing', 'pf'));
+      }
+      if (hasEsiConfigured) {
+        upcomingReminders.push(calcStatutoryDeadline(15, 'ESI Monthly Contribution Return', 'esi'));
+      }
+      if (hasPtConfigured) {
+        upcomingReminders.push(calcStatutoryDeadline(20, 'Professional Tax (PT) Challan', 'pt'));
+      }
+      if (hasTdsConfigured) {
+        upcomingReminders.push(calcStatutoryDeadline(7, 'TDS Section 192 Salary Remittance', 'tds'));
+        upcomingReminders.push(calcStatutoryDeadline(31, 'Quarterly TDS 24Q Statement', 'it'));
+      }
+    }
 
     // Age Demographics dynamically computed from employee DOB
     const ageBrackets = [
@@ -730,13 +840,16 @@ export const getAdminDashboardStats = async (req, res) => {
       past7Dates.push({ date: dStr, dayName: daysOfWeek[d.getDay()], isToday: i === 0 });
     }
 
-    const pastWeekAttendance = await Attendance.find({
-      date: { $in: past7Dates.map(p => p.date) },
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        { employeeId: { $in: empIds } }
-      ]
-    }).lean();
+    const pastWeekAttendance = resolvedCompanyIds.length > 0
+      ? await Attendance.find({
+          date: { $in: past7Dates.map(p => p.date) },
+          $or: [
+            { companyId: { $in: resolvedCompanyIds } },
+            ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+            ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+          ]
+        }).lean()
+      : [];
 
     const attendanceByDate = {};
     pastWeekAttendance.forEach(att => {

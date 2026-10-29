@@ -95,10 +95,7 @@ export function CompanyProvider({ children }) {
 
   // Global Master Brand Logo (displayed on sidebar header across all companies)
   const [brandLogo, setBrandLogo] = useState(() => {
-    return localStorage.getItem('novaspark_master_brand_logo') ||
-      localStorage.getItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`) ||
-      localStorage.getItem('novaspark_company_logo_preview') ||
-      null;
+    return localStorage.getItem('novaspark_master_brand_logo') || null;
   });
 
   // Sync to localStorage
@@ -159,6 +156,9 @@ export function CompanyProvider({ children }) {
           if (brandData.success && brandData.brandLogo) {
             setBrandLogo(brandData.brandLogo);
             localStorage.setItem('novaspark_master_brand_logo', brandData.brandLogo);
+          } else if (brandData.success && !brandData.brandLogo) {
+            setBrandLogo(null);
+            localStorage.removeItem('novaspark_master_brand_logo');
           }
         })
         .catch(() => {});
@@ -172,13 +172,6 @@ export function CompanyProvider({ children }) {
             companyId: c.companyId || c.id
           }));
           setCompanies(formatted);
-
-          // If master company has logo, also sync as brand logo
-          const master = formatted.find(c => c.isDefault || c.companyId === 'RRS8392014SEC');
-          if (master?.logo) {
-            setBrandLogo(master.logo);
-            localStorage.setItem('novaspark_master_brand_logo', master.logo);
-          }
           setActiveCompanyId(() => {
             const currentUser = authService.getCurrentUser();
             const isMasterRR = 
@@ -391,10 +384,8 @@ export function CompanyProvider({ children }) {
     setBrandLogo(cleanLogo);
     if (cleanLogo) {
       localStorage.setItem('novaspark_master_brand_logo', cleanLogo);
-      localStorage.setItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`, cleanLogo);
     } else {
       localStorage.removeItem('novaspark_master_brand_logo');
-      localStorage.removeItem(`novaspark_company_logo_${DEFAULT_PRIMARY_COMPANY.companyId}`);
     }
 
     if (token) {

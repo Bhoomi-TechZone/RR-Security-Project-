@@ -113,6 +113,10 @@ const companySchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    brandLogo: {
+      type: String,
+      default: null,
+    },
     dateFormat: {
       type: String,
       default: 'DD/MM/YYYY',

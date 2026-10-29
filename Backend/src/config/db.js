@@ -81,6 +81,11 @@ const seedDefaultUsers = async () => {
         existingAdmin.role = 'admin';
         needsSave = true;
       }
+      if (!existingAdmin.companyId) {
+        existingAdmin.companyId = 'RRS8392014SEC';
+        existingAdmin.companyName = 'RR Security & Facilities';
+        needsSave = true;
+      }
       if (needsSave) {
         await existingAdmin.save();
       }
