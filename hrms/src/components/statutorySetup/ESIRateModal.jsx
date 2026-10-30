@@ -2,6 +2,37 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, Info } from 'lucide-react';
 import styles from './ESIRateModal.module.css';
 
+const toDateInputValue = (val) => {
+  if (!val) return new Date().toISOString().split('T')[0];
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (s.includes('T')) return s.split('T')[0];
+
+  const parts = s.split(/[-/ ]/);
+  if (parts.length === 3) {
+    const months = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const mStr = parts[1]?.toLowerCase();
+    if (months[mStr]) {
+      const dd = parts[0].padStart(2, '0');
+      const mm = months[mStr];
+      const yyyy = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return new Date().toISOString().split('T')[0];
+};
+
 function ESIRateModal({
   isOpen,
   onClose,
@@ -23,8 +54,8 @@ function ESIRateModal({
     if (isOpen) {
       if (editingItem) {
         setFormData({
-          enabled: editingItem.enabled !== undefined ? editingItem.enabled : true,
-          effectiveDate: editingItem.effectiveDate || new Date().toISOString().split('T')[0],
+          enabled: editingItem.enabled !== undefined ? Boolean(editingItem.enabled) : true,
+          effectiveDate: toDateInputValue(editingItem.effectiveDate || editingItem.displayDate),
           employeeContribution: editingItem.employeeContribution ?? 0.75,
           employerContribution: editingItem.employerContribution ?? 3.25,
           eligibilityWageCeiling: editingItem.eligibilityWageCeiling ?? 21000,
@@ -61,8 +92,13 @@ function ESIRateModal({
   const handleSubmit = (e) => {
     e.preventDefault();
     onSubmit({
-      ...formData,
-      id: editingItem?.id || `esi-rate-${Date.now()}`
+      enabled: Boolean(formData.enabled),
+      effectiveDate: formData.effectiveDate || new Date().toISOString().split('T')[0],
+      employeeContribution: Number(formData.employeeContribution) || 0,
+      employerContribution: Number(formData.employerContribution) || 0,
+      eligibilityWageCeiling: Number(formData.eligibilityWageCeiling) || 0,
+      deductionWageCeiling: Number(formData.deductionWageCeiling) || 0,
+      id: editingItem?.id || editingItem?._id || `esi-rate-${Date.now()}`
     });
   };
 
@@ -74,14 +110,19 @@ function ESIRateModal({
         ref={modalRef}
         tabIndex={-1}
       >
-        <button
-          type="button"
-          className={styles.closeIconBtn}
-          onClick={onClose}
-          aria-label="Close"
-        >
-          <X size={18} />
-        </button>
+        <div className={styles.modalHeader}>
+          <h3 className={styles.modalTitle}>
+            {editingItem ? 'Edit ESI Rate Change' : 'Add New ESI Rate Change'}
+          </h3>
+          <button
+            type="button"
+            className={styles.closeIconBtn}
+            onClick={onClose}
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className={styles.modalBody}>
@@ -123,7 +164,7 @@ function ESIRateModal({
                   max="100"
                   className={styles.numberInput}
                   value={formData.employeeContribution}
-                  onChange={(e) => handleChange('employeeContribution', Number(e.target.value))}
+                  onChange={(e) => handleChange('employeeContribution', e.target.value === '' ? '' : e.target.value)}
                 />
                 <span className={styles.unitText}>%</span>
               </div>
@@ -140,7 +181,7 @@ function ESIRateModal({
                   max="100"
                   className={styles.numberInput}
                   value={formData.employerContribution}
-                  onChange={(e) => handleChange('employerContribution', Number(e.target.value))}
+                  onChange={(e) => handleChange('employerContribution', e.target.value === '' ? '' : e.target.value)}
                 />
                 <span className={styles.unitText}>%</span>
               </div>
@@ -160,7 +201,7 @@ function ESIRateModal({
                   min="0"
                   className={styles.ceilingInput}
                   value={formData.eligibilityWageCeiling}
-                  onChange={(e) => handleChange('eligibilityWageCeiling', Number(e.target.value))}
+                  onChange={(e) => handleChange('eligibilityWageCeiling', e.target.value === '' ? '' : e.target.value)}
                 />
               </div>
             </div>
@@ -179,7 +220,7 @@ function ESIRateModal({
                   min="0"
                   className={styles.ceilingInput}
                   value={formData.deductionWageCeiling}
-                  onChange={(e) => handleChange('deductionWageCeiling', Number(e.target.value))}
+                  onChange={(e) => handleChange('deductionWageCeiling', e.target.value === '' ? '' : e.target.value)}
                 />
                 <span className={styles.hintText}>Enter &apos;0&apos; for no limit</span>
               </div>
@@ -210,7 +251,7 @@ function ESIRateModal({
               className={styles.saveBtn}
             >
               <Save size={15} />
-              <span>Save</span>
+              <span>{editingItem ? 'Update Rate' : 'Save Rate'}</span>
             </button>
           </div>
         </form>

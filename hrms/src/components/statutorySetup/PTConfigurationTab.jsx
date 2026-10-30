@@ -3,81 +3,8 @@ import { Plus, Edit2, Trash2, Info } from 'lucide-react';
 import styles from '../../pages/admin/StatutorySetup.module.css';
 import PTRateModal, { ALL_INDIAN_STATES_AND_UTS } from './PTRateModal';
 import { useCompany } from '../../context/CompanyContext';
-import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
 import masterService from '../../services/masterService';
-
-const DEFAULT_PT_SLABS = [
-  {
-    id: 'pt-bihar-1',
-    state: 'Bihar',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 25000,
-    taxAmount: 1000,
-    gender: 'All Genders',
-    month: 'Sep'
-  },
-  {
-    id: 'pt-bihar-2',
-    state: 'Bihar',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 41667,
-    taxAmount: 2000,
-    gender: 'All Genders',
-    month: 'Sep'
-  },
-  {
-    id: 'pt-bihar-3',
-    state: 'Bihar',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 83333,
-    taxAmount: 3000,
-    gender: 'All Genders',
-    month: 'Sep'
-  },
-  {
-    id: 'pt-mh-1',
-    state: 'Maharashtra',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 7500,
-    taxAmount: 175,
-    gender: 'Male',
-    month: 'All Months'
-  },
-  {
-    id: 'pt-mh-2',
-    state: 'Maharashtra',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 10000,
-    taxAmount: 200,
-    gender: 'All Genders',
-    month: 'All Months'
-  },
-  {
-    id: 'pt-mh-3',
-    state: 'Maharashtra',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 10000,
-    taxAmount: 300,
-    gender: 'All Genders',
-    month: 'February'
-  },
-  {
-    id: 'pt-kar-1',
-    state: 'Karnataka',
-    startDate: '2023-04-01',
-    displayDate: '01-Apr-2023',
-    salaryAbove: 15000,
-    taxAmount: 200,
-    gender: 'All Genders',
-    month: 'All Months'
-  }
-];
+import statutoryService from '../../services/statutoryService';
 
 const formatPTDate = (dateStr) => {
   if (!dateStr) return '';
@@ -90,84 +17,165 @@ const formatPTDate = (dateStr) => {
   return `${day}-${month}-${year}`;
 };
 
-function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
+function PTConfigurationTab({
+  showToast,
+  ptConfig,
+  setPTConfig,
+  ptSlabs: parentPTSlabs = [],
+  setPTSlabs: setParentPTSlabs,
+  compId
+}) {
   const { activeCompany } = useCompany();
   const companyId = compId || activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
-  // Load raw salary components from Master / localStorage / fallback (identical to PF & ESI)
-  const [rawComponents, setRawComponents] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return mockSalaryComponents;
-  });
+  // Dynamic raw salary components from MongoDB Masters
+  const [rawComponents, setRawComponents] = useState([]);
 
-  // Calculate On state (Gross Salary vs Earned Salary)
+  // Calculate On state (Gross Salary vs Earned Salary) directly from MongoDB
   const [calculateOn, setCalculateOn] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pt_calculate_on_${companyId}`);
-      if (saved) return saved;
-    } catch (e) {}
-    return 'Gross Salary';
+    return ptConfig?.calculateOn || 'Gross Salary';
   });
 
-  // Selected components for PT calculation (by default Basic Salary & Dearness Allowance are selected in screenshot 1)
+  // Selected components for PT calculation directly from MongoDB
   const [selectedComponentIds, setSelectedComponentIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pt_selected_components_${companyId}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
-    }
-    // Default: Basic Salary and Dearness Allowance
-    return ['sal-1', 'basic', 'sal-2', 'da'];
+    return Array.isArray(ptConfig?.selectedComponentIds) ? ptConfig.selectedComponentIds : [];
   });
 
-  // Sync salary components dynamically when updated in Masters
-  useEffect(() => {
-    const syncComponents = () => {
-      try {
-        const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setRawComponents(parsed);
-            return;
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-      setRawComponents(mockSalaryComponents);
-    };
+  // State selection in PT Rates card (persisted to localStorage to survive page refreshes)
+  const [selectedState, setSelectedState] = useState(() => {
+    try {
+      return localStorage.getItem('novaspark_pt_selected_state') || '';
+    } catch {
+      return '';
+    }
+  });
 
+  // Dynamic PT Slabs State from MongoDB
+  const [ptSlabs, setPtSlabs] = useState(() => {
+    return Array.isArray(parentPTSlabs) ? parentPTSlabs : [];
+  });
+
+  const [isPTRateModalOpen, setIsPTRateModalOpen] = useState(false);
+  const [editingPTSlab, setEditingPTSlab] = useState(null);
+
+  // States that have configured slabs
+  const configuredStates = useMemo(() => {
+    const list = Array.from(new Set(ptSlabs.map((s) => s.state).filter(Boolean)));
+    return list;
+  }, [ptSlabs]);
+
+  // Synchronize state when companyId or ptConfig changes (tenant isolation)
+  useEffect(() => {
+    if (ptConfig) {
+      if (ptConfig.calculateOn) {
+        setCalculateOn(ptConfig.calculateOn);
+      }
+      if (Array.isArray(ptConfig.selectedComponentIds)) {
+        setSelectedComponentIds(ptConfig.selectedComponentIds);
+      }
+    }
+  }, [ptConfig, companyId]);
+
+  // Synchronize parent slabs when parentPTSlabs changes & auto-select state if not set
+  useEffect(() => {
+    if (Array.isArray(parentPTSlabs)) {
+      setPtSlabs(parentPTSlabs);
+      if (parentPTSlabs.length > 0) {
+        setSelectedState((prev) => {
+          if (prev) return prev;
+          try {
+            const saved = localStorage.getItem('novaspark_pt_selected_state');
+            if (saved && parentPTSlabs.some((s) => s.state === saved)) {
+              return saved;
+            }
+          } catch {}
+          return parentPTSlabs[0]?.state || '';
+        });
+      }
+    }
+  }, [parentPTSlabs]);
+
+  // Auto-select first configured state if selectedState is blank or was deleted
+  useEffect(() => {
+    if (configuredStates.length > 0) {
+      setSelectedState((prev) => {
+        if (prev && (configuredStates.includes(prev) || ALL_INDIAN_STATES_AND_UTS.includes(prev))) {
+          return prev;
+        }
+        try {
+          const saved = localStorage.getItem('novaspark_pt_selected_state');
+          if (saved && configuredStates.includes(saved)) {
+            return saved;
+          }
+        } catch {}
+        return configuredStates[0] || '';
+      });
+    }
+  }, [configuredStates]);
+
+  const handleStateChange = (newState) => {
+    setSelectedState(newState);
+    try {
+      if (newState) {
+        localStorage.setItem('novaspark_pt_selected_state', newState);
+      }
+    } catch {}
+  };
+
+  // Load PT config and slabs directly from MongoDB if not passed or when company changes
+  useEffect(() => {
+    let isMounted = true;
     if (companyId) {
-      masterService.getMasters('salary-components', companyId)
-        .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setRawComponents(data);
-            try {
-              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(data));
-            } catch (e) {}
+      statutoryService
+        .getStatutoryConfig(companyId)
+        .then((config) => {
+          if (!isMounted) return;
+          if (config?.pt) {
+            if (config.pt.calculateOn) setCalculateOn(config.pt.calculateOn);
+            if (Array.isArray(config.pt.selectedComponentIds)) {
+              setSelectedComponentIds(config.pt.selectedComponentIds);
+            }
+            if (setPTConfig) setPTConfig(config.pt);
+          }
+          if (Array.isArray(config?.ptSlabs)) {
+            setPtSlabs(config.ptSlabs);
+            if (setParentPTSlabs) setParentPTSlabs(config.ptSlabs);
           }
         })
-        .catch(() => {});
+        .catch((err) => {
+          console.error('Failed to load PT config from database:', err);
+        });
     }
+    return () => {
+      isMounted = false;
+    };
+  }, [companyId, setPTConfig, setParentPTSlabs]);
 
-    window.addEventListener('salary-components-updated', syncComponents);
-    window.addEventListener('masters-updated', syncComponents);
-    window.addEventListener('storage', syncComponents);
+  // Dynamically load company-specific salary components from MongoDB Masters
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCompanySalaryComponents = async () => {
+      if (!companyId) return;
+      try {
+        const data = await masterService.getMasters('salary-components', companyId, true);
+        if (isMounted) {
+          setRawComponents(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (isMounted) setRawComponents([]);
+      }
+    };
+
+    fetchCompanySalaryComponents();
+
+    const handleSync = () => fetchCompanySalaryComponents();
+    window.addEventListener('salary-components-updated', handleSync);
+    window.addEventListener('masters-updated', handleSync);
 
     return () => {
-      window.removeEventListener('salary-components-updated', syncComponents);
-      window.removeEventListener('masters-updated', syncComponents);
-      window.removeEventListener('storage', syncComponents);
+      isMounted = false;
+      window.removeEventListener('salary-components-updated', handleSync);
+      window.removeEventListener('masters-updated', handleSync);
     };
   }, [companyId]);
 
@@ -196,55 +204,71 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
   };
 
   const isSelected = (comp) => {
-    const id = String(comp.id || '');
+    const id = String(comp.id || comp._id || '');
     const code = String(comp.code || comp.shortName || '').toLowerCase();
-    return selectedComponentIds.includes(id) || selectedComponentIds.includes(code);
+    return selectedComponentIds.includes(id) || (code && selectedComponentIds.includes(code));
   };
 
-  const handleTogglePTApplicability = (comp) => {
-    const id = String(comp.id || '');
+  // Toggle PT Applicability and immediately persist to MongoDB Atlas
+  const handleTogglePTApplicability = async (comp) => {
+    const id = String(comp.id || comp._id || comp.code || comp.shortName || '');
     const code = String(comp.code || comp.shortName || '').toLowerCase();
 
-    setSelectedComponentIds((prev) => {
-      const alreadySelected = prev.includes(id) || (code && prev.includes(code));
-      const next = alreadySelected
-        ? prev.filter((x) => x !== id && x !== code)
-        : [...prev, id];
-      try {
-        localStorage.setItem(
-          `novaspark_pt_selected_components_${companyId}`,
-          JSON.stringify(next)
-        );
-      } catch (e) {
-        console.error('Failed to save PT selected components', e);
+    const alreadySelected = selectedComponentIds.includes(id) || (code && selectedComponentIds.includes(code));
+    const next = alreadySelected
+      ? selectedComponentIds.filter((x) => x !== id && x !== code)
+      : [...selectedComponentIds, id];
+
+    setSelectedComponentIds(next);
+
+    try {
+      await statutoryService.savePTApplicability(companyId, {
+        selectedComponentIds: next,
+        calculateOn,
+      });
+
+      if (setPTConfig) {
+        setPTConfig((prev) => ({
+          ...prev,
+          selectedComponentIds: next,
+          calculateOn,
+        }));
       }
-      return next;
-    });
+
+      if (showToast) {
+        showToast('✓ Salary component PT applicability saved to database.');
+      }
+    } catch (err) {
+      console.error('Failed to save PT applicability to database:', err);
+      if (showToast) showToast('Failed to save applicability changes to database.', 'danger');
+    }
   };
 
-  const handleCalculateOnChange = (e) => {
+  // Change Calculate On and immediately persist to MongoDB Atlas
+  const handleCalculateOnChange = async (e) => {
     const val = e.target.value;
     setCalculateOn(val);
+
     try {
-      localStorage.setItem(`novaspark_pt_calculate_on_${companyId}`, val);
-    } catch (e) {}
-    if (showToast) showToast(`✓ PT calculation basis set to ${val}.`);
+      await statutoryService.savePTApplicability(companyId, {
+        selectedComponentIds,
+        calculateOn: val,
+      });
+
+      if (setPTConfig) {
+        setPTConfig((prev) => ({
+          ...prev,
+          calculateOn: val,
+          selectedComponentIds,
+        }));
+      }
+
+      if (showToast) showToast(`✓ PT calculation basis set to ${val}.`);
+    } catch (err) {
+      console.error('Failed to save PT calculateOn to database:', err);
+      if (showToast) showToast('Failed to save calculation basis to database.', 'danger');
+    }
   };
-
-  // State selection in PT Rates card
-  const [selectedState, setSelectedState] = useState('');
-
-  // PT Slabs State
-  const [ptSlabs, setPtSlabs] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pt_slabs_${companyId}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_PT_SLABS;
-  });
-
-  const [isPTRateModalOpen, setIsPTRateModalOpen] = useState(false);
-  const [editingPTSlab, setEditingPTSlab] = useState(null);
 
   // Filter slabs for the selected state
   const stateSlabs = useMemo(() => {
@@ -254,8 +278,11 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
 
   // Determine effective date for state
   const stateEffectiveDate = useMemo(() => {
-    if (stateSlabs.length > 0 && stateSlabs[0].startDate) {
-      return formatPTDate(stateSlabs[0].startDate);
+    if (stateSlabs.length > 0) {
+      const slabWithDate = stateSlabs.find((s) => s.startDate || s.effectiveFrom);
+      if (slabWithDate) {
+        return formatPTDate(slabWithDate.startDate || slabWithDate.effectiveFrom);
+      }
     }
     return '01-Apr-2023';
   }, [stateSlabs]);
@@ -270,52 +297,80 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
     setIsPTRateModalOpen(true);
   };
 
-  const handleDeletePTSlab = (slabId) => {
-    setPtSlabs((prev) => {
-      const updated = prev.filter((s) => s.id !== slabId);
-      try {
-        localStorage.setItem(`novaspark_pt_slabs_${companyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to delete PT slab', e);
-      }
-      return updated;
-    });
-    if (showToast) showToast('✓ Professional Tax slab deleted.');
+  // Delete PT slab from MongoDB Atlas
+  const handleDeletePTSlab = async (slabId) => {
+    const cleanId = String(slabId || '').trim();
+    if (!cleanId) return;
+
+    if (!window.confirm('Are you sure you want to delete this Professional Tax slab?')) {
+      return;
+    }
+
+    const previousSlabs = [...ptSlabs];
+    const updated = ptSlabs.filter((s) => String(s.id || s._id || '').trim() !== cleanId);
+    setPtSlabs(updated);
+    if (setParentPTSlabs) setParentPTSlabs(updated);
+
+    try {
+      const res = await statutoryService.deletePTSlab(companyId, cleanId);
+      const finalSlabs = Array.isArray(res?.ptSlabs) ? res.ptSlabs : updated;
+      setPtSlabs(finalSlabs);
+      if (setParentPTSlabs) setParentPTSlabs(finalSlabs);
+      if (showToast) showToast('✓ Professional Tax slab deleted from database.');
+    } catch (err) {
+      console.error('Failed to delete PT slab from database:', err);
+      setPtSlabs(previousSlabs);
+      if (setParentPTSlabs) setParentPTSlabs(previousSlabs);
+      if (showToast) showToast('Failed to delete PT slab from database.', 'danger');
+    }
   };
 
-  const handleSavePTSlab = (slabData) => {
-    const formattedDate = formatPTDate(slabData.startDate);
+  // Add / Edit PT slab and persist to MongoDB Atlas
+  const handleSavePTSlab = async (slabData) => {
+    const formattedDate = formatPTDate(slabData.startDate || slabData.effectiveFrom);
     const completeData = {
       ...slabData,
-      displayDate: formattedDate
+      displayDate: formattedDate,
+      startDate: slabData.startDate || slabData.effectiveFrom,
+      effectiveFrom: slabData.effectiveFrom || slabData.startDate,
+      salaryAbove: Number(slabData.salaryAbove !== undefined && slabData.salaryAbove !== '' ? slabData.salaryAbove : slabData.minSalary) || 0,
+      minSalary: Number(slabData.salaryAbove !== undefined && slabData.salaryAbove !== '' ? slabData.salaryAbove : slabData.minSalary) || 0,
+      taxAmount: Number(slabData.taxAmount) || 0,
     };
 
-    setPtSlabs((prev) => {
-      const exists = prev.some((s) => s.id === completeData.id);
-      const updated = exists
-        ? prev.map((s) => (s.id === completeData.id ? completeData : s))
-        : [...prev, completeData];
-      try {
-        localStorage.setItem(`novaspark_pt_slabs_${companyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save PT slab', e);
-      }
-      return updated;
-    });
+    const targetId = String(completeData.id || completeData._id || '').trim();
+    const exists = ptSlabs.some((s) => String(s.id || s._id || '').trim() === targetId);
+    const updatedSlabs = exists
+      ? ptSlabs.map((s) => (String(s.id || s._id || '').trim() === targetId ? completeData : s))
+      : [completeData, ...ptSlabs];
 
-    if (slabData.state && slabData.state !== selectedState) {
-      setSelectedState(slabData.state);
+    setPtSlabs(updatedSlabs);
+    if (setParentPTSlabs) setParentPTSlabs(updatedSlabs);
+
+    if (slabData.state) {
+      handleStateChange(slabData.state);
+    }
+
+    try {
+      const res = await statutoryService.savePTSlab(companyId, completeData);
+      const finalSlabs = Array.isArray(res?.ptSlabs) ? res.ptSlabs : updatedSlabs;
+      setPtSlabs(finalSlabs);
+      if (setParentPTSlabs) setParentPTSlabs(finalSlabs);
+
+      if (showToast) {
+        showToast(
+          editingPTSlab
+            ? '✓ Professional Tax slab updated successfully in database.'
+            : '✓ New Professional Tax slab added successfully in database.'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to save PT slab to database:', err);
+      if (showToast) showToast('Failed to save PT slab to database.', 'danger');
     }
 
     setIsPTRateModalOpen(false);
     setEditingPTSlab(null);
-    if (showToast) {
-      showToast(
-        editingPTSlab
-          ? '✓ Professional Tax slab updated successfully.'
-          : '✓ New Professional Tax slab added successfully.'
-      );
-    }
   };
 
   return (
@@ -343,7 +398,10 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
               <div className={styles.ptHeaderLeft}>
                 <h3 className={styles.pfCardTitle}>
                   Salary Component Applicability
-                  <span className={styles.infoIconPurple} title="Select components included in the Professional Tax calculation wage base">
+                  <span
+                    className={styles.infoIconPurple}
+                    title="Select components included in the Professional Tax calculation wage base"
+                  >
                     <Info size={15} />
                   </span>
                 </h3>
@@ -351,7 +409,10 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
                 <div className={styles.ptCalculateOnWrap}>
                   <label className={styles.ptCalculateLabel}>
                     Calculate on
-                    <span className={styles.infoIconPurple} title="Choose whether PT is calculated on Gross Salary or actual Earned Salary">
+                    <span
+                      className={styles.infoIconPurple}
+                      title="Choose whether PT is calculated on Gross Salary or actual Earned Salary"
+                    >
                       <Info size={14} />
                     </span>
                   </label>
@@ -390,7 +451,7 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
                     const badge = getComponentBadgeInfo(comp);
                     const checked = isSelected(comp);
                     return (
-                      <tr key={comp.id || `comp-${idx}`}>
+                      <tr key={comp.id || comp._id || `comp-${idx}`}>
                         <td className={styles.componentNameCell}>
                           {comp.name}
                         </td>
@@ -428,14 +489,28 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
               <select
                 className={styles.ptStateSelect}
                 value={selectedState}
-                onChange={(e) => setSelectedState(e.target.value)}
+                onChange={(e) => handleStateChange(e.target.value)}
               >
                 <option value="">- Select State -</option>
-                {ALL_INDIAN_STATES_AND_UTS.map((st) => (
-                  <option key={st} value={st}>
-                    {st}
-                  </option>
-                ))}
+                {configuredStates.length > 0 && (
+                  <optgroup label="States With Configured Slabs">
+                    {configuredStates.map((st) => {
+                      const count = ptSlabs.filter((s) => s.state === st).length;
+                      return (
+                        <option key={`cfg-${st}`} value={st}>
+                          {st} ({count} {count === 1 ? 'slab' : 'slabs'})
+                        </option>
+                      );
+                    })}
+                  </optgroup>
+                )}
+                <optgroup label="All States & UTs">
+                  {ALL_INDIAN_STATES_AND_UTS.map((st) => (
+                    <option key={`all-${st}`} value={st}>
+                      {st}
+                    </option>
+                  ))}
+                </optgroup>
               </select>
 
               <button
@@ -451,7 +526,35 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
             {/* If no state is selected */}
             {!selectedState ? (
               <div className={styles.ptEmptyState}>
-                Select a state to show rates
+                <p style={{ margin: '0 0 10px 0', color: '#64748b' }}>
+                  Select a state above to show rates
+                </p>
+                {configuredStates.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '8px' }}>
+                    <span style={{ fontSize: '0.82rem', color: '#64748b', alignSelf: 'center' }}>
+                      Configured:
+                    </span>
+                    {configuredStates.map((st) => (
+                      <button
+                        key={`chip-${st}`}
+                        type="button"
+                        onClick={() => handleStateChange(st)}
+                        style={{
+                          background: '#f8fafc',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          color: '#1e293b',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {st} ({ptSlabs.filter((s) => s.state === st).length})
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               <div>
@@ -469,10 +572,12 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
                   <table className={styles.ptSlabsTable}>
                     <tbody>
                       {stateSlabs.map((slab) => (
-                        <tr key={slab.id}>
+                        <tr key={slab.id || slab._id}>
                           <td style={{ width: '30%' }}>
                             <div className={styles.ptSlabHeader}>Base Salary</div>
-                            <div className={styles.ptSlabVal}>&gt; {slab.salaryAbove}</div>
+                            <div className={styles.ptSlabVal}>
+                              &gt; {slab.salaryAbove !== undefined ? slab.salaryAbove : slab.minSalary}
+                            </div>
                           </td>
                           <td style={{ width: '25%' }}>
                             <div className={styles.ptSlabHeader}>Tax Amount</div>
@@ -499,7 +604,7 @@ function PTConfigurationTab({ showToast, ptConfig, setPTConfig, compId }) {
                                 type="button"
                                 className={`${styles.actionCircleBtn} ${styles.deleteCircleBtn}`}
                                 title="Delete PT Slab"
-                                onClick={() => handleDeletePTSlab(slab.id)}
+                                onClick={() => handleDeletePTSlab(slab.id || slab._id)}
                               >
                                 <Trash2 size={13} />
                               </button>

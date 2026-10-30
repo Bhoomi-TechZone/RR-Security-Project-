@@ -139,6 +139,139 @@ class StatutoryService {
     }
     return data;
   }
+
+  /**
+   * Save or update PF Rate Change entry in MongoDB
+   */
+  async savePFRate(companyId, rateData) {
+    const res = await fetch(`${API_BASE_URL}/statutory/pf-rates`, {
+      method: 'POST',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        companyId,
+        ...rateData,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to save PF Rate Change');
+    }
+    return data;
+  }
+
+  /**
+   * Delete PF Rate Change entry from MongoDB
+   */
+  async deletePFRate(companyId, rateId) {
+    const res = await fetch(`${API_BASE_URL}/statutory/pf-rates/${rateId}?companyId=${companyId || ''}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(companyId),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to delete PF Rate Change');
+    }
+    return data;
+  }
+
+  /**
+   * Save selected salary components for PF calculation in MongoDB
+   */
+  async savePFApplicability(companyId, selectedComponentIds) {
+    const res = await fetch(`${API_BASE_URL}/statutory/pf/applicability`, {
+      method: 'PUT',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        companyId,
+        selectedComponentIds,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to save PF salary components applicability');
+    }
+    return data;
+  }
+
+  /**
+   * Save or update ESI Rate Change entry in MongoDB
+   */
+  async saveESIRate(companyId, rateData) {
+    const res = await fetch(`${API_BASE_URL}/statutory/esi-rates`, {
+      method: 'POST',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        companyId,
+        ...rateData,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to save ESI Rate Change');
+    }
+    return data;
+  }
+
+  /**
+   * Delete ESI Rate Change entry from MongoDB
+   */
+  async deleteESIRate(companyId, rateId) {
+    const res = await fetch(`${API_BASE_URL}/statutory/esi-rates/${rateId}?companyId=${companyId || ''}`, {
+      method: 'DELETE',
+      headers: this.getHeaders(companyId),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to delete ESI Rate Change');
+    }
+    return data;
+  }
+
+  /**
+   * Save selected salary components for ESI calculation in MongoDB
+   */
+  async saveESIApplicability(companyId, selectedComponentIds) {
+    const res = await fetch(`${API_BASE_URL}/statutory/esi/applicability`, {
+      method: 'PUT',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        companyId,
+        selectedComponentIds,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to save ESI salary components applicability');
+    }
+    return data;
+  }
+
+  /**
+   * Save selected salary components and calculateOn basis for PT calculation in MongoDB
+   */
+  async savePTApplicability(companyId, { selectedComponentIds, calculateOn } = {}) {
+    const res = await fetch(`${API_BASE_URL}/statutory/pt/applicability`, {
+      method: 'PUT',
+      headers: this.getHeaders(companyId),
+      body: JSON.stringify({
+        companyId,
+        selectedComponentIds,
+        calculateOn,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.message || 'Failed to save PT salary components applicability');
+    }
+    return data;
+  }
 }
 
 export const statutoryService = new StatutoryService();

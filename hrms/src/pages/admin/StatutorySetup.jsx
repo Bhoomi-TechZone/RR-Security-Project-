@@ -1298,6 +1298,8 @@ function StatutorySetup() {
                 showToast={showToast}
                 ptConfig={ptConfig}
                 setPTConfig={setPTConfig}
+                ptSlabs={ptSlabs}
+                setPTSlabs={setPTSlabs}
                 compId={compId}
               />
             )}

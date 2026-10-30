@@ -184,7 +184,9 @@ function MasterFormModal({
       payload.code = alias;
       payload.shortName = alias;
       const isDed = isEdit ? (editingItem?.type === 'deduction' || payload.type === 'deduction') : componentCategory === 'deduction';
-      payload.type = isDed ? 'deduction' : 'earning';
+      payload.type_kind = isDed ? 'deduction' : 'earning';
+      payload.type = 'salary-components';
+      payload.masterCategory = 'salary-components';
       if (isDed) {
         payload.deductionType = payload.deductionType || payload.componentType || 'Fixed';
         payload.componentType = payload.deductionType;

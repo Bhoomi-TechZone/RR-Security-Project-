@@ -197,16 +197,7 @@ function Masters() {
   const [shifts, setShifts] = useState([]);
   const [leaveTypes, setLeaveTypes] = useState([]);
   const [holidays, setHolidays] = useState([]);
-  const [salaryComponents, setSalaryComponents] = useState(() => {
-    const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return mockSalaryComponents;
-  });
+  const [salaryComponents, setSalaryComponents] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
   // Client Services Master Data State (Dynamic from MongoDB)
   const [clientServices, setClientServices] = useState([]);
@@ -264,11 +255,6 @@ function Masters() {
       localStorage.setItem(`novaspark_work_locations_${companyId}`, JSON.stringify(workLocations));
     }
   }, [workLocations, companyId]);
-  useEffect(() => {
-    if (salaryComponents.length > 0) {
-      localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(salaryComponents));
-    }
-  }, [salaryComponents, companyId]);
   // Clean up any stale legacy mock client services from localStorage
   useEffect(() => {
     try {
@@ -312,23 +298,8 @@ function Masters() {
         setClientServices(list);
       } else {
         if (tab === 'salary-components') {
-          const data = await masterService.getMasters(tab, companyId).catch(() => null);
-          if (Array.isArray(data) && data.length > 0) {
-            setSalaryComponents(data);
-            localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(data));
-          } else {
-            const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-            if (saved) {
-              try {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                  setSalaryComponents(parsed);
-                  return;
-                }
-              } catch (e) {}
-            }
-            setSalaryComponents(mockSalaryComponents);
-          }
+          const data = await masterService.getMasters(tab, companyId, true);
+          setSalaryComponents(Array.isArray(data) ? data : []);
           return;
         }
         const data = await masterService.getMasters(tab, companyId);
@@ -336,7 +307,11 @@ function Masters() {
       }
     } catch (err) {
       if (tab === 'salary-components') {
-        setSalaryComponents(mockSalaryComponents);
+        setSalaryComponents([]);
+        if (!silent) {
+          setError(err.message || 'Failed to load salary components.');
+          showToast(`Failed to load salary components: ${err.message}`, 'error');
+        }
         return;
       }
       console.error(`Error loading master ${tab}:`, err);
@@ -640,7 +615,17 @@ function Masters() {
         if (editingItem) {
           // Dynamic Edit mode
           const itemId = editingItem.id || editingItem._id;
-          const updated = await masterService.updateMaster(companyId, itemId, formData);
+          const masterType = activeTab === 'clients' ? 'client-services' : activeTab;
+          const payloadToSend = {
+            ...formData,
+            type: masterType,
+            masterCategory: masterType,
+          };
+          if (activeTab === 'salary-components') {
+            payloadToSend.type = 'salary-components';
+            payloadToSend.type_kind = formData.type_kind || (formData.type === 'deduction' || salaryComponentSubTab === 'deductions' ? 'deduction' : 'earning');
+          }
+          const updated = await masterService.updateMaster(companyId, itemId, payloadToSend);
           const merged = { ...editingItem, ...(updated || {}), ...formData, id: itemId, _id: itemId };
           const updateList = (list) => list.map(item => ((item.id || item._id) === itemId) ? merged : item);
           if (activeTab === 'banks') setBanks(updateList);
@@ -657,11 +642,8 @@ function Masters() {
           else if (activeTab === 'leave-types') setLeaveTypes(updateList);
           else if (activeTab === 'holidays') setHolidays(updateList);
           else if (activeTab === 'salary-components') {
-            setSalaryComponents(prev => {
-              const next = updateList(prev);
-              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(next));
-              return next;
-            });
+            setSalaryComponents(updateList);
+            masterService.clearCache(companyId);
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
           else if (activeTab === 'document-types') setDocumentTypes(updateList);
@@ -675,10 +657,17 @@ function Masters() {
           showToast(`✓ ${entityName} updated successfully.`, 'success');
         } else {
           // Dynamic Add mode
-          const created = await masterService.createMaster(companyId, {
-            type: activeTab === 'clients' ? 'client-services' : activeTab,
-            ...formData
-          });
+          const masterType = activeTab === 'clients' ? 'client-services' : activeTab;
+          const payloadToSend = {
+            ...formData,
+            type: masterType,
+            masterCategory: masterType,
+          };
+          if (activeTab === 'salary-components') {
+            payloadToSend.type = 'salary-components';
+            payloadToSend.type_kind = formData.type_kind || (formData.type === 'deduction' || salaryComponentSubTab === 'deductions' ? 'deduction' : 'earning');
+          }
+          const created = await masterService.createMaster(companyId, payloadToSend);
           const createdItem = { ...formData, ...(created || {}), id: created?.id || created?._id, _id: created?._id || created?.id };
           const updateCreated = (prev) => [createdItem, ...prev.filter(p => (p.id || p._id) !== (createdItem.id || createdItem._id))];
           if (activeTab === 'banks') setBanks(updateCreated);
@@ -695,11 +684,8 @@ function Masters() {
           else if (activeTab === 'leave-types') setLeaveTypes(updateCreated);
           else if (activeTab === 'holidays') setHolidays(updateCreated);
           else if (activeTab === 'salary-components') {
-            setSalaryComponents(prev => {
-              const next = updateCreated(prev);
-              localStorage.setItem("novaspark_salary_components_" + companyId, JSON.stringify(next));
-              return next;
-            });
+            setSalaryComponents(updateCreated);
+            masterService.clearCache(companyId);
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
           else if (activeTab === 'document-types') setDocumentTypes(updateCreated);
@@ -799,14 +785,7 @@ function Masters() {
           else if (activeTab === 'holidays') setHolidays(filterList);
           else if (activeTab === 'salary-components') {
             setSalaryComponents(filterList);
-            const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-            if (saved) {
-              try {
-                const parsed = JSON.parse(saved);
-                const nextList = parsed.filter(i => (i.id || i._id) !== itemId);
-                localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(nextList));
-              } catch (e) {}
-            }
+            masterService.clearCache(companyId);
             window.dispatchEvent(new CustomEvent('salary-components-updated'));
           }
           else if (activeTab === 'document-types') setDocumentTypes(filterList);

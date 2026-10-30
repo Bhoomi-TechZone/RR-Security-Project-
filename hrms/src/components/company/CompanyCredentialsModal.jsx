@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   KeyRound, X, Copy, Check, Eye, EyeOff, Send, Mail,
-  ShieldCheck, AlertCircle, CheckCircle2
+  ShieldCheck, AlertCircle, CheckCircle2, Globe, ExternalLink
 } from 'lucide-react';
 import styles from './CompanyCredentialsModal.module.css';
 
@@ -138,6 +138,7 @@ function CompanyCredentialsModal({ isOpen, company, onClose }) {
 
     try {
       const token = localStorage.getItem('novaspark_auth_token');
+      const originLoginUrl = `${window.location.origin}/login`;
       const res = await fetch(`${API_BASE_URL}/companies/${compId}/send-credentials`, {
         method: 'POST',
         headers: {
@@ -147,7 +148,8 @@ function CompanyCredentialsModal({ isOpen, company, onClose }) {
         body: JSON.stringify({
           password: password.trim(),
           recipientEmail: targetEmail,
-          sendToEmail: targetEmail
+          sendToEmail: targetEmail,
+          loginUrl: originLoginUrl
         })
       });
 
@@ -314,13 +316,61 @@ function CompanyCredentialsModal({ isOpen, company, onClose }) {
                 Set during company creation. You can edit this to assign a new password.
               </span>
             </div>
+
+            {/* Portal Login Link */}
+            <div className={styles.credRow} style={{ marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <label className={styles.credLabel}>
+                  <Globe size={14} color="#2563eb" /> Portal Login Link (Included in Email)
+                </label>
+                <a
+                  href={`${window.location.origin}/login`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: '11px',
+                    color: '#2563eb',
+                    fontWeight: 600,
+                    textDecoration: 'none',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}
+                >
+                  <span>Open Page</span>
+                  <ExternalLink size={11} />
+                </a>
+              </div>
+              <div className={styles.credValueBox} style={{ background: '#f8fafc' }}>
+                <input
+                  type="text"
+                  value={`${window.location.origin}/login`}
+                  readOnly
+                  className={styles.credInput}
+                  style={{ color: '#2563eb', fontWeight: 600, cursor: 'text' }}
+                />
+                <div className={styles.credActions}>
+                  <button
+                    type="button"
+                    className={`${styles.iconBtn} ${copiedKey === 'loginUrl' ? styles.copied : ''}`}
+                    onClick={() => handleCopy(`${window.location.origin}/login`, 'loginUrl')}
+                    title="Copy Portal Login URL"
+                  >
+                    {copiedKey === 'loginUrl' ? <Check size={14} /> : <Copy size={14} />}
+                  </button>
+                </div>
+              </div>
+              <span style={{ fontSize: '11.5px', color: '#64748b' }}>
+                Company admin will receive this link to sign in directly to their isolated workspace.
+              </span>
+            </div>
           </div>
 
           {/* Security & Notification Notice */}
           <div className={styles.securityNote}>
             <ShieldCheck size={18} style={{ flexShrink: 0, marginTop: 1 }} />
             <div>
-              Clicking <strong>Send Notification</strong> will dispatch an onboarding email containing the <strong>Portal Login Link</strong>, username, and password directly to <strong>{adminEmail || 'the specified email'}</strong>.
+              Clicking <strong>Send Notification</strong> will dispatch an onboarding email containing the <strong>Portal Login Link</strong> ({window.location.origin}/login), username, password, and complete company details directly to <strong>{adminEmail || 'the specified email'}</strong>.
             </div>
           </div>
         </div>

@@ -3,8 +3,8 @@ import { PlusCircle, Edit2, Trash2, CheckCircle2, XCircle } from 'lucide-react';
 import styles from '../../pages/admin/StatutorySetup.module.css';
 import ESIRateModal from './ESIRateModal';
 import { useCompany } from '../../context/CompanyContext';
-import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
 import masterService from '../../services/masterService';
+import statutoryService from '../../services/statutoryService';
 
 const DEFAULT_ESI_RATES = [
   {
@@ -21,6 +21,16 @@ const DEFAULT_ESI_RATES = [
 
 const formatESIDate = (dateStr) => {
   if (!dateStr) return '';
+  const str = String(dateStr).trim();
+  if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(str)) return str;
+  const match = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const yyyy = match[1];
+    const mm = parseInt(match[2], 10) - 1;
+    const dd = match[3];
+    return `${dd}-${months[mm] || 'Jan'}-${yyyy}`;
+  }
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return dateStr;
   const day = String(d.getDate()).padStart(2, '0');
@@ -34,79 +44,79 @@ function ESIConfigurationTab({ showToast, esiConfig, setESIConfig, compId }) {
   const { activeCompany } = useCompany();
   const companyId = compId || activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
-  // Load raw salary components from Master / localStorage / fallback (identical to PF)
-  const [rawComponents, setRawComponents] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return mockSalaryComponents;
-  });
+  // Dynamic raw salary components from MongoDB Masters
+  const [rawComponents, setRawComponents] = useState([]);
 
-  // Selected components for ESI applicability
+  // Selected components for ESI applicability (strictly from MongoDB)
   const [selectedComponentIds, setSelectedComponentIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_esi_selected_components_${companyId}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
+    if (Array.isArray(esiConfig?.selectedComponentIds)) {
+      return esiConfig.selectedComponentIds;
     }
     return [];
   });
 
-  // Sync salary components dynamically when updated in Masters
+  // Dynamic Rate Changes State from MongoDB
+  const [esiRateChanges, setEsiRateChanges] = useState(() => {
+    if (Array.isArray(esiConfig?.esiRates)) {
+      return esiConfig.esiRates;
+    }
+    return DEFAULT_ESI_RATES;
+  });
+
+  const [isESIRateModalOpen, setIsESIRateModalOpen] = useState(false);
+  const [editingESIRate, setEditingESIRate] = useState(null);
+
+  // Synchronize state whenever companyId or esiConfig changes (tenant isolation)
   useEffect(() => {
-    const syncComponents = () => {
-      try {
-        const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setRawComponents(parsed);
-            return;
-          }
-        }
-      } catch (e) {
-        console.error(e);
+    if (esiConfig) {
+      if (Array.isArray(esiConfig.esiRates)) {
+        setEsiRateChanges(esiConfig.esiRates);
+      } else {
+        setEsiRateChanges([]);
       }
-      setRawComponents(mockSalaryComponents);
+
+      if (Array.isArray(esiConfig.selectedComponentIds)) {
+        setSelectedComponentIds(esiConfig.selectedComponentIds);
+      } else {
+        setSelectedComponentIds([]);
+      }
+    }
+  }, [esiConfig, companyId]);
+
+  // Dynamically load company-specific salary components from MongoDB
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCompanySalaryComponents = async () => {
+      if (!companyId) return;
+      try {
+        const data = await masterService.getMasters('salary-components', companyId, true);
+        if (isMounted) {
+          setRawComponents(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (isMounted) setRawComponents([]);
+      }
     };
 
-    if (companyId) {
-      masterService.getMasters('salary-components', companyId)
-        .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setRawComponents(data);
-            try {
-              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(data));
-            } catch (e) {}
-          }
-        })
-        .catch(() => {});
-    }
+    fetchCompanySalaryComponents();
 
-    window.addEventListener('salary-components-updated', syncComponents);
-    window.addEventListener('masters-updated', syncComponents);
-    window.addEventListener('storage', syncComponents);
+    const handleSync = () => fetchCompanySalaryComponents();
+    window.addEventListener('salary-components-updated', handleSync);
+    window.addEventListener('masters-updated', handleSync);
 
     return () => {
-      window.removeEventListener('salary-components-updated', syncComponents);
-      window.removeEventListener('masters-updated', syncComponents);
-      window.removeEventListener('storage', syncComponents);
+      isMounted = false;
+      window.removeEventListener('salary-components-updated', handleSync);
+      window.removeEventListener('masters-updated', handleSync);
     };
   }, [companyId]);
 
-  // Only show components added in Salary Components (excluding deductions)
+  // Only show components added in Salary Components (excluding deductions like PF/ESI/PT/TDS)
   const applicableSalaryComponents = useMemo(() => {
     return rawComponents.filter((c) => (c.type || 'earning') !== 'deduction');
   }, [rawComponents]);
 
-  // Format component name: e.g. "Basic Salary - Basic" or "House Rent Allowance - HRA"
+  // Format component name cleanly: e.g. "Basic Salary - Basic" or "House Rent Allowance - HRA"
   const formatComponentName = (c) => {
     const name = c.name || '';
     const alias = c.shortName || c.code || '';
@@ -136,43 +146,39 @@ function ESIConfigurationTab({ showToast, esiConfig, setESIConfig, compId }) {
   };
 
   const isSelected = (comp) => {
-    const id = String(comp.id || '');
+    const id = String(comp.id || comp._id || '');
     const code = String(comp.code || comp.shortName || '').toLowerCase();
     return selectedComponentIds.includes(id) || selectedComponentIds.includes(code);
   };
 
-  const handleToggleESIApplicability = (comp) => {
-    const id = String(comp.id || '');
+  // Toggle ESI Applicability and immediately persist to MongoDB Atlas
+  const handleToggleESIApplicability = async (comp) => {
+    const id = String(comp.id || comp._id || comp.code || comp.shortName || '');
     const code = String(comp.code || comp.shortName || '').toLowerCase();
 
-    setSelectedComponentIds((prev) => {
-      const alreadySelected = prev.includes(id) || (code && prev.includes(code));
-      const next = alreadySelected
-        ? prev.filter((x) => x !== id && x !== code)
-        : [...prev, id];
-      try {
-        localStorage.setItem(
-          `novaspark_esi_selected_components_${companyId}`,
-          JSON.stringify(next)
-        );
-      } catch (e) {
-        console.error('Failed to save ESI selected components', e);
-      }
-      return next;
-    });
-  };
+    const alreadySelected = selectedComponentIds.includes(id) || (code && selectedComponentIds.includes(code));
+    const next = alreadySelected
+      ? selectedComponentIds.filter((x) => x !== id && x !== code)
+      : [...selectedComponentIds, id];
 
-  // ESI Rate Changes State
-  const [esiRateChanges, setEsiRateChanges] = useState(() => {
+    setSelectedComponentIds(next);
+
     try {
-      const saved = localStorage.getItem(`novaspark_esi_rates_${companyId}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_ESI_RATES;
-  });
-
-  const [isESIRateModalOpen, setIsESIRateModalOpen] = useState(false);
-  const [editingESIRate, setEditingESIRate] = useState(null);
+      await statutoryService.saveESIApplicability(companyId, next);
+      if (setESIConfig) {
+        setESIConfig((prev) => ({
+          ...prev,
+          selectedComponentIds: next
+        }));
+      }
+      if (showToast) {
+        showToast('✓ Salary component ESI applicability saved to database.');
+      }
+    } catch (err) {
+      console.error('Failed to save ESI applicability:', err);
+      if (showToast) showToast('Failed to save applicability changes to database.', 'danger');
+    }
+  };
 
   const handleOpenAddESIRate = () => {
     setEditingESIRate(null);
@@ -184,59 +190,94 @@ function ESIConfigurationTab({ showToast, esiConfig, setESIConfig, compId }) {
     setIsESIRateModalOpen(true);
   };
 
-  const handleDeleteESIRate = (rateId) => {
-    setEsiRateChanges((prev) => {
-      const updated = prev.filter((r) => r.id !== rateId);
-      try {
-        localStorage.setItem(`novaspark_esi_rates_${companyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to delete ESI rate', e);
+  // Delete ESI Rate and persist to MongoDB
+  const handleDeleteESIRate = async (rateId) => {
+    const cleanId = String(rateId || '').trim();
+    if (!cleanId) return;
+
+    if (!window.confirm('Are you sure you want to delete this ESI rate change?')) {
+      return;
+    }
+
+    const previousRates = [...esiRateChanges];
+    const updated = esiRateChanges.filter((r) => String(r.id || r._id || '').trim() !== cleanId);
+    setEsiRateChanges(updated);
+
+    try {
+      const res = await statutoryService.deleteESIRate(companyId, cleanId);
+      const finalRates = res?.esiRates || res?.esi?.esiRates || updated;
+      setEsiRateChanges(finalRates);
+      if (setESIConfig) {
+        setESIConfig((prev) => ({
+          ...prev,
+          ...(res?.esi || {}),
+          esiRates: finalRates
+        }));
       }
-      return updated;
-    });
-    if (showToast) showToast('✓ ESI Rate Change entry deleted.');
+      if (showToast) showToast('✓ ESI Rate Change entry deleted from database.');
+    } catch (err) {
+      console.error('Failed to delete ESI rate from database:', err);
+      setEsiRateChanges(previousRates);
+      if (showToast) showToast('Failed to delete ESI rate change.', 'danger');
+    }
   };
 
-  const handleSaveESIRate = (rateData) => {
+  // Add / Edit ESI Rate and persist to MongoDB
+  const handleSaveESIRate = async (rateData) => {
     const formattedDate = formatESIDate(rateData.effectiveDate);
     const completeData = {
       ...rateData,
       displayDate: formattedDate
     };
 
-    setEsiRateChanges((prev) => {
-      const exists = prev.some((r) => r.id === completeData.id);
-      const updated = exists
-        ? prev.map((r) => (r.id === completeData.id ? completeData : r))
-        : [completeData, ...prev];
-      try {
-        localStorage.setItem(`novaspark_esi_rates_${companyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save ESI rate', e);
-      }
-      return updated;
-    });
+    const targetId = String(completeData.id || completeData._id || '').trim();
+    const exists = esiRateChanges.some((r) => String(r.id || r._id || '').trim() === targetId);
+    const updatedRates = exists
+      ? esiRateChanges.map((r) => (String(r.id || r._id || '').trim() === targetId ? completeData : r))
+      : [completeData, ...esiRateChanges];
 
-    if (setESIConfig && completeData.enabled) {
-      setESIConfig((prev) => ({
-        ...prev,
-        enabled: true,
-        employeeContribution: completeData.employeeContribution,
-        employerContribution: completeData.employerContribution,
-        wageEligibilityLimit: completeData.eligibilityWageCeiling,
-        effectiveDate: completeData.effectiveDate
-      }));
+    setEsiRateChanges(updatedRates);
+
+    try {
+      const res = await statutoryService.saveESIRate(companyId, completeData);
+      const finalRates = res?.esiRates || res?.esi?.esiRates || updatedRates;
+      setEsiRateChanges(finalRates);
+
+      if (setESIConfig) {
+        if (res?.esi) {
+          setESIConfig(res.esi);
+        } else if (completeData.enabled) {
+          setESIConfig((prev) => ({
+            ...prev,
+            enabled: true,
+            employeeContribution: completeData.employeeContribution,
+            employerContribution: completeData.employerContribution,
+            wageEligibilityLimit: completeData.eligibilityWageCeiling,
+            effectiveDate: completeData.effectiveDate,
+            esiRates: finalRates
+          }));
+        } else {
+          setESIConfig((prev) => ({
+            ...prev,
+            esiRates: finalRates
+          }));
+        }
+      }
+
+      if (showToast) {
+        showToast(
+          editingESIRate
+            ? '✓ ESI Rate Change updated successfully in database.'
+            : '✓ New ESI Rate Change added successfully in database.'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to save rate to database:', err);
+      if (showToast) showToast('Failed to save ESI rate change.', 'danger');
     }
 
     setIsESIRateModalOpen(false);
     setEditingESIRate(null);
-    if (showToast) {
-      showToast(
-        editingESIRate
-          ? '✓ ESI Rate Change updated successfully.'
-          : '✓ New ESI Rate Change added successfully.'
-      );
-    }
   };
 
   return (
@@ -337,50 +378,64 @@ function ESIConfigurationTab({ showToast, esiConfig, setESIConfig, compId }) {
                 </tr>
               </thead>
               <tbody>
-                {esiRateChanges.map((rate) => (
-                  <tr key={rate.id}>
-                    <td>
-                      {rate.enabled ? (
-                        <span className={styles.statusEnabled}>
-                          <CheckCircle2 size={15} color="#10b981" />
-                          <span>Enabled</span>
-                        </span>
-                      ) : (
-                        <span className={styles.statusDisabled}>
-                          <XCircle size={15} color="#f43f5e" />
-                          <span>Disabled</span>
-                        </span>
-                      )}
-                    </td>
-                    <td>{rate.displayDate || formatESIDate(rate.effectiveDate)}</td>
-                    <td className={styles.ratesCell}>
-                      {rate.employeeContribution}% | {rate.employerContribution}% | {rate.eligibilityWageCeiling}
-                    </td>
-                    <td>
-                      <div
-                        className={styles.actionsCell}
-                        style={{ justifyContent: 'flex-end' }}
-                      >
-                        <button
-                          type="button"
-                          className={`${styles.actionCircleBtn} ${styles.editCircleBtn}`}
-                          title="Edit ESI Rate"
-                          onClick={() => handleOpenEditESIRate(rate)}
-                        >
-                          <Edit2 size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          className={`${styles.actionCircleBtn} ${styles.deleteCircleBtn}`}
-                          title="Delete ESI Rate"
-                          onClick={() => handleDeleteESIRate(rate.id)}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                {esiRateChanges.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={4}
+                      style={{ textAlign: 'center', padding: '24px', color: '#64748b' }}
+                    >
+                      No ESI rate changes configured. Click &quot;Add New&quot; to configure rate changes.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  esiRateChanges.map((rate, idx) => {
+                    const rowKey = rate.id || rate._id || `esi-rate-row-${idx}`;
+                    return (
+                      <tr key={rowKey}>
+                        <td>
+                          {rate.enabled ? (
+                            <span className={styles.statusEnabled}>
+                              <CheckCircle2 size={15} color="#10b981" />
+                              <span>Enabled</span>
+                            </span>
+                          ) : (
+                            <span className={styles.statusDisabled}>
+                              <XCircle size={15} color="#f43f5e" />
+                              <span>Disabled</span>
+                            </span>
+                          )}
+                        </td>
+                        <td>{rate.displayDate || formatESIDate(rate.effectiveDate)}</td>
+                        <td className={styles.ratesCell}>
+                          {rate.employeeContribution}% | {rate.employerContribution}% | {rate.eligibilityWageCeiling}
+                        </td>
+                        <td>
+                          <div
+                            className={styles.actionsCell}
+                            style={{ justifyContent: 'flex-end' }}
+                          >
+                            <button
+                              type="button"
+                              className={`${styles.actionCircleBtn} ${styles.editCircleBtn}`}
+                              title="Edit ESI Rate"
+                              onClick={() => handleOpenEditESIRate(rate)}
+                            >
+                              <Edit2 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className={`${styles.actionCircleBtn} ${styles.deleteCircleBtn}`}
+                              title="Delete ESI Rate"
+                              onClick={() => handleDeleteESIRate(rate.id || rate._id)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
