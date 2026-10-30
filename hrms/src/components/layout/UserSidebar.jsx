@@ -298,6 +298,7 @@ const USER_NAV_GROUPS = [
 function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const location = useLocation();
   const { activeCompany, brandLogo } = useCompany();
+  const { canView, isAdmin, userRole, currentUser } = usePermissions();
   const activeBrandLogo = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
 
   // Dropdown states for multi-item accordions
@@ -524,7 +525,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
 
         {/* Sidebar Footer (Profile / Logout) */}
         <div className={styles.sidebarFooter}>
-          <div className={styles.profileRow}>
+          {/* <div className={styles.profileRow}>
             <Avatar
               initials={currentUser?.initials || (currentUser?.name ? currentUser.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'US')}
               size={isCollapsed ? 'sm' : 'md'}
@@ -539,7 +540,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                 </span>
               </div>
             )}
-          </div>
+          </div> */}
 
           <button
             type="button"
