@@ -12,6 +12,14 @@ const formatMaster = (doc) => {
   if (json.type === 'salary-components') {
     json.type = json.type_kind || json.metadata?.type || 'earning';
     json.masterCategory = 'salary-components';
+    if (!json.shortName && json.code) {
+      json.shortName = json.code;
+    }
+    if (!json.componentType) {
+      json.componentType = json.type === 'deduction'
+        ? (json.deductionType || 'Percent Based')
+        : (json.metadata?.componentType || 'Paid Days');
+    }
   }
   return json;
 };
@@ -137,8 +145,8 @@ export const getMasters = async (req, res) => {
       }
     }
 
-    // Query purely from database, no auto-seeding or mock generation
-    const items = await Master.find(query).sort({ createdAt: -1 });
+    // Query purely from database, no auto-seeding
+    const items = await Master.find(query).sort({ createdAt: 1 });
     const formatted = items.map(formatMaster);
 
     return res.status(200).json({
@@ -216,12 +224,19 @@ export const createMaster = async (req, res) => {
       metadata
     } = req.body;
 
-    let targetType = type === 'clients' ? 'client-services' : type;
+    let rawType = req.body.masterCategory || req.query.type || type;
+    let type_kind = req.body.type_kind;
+
+    if (rawType === 'earning' || rawType === 'deduction' || type === 'earning' || type === 'deduction') {
+      type_kind = (type === 'deduction' || rawType === 'deduction') ? 'deduction' : 'earning';
+      rawType = 'salary-components';
+    }
+
+    let targetType = rawType === 'clients' ? 'client-services' : rawType;
 
     // Handle salary component type distinction
-    let type_kind = undefined;
     if (targetType === 'salary-components') {
-      type_kind = req.body.type_kind || req.body.type || 'earning';
+      type_kind = type_kind || req.body.type_kind || (type === 'deduction' ? 'deduction' : 'earning');
     }
 
     const companyIds = await resolveCompanyIds(companyId, adminEmail);
@@ -281,6 +296,16 @@ export const createMaster = async (req, res) => {
       endTime: endTime || '',
       breakDuration: Number(breakDuration) || 0,
       type_kind: type_kind || 'earning',
+      shortName: (req.body.shortName || finalCode || '').trim(),
+      componentType: req.body.componentType || (type_kind === 'deduction' ? (req.body.deductionType || 'Percent Based') : 'Paid Days'),
+      deductionType: req.body.deductionType || '',
+      excludeFromGrossSalary: Boolean(req.body.excludeFromGrossSalary),
+      hideInCtcReports: Boolean(req.body.hideInCtcReports),
+      notPayable: Boolean(req.body.notPayable),
+      excludeHolidays: Boolean(req.body.excludeHolidays),
+      excludeWeekoffs: Boolean(req.body.excludeWeekoffs),
+      excludeFromCtc: Boolean(req.body.excludeFromCtc),
+      paybackOnExit: Boolean(req.body.paybackOnExit),
       calculationType: calculationType || 'fixed',
       defaultValue: defaultValue || '',
       taxable: taxable || 'taxable',
@@ -412,9 +437,17 @@ export const updateMaster = async (req, res) => {
       updates.type = 'client-services';
     }
 
-    if (item.type === 'salary-components' && updates.type) {
-      updates.type_kind = updates.type;
-      delete updates.type;
+    if (updates.type === 'earning' || updates.type === 'deduction' || item.type === 'salary-components') {
+      if (updates.type === 'earning' || updates.type === 'deduction') {
+        updates.type_kind = updates.type;
+        delete updates.type;
+      }
+      if (updates.shortName && !updates.code) {
+        updates.code = updates.shortName;
+      }
+      if (updates.code && !updates.shortName) {
+        updates.shortName = updates.code;
+      }
     }
 
     if (updates.branchList !== undefined) {

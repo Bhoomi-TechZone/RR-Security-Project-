@@ -6,8 +6,13 @@ const ptSlabSchema = new mongoose.Schema(
     state: { type: String, required: true, trim: true },
     minSalary: { type: Number, required: true, default: 0 },
     maxSalary: { type: Number, required: true, default: 9999999 },
+    salaryAbove: { type: Number, default: 0 },
     taxAmount: { type: Number, required: true, default: 0 },
     februaryTaxAmount: { type: Number, default: 0 },
+    gender: { type: String, default: 'All Genders' },
+    month: { type: String, default: 'All Months' },
+    startDate: { type: String, default: '' },
+    displayDate: { type: String, default: '' },
     effectiveFrom: { type: String, default: '2026-04-01' },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   },
@@ -24,6 +29,39 @@ const lwfRuleSchema = new mongoose.Schema(
     deductionMonths: { type: String, default: 'Every Month' },
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
     effectiveDate: { type: String, default: '2026-04-01' },
+  },
+  { _id: false }
+);
+
+const pfRateSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    enabled: { type: Boolean, default: true },
+    effectiveDate: { type: String, required: true },
+    displayDate: { type: String, default: '' },
+    employeeRate: { type: Number, default: 12 },
+    employerRate: { type: Number, default: 3.67 },
+    pensionRate: { type: Number, default: 8.33 },
+    seniorEmployeeRate: { type: Number, default: 12 },
+    seniorEmployerRate: { type: Number, default: 3.67 },
+    seniorPensionRate: { type: Number, default: 8.33 },
+    edliAdminRate: { type: Number, default: 1 },
+    wageCeiling: { type: Number, default: 15000 },
+    seniorAge: { type: Number, default: 58 },
+  },
+  { _id: false }
+);
+
+const esiRateSchema = new mongoose.Schema(
+  {
+    id: { type: String, required: true },
+    enabled: { type: Boolean, default: true },
+    effectiveDate: { type: String, required: true },
+    displayDate: { type: String, default: '' },
+    employeeContribution: { type: Number, default: 0.75 },
+    employerContribution: { type: Number, default: 3.25 },
+    eligibilityWageCeiling: { type: Number, default: 21000 },
+    deductionWageCeiling: { type: Number, default: 0 },
   },
   { _id: false }
 );
@@ -54,8 +92,12 @@ const statutorySchema = new mongoose.Schema(
       wageCeiling: { type: Number, default: 15000 },
       wageCeilingRestricted: { type: Boolean, default: true },
       allowVPF: { type: Boolean, default: true },
+      vpfEnabled: { type: Boolean, default: false },
       vpfMaxPercentage: { type: Number, default: 100 },
-      effectiveDate: { type: String, default: '2026-04-01' },
+      wageCeilingProRata: { type: Boolean, default: false },
+      selectedComponentIds: { type: [String], default: [] },
+      pfRates: { type: [pfRateSchema], default: [] },
+      effectiveDate: { type: String, default: '2026-09-01' },
       status: { type: String, enum: ['active', 'inactive'], default: 'active' },
       createdBy: { type: String, default: 'System SuperAdmin' },
       createdDate: { type: String, default: '2025-04-01' },
@@ -70,6 +112,8 @@ const statutorySchema = new mongoose.Schema(
       employerContribution: { type: Number, default: 3.25 },
       wageEligibilityLimit: { type: Number, default: 21000 },
       disabilityWageLimit: { type: Number, default: 25000 },
+      selectedComponentIds: { type: [String], default: [] },
+      esiRates: { type: [esiRateSchema], default: [] },
       effectiveDate: { type: String, default: '2026-04-01' },
       status: { type: String, enum: ['active', 'inactive'], default: 'active' },
       notes: { type: String, default: 'Applicable to staff drawing gross monthly wage up to ₹21,000.' },
@@ -82,6 +126,8 @@ const statutorySchema = new mongoose.Schema(
     // 3. Professional Tax (PT) Settings & Slabs
     pt: {
       enabled: { type: Boolean, default: true },
+      calculateOn: { type: String, default: 'Gross Salary' },
+      selectedComponentIds: { type: [String], default: [] },
       status: { type: String, enum: ['active', 'inactive'], default: 'active' },
       effectiveDate: { type: String, default: '2026-04-01' },
       lastUpdatedBy: { type: String, default: 'Admin' },

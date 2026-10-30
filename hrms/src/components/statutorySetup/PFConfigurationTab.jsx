@@ -5,6 +5,7 @@ import PFRateModal from './PFRateModal';
 import { useCompany } from '../../context/CompanyContext';
 import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
 import masterService from '../../services/masterService';
+import statutoryService from '../../services/statutoryService';
 
 const DEFAULT_PF_RATES = [
   {
@@ -54,70 +55,88 @@ function PFConfigurationTab({ showToast, pfConfig, setPFConfig, compId }) {
   const { activeCompany } = useCompany();
   const companyId = compId || activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
-  // Load raw salary components from Master / localStorage / fallback
-  const [rawComponents, setRawComponents] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    return mockSalaryComponents;
-  });
+  // Dynamic raw salary components from MongoDB Masters
+  const [rawComponents, setRawComponents] = useState([]);
 
-  // Selected components for PF calculation
+  // Selected components for PF calculation (strictly from MongoDB)
   const [selectedComponentIds, setSelectedComponentIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pf_selected_components_${companyId}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error(e);
+    if (Array.isArray(pfConfig?.selectedComponentIds)) {
+      return pfConfig.selectedComponentIds;
     }
     return [];
   });
 
-  // Sync salary components dynamically when updated in Masters
+  // Dynamic Rate Changes State from MongoDB
+  const [pfRateChanges, setPfRateChanges] = useState(() => {
+    if (Array.isArray(pfConfig?.pfRates) && pfConfig.pfRates.length > 0) {
+      return pfConfig.pfRates;
+    }
+    return DEFAULT_PF_RATES;
+  });
+
+  // VPF toggle from MongoDB
+  const [vpfEnabled, setVpfEnabled] = useState(() => {
+    return Boolean(pfConfig?.vpfEnabled);
+  });
+
+  // Wage Ceiling Pro-rata calculation toggle from MongoDB
+  const [wageCeilingProRata, setWageCeilingProRata] = useState(() => {
+    return Boolean(pfConfig?.wageCeilingProRata);
+  });
+
+  const [isPFRateModalOpen, setIsPFRateModalOpen] = useState(false);
+  const [editingPFRate, setEditingPFRate] = useState(null);
+
+  // Synchronize state whenever companyId or pfConfig changes (tenant isolation)
   useEffect(() => {
-    const syncComponents = () => {
-      try {
-        const saved = localStorage.getItem(`novaspark_salary_components_${companyId}`);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setRawComponents(parsed);
-            return;
-          }
-        }
-      } catch (e) {
-        console.error(e);
+    if (pfConfig) {
+      if (Array.isArray(pfConfig.pfRates) && pfConfig.pfRates.length > 0) {
+        setPfRateChanges(pfConfig.pfRates);
+      } else {
+        setPfRateChanges(DEFAULT_PF_RATES);
       }
-      setRawComponents(mockSalaryComponents);
+
+      if (Array.isArray(pfConfig.selectedComponentIds)) {
+        setSelectedComponentIds(pfConfig.selectedComponentIds);
+      } else {
+        setSelectedComponentIds([]);
+      }
+
+      if (pfConfig.vpfEnabled !== undefined) {
+        setVpfEnabled(Boolean(pfConfig.vpfEnabled));
+      }
+
+      if (pfConfig.wageCeilingProRata !== undefined) {
+        setWageCeilingProRata(Boolean(pfConfig.wageCeilingProRata));
+      }
+    }
+  }, [pfConfig, companyId]);
+
+  // Dynamically load company-specific salary components from MongoDB
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCompanySalaryComponents = async () => {
+      if (!companyId) return;
+      try {
+        const data = await masterService.getMasters('salary-components', companyId, true);
+        if (isMounted) {
+          setRawComponents(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (isMounted) setRawComponents([]);
+      }
     };
 
-    if (companyId) {
-      masterService.getMasters('salary-components', companyId)
-        .then((data) => {
-          if (Array.isArray(data) && data.length > 0) {
-            setRawComponents(data);
-            try {
-              localStorage.setItem(`novaspark_salary_components_${companyId}`, JSON.stringify(data));
-            } catch (e) {}
-          }
-        })
-        .catch(() => {});
-    }
+    fetchCompanySalaryComponents();
 
-    window.addEventListener('salary-components-updated', syncComponents);
-    window.addEventListener('masters-updated', syncComponents);
-    window.addEventListener('storage', syncComponents);
+    const handleSync = () => fetchCompanySalaryComponents();
+    window.addEventListener('salary-components-updated', handleSync);
+    window.addEventListener('masters-updated', handleSync);
 
     return () => {
-      window.removeEventListener('salary-components-updated', syncComponents);
-      window.removeEventListener('masters-updated', syncComponents);
-      window.removeEventListener('storage', syncComponents);
+      isMounted = false;
+      window.removeEventListener('salary-components-updated', handleSync);
+      window.removeEventListener('masters-updated', handleSync);
     };
   }, [companyId]);
 
@@ -156,59 +175,39 @@ function PFConfigurationTab({ showToast, pfConfig, setPFConfig, compId }) {
   };
 
   const isSelected = (comp) => {
-    const id = String(comp.id || '');
+    const id = String(comp.id || comp._id || '');
     const code = String(comp.code || comp.shortName || '').toLowerCase();
     return selectedComponentIds.includes(id) || selectedComponentIds.includes(code);
   };
 
-  const handleTogglePFApplicability = (comp) => {
-    const id = String(comp.id || '');
+  // Toggle PF Applicability and immediately persist to MongoDB Atlas
+  const handleTogglePFApplicability = async (comp) => {
+    const id = String(comp.id || comp._id || comp.code || comp.shortName || '');
     const code = String(comp.code || comp.shortName || '').toLowerCase();
 
-    setSelectedComponentIds((prev) => {
-      const alreadySelected = prev.includes(id) || (code && prev.includes(code));
-      const next = alreadySelected
-        ? prev.filter((x) => x !== id && x !== code)
-        : [...prev, id];
-      try {
-        localStorage.setItem(
-          `novaspark_pf_selected_components_${companyId}`,
-          JSON.stringify(next)
-        );
-      } catch (e) {
-        console.error('Failed to save selected components', e);
+    const alreadySelected = selectedComponentIds.includes(id) || (code && selectedComponentIds.includes(code));
+    const next = alreadySelected
+      ? selectedComponentIds.filter((x) => x !== id && x !== code)
+      : [...selectedComponentIds, id];
+
+    setSelectedComponentIds(next);
+
+    try {
+      await statutoryService.savePFApplicability(companyId, next);
+      if (setPFConfig) {
+        setPFConfig((prev) => ({
+          ...prev,
+          selectedComponentIds: next
+        }));
       }
-      return next;
-    });
+      if (showToast) {
+        showToast(`✓ Salary component PF applicability saved to database.`);
+      }
+    } catch (err) {
+      console.error('Failed to save PF applicability:', err);
+      if (showToast) showToast('Failed to save applicability changes to database.', 'danger');
+    }
   };
-
-  // Rate Changes State
-  const [pfRateChanges, setPfRateChanges] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pf_rates_${companyId}`);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return DEFAULT_PF_RATES;
-  });
-
-  const [vpfEnabled, setVpfEnabled] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pf_vpf_${companyId}`);
-      if (saved !== null) return JSON.parse(saved);
-    } catch (e) {}
-    return false;
-  });
-
-  const [wageCeilingProRata, setWageCeilingProRata] = useState(() => {
-    try {
-      const saved = localStorage.getItem(`novaspark_pf_prorata_${companyId}`);
-      if (saved !== null) return JSON.parse(saved);
-    } catch (e) {}
-    return false;
-  });
-
-  const [isPFRateModalOpen, setIsPFRateModalOpen] = useState(false);
-  const [editingPFRate, setEditingPFRate] = useState(null);
 
   const handleOpenAddPFRate = () => {
     setEditingPFRate(null);
@@ -220,86 +219,124 @@ function PFConfigurationTab({ showToast, pfConfig, setPFConfig, compId }) {
     setIsPFRateModalOpen(true);
   };
 
-  const handleDeletePFRate = (rateId) => {
-    setPfRateChanges((prev) => {
-      const updated = prev.filter((r) => r.id !== rateId);
-      try {
-        localStorage.setItem(`novaspark_pf_rates_${companyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to delete rate', e);
+  // Delete PF Rate and persist to MongoDB
+  const handleDeletePFRate = async (rateId) => {
+    const updated = pfRateChanges.filter((r) => r.id !== rateId);
+    setPfRateChanges(updated);
+
+    try {
+      await statutoryService.deletePFRate(companyId, rateId);
+      if (setPFConfig) {
+        setPFConfig((prev) => ({
+          ...prev,
+          pfRates: updated
+        }));
       }
-      return updated;
-    });
-    if (showToast) showToast('✓ PF Rate Change entry deleted.');
+      if (showToast) showToast('✓ PF Rate Change entry deleted from database.');
+    } catch (err) {
+      console.error('Failed to delete rate from database:', err);
+      if (showToast) showToast('Failed to delete PF rate change.', 'danger');
+    }
   };
 
-  const handleSavePFRate = (rateData) => {
+  // Add / Edit PF Rate and persist to MongoDB
+  const handleSavePFRate = async (rateData) => {
     const formattedDate = formatPFDate(rateData.effectiveDate);
     const completeData = {
       ...rateData,
       displayDate: formattedDate
     };
 
-    setPfRateChanges((prev) => {
-      const exists = prev.some((r) => r.id === completeData.id);
-      const updated = exists
-        ? prev.map((r) => (r.id === completeData.id ? completeData : r))
-        : [completeData, ...prev];
-      try {
-        localStorage.setItem(`novaspark_pf_rates_${companyId}`, JSON.stringify(updated));
-      } catch (e) {
-        console.error('Failed to save rate', e);
-      }
-      return updated;
-    });
+    const exists = pfRateChanges.some((r) => r.id === completeData.id);
+    const updatedRates = exists
+      ? pfRateChanges.map((r) => (r.id === completeData.id ? completeData : r))
+      : [completeData, ...pfRateChanges];
 
-    if (setPFConfig && completeData.enabled) {
-      setPFConfig((prev) => ({
-        ...prev,
-        enabled: true,
-        employeeContribution: completeData.employeeRate,
-        employerContribution:
-          (completeData.employerRate || 0) + (completeData.pensionRate || 0),
-        epfEmployerContribution: completeData.employerRate,
-        epsContribution: completeData.pensionRate,
-        wageCeiling: completeData.wageCeiling
-      }));
+    setPfRateChanges(updatedRates);
+
+    try {
+      const res = await statutoryService.savePFRate(companyId, completeData);
+      if (setPFConfig) {
+        if (res?.pf) {
+          setPFConfig(res.pf);
+        } else if (completeData.enabled) {
+          setPFConfig((prev) => ({
+            ...prev,
+            enabled: true,
+            employeeContribution: completeData.employeeRate,
+            employerContribution:
+              (completeData.employerRate || 0) + (completeData.pensionRate || 0),
+            epfEmployerContribution: completeData.employerRate,
+            epsContribution: completeData.pensionRate,
+            wageCeiling: completeData.wageCeiling,
+            pfRates: updatedRates
+          }));
+        }
+      }
+
+      if (showToast) {
+        showToast(
+          editingPFRate
+            ? '✓ PF Rate Change updated successfully in database.'
+            : '✓ New PF Rate Change added successfully in database.'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to save rate to database:', err);
+      if (showToast) showToast('Failed to save PF rate change.', 'danger');
     }
 
     setIsPFRateModalOpen(false);
     setEditingPFRate(null);
-    if (showToast) {
-      showToast(
-        editingPFRate
-          ? '✓ PF Rate Change updated successfully.'
-          : '✓ New PF Rate Change added successfully.'
-      );
-    }
   };
 
-  const handleToggleVPF = (e) => {
+  // Toggle Voluntary Provident Fund (VPF) and persist to MongoDB
+  const handleToggleVPF = async (e) => {
     const nextVal = e.target.checked;
     setVpfEnabled(nextVal);
+
     try {
-      localStorage.setItem(`novaspark_pf_vpf_${companyId}`, JSON.stringify(nextVal));
+      await statutoryService.updateModule(companyId, 'pf', {
+        vpfEnabled: nextVal,
+        allowVPF: nextVal
+      });
+      if (setPFConfig) {
+        setPFConfig((prev) => ({
+          ...prev,
+          vpfEnabled: nextVal,
+          allowVPF: nextVal
+        }));
+      }
+      if (showToast) {
+        showToast(`✓ Voluntary Provident Fund ${nextVal ? 'enabled' : 'disabled'} in database.`);
+      }
     } catch (err) {
-      console.error(err);
-    }
-    if (showToast) {
-      showToast(`✓ Voluntary Provident Fund ${nextVal ? 'enabled' : 'disabled'}.`);
+      console.error('Failed to toggle VPF in database:', err);
+      if (showToast) showToast('Failed to update VPF setting in database.', 'danger');
     }
   };
 
-  const handleToggleWageCeilingProRata = (e) => {
+  // Toggle Wage Ceiling Enhancement and persist to MongoDB
+  const handleToggleWageCeilingProRata = async (e) => {
     const nextVal = e.target.checked;
     setWageCeilingProRata(nextVal);
+
     try {
-      localStorage.setItem(`novaspark_pf_prorata_${companyId}`, JSON.stringify(nextVal));
+      await statutoryService.updateModule(companyId, 'pf', {
+        wageCeilingProRata: nextVal
+      });
+      if (setPFConfig) {
+        setPFConfig((prev) => ({
+          ...prev,
+          wageCeilingProRata: nextVal
+        }));
+      }
+      if (showToast) {
+        showToast(`✓ Wage ceiling pro-rata calculation ${nextVal ? 'enabled' : 'disabled'} in database.`);
+      }
     } catch (err) {
-      console.error(err);
-    }
-    if (showToast) {
-      showToast(`✓ Wage ceiling pro-rata calculation ${nextVal ? 'enabled' : 'disabled'}.`);
+      console.error('Failed to toggle wage ceiling pro-rata in database:', err);
+      if (showToast) showToast('Failed to update wage ceiling enhancement in database.', 'danger');
     }
   };
 

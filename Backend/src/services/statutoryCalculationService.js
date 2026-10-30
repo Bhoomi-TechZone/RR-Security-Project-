@@ -10,20 +10,42 @@ export const normalizeId = (id) => String(id || '').toLowerCase().replace(/[^a-z
 /**
  * Helper to calculate Professional Tax strictly from active dynamic PT slabs in MongoDB
  */
-export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = true) => {
+export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = true, gender = '') => {
   if (ptEnabled === false || !state || !Array.isArray(ptSlabs) || ptSlabs.length === 0) return 0;
   const stateLower = String(state).trim().toLowerCase();
-  const stateSlabs = ptSlabs.filter((s) => {
-    if (s.status !== 'active') return false;
+  let stateSlabs = ptSlabs.filter((s) => {
+    if (s.status === 'inactive') return false;
     const slabState = String(s.state || '').trim().toLowerCase();
     return slabState && (stateLower === slabState || stateLower.includes(slabState) || slabState.includes(stateLower));
   });
   if (stateSlabs.length === 0) return 0;
 
+  // Month override logic (rates for specific month override rates for 'All Months')
+  let targetMonth = '';
+  if (month) {
+    try {
+      const d = new Date(month);
+      if (!isNaN(d.getTime())) {
+        targetMonth = d.toLocaleString('en-US', { month: 'short' }).toLowerCase();
+      }
+    } catch (e) { }
+  }
+  if (targetMonth) {
+    const monthMatched = stateSlabs.filter((s) => s.month && !s.month.toLowerCase().includes('all') && s.month.toLowerCase().startsWith(targetMonth.slice(0, 3)));
+    if (monthMatched.length > 0) stateSlabs = monthMatched;
+  }
+
+  // Gender override logic (rates for specific gender override rates for 'All Genders')
+  const genderLower = String(gender || '').trim().toLowerCase();
+  if (genderLower) {
+    const genderMatched = stateSlabs.filter((s) => s.gender && !s.gender.toLowerCase().includes('all') && s.gender.toLowerCase() === genderLower);
+    if (genderMatched.length > 0) stateSlabs = genderMatched;
+  }
+
   const isFeb = month ? (String(month).includes('-02') || String(month).toLowerCase().includes('feb')) : false;
 
   for (const slab of stateSlabs) {
-    const min = Number(slab.minSalary || 0);
+    const min = Number(slab.salaryAbove !== undefined && slab.salaryAbove !== '' ? slab.salaryAbove : (slab.minSalary || 0));
     const max = Number(slab.maxSalary || 9999999);
     if (gross >= min && gross <= max) {
       if (isFeb && slab.februaryTaxAmount !== undefined && slab.februaryTaxAmount !== null && Number(slab.februaryTaxAmount) > 0) {
@@ -203,19 +225,25 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}) 
     return { employee: 0, employer: 0, eps: 0, epfEmployer: 0, edli: 0, admin: 0 };
   }
 
+  // Check if an active dynamic rate change is configured in statutoryPf
+  let activeRate = null;
+  if (Array.isArray(statutoryPf?.pfRates) && statutoryPf.pfRates.length > 0) {
+    activeRate = statutoryPf.pfRates.find((r) => r.enabled);
+  }
+
   const qualifyingWage = Math.max(0, earnedBasic + earnedVda);
-  const wageCeiling = Number(statutoryPf?.wageCeiling) || 15000;
+  const wageCeiling = activeRate?.wageCeiling !== undefined ? Number(activeRate.wageCeiling) : (Number(statutoryPf?.wageCeiling) || 15000);
   const isRestricted = statutoryPf?.wageCeilingRestricted !== false;
 
   const pfWage = isRestricted ? Math.min(qualifyingWage, wageCeiling) : qualifyingWage;
   const epsWage = Math.min(qualifyingWage, wageCeiling);
 
-  // Employee contribution
-  const empRate = (Number(statutoryPf?.employeeContribution) || 12) / 100;
+  // Employee contribution (dynamic rate)
+  const empRate = (activeRate?.employeeRate !== undefined ? Number(activeRate.employeeRate) : (Number(statutoryPf?.employeeContribution) || 12)) / 100;
   let pfEmployee = Math.round(pfWage * empRate);
 
   // Voluntary Provident Fund (VPF)
-  const allowVPF = statutoryPf?.allowVPF !== false;
+  const allowVPF = statutoryPf?.vpfEnabled !== undefined ? Boolean(statutoryPf.vpfEnabled) : (statutoryPf?.allowVPF !== false);
   const vpfPct = Number(emp.vpfPercentage) || 0;
   if (allowVPF && vpfPct > 0) {
     const maxVpfPct = Number(statutoryPf?.vpfMaxPercentage) || 100;
@@ -224,15 +252,17 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}) 
     pfEmployee += vpfAmt;
   }
 
-  // Employer contribution breakdown
-  const epsRate = (Number(statutoryPf?.epsContribution) || 8.33) / 100;
+  // Employer contribution breakdown (dynamic rates)
+  const epsRate = (activeRate?.pensionRate !== undefined ? Number(activeRate.pensionRate) : (Number(statutoryPf?.epsContribution) || 8.33)) / 100;
   const eps = Math.round(epsWage * epsRate);
 
-  const employerRate = (Number(statutoryPf?.employerContribution) || 12) / 100;
+  const employerRate = activeRate?.employerRate !== undefined
+    ? ((Number(activeRate.employerRate) + Number(activeRate.pensionRate || 0)) / 100)
+    : ((Number(statutoryPf?.employerContribution) || 12) / 100);
   const pfEmployer = Math.round(pfWage * employerRate);
   const epfEmployer = Math.max(0, pfEmployer - eps);
 
-  const edliRate = (Number(statutoryPf?.edliContribution) || 0.5) / 100;
+  const edliRate = (activeRate?.edliAdminRate !== undefined ? Number(activeRate.edliAdminRate) / 2 : (Number(statutoryPf?.edliContribution) || 0.5)) / 100;
   const edli = Math.round(epsWage * edliRate);
 
   const adminRate = (Number(statutoryPf?.adminCharges) || 0.5) / 100;
@@ -261,6 +291,12 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
     return { employee: 0, employer: 0 };
   }
 
+  // Check if an active dynamic rate change is configured in statutoryEsi
+  let activeRate = null;
+  if (Array.isArray(statutoryEsi?.esiRates) && statutoryEsi.esiRates.length > 0) {
+    activeRate = statutoryEsi.esiRates.find((r) => r.enabled);
+  }
+
   // Disability check for enhanced wage limit
   const hasDisability = Boolean(
     emp.isDisability === true ||
@@ -271,7 +307,9 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
 
   const wageLimit = hasDisability
     ? (Number(statutoryEsi?.disabilityWageLimit) || 25000)
-    : (Number(statutoryEsi?.wageEligibilityLimit) || 21000);
+    : (activeRate?.eligibilityWageCeiling !== undefined
+      ? Number(activeRate.eligibilityWageCeiling)
+      : (Number(statutoryEsi?.wageEligibilityLimit) || 21000));
 
   // Check eligibility threshold against monthlyGross or earnedGross
   const checkGross = monthlyGross > 0 ? monthlyGross : earnedGross;
@@ -283,8 +321,13 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
   const dailyWage = paidDays > 0 ? (earnedGross / paidDays) : 0;
   const isDailyWageExempt = Boolean(emp.isDailyWageExempt === true || (paidDays > 0 && dailyWage < 176));
 
-  const empRate = (Number(statutoryEsi?.employeeContribution) || 0.75) / 100;
-  const employerRate = (Number(statutoryEsi?.employerContribution) || 3.25) / 100;
+  const empRate = (activeRate?.employeeContribution !== undefined
+    ? Number(activeRate.employeeContribution)
+    : (Number(statutoryEsi?.employeeContribution) || 0.75)) / 100;
+
+  const employerRate = (activeRate?.employerContribution !== undefined
+    ? Number(activeRate.employerContribution)
+    : (Number(statutoryEsi?.employerContribution) || 3.25)) / 100;
 
   const esiEmployee = isDailyWageExempt ? 0 : Math.round(earnedGross * empRate);
   const esiEmployer = Math.round(earnedGross * employerRate);
@@ -336,9 +379,9 @@ export const computeEmployeePayrollCalculations = ({
   // Match attendance
   const empAtt = Array.isArray(attendanceList)
     ? attendanceList.filter((a) => {
-        const aId = normalizeId(a.employeeId);
-        return aId === normEmpId || aId === normCode || aId === normMongoId;
-      })
+      const aId = normalizeId(a.employeeId);
+      return aId === normEmpId || aId === normCode || aId === normMongoId;
+    })
     : [];
 
   const hasAttendance = overrides.hasAttendance !== undefined
@@ -370,14 +413,14 @@ export const computeEmployeePayrollCalculations = ({
 
   const totalPaidDays = hasAttendance
     ? (overrides.paidDays !== undefined
-        ? Number(overrides.paidDays)
-        : Math.min(totalDaysInMonth, presentDays + weekOffDays + holidayDays + paidLeaves))
+      ? Number(overrides.paidDays)
+      : Math.min(totalDaysInMonth, presentDays + weekOffDays + holidayDays + paidLeaves))
     : 0;
 
   const calculatedLop = hasAttendance
     ? (overrides.lopDays !== undefined
-        ? Number(overrides.lopDays)
-        : Math.max(0, totalDaysInMonth - totalPaidDays))
+      ? Number(overrides.lopDays)
+      : Math.max(0, totalDaysInMonth - totalPaidDays))
     : totalDaysInMonth;
 
   // Salary components from Employee Master
@@ -440,7 +483,8 @@ export const computeEmployeePayrollCalculations = ({
     // 3. PT (only if module is active)
     if (statutoryConfig?.pt?.enabled !== false) {
       const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
-      pt = calculatePT(earnedGross, empState, statutoryConfig?.ptSlabs, month, true);
+      const ptGross = statutoryConfig?.pt?.calculateOn === 'Gross Salary' ? monthlyGross : earnedGross;
+      pt = calculatePT(ptGross, empState, statutoryConfig?.ptSlabs, month, true, emp.gender);
     }
 
     // 4. TDS (only if module is active)

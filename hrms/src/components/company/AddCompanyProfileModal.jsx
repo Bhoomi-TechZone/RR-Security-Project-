@@ -11,6 +11,7 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [sendCredentials, setSendCredentials] = useState(true);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -102,7 +103,9 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
         email: formData.email.trim() || formData.adminEmail.trim(),
         adminEmail: formData.adminEmail.trim().toLowerCase(),
         password: formData.adminPassword.trim(),
-        adminPassword: formData.adminPassword.trim()
+        adminPassword: formData.adminPassword.trim(),
+        sendCredentials,
+        loginUrl: `${window.location.origin}/login`
       };
 
       const created = await addCompanyProfile(payload);
@@ -302,6 +305,23 @@ function AddCompanyProfileModal({ isOpen, onClose, onSuccess }) {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Send Credentials Checkbox */}
+              <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                <input
+                  type="checkbox"
+                  id="sendCredentialsOnRegister"
+                  checked={sendCredentials}
+                  onChange={(e) => setSendCredentials(e.target.checked)}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#2563eb' }}
+                />
+                <label
+                  htmlFor="sendCredentialsOnRegister"
+                  style={{ fontSize: '12.5px', color: '#1e293b', cursor: 'pointer', fontWeight: 500 }}
+                >
+                  Send onboarding email with Portal Login Link ({window.location.origin}/login) &amp; credentials to administrator upon creation
+                </label>
               </div>
             </div>
 

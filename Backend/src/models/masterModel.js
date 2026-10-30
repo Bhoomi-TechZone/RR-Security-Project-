@@ -29,7 +29,9 @@ const masterSchema = new mongoose.Schema(
         'leave-types',
         'holidays',
         'salary-components',
-        'document-types'
+        'document-types',
+        'earning',
+        'deduction'
       ],
       index: true
     },
@@ -179,6 +181,18 @@ const masterSchema = new mongoose.Schema(
       type: String, // 'earning' or 'deduction'
       default: 'earning'
     },
+    shortName: {
+      type: String,
+      default: ''
+    },
+    componentType: {
+      type: String,
+      default: 'Paid Days'
+    },
+    deductionType: {
+      type: String,
+      default: ''
+    },
     calculationType: {
       type: String,
       default: 'fixed'
@@ -190,6 +204,34 @@ const masterSchema = new mongoose.Schema(
     taxable: {
       type: String,
       default: 'taxable'
+    },
+    excludeFromGrossSalary: {
+      type: Boolean,
+      default: false
+    },
+    hideInCtcReports: {
+      type: Boolean,
+      default: false
+    },
+    notPayable: {
+      type: Boolean,
+      default: false
+    },
+    excludeHolidays: {
+      type: Boolean,
+      default: false
+    },
+    excludeWeekoffs: {
+      type: Boolean,
+      default: false
+    },
+    excludeFromCtc: {
+      type: Boolean,
+      default: false
+    },
+    paybackOnExit: {
+      type: Boolean,
+      default: false
     },
 
     // Document Types
@@ -219,8 +261,10 @@ const masterSchema = new mongoose.Schema(
       transform: (doc, ret) => {
         ret.id = ret._id ? ret._id.toString() : ret.id;
         // Map type_kind back to type property for salary components if applicable
-        if (ret.type_kind && !ret.type_sc) {
-          ret.type_sc = ret.type_kind;
+        if (ret.type === 'salary-components' || ret.type_kind) {
+          ret.type_kind = ret.type_kind || 'earning';
+          ret.type = ret.type_kind;
+          ret.masterCategory = 'salary-components';
         }
         delete ret._id;
         delete ret.__v;
@@ -229,6 +273,13 @@ const masterSchema = new mongoose.Schema(
     }
   }
 );
+
+masterSchema.pre('validate', function () {
+  if (this.type === 'earning' || this.type === 'deduction') {
+    this.type_kind = this.type;
+    this.type = 'salary-components';
+  }
+});
 
 masterSchema.index({ companyId: 1, type: 1, createdAt: -1 });
 

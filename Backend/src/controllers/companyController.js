@@ -264,11 +264,44 @@ export const createCompany = async (req, res) => {
       });
     }
 
+    // Determine accurate portal login URL from request origin/referer or env
+    const portalUrl =
+      req.body.loginUrl ||
+      (req.headers.origin ? `${req.headers.origin}/login` : '') ||
+      (req.headers.referer ? `${new URL(req.headers.referer).origin}/login` : '') ||
+      `${process.env.CLIENT_URL || 'http://localhost:5173'}/login`;
+
+    // Automatically dispatch onboarding credentials & portal link email if requested (default on registration)
+    let emailDispatched = false;
+    if (loginEmail && loginPassword && req.body.sendCredentials !== false) {
+      try {
+        const emailResult = await sendCompanyCredentialsEmail({
+          recipientEmail: loginEmail,
+          companyName: newCompany.name,
+          companyCode: newCompany.code,
+          companyId: newCompany.companyId,
+          companyLogo: newCompany.logo,
+          companyIndustry: newCompany.industry,
+          companyPhone: newCompany.phone || newCompany.alternatePhone,
+          companyAddress: [newCompany.address, newCompany.city, newCompany.state, newCompany.pinCode].filter(Boolean).join(', '),
+          companyStatus: newCompany.status || 'Active',
+          adminEmail: loginEmail,
+          password: loginPassword,
+          loginUrl: portalUrl
+        });
+        emailDispatched = Boolean(emailResult?.success);
+      } catch (err) {
+        console.warn('[CompanyController] Notice dispatching credentials email on company registration:', err.message);
+      }
+    }
+
     return res.status(201).json({
       success: true,
       message: `Company profile "${newCompany.name}" and Admin login account created successfully!`,
       company: newCompany.toJSON(),
-      adminCreated: Boolean(createdAdminUser)
+      adminCreated: Boolean(createdAdminUser),
+      emailDispatched,
+      loginUrl: portalUrl
     });
   } catch (error) {
     console.error('Error creating company:', error);
@@ -605,12 +638,23 @@ export const sendCompanyCredentials = async (req, res) => {
       await adminUser.save();
     }
 
-    const portalUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/login`;
+    // Determine accurate portal login URL from request body, origin/referer or env
+    const portalUrl =
+      req.body.loginUrl ||
+      (req.headers.origin ? `${req.headers.origin}/login` : '') ||
+      (req.headers.referer ? `${new URL(req.headers.referer).origin}/login` : '') ||
+      `${process.env.CLIENT_URL || 'http://localhost:5173'}/login`;
 
     const emailResult = await sendCompanyCredentialsEmail({
       recipientEmail: targetRecipient,
       companyName: company.name,
-      companyId: company.companyId,
+      companyCode: company.code || '',
+      companyId: company.companyId || id,
+      companyLogo: company.logo || null,
+      companyIndustry: company.industry || '',
+      companyPhone: company.phone || company.alternatePhone || '',
+      companyAddress: [company.address, company.city, company.state, company.pinCode].filter(Boolean).join(', '),
+      companyStatus: company.status || 'Active',
       adminEmail: targetRecipient,
       password: passwordToSend,
       loginUrl: portalUrl
@@ -619,14 +663,17 @@ export const sendCompanyCredentials = async (req, res) => {
     if (!emailResult.success) {
       return res.status(500).json({
         success: false,
-        message: `Failed to dispatch credentials email: ${emailResult.error || 'SMTP delivery issue'}`
+        message: `Failed to dispatch credentials email: ${emailResult.error || 'SMTP delivery issue'}`,
+        loginUrl: portalUrl,
+        recipient: targetRecipient
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Administrator credentials successfully sent to ${targetRecipient}!`,
+      message: `Administrator credentials and login link successfully sent to ${targetRecipient}!`,
       recipient: targetRecipient,
+      loginUrl: portalUrl,
       devFallback: emailResult.devFallback || false
     });
   } catch (error) {

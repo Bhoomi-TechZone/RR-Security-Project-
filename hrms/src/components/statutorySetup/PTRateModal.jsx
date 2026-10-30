@@ -64,6 +64,37 @@ const GENDERS = [
   'Other'
 ];
 
+const toDateInputValue = (val) => {
+  if (!val) return new Date().toISOString().split('T')[0];
+  const s = String(val).trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  if (s.includes('T')) return s.split('T')[0];
+
+  const parts = s.split(/[-/ ]/);
+  if (parts.length === 3) {
+    const months = {
+      jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+      jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const mStr = parts[1]?.toLowerCase();
+    if (months[mStr]) {
+      const dd = parts[0].padStart(2, '0');
+      const mm = months[mStr];
+      const yyyy = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+      return `${yyyy}-${mm}-${dd}`;
+    }
+  }
+
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return new Date().toISOString().split('T')[0];
+};
+
 function PTRateModal({
   isOpen,
   onClose,
@@ -86,8 +117,8 @@ function PTRateModal({
     if (isOpen) {
       if (editingItem) {
         setFormData({
-          state: editingItem.state || selectedState || 'Bihar',
-          startDate: editingItem.startDate || editingItem.effectiveFrom || new Date().toISOString().split('T')[0],
+          state: editingItem.state || selectedState || 'Maharashtra',
+          startDate: toDateInputValue(editingItem.startDate || editingItem.effectiveFrom),
           salaryAbove: editingItem.salaryAbove ?? editingItem.minSalary ?? 0,
           month: editingItem.month || 'All Months',
           gender: editingItem.gender || 'All Genders',
@@ -129,7 +160,9 @@ function PTRateModal({
     }
     onSubmit({
       ...formData,
-      id: editingItem?.id || `pt-${Date.now()}`
+      salaryAbove: Number(formData.salaryAbove) || 0,
+      taxAmount: Number(formData.taxAmount) || 0,
+      id: editingItem?.id || editingItem?._id || `pt-${Date.now()}`
     });
   };
 
@@ -204,7 +237,7 @@ function PTRateModal({
                   min="0"
                   className={`${styles.input} ${styles.numberInput}`}
                   value={formData.salaryAbove}
-                  onChange={(e) => handleChange('salaryAbove', Number(e.target.value))}
+                  onChange={(e) => handleChange('salaryAbove', e.target.value === '' ? '' : e.target.value)}
                   required
                 />
               </div>
@@ -263,7 +296,7 @@ function PTRateModal({
                   min="0"
                   className={`${styles.input} ${styles.numberInput}`}
                   value={formData.taxAmount}
-                  onChange={(e) => handleChange('taxAmount', Number(e.target.value))}
+                  onChange={(e) => handleChange('taxAmount', e.target.value === '' ? '' : e.target.value)}
                   required
                 />
               </div>
@@ -283,7 +316,7 @@ function PTRateModal({
               type="submit"
               className={styles.saveBtn}
             >
-              Save
+              {editingItem ? 'Update Slab' : 'Save Slab'}
             </button>
           </div>
         </form>
