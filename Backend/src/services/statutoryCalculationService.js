@@ -8,10 +8,188 @@
 export const normalizeId = (id) => String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
+ * Calculates the wage base from selected salary components.
+ * Matches selectedComponentIds against salary components master list (if available)
+ * as well as common component codes, short names, names, and keys.
+ */
+export const calculateComponentWageBase = ({
+  selectedComponentIds = null,
+  salaryComponentsMaster = null,
+  earningsMap = {},
+  defaultComponents = ['basic', 'vda'],
+}) => {
+  // If selectedComponentIds is explicitly null or undefined (not configured at all), use defaultComponents
+  if (selectedComponentIds === null || selectedComponentIds === undefined) {
+    return defaultComponents.reduce((sum, key) => sum + (Number(earningsMap[key]) || 0), 0);
+  }
+
+  // If selectedComponentIds is an array but empty, it means user selected ZERO components! Return 0.
+  if (!Array.isArray(selectedComponentIds) || selectedComponentIds.length === 0) {
+    return 0;
+  }
+
+  const selectedSet = new Set(selectedComponentIds.map((id) => String(id).trim().toLowerCase()));
+  const normalizedSelected = selectedComponentIds.map((id) => normalizeId(id));
+
+  const keyMatch = (val) => {
+    const s = String(val || '').trim().toLowerCase();
+    const sn = normalizeId(val);
+    return selectedSet.has(s) || normalizedSelected.includes(sn);
+  };
+
+  let totalWage = 0;
+  const processedKeys = new Set();
+
+  // 1. If salaryComponentsMaster items are present, match them first:
+  if (Array.isArray(salaryComponentsMaster) && salaryComponentsMaster.length > 0) {
+    for (const comp of salaryComponentsMaster) {
+      const id = String(comp.id || comp._id || '').toLowerCase();
+      const code = String(comp.code || '').toLowerCase();
+      const shortName = String(comp.shortName || '').toLowerCase();
+      const name = String(comp.name || '').toLowerCase();
+      const normId = normalizeId(comp.id || comp._id);
+      const normCode = normalizeId(comp.code);
+      const normShort = normalizeId(comp.shortName);
+      const normName = normalizeId(comp.name);
+
+      const isSelected =
+        selectedSet.has(id) ||
+        (code && selectedSet.has(code)) ||
+        (shortName && selectedSet.has(shortName)) ||
+        (name && selectedSet.has(name)) ||
+        normalizedSelected.includes(normId) ||
+        (normCode && normalizedSelected.includes(normCode)) ||
+        (normShort && normalizedSelected.includes(normShort)) ||
+        (normName && normalizedSelected.includes(normName));
+
+      if (isSelected) {
+        let earningKey = null;
+        const combined = (name + ' ' + code + ' ' + shortName).toLowerCase();
+        if (combined.includes('basic') || combined.includes('general') || code === 'gen' || code === 'basic') {
+          earningKey = 'basic';
+        } else if (combined.includes('dearness') || combined.includes('vda') || combined.includes('da') || code === 'da' || code === 'vda') {
+          earningKey = 'vda';
+        } else if (combined.includes('house rent') || combined.includes('hra') || code === 'hra') {
+          earningKey = 'hra';
+        } else if (combined.includes('conveyance') || combined.includes('transport') || combined.includes('ca') || code === 'ca') {
+          earningKey = 'conveyance';
+        } else if (combined.includes('special') || combined.includes('sa') || code === 'sa') {
+          earningKey = 'specialAllowance';
+        } else if (combined.includes('other') || combined.includes('oa') || code === 'oa') {
+          earningKey = 'otherAllowance';
+        } else if (combined.includes('bonus')) {
+          earningKey = 'bonus';
+        } else if (combined.includes('overtime') || combined.includes('ot')) {
+          earningKey = 'overtime';
+        } else if (combined.includes('arrear')) {
+          earningKey = 'arrears';
+        } else {
+          earningKey = comp.code || comp.shortName || comp.name;
+        }
+
+        if (earningKey && !processedKeys.has(earningKey)) {
+          processedKeys.add(earningKey);
+          totalWage += (Number(earningsMap[earningKey]) || 0);
+        }
+      }
+    }
+  }
+
+  // 2. Also check standard keys directly in case selectedComponentIds stored standard codes or names directly
+  const standardKeyChecks = [
+    { key: 'basic', aliases: ['basic', 'general', 'basicsalary', 'basic salary', 'gen', 'bs'] },
+    { key: 'vda', aliases: ['vda', 'da', 'dearness', 'dearnessallowance', 'dearness allowance'] },
+    { key: 'hra', aliases: ['hra', 'houserent', 'house rent', 'houserentallowance', 'house rent allowance'] },
+    { key: 'conveyance', aliases: ['conveyance', 'ca', 'conveyanceallowance', 'conveyance allowance', 'transport', 'transportallowance'] },
+    { key: 'specialAllowance', aliases: ['specialallowance', 'special allowance', 'special', 'sa'] },
+    { key: 'otherAllowance', aliases: ['otherallowance', 'other allowance', 'other', 'oa'] },
+    { key: 'bonus', aliases: ['bonus', 'statutorybonus'] },
+    { key: 'overtime', aliases: ['overtime', 'ot'] },
+    { key: 'arrears', aliases: ['arrears', 'arrear'] },
+  ];
+
+  for (const item of standardKeyChecks) {
+    if (!processedKeys.has(item.key)) {
+      const isMatched = item.aliases.some((alias) => keyMatch(alias));
+      if (isMatched) {
+        processedKeys.add(item.key);
+        totalWage += (Number(earningsMap[item.key]) || 0);
+      }
+    }
+  }
+
+  // 3. Check any additional custom keys in earningsMap that might match
+  for (const [k, val] of Object.entries(earningsMap)) {
+    if (!processedKeys.has(k) && keyMatch(k)) {
+      processedKeys.add(k);
+      totalWage += (Number(val) || 0);
+    }
+  }
+
+  return Math.max(0, totalWage);
+};
+
+/**
+ * Helper to compute the dynamic PT calculation wage base based on selected components and calculateOn setting
+ */
+export const computePTWageBase = ({
+  emp = {},
+  statutoryPt = {},
+  monthlyGross = 0,
+  earnedGross = 0,
+  monthlyEarnings = {},
+  earnedEarnings = {},
+  salaryComponentsMaster = null,
+}) => {
+  if (statutoryPt?.enabled === false) return 0;
+
+  const calculateOn = statutoryPt?.calculateOn || 'Gross Salary';
+  const isEarned = calculateOn === 'Earned Salary';
+  const defaultBase = isEarned ? earnedGross : monthlyGross;
+
+  if (!Array.isArray(statutoryPt?.selectedComponentIds)) {
+    return defaultBase;
+  }
+
+  if (statutoryPt.selectedComponentIds.length === 0) {
+    return 0;
+  }
+
+  const targetMap = isEarned
+    ? {
+        basic: earnedEarnings.basic !== undefined ? earnedEarnings.basic : (Number(emp.basic) || 0),
+        vda: earnedEarnings.vda !== undefined ? earnedEarnings.vda : (Number(emp.vda) || 0),
+        hra: earnedEarnings.hra !== undefined ? earnedEarnings.hra : (Number(emp.hra) || 0),
+        conveyance: earnedEarnings.conveyance !== undefined ? earnedEarnings.conveyance : (Number(emp.conveyance) || 0),
+        specialAllowance: earnedEarnings.specialAllowance !== undefined ? earnedEarnings.specialAllowance : (Number(emp.specialAllowance) || 0),
+        otherAllowance: earnedEarnings.otherAllowance !== undefined ? earnedEarnings.otherAllowance : (Number(emp.otherAllowance) || 0),
+        bonus: earnedEarnings.bonus !== undefined ? earnedEarnings.bonus : (Number(emp.bonus) || 0),
+        ...(earnedEarnings || {}),
+      }
+    : {
+        basic: Number(emp.basic) || 0,
+        vda: Number(emp.vda) || 0,
+        hra: Number(emp.hra) || 0,
+        conveyance: Number(emp.conveyance) || 0,
+        specialAllowance: Number(emp.specialAllowance) || 0,
+        otherAllowance: Number(emp.otherAllowance) || 0,
+        bonus: Number(emp.bonus) || 0,
+        ...(monthlyEarnings || {}),
+      };
+
+  return calculateComponentWageBase({
+    selectedComponentIds: statutoryPt.selectedComponentIds,
+    salaryComponentsMaster: (Array.isArray(salaryComponentsMaster) && salaryComponentsMaster.length > 0 ? salaryComponentsMaster : statutoryPt?.salaryComponents) || [],
+    earningsMap: targetMap,
+    defaultComponents: ['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance'],
+  });
+};
+
+/**
  * Helper to calculate Professional Tax strictly from active dynamic PT slabs in MongoDB
  */
 export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = true, gender = '') => {
-  if (ptEnabled === false || !state || !Array.isArray(ptSlabs) || ptSlabs.length === 0) return 0;
+  if (ptEnabled === false || !state || !Array.isArray(ptSlabs) || ptSlabs.length === 0 || Number(gross) <= 0) return 0;
   const stateLower = String(state).trim().toLowerCase();
   let stateSlabs = ptSlabs.filter((s) => {
     if (s.status === 'inactive') return false;
@@ -215,7 +393,7 @@ export const calculateTDS = (earnedGross, emp = {}, statutoryTds = {}) => {
 /**
  * Helper to calculate PF strictly according to statutory PF settings
  */
-export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}) => {
+export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, earningsMap = {}, salaryComponentsMaster = null) => {
   if (statutoryPf?.enabled === false) {
     return { employee: 0, employer: 0, eps: 0, epfEmployer: 0, edli: 0, admin: 0 };
   }
@@ -231,7 +409,31 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}) 
     activeRate = statutoryPf.pfRates.find((r) => r.enabled);
   }
 
-  const qualifyingWage = Math.max(0, earnedBasic + earnedVda);
+  let qualifyingWage = 0;
+  if (Array.isArray(statutoryPf?.selectedComponentIds)) {
+    if (statutoryPf.selectedComponentIds.length === 0) {
+      qualifyingWage = 0;
+    } else {
+      const fullMap = {
+        basic: earnedBasic,
+        vda: earnedVda,
+        ...(earningsMap || {}),
+      };
+      qualifyingWage = calculateComponentWageBase({
+        selectedComponentIds: statutoryPf.selectedComponentIds,
+        salaryComponentsMaster: (Array.isArray(salaryComponentsMaster) && salaryComponentsMaster.length > 0 ? salaryComponentsMaster : statutoryPf?.salaryComponents) || [],
+        earningsMap: fullMap,
+        defaultComponents: ['basic', 'vda'],
+      });
+    }
+  } else {
+    qualifyingWage = Math.max(0, (Number(earnedBasic) || 0) + (Number(earnedVda) || 0));
+  }
+
+  if (qualifyingWage <= 0) {
+    return { employee: 0, employer: 0, eps: 0, epfEmployer: 0, edli: 0, admin: 0 };
+  }
+
   const wageCeiling = activeRate?.wageCeiling !== undefined ? Number(activeRate.wageCeiling) : (Number(statutoryPf?.wageCeiling) || 15000);
   const isRestricted = statutoryPf?.wageCeilingRestricted !== false;
 
@@ -281,7 +483,7 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}) 
 /**
  * Helper to calculate ESI strictly according to statutory ESI settings
  */
-export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, statutoryEsi = {}) => {
+export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, statutoryEsi = {}, earningsMap = {}, salaryComponentsMaster = []) => {
   if (statutoryEsi?.enabled === false) {
     return { employee: 0, employer: 0 };
   }
@@ -317,8 +519,39 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
     return { employee: 0, employer: 0 };
   }
 
+  // Determine ESI calculation wage base strictly from selectedComponentIds
+  let esiWage = 0;
+  if (Array.isArray(statutoryEsi?.selectedComponentIds)) {
+    if (statutoryEsi.selectedComponentIds.length === 0) {
+      esiWage = 0;
+    } else {
+      const fullMap = {
+        basic: Number(emp.basic) || 0,
+        vda: Number(emp.vda) || 0,
+        hra: Number(emp.hra) || 0,
+        conveyance: Number(emp.conveyance) || 0,
+        specialAllowance: Number(emp.specialAllowance) || 0,
+        otherAllowance: Number(emp.otherAllowance) || 0,
+        bonus: Number(emp.bonus) || 0,
+        ...(earningsMap || {}),
+      };
+      esiWage = calculateComponentWageBase({
+        selectedComponentIds: statutoryEsi.selectedComponentIds,
+        salaryComponentsMaster: (Array.isArray(salaryComponentsMaster) && salaryComponentsMaster.length > 0 ? salaryComponentsMaster : statutoryEsi?.salaryComponents) || [],
+        earningsMap: fullMap,
+        defaultComponents: ['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance'],
+      });
+    }
+  } else {
+    esiWage = earnedGross;
+  }
+
+  if (esiWage <= 0) {
+    return { employee: 0, employer: 0 };
+  }
+
   // Daily wage exemption check: average daily wage < Rs 176 is exempt from employee share
-  const dailyWage = paidDays > 0 ? (earnedGross / paidDays) : 0;
+  const dailyWage = paidDays > 0 ? (esiWage / paidDays) : 0;
   const isDailyWageExempt = Boolean(emp.isDailyWageExempt === true || (paidDays > 0 && dailyWage < 176));
 
   const empRate = (activeRate?.employeeContribution !== undefined
@@ -329,8 +562,8 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
     ? Number(activeRate.employerContribution)
     : (Number(statutoryEsi?.employerContribution) || 3.25)) / 100;
 
-  const esiEmployee = isDailyWageExempt ? 0 : Math.round(earnedGross * empRate);
-  const esiEmployer = Math.round(earnedGross * employerRate);
+  const esiEmployee = isDailyWageExempt ? 0 : Math.round(esiWage * empRate);
+  const esiEmployer = Math.round(esiWage * employerRate);
 
   return {
     employee: esiEmployee,
@@ -371,6 +604,7 @@ export const computeEmployeePayrollCalculations = ({
   month = '',
   totalDaysInMonth = 30,
   overrides = {},
+  salaryComponentsMaster = null,
 }) => {
   const normEmpId = normalizeId(emp.employeeId);
   const normCode = normalizeId(emp.employeeCode);
@@ -423,21 +657,122 @@ export const computeEmployeePayrollCalculations = ({
       : Math.max(0, totalDaysInMonth - totalPaidDays))
     : totalDaysInMonth;
 
-  // Salary components from Employee Master
-  let basic = Number(emp.basic) || 0;
-  let hra = Number(emp.hra) || 0;
-  let vda = Number(emp.vda) || 0;
-  let conveyance = Number(emp.conveyance) || 0;
-  let specialAllowance = Number(emp.specialAllowance) || 0;
-  let otherAllowance = Number(emp.otherAllowance) || 0;
-  let monthlyGross = Number(emp.grossSalary) || (basic + hra + vda + conveyance + specialAllowance + otherAllowance);
+  const masterComponents = (Array.isArray(salaryComponentsMaster) && salaryComponentsMaster.length > 0
+    ? salaryComponentsMaster
+    : statutoryConfig?.salaryComponents) || [];
 
-  // If gross was supplied without individual component breakdown
-  if (basic === 0 && hra === 0 && vda === 0 && monthlyGross > 0) {
-    basic = Math.round(monthlyGross * 0.5);
-    hra = Math.round(monthlyGross * 0.2);
-    vda = Math.round(monthlyGross * 0.15);
-    otherAllowance = Math.max(0, monthlyGross - (basic + hra + vda));
+  // Active earnings components configured for this company in Masters
+  const activeEarnings = masterComponents.filter(
+    (c) =>
+      (c.type === 'earning' || c.type_kind === 'earning' || (c.type === 'salary-components' && c.type_kind !== 'deduction')) &&
+      c.status !== 'inactive' &&
+      c.status !== 'Inactive'
+  );
+
+  // Active deductions components configured for this company in Masters
+  const activeDeductions = masterComponents.filter(
+    (c) =>
+      (c.type === 'deduction' || c.type_kind === 'deduction' || (c.type === 'salary-components' && c.type_kind === 'deduction')) &&
+      c.status !== 'inactive' &&
+      c.status !== 'Inactive'
+  );
+
+  const matchesComponent = (c, canonicalKey, aliases = []) => {
+    const rawName = String(c.name || '').toLowerCase();
+    const nameNorm = rawName.replace(/[^a-z0-9]/g, '');
+    const code = String(c.code || '').trim().toLowerCase();
+    const short = String(c.shortName || '').trim().toLowerCase();
+
+    const all = [canonicalKey, ...aliases];
+    return all.some((item) => {
+      const a = item.toLowerCase().trim();
+      const aNorm = a.replace(/[^a-z0-9]/g, '');
+      // For short codes (<= 2 chars like da, sa, ca, oa), require exact match on code/shortName or word boundary in name
+      if (a.length <= 2) {
+        return code === a || short === a || new RegExp(`\\b${a}\\b`, 'i').test(rawName);
+      }
+      return code === a || short === a || nameNorm.includes(aNorm) || rawName.includes(a);
+    });
+  };
+
+  const hasActiveComponent = (canonicalKey, aliases = []) => {
+    if (activeEarnings.length === 0) return true;
+    return activeEarnings.some((c) => matchesComponent(c, canonicalKey, aliases));
+  };
+
+  const getComponentType = (canonicalKey, aliases = [], defaultType = 'Paid Days') => {
+    const found = activeEarnings.find((c) => matchesComponent(c, canonicalKey, aliases));
+    return found?.componentType || defaultType;
+  };
+
+  // Salary components strictly computed as per active Salary Components in Masters
+  const basicActive = hasActiveComponent('basic', ['basicsalary', 'basic salary', 'general', 'gen', 'bs']);
+  const vdaActive = hasActiveComponent('vda', ['da', 'dearness', 'dearnessallowance', 'dearness allowance']);
+  const hraActive = hasActiveComponent('hra', ['houserent', 'house rent', 'houserentallowance', 'house rent allowance']);
+  const convActive = hasActiveComponent('conveyance', ['ca', 'transport', 'conveyanceallowance', 'conveyance allowance']);
+  const spAllActive = hasActiveComponent('specialAllowance', ['special', 'specialallowance', 'special allowance', 'sa']);
+  const otherActive = hasActiveComponent('otherAllowance', ['other', 'otherallowance', 'other allowance', 'oa']);
+
+  let basic = basicActive ? (Number(emp.basic) || 0) : 0;
+  let vda = vdaActive ? (Number(emp.vda) || 0) : 0;
+  let hra = hraActive ? (Number(emp.hra) || 0) : 0;
+  let conveyance = convActive ? (Number(emp.conveyance) || 0) : 0;
+  let specialAllowance = spAllActive ? (Number(emp.specialAllowance) || 0) : 0;
+  let otherAllowance = otherActive ? (Number(emp.otherAllowance) || 0) : 0;
+
+  // Custom earnings from activeEarnings:
+  const customEarningsMonthly = {};
+  const customEarningsEarned = {};
+  let customMonthlySum = 0;
+  let customEarnedSum = 0;
+
+  const standardAliases = ['basic', 'basicsalary', 'general', 'gen', 'bs', 'vda', 'da', 'dearness', 'dearnessallowance', 'hra', 'houserent', 'houserentallowance', 'conveyance', 'ca', 'transport', 'special', 'specialallowance', 'sa', 'other', 'otherallowance', 'oa', 'bonus'];
+
+  if (activeEarnings.length > 0) {
+    for (const c of activeEarnings) {
+      const cCode = String(c.code || c.shortName || '').trim();
+      const normCode = cCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normName = String(c.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isStandard = standardAliases.some((a) => normCode === a || normName.includes(a));
+
+      if (!isStandard && cCode) {
+        const empVal = Number(emp[cCode] || emp[c.shortName] || emp[c.name] || emp.salaryStructure?.[cCode] || emp.components?.[cCode] || c.fixedAmount || c.amount) || 0;
+        if (empVal > 0) {
+          customEarningsMonthly[cCode] = empVal;
+          customMonthlySum += empVal;
+
+          const cType = String(c.componentType || 'Paid Days').toLowerCase();
+          let earnedVal = 0;
+          if (cType.includes('fixed')) {
+            earnedVal = (hasAttendance && totalPaidDays > 0) ? empVal : 0;
+          } else if (cType.includes('variable')) {
+            earnedVal = hasAttendance ? empVal : 0;
+          } else {
+            earnedVal = (totalDaysInMonth > 0 && hasAttendance) ? Math.round(empVal * (totalPaidDays / totalDaysInMonth)) : 0;
+          }
+          customEarningsEarned[cCode] = earnedVal;
+          customEarnedSum += earnedVal;
+        }
+      }
+    }
+  }
+
+  // Monthly Gross: strictly sum active earnings components
+  let monthlyGross = basic + vda + hra + conveyance + specialAllowance + otherAllowance + customMonthlySum;
+
+  if (monthlyGross === 0 && Number(emp.grossSalary) > 0) {
+    const rawGross = Number(emp.grossSalary);
+    if (basicActive && vdaActive) {
+      basic = Math.round(rawGross * 0.7);
+      vda = Math.round(rawGross * 0.3);
+    } else if (basicActive) {
+      basic = rawGross;
+    } else if (vdaActive) {
+      vda = rawGross;
+    } else {
+      basic = rawGross;
+    }
+    monthlyGross = basic + vda + hra + conveyance + specialAllowance + otherAllowance + customMonthlySum;
   }
 
   const overtimeRate = Number(emp.overtimeRate) || (totalDaysInMonth > 0 ? Math.round((monthlyGross / totalDaysInMonth / 8) * 1.5) : 0);
@@ -445,22 +780,65 @@ export const computeEmployeePayrollCalculations = ({
     ? (overrides.overtimePay !== undefined ? Number(overrides.overtimePay) : Math.round(overtimeHours * overtimeRate))
     : 0;
 
-  // Pro-rate earnings by paid days
+  // Pro-rate earnings by paid days and calculationType
   const ratio = (totalDaysInMonth > 0 && hasAttendance) ? totalPaidDays / totalDaysInMonth : 0;
-  const earnedBasic = Math.round(basic * ratio);
-  const earnedHra = Math.round(hra * ratio);
-  const earnedVda = Math.round(vda * ratio);
-  const earnedConv = Math.round(conveyance * ratio);
-  const earnedSpAll = Math.round(specialAllowance * ratio);
-  const earnedOther = Math.round(otherAllowance * ratio);
+
+  const prorate = (amt, cType) => {
+    if (amt <= 0) return 0;
+    const lower = String(cType || 'Paid Days').toLowerCase();
+    if (lower.includes('fixed')) {
+      return (hasAttendance && totalPaidDays > 0) ? amt : 0;
+    }
+    if (lower.includes('variable')) {
+      return hasAttendance ? amt : 0;
+    }
+    return Math.round(amt * ratio);
+  };
+
+  const earnedBasic = prorate(basic, getComponentType('basic', ['basicsalary', 'general']));
+  const earnedVda = prorate(vda, getComponentType('vda', ['da', 'dearness']));
+  const earnedHra = prorate(hra, getComponentType('hra', ['houserent']));
+  const earnedConv = prorate(conveyance, getComponentType('conveyance', ['ca', 'transport']));
+  const earnedSpAll = prorate(specialAllowance, getComponentType('specialAllowance', ['special', 'sa']));
+  const earnedOther = prorate(otherAllowance, getComponentType('otherAllowance', ['other', 'oa']));
 
   // Bonus Calculation from Statutory Bonus Config (strictly respecting module active status)
-  const earnedBonus = (hasAttendance && statutoryConfig?.bonus?.enabled !== false)
+  const earnedBonus = (hasAttendance && statutoryConfig?.bonus?.enabled !== false && hasActiveComponent('bonus', ['statutorybonus', 'bonus']))
     ? calculateBonus(earnedBasic, totalPaidDays, totalDaysInMonth, emp, statutoryConfig?.bonus)
     : 0;
 
   const earnedArrears = hasAttendance ? (Number(overrides.arrears) || 0) : 0;
-  const earnedGross = earnedBasic + earnedHra + earnedVda + earnedConv + earnedSpAll + earnedOther + earnedBonus + overtimePay + earnedArrears;
+  const earnedGross = earnedBasic + earnedHra + earnedVda + earnedConv + earnedSpAll + earnedOther + customEarnedSum + earnedBonus + overtimePay + earnedArrears;
+
+  const monthlyEarningsMap = {
+    basic,
+    vda,
+    hra,
+    conveyance,
+    specialAllowance,
+    otherAllowance,
+    bonus: Number(emp.bonus) || 0,
+    grossSalary: monthlyGross,
+    ...customEarningsMonthly,
+    ...(emp.salaryStructure || {}),
+    ...(emp.components || {})
+  };
+
+  const earnedEarningsMap = {
+    basic: earnedBasic,
+    vda: earnedVda,
+    hra: earnedHra,
+    conveyance: earnedConv,
+    specialAllowance: earnedSpAll,
+    otherAllowance: earnedOther,
+    bonus: earnedBonus,
+    overtime: overtimePay,
+    arrears: earnedArrears,
+    grossSalary: earnedGross,
+    ...customEarningsEarned,
+    ...(emp.salaryStructure || {}),
+    ...(emp.components || {})
+  };
 
   // Statutory Deductions strictly computed respecting module active status
   let pfRes = { employee: 0, employer: 0, eps: 0, epfEmployer: 0, edli: 0, admin: 0 };
@@ -472,18 +850,26 @@ export const computeEmployeePayrollCalculations = ({
   if (hasAttendance && totalPaidDays > 0) {
     // 1. PF (only if module is active)
     if (statutoryConfig?.pf?.enabled !== false) {
-      pfRes = calculatePF(earnedBasic, earnedVda, emp, statutoryConfig?.pf);
+      pfRes = calculatePF(earnedBasic, earnedVda, emp, statutoryConfig?.pf, earnedEarningsMap, masterComponents);
     }
 
     // 2. ESI (only if module is active)
     if (statutoryConfig?.esi?.enabled !== false) {
-      esiRes = calculateESI(earnedGross, monthlyGross, totalPaidDays, emp, statutoryConfig?.esi);
+      esiRes = calculateESI(earnedGross, monthlyGross, totalPaidDays, emp, statutoryConfig?.esi, earnedEarningsMap, masterComponents);
     }
 
     // 3. PT (only if module is active)
     if (statutoryConfig?.pt?.enabled !== false) {
       const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
-      const ptGross = statutoryConfig?.pt?.calculateOn === 'Gross Salary' ? monthlyGross : earnedGross;
+      const ptGross = computePTWageBase({
+        emp,
+        statutoryPt: statutoryConfig?.pt,
+        monthlyGross,
+        earnedGross,
+        monthlyEarnings: monthlyEarningsMap,
+        earnedEarnings: earnedEarningsMap,
+        salaryComponentsMaster: masterComponents,
+      });
       pt = calculatePT(ptGross, empState, statutoryConfig?.ptSlabs, month, true, emp.gender);
     }
 
@@ -497,6 +883,48 @@ export const computeEmployeePayrollCalculations = ({
       const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
       const isLwfApplicable = emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no';
       lwfRes = calculateLWF(earnedGross, empState, statutoryConfig?.lwfRules, month, isLwfApplicable, true);
+    }
+  }
+
+  // Deductions from Masters (activeDeductions)
+  let customDeductionsTotal = 0;
+  const customDeductionsMap = {};
+
+  const statutoryDeductionAliases = ['pf', 'providentfund', 'provident fund', 'epf', 'esi', 'esic', 'pt', 'professionaltax', 'professional tax', 'tds', 'incometax', 'income tax', 'lwf', 'labourwelfarefund', 'labour welfare fund'];
+
+  if (activeDeductions.length > 0) {
+    for (const d of activeDeductions) {
+      const dCode = String(d.code || d.shortName || '').trim();
+      const normDCode = dCode.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normDName = String(d.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const isStatutory = statutoryDeductionAliases.some((a) => normDCode === a || normDName === a || normDName.includes(a));
+
+      if (!isStatutory && dCode) {
+        let dedVal = Number(
+          overrides[dCode] ||
+          overrides[d.name] ||
+          overrides.deductions?.[dCode] ||
+          emp[dCode] ||
+          emp[d.shortName] ||
+          emp[d.name] ||
+          emp.salaryStructure?.[dCode] ||
+          emp.deductions?.[dCode] ||
+          d.fixedAmount ||
+          d.amount ||
+          0
+        );
+
+        if (d.deductionType === 'Percent Based' && Number(d.percentage) > 0) {
+          dedVal = Math.round(earnedGross * (Number(d.percentage) / 100));
+        } else if (d.deductionType === 'Attendance Based' && dedVal > 0) {
+          dedVal = Math.round(dedVal * ratio);
+        }
+
+        if (dedVal > 0) {
+          customDeductionsMap[dCode] = dedVal;
+          customDeductionsTotal += dedVal;
+        }
+      }
     }
   }
 
@@ -520,7 +948,8 @@ export const computeEmployeePayrollCalculations = ({
     finalLwf +
     finalAdvances +
     finalLoanEmi +
-    finalOtherDed;
+    finalOtherDed +
+    customDeductionsTotal;
 
   const netSalary = Math.max(0, earnedGross - totalDeductions);
 
@@ -585,6 +1014,7 @@ export const computeEmployeePayrollCalculations = ({
       overtime: overtimePay,
       arrears: earnedArrears,
       totalGross: earnedGross,
+      ...customEarningsEarned,
     },
     deductions: {
       pfEmployee: finalPfEmployee,
@@ -596,7 +1026,8 @@ export const computeEmployeePayrollCalculations = ({
       lwf: finalLwf,
       advances: finalAdvances,
       loanEmi: finalLoanEmi,
-      otherDeductions: finalOtherDed,
+      otherDeductions: finalOtherDed + customDeductionsTotal,
+      ...customDeductionsMap,
       totalDeductions,
     },
     status: hasAttendance ? 'Calculated' : 'Pending Attendance',

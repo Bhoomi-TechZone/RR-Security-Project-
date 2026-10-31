@@ -68,7 +68,60 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
     }
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const dynamicEarningsList = useMemo(() => {
+    if (!slipData?.earnings) return [];
+    const list = [];
+    if (Number(slipData.earnings.basic) > 0) list.push({ label: 'Basic Salary', amount: slipData.earnings.basic });
+    if (Number(slipData.earnings.vda) > 0) list.push({ label: 'Dearness Allowance (DA)', amount: slipData.earnings.vda });
+    if (Number(slipData.earnings.hra) > 0) list.push({ label: 'House Rent Allowance (HRA)', amount: slipData.earnings.hra });
+    if (Number(slipData.earnings.conveyance) > 0) list.push({ label: 'Conveyance Allowance', amount: slipData.earnings.conveyance });
+    if (Number(slipData.earnings.specialAllowance) > 0) list.push({ label: 'Special Allowance', amount: slipData.earnings.specialAllowance });
+    if (Number(slipData.earnings.otherAllowance) > 0) list.push({ label: 'Other Allowance', amount: slipData.earnings.otherAllowance });
+    if (Number(slipData.earnings.bonus) > 0) list.push({ label: 'Statutory Bonus', amount: slipData.earnings.bonus });
+    if (Number(slipData.earnings.overtime) > 0) list.push({ label: 'Overtime Pay', amount: slipData.earnings.overtime });
+    if (Number(slipData.earnings.arrears) > 0) list.push({ label: 'Arrears', amount: slipData.earnings.arrears });
+
+    const standardKeys = new Set(['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance', 'bonus', 'overtime', 'arrears', 'totalGross']);
+    Object.entries(slipData.earnings).forEach(([k, v]) => {
+      if (!standardKeys.has(k) && Number(v) > 0) {
+        list.push({ label: k.replace(/([A-Z])/g, ' $1').trim(), amount: Number(v) });
+      }
+    });
+
+    if (list.length === 0) {
+      list.push({ label: 'Basic Salary', amount: slipData.grossSalary || 0 });
+    }
+    return list;
+  }, [slipData]);
+
+  const dynamicDeductionsList = useMemo(() => {
+    if (!slipData?.deductions) return [];
+    const list = [];
+    if (Number(slipData.deductions.pfEmployee) > 0) list.push({ label: 'Provident Fund (PF Employee)', amount: slipData.deductions.pfEmployee });
+    if (Number(slipData.deductions.esiEmployee) > 0) list.push({ label: 'ESIC (Employee Contribution)', amount: slipData.deductions.esiEmployee });
+    if (Number(slipData.deductions.pt) > 0) list.push({ label: 'Professional Tax (PT)', amount: slipData.deductions.pt });
+    if (Number(slipData.deductions.tds) > 0) list.push({ label: 'Income Tax (TDS)', amount: slipData.deductions.tds });
+    if (Number(slipData.deductions.lwf) > 0) list.push({ label: 'Labour Welfare Fund (LWF)', amount: slipData.deductions.lwf });
+    if (Number(slipData.deductions.advances) > 0) list.push({ label: 'Salary Advance Deduction', amount: slipData.deductions.advances });
+    if (Number(slipData.deductions.loanEmi) > 0) list.push({ label: 'Loan EMI Deduction', amount: slipData.deductions.loanEmi });
+
+    const standardDedKeys = new Set(['pfEmployee', 'pfEmployer', 'esiEmployee', 'esiEmployer', 'pt', 'tds', 'lwf', 'advances', 'loanEmi', 'otherDeductions', 'totalDeductions']);
+    let hasCustom = false;
+    Object.entries(slipData.deductions).forEach(([k, v]) => {
+      if (!standardDedKeys.has(k) && Number(v) > 0) {
+        hasCustom = true;
+        list.push({ label: k.replace(/([A-Z])/g, ' $1').trim(), amount: Number(v) });
+      }
+    });
+
+    if (!hasCustom && Number(slipData.deductions.otherDeductions) > 0) {
+      list.push({ label: 'Other Deductions', amount: slipData.deductions.otherDeductions });
+    }
+
+    return list;
+  }, [slipData]);
+
+  return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
   // Reset scroll to top whenever new slip loads or modal opens
@@ -412,17 +465,43 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
       otherAllowance = Math.max(0, computedGross - (basic + hra + vda));
     }
 
+    const fallbackEarningsMap = { basic, vda, hra, conveyance, specialAllowance, otherAllowance };
+
+    const calculateSelectedWageBase = (selectedIds, earningsMap, defaultKeys) => {
+      if (selectedIds === null || selectedIds === undefined) {
+        return defaultKeys.reduce((acc, k) => acc + (Number(earningsMap[k]) || 0), 0);
+      }
+      if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
+        return 0;
+      }
+      const selSet = new Set(selectedIds.map((x) => String(x).toLowerCase().trim()));
+      const normSel = selectedIds.map((x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const isMatch = (keys) => keys.some((k) => selSet.has(k) || normSel.includes(k.replace(/[^a-z0-9]/g, '')));
+
+      let total = 0;
+      if (isMatch(['basic', 'general', 'basicsalary'])) total += Number(earningsMap.basic) || 0;
+      if (isMatch(['vda', 'da', 'dearness'])) total += Number(earningsMap.vda) || 0;
+      if (isMatch(['hra', 'houserent'])) total += Number(earningsMap.hra) || 0;
+      if (isMatch(['conveyance', 'ca', 'transport'])) total += Number(earningsMap.conveyance) || 0;
+      if (isMatch(['specialallowance', 'special', 'sa'])) total += Number(earningsMap.specialAllowance) || 0;
+      if (isMatch(['otherallowance', 'other', 'oa'])) total += Number(earningsMap.otherAllowance) || 0;
+      return total;
+    };
+
     // Statutory deductions strictly calculated dynamically (zero hardcoding)
     let pfEmployee = 0;
     if (pfEnabled && isPfApplicable) {
-      const isRestricted = statutory?.pf?.wageCeilingRestricted !== false;
-      const pfCeiling = Number(statutory?.pf?.wageCeiling) || 15000;
-      const pfWage = isRestricted ? Math.min(basic + vda, pfCeiling) : (basic + vda);
-      const pfRate = (Number(statutory?.pf?.employeeContribution) || 12) / 100;
-      pfEmployee = Math.round(pfWage * pfRate);
-      if (statutory?.pf?.allowVPF !== false && Number(employee.vpfPercentage) > 0) {
-        const vpfPct = Math.min(Number(employee.vpfPercentage), Number(statutory?.pf?.vpfMaxPercentage) || 100);
-        pfEmployee += Math.round(pfWage * (vpfPct / 100));
+      const qualifyingWage = calculateSelectedWageBase(statutory?.pf?.selectedComponentIds, fallbackEarningsMap, ['basic', 'vda']);
+      if (qualifyingWage > 0) {
+        const isRestricted = statutory?.pf?.wageCeilingRestricted !== false;
+        const pfCeiling = Number(statutory?.pf?.wageCeiling) || 15000;
+        const pfWage = isRestricted ? Math.min(qualifyingWage, pfCeiling) : qualifyingWage;
+        const pfRate = (Number(statutory?.pf?.employeeContribution) || 12) / 100;
+        pfEmployee = Math.round(pfWage * pfRate);
+        if (statutory?.pf?.allowVPF !== false && Number(employee.vpfPercentage) > 0) {
+          const vpfPct = Math.min(Number(employee.vpfPercentage), Number(statutory?.pf?.vpfMaxPercentage) || 100);
+          pfEmployee += Math.round(pfWage * (vpfPct / 100));
+        }
       }
     }
 
@@ -432,10 +511,13 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
       ? (Number(statutory?.esi?.disabilityWageLimit) || 25000)
       : (Number(statutory?.esi?.wageEligibilityLimit) || 21000);
     if (esiEnabled && isEsiApplicable && computedGross <= esiWageLimit) {
-      const dailyWage = computedGross / totalDaysInMonth;
-      if (!employee.isDailyWageExempt && dailyWage >= 176) {
-        const esiRate = (Number(statutory?.esi?.employeeContribution) || 0.75) / 100;
-        esiEmployee = Math.round(computedGross * esiRate);
+      const esiWage = calculateSelectedWageBase(statutory?.esi?.selectedComponentIds, fallbackEarningsMap, ['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance']);
+      if (esiWage > 0) {
+        const dailyWage = esiWage / totalDaysInMonth;
+        if (!employee.isDailyWageExempt && dailyWage >= 176) {
+          const esiRate = (Number(statutory?.esi?.employeeContribution) || 0.75) / 100;
+          esiEmployee = Math.round(esiWage * esiRate);
+        }
       }
     }
 
@@ -452,7 +534,10 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
         employee.address ||
         activeCompany?.state ||
         '';
-      pt = calculatePTFromSlabs(computedGross, empState, ptSlabs, monthKey);
+      const ptGross = calculateSelectedWageBase(statutory?.pt?.selectedComponentIds, fallbackEarningsMap, ['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance']);
+      if (ptGross > 0) {
+        pt = calculatePTFromSlabs(ptGross, empState, ptSlabs, monthKey);
+      }
     }
 
     const tds = calculateTDSFromSettings(computedGross, employee, statutory?.tds);
@@ -897,50 +982,21 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td className={styles.colEarnings}>Basic Salary</td>
-                      <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.basic)}</td>
-                      <td className={styles.colDeductions}>Provident Fund (PF Employee)</td>
-                      <td className={styles.amtColRight}>{formatRupee(slipData.deductions.pfEmployee)}</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.colEarnings}>Variable DA (VDA)</td>
-                      <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.vda)}</td>
-                      <td className={styles.colDeductions}>ESIC (Employee Contribution)</td>
-                      <td className={styles.amtColRight}>{formatRupee(slipData.deductions.esiEmployee)}</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.colEarnings}>House Rent Allowance (HRA)</td>
-                      <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.hra)}</td>
-                      <td className={styles.colDeductions}>Professional Tax (PT)</td>
-                      <td className={styles.amtColRight}>{formatRupee(slipData.deductions.pt)}</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.colEarnings}>Conveyance Allowance</td>
-                      <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.conveyance)}</td>
-                      <td className={styles.colDeductions}>Income Tax (TDS)</td>
-                      <td className={styles.amtColRight}>{formatRupee(slipData.deductions.tds)}</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.colEarnings}>Special Allowance</td>
-                      <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.specialAllowance)}</td>
-                      <td className={styles.colDeductions}>Advances / Loan Deduction</td>
-                      <td className={styles.amtColRight}>{formatRupee(slipData.deductions.advances || 0)}</td>
-                    </tr>
-                    <tr>
-                      <td className={styles.colEarnings}>Other Allowances</td>
-                      <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.otherAllowance)}</td>
-                      <td className={styles.colDeductions}>Other Statutory Deductions</td>
-                      <td className={styles.amtColRight}>{formatRupee(slipData.deductions.otherDeductions || 0)}</td>
-                    </tr>
-                    {slipData.earnings.overtime > 0 && (
-                      <tr>
-                        <td className={styles.colEarnings}>Overtime Pay</td>
-                        <td className={styles.amtColLeft}>{formatRupee(slipData.earnings.overtime)}</td>
-                        <td className={styles.colDeductions}>—</td>
-                        <td className={styles.amtColRight}>—</td>
-                      </tr>
-                    )}
+                    {(() => {
+                      const maxRows = Math.max(dynamicEarningsList.length, dynamicDeductionsList.length, 1);
+                      return Array.from({ length: maxRows }).map((_, idx) => {
+                        const e = dynamicEarningsList[idx];
+                        const d = dynamicDeductionsList[idx];
+                        return (
+                          <tr key={idx}>
+                            <td className={styles.colEarnings}>{e ? e.label : '—'}</td>
+                            <td className={styles.amtColLeft}>{e ? formatRupee(e.amount) : '—'}</td>
+                            <td className={styles.colDeductions}>{d ? d.label : '—'}</td>
+                            <td className={styles.amtColRight}>{d ? formatRupee(d.amount) : '—'}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
                     <tr className={styles.totalRow}>
                       <td className={styles.colEarnings}>Total Gross Earnings</td>
                       <td className={styles.amtColLeft}>{formatRupee(slipData.grossSalary)}</td>

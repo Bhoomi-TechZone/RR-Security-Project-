@@ -184,6 +184,16 @@ function PTConfigurationTab({
     return rawComponents.filter((c) => (c.type || 'earning') !== 'deduction');
   }, [rawComponents]);
 
+  // Format component name cleanly: e.g. "Basic Salary - General" or "Dearness Allowance - DA"
+  const formatComponentName = (c) => {
+    const name = c.name || '';
+    const alias = c.shortName || c.code || '';
+    if (!alias) return name;
+    const cleanName = name.replace(/\s*\([^)]*\)/g, '').trim();
+    if (cleanName.toLowerCase() === alias.toLowerCase()) return cleanName;
+    return `${cleanName} - ${alias}`;
+  };
+
   // Determine badge styling based on component type
   const getComponentBadgeInfo = (c) => {
     const rawType = c.componentType || c.calculationType || 'Paid Days';
@@ -453,7 +463,7 @@ function PTConfigurationTab({
                     return (
                       <tr key={comp.id || comp._id || `comp-${idx}`}>
                         <td className={styles.componentNameCell}>
-                          {comp.name}
+                          {formatComponentName(comp)}
                         </td>
                         <td style={{ textAlign: 'center' }}>
                           <span className={badge.className}>
