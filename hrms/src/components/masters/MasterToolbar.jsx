@@ -14,7 +14,7 @@ function MasterToolbar({
   holidayYear,
   onHolidayYearChange,
   canAdd = true,
-  customAddLabel = null
+  customAddLabel = null, subTab = null
 }) {
   const getTabConfig = () => {
     switch (activeTab) {
@@ -40,7 +40,7 @@ function MasterToolbar({
       case 'holidays':
         return { placeholder: 'Search holiday name, date, or type...', addLabel: 'Add Holiday' };
       case 'salary-components':
-        return { placeholder: 'Search component name or code...', addLabel: 'Add Component' };
+        return { placeholder: subTab === 'deductions' ? 'Search deduction name or code...' : 'Search earning name or code...', addLabel: subTab === 'deductions' ? 'Add Deduction' : 'Add Earning' };
       case 'document-types':
         return { placeholder: 'Search document name or code...', addLabel: 'Add Document Type' };
       default:

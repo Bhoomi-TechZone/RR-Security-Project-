@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
-  DollarSign, Calendar, Clock, CalendarDays, Calculator, Plus, 
+  DollarSign, Calendar, Clock, CalendarDays, Calculator, Plus, Landmark, 
   Search, Filter, CheckCircle2, AlertCircle, Layers, ArrowUpRight,
   MoreVertical, Edit2, Eye, ToggleLeft, ToggleRight, Sparkles,
   Loader2, RefreshCw, ArrowLeft, ArrowRight, X, SlidersHorizontal
@@ -51,14 +51,14 @@ const ALL_SETUP_CATALOG = [
     iconColor: '#2563eb'
   },
   {
-    id: 'salary-components',
-    tab: 'salary-components',
-    externalRoute: '/admin/masters?tab=salary-components',
-    title: 'Salary Components',
-    desc: 'Manage earnings, basic pay, HRA, standard allowances, reimbursements, and deduction rules.',
+    id: 'salary-earnings',
+    tab: 'salary-earnings',
+    externalRoute: '/admin/masters?tab=salary-components&subTab=earnings',
+    title: 'Earnings Components',
+    desc: 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.',
     icon: Layers,
-    badge: 'Earnings & Deductions',
-    iconColor: '#059669'
+    badge: 'Earnings',
+    iconColor: '#059669' }, { id: 'salary-deductions', tab: 'salary-deductions', externalRoute: '/admin/masters?tab=salary-components&subTab=deductions', title: 'Deductions', desc: 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.', icon: Landmark, badge: 'Deductions', iconColor: '#dc2626'
   },
   {
     id: 'pay-schedules',
@@ -242,7 +242,7 @@ function PayrollSetup() {
   const getModuleCount = (tabId) => {
     switch (tabId) {
       case 'pay-groups': return payGroups.length;
-      case 'salary-components': return salaryComponents.length;
+      case 'salary-earnings': return salaryComponents.filter(c => (c.type || '').toLowerCase() === 'earning').length; case 'salary-deductions': return salaryComponents.filter(c => (c.type || '').toLowerCase() === 'deduction').length;
       case 'pay-schedules': return schedules.length;
       case 'pay-cycles': return cycles.length;
       case 'pay-days': return payDays.length;

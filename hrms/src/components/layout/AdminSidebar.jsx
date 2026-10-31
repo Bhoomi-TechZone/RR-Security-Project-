@@ -210,8 +210,8 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/users', name: 'All Users' },
-          { path: '/admin/users?status=active', name: 'Active Users' },
-          { path: '/admin/users?status=inactive', name: 'Inactive Users' },
+
+
           { path: '/admin/roles-permissions', name: 'Roles & Access' },
         ]
       },

@@ -31,7 +31,7 @@ function MasterTable({
       case 'shifts': return 'shifts';
       case 'leave-types': return 'leave types';
       case 'holidays': return 'holidays';
-      case 'salary-components': return subTab === 'deductions' ? 'deductions' : 'salary components';
+      case 'salary-components': return subTab === 'deductions' ? 'deductions' : 'earnings';
       case 'document-types': return 'document types';
       default: return 'records';
     }
@@ -197,7 +197,7 @@ function MasterTable({
 
               {activeTab === 'salary-components' && (
                 <>
-                  <th>Component Name</th>
+                  <th>{subTab === 'deductions' ? 'Deduction Name' : 'Component Name'}</th>
                   <th>{subTab === 'deductions' ? 'Deduction Type' : 'Component Type'}</th>
                 </>
               )}
