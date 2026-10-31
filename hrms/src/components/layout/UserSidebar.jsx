@@ -124,7 +124,7 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/payroll-setup', name: 'Pay Groups' },
-          { path: '/user/masters?tab=salary-components', name: 'Salary Components' },
+          { path: '/user/masters?tab=salary-components&subTab=earnings', name: 'Earnings' }, { path: '/user/masters?tab=salary-components&subTab=deductions', name: 'Deductions' },
           { path: '/user/payroll-setup?tab=pay-schedules', name: 'Pay Schedules' },
           { path: '/user/payroll-setup?tab=pay-cycles', name: 'Pay Cycles' },
           { path: '/user/payroll-setup?tab=pay-days', name: 'Pay Days' },

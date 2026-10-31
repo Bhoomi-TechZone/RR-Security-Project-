@@ -88,7 +88,7 @@ const SETTINGS_SECTIONS = [
       { name: 'Pay Day', route: '/admin/payroll-setup?tab=pay-days' },
       { name: 'Salary Calculation Method', route: '/admin/payroll-setup?tab=calculation-methods' },
       { name: 'Pay Groups', route: '/admin/payroll-setup?tab=pay-groups' },
-      { name: 'Salary Components', route: '/admin/masters?tab=salary-components' }
+      { name: 'Earnings Components', route: '/admin/masters?tab=salary-components&subTab=earnings' }, { name: 'Deductions', route: '/admin/masters?tab=salary-components&subTab=deductions' }
     ]
   },
   {

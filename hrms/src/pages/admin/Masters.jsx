@@ -56,7 +56,7 @@ const DYNAMIC_TABS = [
   'document-types'
 ];
 const MASTER_CATEGORIES = [
-  { id: 'all', label: 'All Masters Setup' }
+  { id: 'all', label: 'Masters Setup' }
 ];
 const ALL_MASTERS_CATALOG = [
   {
@@ -165,7 +165,7 @@ function Masters() {
   const [searchTerm, setSearchTerm] = useState('');
   const [holidayYear, setHolidayYear] = useState('2026');
   const [currentPage, setCurrentPage] = useState(1);
-  const [salaryComponentSubTab, setSalaryComponentSubTab] = useState('earnings');
+  const [salaryComponentSubTab, setSalaryComponentSubTab] = useState(() => (searchParams.get('subTab') || searchParams.get('type') || 'earnings').toLowerCase().includes('deduct') ? 'deductions' : 'earnings');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   // Explorer view filter states
@@ -181,7 +181,7 @@ function Masters() {
     }
   }, [rawTab, navigate]);
 
-  const handleBackToMasters = () => {
+  useEffect(() => { const sub = searchParams.get('subTab') || searchParams.get('type'); if (sub) setSalaryComponentSubTab(sub.toLowerCase().includes('deduct') ? 'deductions' : 'earnings'); }, [searchParams]); const handleBackToMasters = () => {
     navigate('/admin/company-setup?category=all-masters-setup');
   };
   const handleTabChange = (tabId) => {
@@ -850,7 +850,7 @@ function Masters() {
       case 'shifts': return 'shifts';
       case 'leave-types': return 'leave types';
       case 'holidays': return 'holidays';
-      case 'salary-components': return salaryComponentSubTab === 'deductions' ? 'deductions' : 'salary components';
+      case 'salary-components': return salaryComponentSubTab === 'deductions' ? 'deductions' : 'earnings';
       case 'document-types': return 'document types';
       default: return 'records';
     }
@@ -1081,7 +1081,7 @@ function Masters() {
                   <span className={styles.separator}>/</span>
                 </>
               )}
-              <span className={styles.crumbActive}>{TAB_LABELS[activeTab] || activeTab}</span>
+              <span className={styles.crumbActive}>{activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Deductions' : 'Earnings Components') : (TAB_LABELS[activeTab] || activeTab)}</span>
             </div>
             {/* Page Header */}
             <header className={styles.header}>
@@ -1093,7 +1093,7 @@ function Masters() {
                     ? 'Designation Management'
                     : (activeTab === 'client-services' || activeTab === 'clients')
                     ? 'Client Services'
-                    : `${TAB_LABELS[activeTab] || 'Master'} Management`}
+                    : activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Deductions Management' : 'Earnings Components Management') : `${TAB_LABELS[activeTab] || 'Master'} Management`}
                 </h1>
                 <p className={styles.description}>
                   {activeTab === 'departments'
@@ -1102,7 +1102,7 @@ function Masters() {
                     ? 'Configure employee designations, job titles, and organizational roles.'
                     : (activeTab === 'client-services' || activeTab === 'clients')
                     ? 'Configure operational client service categories and offerings available during client onboarding.'
-                    : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
+                    : activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.' : 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.') : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
@@ -1229,7 +1229,7 @@ function Masters() {
                 <button
                   type="button"
                   className={`${styles.salarySubTabBtn} ${salaryComponentSubTab === 'earnings' ? styles.salarySubTabBtnActive : ''}`}
-                  onClick={() => setSalaryComponentSubTab('earnings')}
+                  style={{ display: salaryComponentSubTab === 'earnings' ? 'inline-flex' : 'none' }} onClick={() => { setSalaryComponentSubTab('earnings'); setSearchParams({ tab: 'salary-components', subTab: 'earnings' }, { replace: true, state: location.state }); }}
                 >
                   Earnings
                   <span className={styles.salarySubTabBadge}>{earningsCount}</span>
@@ -1237,7 +1237,7 @@ function Masters() {
                 <button
                   type="button"
                   className={`${styles.salarySubTabBtn} ${salaryComponentSubTab === 'deductions' ? styles.salarySubTabBtnActive : ''}`}
-                  onClick={() => setSalaryComponentSubTab('deductions')}
+                  style={{ display: salaryComponentSubTab === 'deductions' ? 'inline-flex' : 'none' }} onClick={() => { setSalaryComponentSubTab('deductions'); setSearchParams({ tab: 'salary-components', subTab: 'deductions' }, { replace: true, state: location.state }); }}
                 >
                   Deductions
                   <span className={styles.salarySubTabBadge}>{deductionsCount}</span>
@@ -1245,14 +1245,14 @@ function Masters() {
               </div>
             )}
             {/* Toolbar with Search and Contextual Add Button */}
-            <MasterToolbar
+            <MasterToolbar subTab={salaryComponentSubTab}
               activeTab={activeTab}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               holidayYear={holidayYear}
               onHolidayYearChange={setHolidayYear}
               canAdd={canAdd('masters')}
-              customAddLabel={activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Add Deduction' : 'Add Component') : null}
+              customAddLabel={activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Add Deduction' : 'Add Earning') : null}
               onAddNew={() => {
                 setEditingItem(null);
                 setIsFormOpen(true);

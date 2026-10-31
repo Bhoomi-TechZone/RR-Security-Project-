@@ -27,11 +27,12 @@ import {
 
 const SETUP_CATEGORIES = [
   { id: 'master-setup', label: 'Company Setup' },
+  { id: 'all-masters-setup', label: 'Masters Setup' },
 
   { id: 'payroll-setup', label: 'Payroll Setup' },
   { id: 'statutory-setup', label: 'Statutory Setup' },
   { id: 'template-setup', label: 'Template Setup' },
-  { id: 'all-masters-setup', label: 'All Masters Setup' }
+
 ];
 
 const SETUP_MODULES = [
@@ -221,19 +222,43 @@ const SETUP_MODULES = [
     isExternal: true
   },
   {
-    id: 'salary-components',
-    title: 'Salary Components',
-    desc: 'Manage earnings, basic pay, HRA, standard allowances, reimbursements, and deduction rules.',
+    id: 'salary-earnings',
+    title: 'Earnings Components',
+    desc: 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.',
     category: 'payroll-setup',
     icon: Layers,
-    badge: 'Earnings & Deductions',
+    badge: 'Earnings',
     iconBg: '#ecfdf5',
     iconColor: '#059669',
-    route: '/admin/masters?tab=salary-components',
+    route: '/admin/masters?tab=salary-components&subTab=earnings',
     isExternal: true
   },
   {
-    id: 'pay-schedules',
+    id: 'salary-deductions',
+    title: 'Deductions',
+    desc: 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.',
+    category: 'payroll-setup',
+    icon: Landmark,
+    badge: 'Deductions',
+    iconBg: '#fef2f2',
+    iconColor: '#dc2626',
+    route: '/admin/masters?tab=salary-components&subTab=deductions', isExternal: true }, /*
+    isExternal: true
+  },
+  {
+    id: 'salary-components-old',
+
+
+    category: 'payroll-setup',
+    icon: Layers,
+
+    iconBg: '#ecfdf5',
+    iconColor: '#059669',
+
+    isExternal: true
+  },
+  {
+  */ { id: 'pay-schedules',
     title: 'Pay Schedules',
     desc: 'Set up recurring disbursement frequency timelines such as Monthly, Bi-Weekly, and Weekly.',
     category: 'payroll-setup',

@@ -42,7 +42,7 @@ function MasterSummaryCards({ activeTab, items = [], subTab = null }) {
         if (subTab === 'deductions') {
           return { singular: 'Deduction', plural: 'Deductions', icon: DollarSign };
         }
-        return { singular: 'Salary Component', plural: 'Salary Components', icon: DollarSign };
+        return { singular: 'Earning', plural: 'Earnings', icon: DollarSign };
       case 'document-types':
         return { singular: 'Document Type', plural: 'Document Types', icon: FileCheck };
       default:
