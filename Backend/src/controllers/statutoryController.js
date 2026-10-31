@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import StatutoryConfig from '../models/statutoryModel.js';
 import Company from '../models/companyModel.js';
+import Master from '../models/masterModel.js';
 
 export const DEFAULT_INITIAL_PF_RATES = [
   {
@@ -246,7 +247,24 @@ export const resolveStatutoryConfig = async (companyId, adminEmail = null) => {
   // Return config: null so that a dedicated, isolated config is created for THIS company.
   const primaryCompanyId = (companyId && String(companyId).trim()) || comp?.companyId || (specificIds.length > 0 ? specificIds[0] : 'RRS8392014SEC');
 
-  return { config, primaryCompanyId, resolvedIds: specificIds };
+  let salaryComponents = [];
+  try {
+    if (specificIds.length > 0) {
+      salaryComponents = await Master.find({
+        companyId: { $in: specificIds },
+        type: { $in: ['salary-components', 'earning', 'deduction'] },
+        status: { $nin: ['inactive', 'Inactive'] }
+      }).lean();
+    }
+  } catch (err) {
+    console.error('Failed to query salary-components in resolveStatutoryConfig:', err);
+  }
+
+  if (config) {
+    config.salaryComponents = salaryComponents;
+  }
+
+  return { config, salaryComponents, primaryCompanyId, resolvedIds: specificIds };
 };
 
 /**
@@ -371,9 +389,12 @@ export const getStatutoryConfig = async (req, res) => {
       }
     }
 
+    const serialized = config.toJSON ? config.toJSON() : { ...config };
+    serialized.salaryComponents = config.salaryComponents || [];
+
     return res.status(200).json({
       success: true,
-      config: config.toJSON(),
+      config: serialized,
     });
   } catch (error) {
     console.error('Error fetching statutory config from database:', error);

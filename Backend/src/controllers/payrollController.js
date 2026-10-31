@@ -14,6 +14,8 @@ import {
   calculateBonus,
   computeEmployeePayrollCalculations,
   normalizeId,
+  calculateComponentWageBase,
+  computePTWageBase,
 } from '../services/statutoryCalculationService.js';
 
 export {
@@ -25,6 +27,8 @@ export {
   calculateBonus,
   computeEmployeePayrollCalculations,
   normalizeId,
+  calculateComponentWageBase,
+  computePTWageBase,
 };
 
 // Helper to get total days in a month string "YYYY-MM"
@@ -374,7 +378,7 @@ export const getPayrollRecords = async (req, res) => {
           const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
 
           // PF recheck
-          const pfCalc = calculatePF(earnedBasic, earnedVda, emp, statutory?.pf);
+          const pfCalc = calculatePF(earnedBasic, earnedVda, emp, statutory?.pf, rec.earnings, statutory?.salaryComponents);
           if (rec.deductions.pfEmployee !== pfCalc.employee || rec.deductions.pfEmployer !== pfCalc.employer) {
             rec.deductions.pfEmployee = pfCalc.employee;
             rec.deductions.pfEmployer = pfCalc.employer;
@@ -382,7 +386,7 @@ export const getPayrollRecords = async (req, res) => {
           }
 
           // ESI recheck
-          const esiCalc = calculateESI(earnedGross, Number(emp.grossSalary) || earnedGross, rec.paidDays || 0, emp, statutory?.esi);
+          const esiCalc = calculateESI(earnedGross, Number(emp.grossSalary) || earnedGross, rec.paidDays || 0, emp, statutory?.esi, rec.earnings, statutory?.salaryComponents);
           if (rec.deductions.esiEmployee !== esiCalc.employee || rec.deductions.esiEmployer !== esiCalc.employer) {
             rec.deductions.esiEmployee = esiCalc.employee;
             rec.deductions.esiEmployer = esiCalc.employer;
@@ -390,7 +394,16 @@ export const getPayrollRecords = async (req, res) => {
           }
 
           // PT recheck
-          const correctPt = calculatePT(earnedGross, empState, ptSlabs, payrollRun.month, ptEnabled);
+          const ptWage1 = computePTWageBase({
+            emp,
+            statutoryPt: statutory?.pt,
+            monthlyGross: Number(emp.grossSalary) || earnedGross,
+            earnedGross,
+            monthlyEarnings: { basic: emp.basic, vda: emp.vda, hra: emp.hra, conveyance: emp.conveyance, specialAllowance: emp.specialAllowance, otherAllowance: emp.otherAllowance },
+            earnedEarnings: rec.earnings,
+            salaryComponentsMaster: statutory?.salaryComponents,
+          });
+          const correctPt = calculatePT(ptWage1, empState, ptSlabs, payrollRun.month, ptEnabled, emp.gender);
           if ((rec.deductions.pt || 0) !== correctPt) {
             rec.deductions.pt = correctPt;
             modified = true;
@@ -673,7 +686,7 @@ export const saveSalaryStructure = async (req, res) => {
           pfEmployee = Number(pf) || 0;
           pfEmployer = Number(pf) || 0;
         } else {
-          const pfCalc = calculatePF(earnedBasic, earnedVda, employee, statutory?.pf);
+          const pfCalc = calculatePF(earnedBasic, earnedVda, employee, statutory?.pf, rec.earnings, statutory?.salaryComponents);
           pfEmployee = pfCalc.employee;
           pfEmployer = pfCalc.employer;
         }
@@ -688,13 +701,22 @@ export const saveSalaryStructure = async (req, res) => {
           esiEmployee = Number(esi) || 0;
           esiEmployer = Math.round(Number(esi) * 4.33);
         } else {
-          const esiCalc = calculateESI(earnedGross, numGross, paidDays, employee, statutory?.esi);
+          const esiCalc = calculateESI(earnedGross, numGross, paidDays, employee, statutory?.esi, rec.earnings, statutory?.salaryComponents);
           esiEmployee = esiCalc.employee;
           esiEmployer = esiCalc.employer;
         }
 
         // PT (strictly respecting module active status)
-        const ptVal = statutory?.pt?.enabled === false ? 0 : calculatePT(earnedGross, empState, ptSlabs, targetMonth, ptEnabled);
+        const ptWage2 = computePTWageBase({
+          emp: employee,
+          statutoryPt: statutory?.pt,
+          monthlyGross: numGross,
+          earnedGross,
+          monthlyEarnings: { basic: employee.basic, vda: employee.vda, hra: employee.hra, conveyance: employee.conveyance, specialAllowance: employee.specialAllowance, otherAllowance: employee.otherAllowance },
+          earnedEarnings: rec.earnings,
+          salaryComponentsMaster: statutory?.salaryComponents,
+        });
+        const ptVal = statutory?.pt?.enabled === false ? 0 : calculatePT(ptWage2, empState, ptSlabs, targetMonth, ptEnabled, employee.gender);
 
         // TDS (strictly respecting module active status)
         const tdsVal = statutory?.tds?.enabled === false ? 0 : calculateTDS(earnedGross, employee, statutory?.tds);
@@ -1180,17 +1202,26 @@ export const generateSalarySlips = async (req, res) => {
         const empState = empDoc.state || empDoc.workState || empDoc.siteState || empDoc.siteLocation || empDoc.site || empDoc.presentAddress || empDoc.address || '';
 
         // PF
-        const pfCalc = calculatePF(earnedBasic, earnedVda, empDoc, statutory?.pf);
+        const pfCalc = calculatePF(earnedBasic, earnedVda, empDoc, statutory?.pf, rec.earnings, statutory?.salaryComponents);
         rec.deductions.pfEmployee = pfCalc.employee;
         rec.deductions.pfEmployer = pfCalc.employer;
 
         // ESI
-        const esiCalc = calculateESI(earnedGross, Number(empDoc.grossSalary) || earnedGross, rec.paidDays || 0, empDoc, statutory?.esi);
+        const esiCalc = calculateESI(earnedGross, Number(empDoc.grossSalary) || earnedGross, rec.paidDays || 0, empDoc, statutory?.esi, rec.earnings, statutory?.salaryComponents);
         rec.deductions.esiEmployee = esiCalc.employee;
         rec.deductions.esiEmployer = esiCalc.employer;
 
         // PT
-        rec.deductions.pt = calculatePT(earnedGross, empState, ptSlabs, month, ptEnabled);
+        const ptWage3 = computePTWageBase({
+          emp: empDoc,
+          statutoryPt: statutory?.pt,
+          monthlyGross: Number(empDoc.grossSalary) || earnedGross,
+          earnedGross,
+          monthlyEarnings: { basic: empDoc.basic, vda: empDoc.vda, hra: empDoc.hra, conveyance: empDoc.conveyance, specialAllowance: empDoc.specialAllowance, otherAllowance: empDoc.otherAllowance },
+          earnedEarnings: rec.earnings,
+          salaryComponentsMaster: statutory?.salaryComponents,
+        });
+        rec.deductions.pt = calculatePT(ptWage3, empState, ptSlabs, month, ptEnabled, empDoc.gender);
 
         // TDS
         rec.deductions.tds = calculateTDS(earnedGross, empDoc, statutory?.tds);
@@ -1537,7 +1568,7 @@ export const getSalarySlips = async (req, res) => {
         let modified = false;
 
         // PF
-        const pfCalc = calculatePF(earnedBasic, earnedVda, empDoc, statutory?.pf);
+        const pfCalc = calculatePF(earnedBasic, earnedVda, empDoc, statutory?.pf, earnings, statutory?.salaryComponents);
         if (Number(deductions.pfEmployee || 0) !== pfCalc.employee || Number(deductions.pfEmployer || 0) !== pfCalc.employer) {
           deductions.pfEmployee = pfCalc.employee;
           deductions.pfEmployer = pfCalc.employer;
@@ -1545,7 +1576,7 @@ export const getSalarySlips = async (req, res) => {
         }
 
         // ESI
-        const esiCalc = calculateESI(grossSalary, Number(empDoc.grossSalary) || grossSalary, json.paidDays || 30, empDoc, statutory?.esi);
+        const esiCalc = calculateESI(grossSalary, Number(empDoc.grossSalary) || grossSalary, json.paidDays || 30, empDoc, statutory?.esi, earnings, statutory?.salaryComponents);
         if (Number(deductions.esiEmployee || 0) !== esiCalc.employee || Number(deductions.esiEmployer || 0) !== esiCalc.employer) {
           deductions.esiEmployee = esiCalc.employee;
           deductions.esiEmployer = esiCalc.employer;
@@ -1553,7 +1584,16 @@ export const getSalarySlips = async (req, res) => {
         }
 
         // PT
-        const correctPt = calculatePT(grossSalary, empState, ptSlabs, json.month, ptEnabled);
+        const ptWage4 = computePTWageBase({
+          emp: empDoc,
+          statutoryPt: statutory?.pt,
+          monthlyGross: Number(empDoc.grossSalary) || grossSalary,
+          earnedGross: grossSalary,
+          monthlyEarnings: { basic: empDoc.basic, vda: empDoc.vda, hra: empDoc.hra, conveyance: empDoc.conveyance, specialAllowance: empDoc.specialAllowance, otherAllowance: empDoc.otherAllowance },
+          earnedEarnings: earnings,
+          salaryComponentsMaster: statutory?.salaryComponents,
+        });
+        const correctPt = calculatePT(ptWage4, empState, ptSlabs, json.month, ptEnabled, empDoc.gender);
         if ((Number(deductions.pt) || 0) !== correctPt) {
           deductions.pt = correctPt;
           modified = true;
