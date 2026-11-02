@@ -1,18 +1,117 @@
-import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { downloadElementAsPdf } from './domPdfExportUtil';
+import * as XLSX from 'xlsx';
+
+// Helper to filter records by selectedOptions (recordScope and excludeHoldSalary)
+export function filterRecordsByOptions(records = [], selectedOptions = {}) {
+  let list = Array.isArray(records) ? [...records] : [];
+  const scope = selectedOptions.recordScope || 'active';
+  const excludeHold = selectedOptions.excludeHoldSalary !== false;
+
+  if (scope === 'active') {
+    list = list.filter((r) => {
+      const isInactive =
+        r.status === 'Inactive' ||
+        r.status === 'Left' ||
+        r.status === 'Resigned' ||
+        r.status === 'Terminated' ||
+        r.isActive === false;
+      return !isInactive;
+    });
+  } else if (scope === 'inactive') {
+    list = list.filter((r) => {
+      const isInactive =
+        r.status === 'Inactive' ||
+        r.status === 'Left' ||
+        r.status === 'Resigned' ||
+        r.status === 'Terminated' ||
+        r.isActive === false;
+      return isInactive;
+    });
+  }
+
+  if (excludeHold) {
+    list = list.filter((r) => {
+      const isHold =
+        r.salaryHold === true ||
+        r.isHold === true ||
+        r.holdSalary === true ||
+        r.hold === true ||
+        r.salaryStatus === 'HOLD' ||
+        r.salaryStatus === 'Hold' ||
+        r.status === 'HOLD' ||
+        r.status === 'Hold';
+      return !isHold;
+    });
+  }
+
+  return list;
+}
+
+// Helper to calculate dynamic totals from filtered records
+export function calculateDynamicTotals(records = [], originalTotals = {}) {
+  let totalWo = 0, totalPh = 0, totalPd = 0, totalPl = 0, totalCl = 0, totalSl = 0, totalMlAdj = 0;
+  let grandBasic = 0, grandDa = 0, grandHra = 0, grandConv = 0, grandSpAll = 0, grandOthAll = 0, grandOtPib = 0;
+  let grandGross = 0, grandPf = 0, grandEsi = 0, grandPt = 0, grandIt = 0, grandLwf = 0;
+  let grandAdvance = 0, grandLoan = 0, grandFood = 0, grandOthDed = 0, grandEMbill = 0;
+  let grandDeductions = 0, grandNet = 0, totalRateTotal = 0;
+
+  records.forEach((r) => {
+    const att = r.attendance || {};
+    const rate = r.rateOfWages || {};
+    const earn = r.earnings || {};
+    const ded = r.deductions || {};
+
+    totalWo += Number(att.wo) || 0;
+    totalPh += Number(att.ph) || 0;
+    totalPd += Number(att.pd) || 0;
+    totalPl += Number(att.pl) || 0;
+    totalCl += Number(att.cl) || 0;
+    totalSl += Number(att.sl) || 0;
+    totalMlAdj += Number(att.mlAdj) || 0;
+
+    totalRateTotal += Number(rate.total) || 0;
+
+    grandBasic += Number(earn.basic) || 0;
+    grandDa += Number(earn.da) || 0;
+    grandHra += Number(earn.hra) || 0;
+    grandConv += Number(earn.conv) || 0;
+    grandSpAll += Number(earn.spAll) || 0;
+    grandOthAll += Number(earn.othAll) || 0;
+    grandOtPib += Number(earn.otPib) || 0;
+
+    grandGross += Number(r.grossSalary) || 0;
+
+    grandPf += Number(ded.pf) || 0;
+    grandEsi += Number(ded.esi) || 0;
+    grandPt += Number(ded.pt) || 0;
+    grandIt += Number(ded.it) || 0;
+    grandLwf += Number(ded.lwf) || 0;
+    grandAdvance += Number(ded.advance) || 0;
+    grandLoan += Number(ded.loan) || 0;
+    grandFood += Number(ded.food) || 0;
+    grandOthDed += Number(ded.othDed) || 0;
+    grandEMbill += Number(ded.eMbill) || 0;
+
+    grandDeductions += Number(r.grossDeduct) || 0;
+    grandNet += Number(r.netPayable) || 0;
+  });
+
+  return {
+    ...originalTotals,
+    totalWo, totalPh, totalPd, totalPl, totalCl, totalSl, totalMlAdj,
+    totalRateTotal,
+    grandBasic, grandDa, grandHra, grandConv, grandSpAll, grandOthAll, grandOtPib,
+    grandGross, grandPf, grandEsi, grandPt, grandIt, grandLwf,
+    grandAdvance, grandLoan, grandFood, grandOthDed, grandEMbill,
+    grandDeductions, grandNet,
+  };
+}
 
 /**
- * Statutory Wage / Salary Register (Salary Sheet Format 1) Exporter
- * Compliant with:
- * (1) Form under Rule - 6 of Equal Remuneration Rules 1976.
- * (2) Form under Rule - 21(4),25(2),26(1) and 26(2) of Gujarat Minimum Wages Rules 1961
- * (3) Form under Rule - 6 of Payment of Wages Gujarat Rules, 1963.
- * (4) Form 17 under Rule - 78 of Contract Labour (Regulation & Abolition) Gujarat, Rules 1972
- * (5) Form under Rule - 52(2) of Inter State Migrant Workers (Gujarat) Rules 1981
+ * Downloads Salary Sheet (Format 1) as Excel Spreadsheet (.xlsx) or CSV (.csv)
+ * Strictly formats columns, rows and summaries as per selectedOptions
  */
-
 export const downloadSalarySheetFormat1Excel = (
   records = [],
   companyInfo = {},
@@ -25,58 +124,81 @@ export const downloadSalarySheetFormat1Excel = (
   deductionSummary = {},
   options = {}
 ) => {
-  const companyName = companyInfo?.name || companyInfo?.companyName || 'RR Security & Facilities';
-  const companyAddress =
-    companyInfo?.address && companyInfo.address !== '—'
-      ? companyInfo.address
-      : 'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
-  let savedSetup = {};
-  try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
-    if (raw) savedSetup = JSON.parse(raw);
-  } catch (e) {}
+  const selectedOptions = options?.selectedOptions || {};
+  const activeRecords = filterRecordsByOptions(records, selectedOptions);
+  const activeTotals = calculateDynamicTotals(activeRecords, totals);
 
-  let adminCompanies = [];
-  try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
-    if (raw) adminCompanies = JSON.parse(raw);
-  } catch (e) {}
-  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+  const statutoryConfig = options.statutoryConfig || {};
+  const activePfRate = Array.isArray(statutoryConfig?.pf?.pfRates) ? statutoryConfig.pf.pfRates.find(r => r.enabled) : null;
+  const pfEmployeeRate = pfSummary?.rates?.employeeRate !== undefined
+    ? pfSummary.rates.employeeRate
+    : (statutoryConfig?.pf?.employeeRate !== undefined
+      ? statutoryConfig.pf.employeeRate
+      : (activePfRate?.employeeRate !== undefined
+        ? activePfRate.employeeRate
+        : (statutoryConfig?.pf?.employeeContribution !== undefined
+          ? statutoryConfig.pf.employeeContribution
+          : 12)));
 
-  const cleanPf = [
-    companyInfo?.employerPfCode,
-    companyInfo?.pfCode,
-    companyInfo?.pfNo,
-    companyInfo?.epfNo,
-    savedSetup?.employerPfCode,
-    savedSetup?.pfCode,
-    localDefaultComp?.employerPfCode,
-    localDefaultComp?.pfCode,
-  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
-  const pfNo = cleanPf || '—';
+  const pfEmployerRate = pfSummary?.rates?.employerRate !== undefined
+    ? pfSummary.rates.employerRate
+    : (statutoryConfig?.pf?.employerRate !== undefined
+      ? statutoryConfig.pf.employerRate
+      : (activePfRate?.employerRate !== undefined
+        ? activePfRate.employerRate
+        : (statutoryConfig?.pf?.epfEmployerContribution !== undefined
+          ? statutoryConfig.pf.epfEmployerContribution
+          : 3.67)));
 
-  const cleanEsi = [
-    companyInfo?.employerEsiCode,
-    companyInfo?.esiCode,
-    companyInfo?.esicNo,
-    companyInfo?.esiNo,
-    savedSetup?.employerEsiCode,
-    savedSetup?.esiCode,
-    localDefaultComp?.employerEsiCode,
-    localDefaultComp?.esiCode,
-  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
-  const esiNo = cleanEsi || '—';
+  const pfPensionRate = pfSummary?.rates?.pensionRate !== undefined
+    ? pfSummary.rates.pensionRate
+    : (statutoryConfig?.pf?.pensionRate !== undefined
+      ? statutoryConfig.pf.pensionRate
+      : (activePfRate?.pensionRate !== undefined
+        ? activePfRate.pensionRate
+        : (statutoryConfig?.pf?.epsContribution !== undefined
+          ? statutoryConfig.pf.epsContribution
+          : 8.33)));
+
+  const pfAdminRate = pfSummary?.rates?.adminRate !== undefined
+    ? pfSummary.rates.adminRate
+    : (statutoryConfig?.pf?.adminRate !== undefined
+      ? statutoryConfig.pf.adminRate
+      : 0.5);
+
+  const pfEdliRate = pfSummary?.rates?.edliRate !== undefined
+    ? pfSummary.rates.edliRate
+    : (statutoryConfig?.pf?.edliRate !== undefined
+      ? statutoryConfig.pf.edliRate
+      : 0.5);
+
+  const activeEsiRate = Array.isArray(statutoryConfig?.esi?.esiRates) ? statutoryConfig.esi.esiRates.find(r => r.enabled) : null;
+  const esiEmployeeRate = esiSummary?.rates?.employeeContribution !== undefined
+    ? esiSummary.rates.employeeContribution
+    : (statutoryConfig?.esi?.employeeRate !== undefined
+      ? statutoryConfig.esi.employeeRate
+      : (activeEsiRate?.employeeContribution !== undefined
+        ? activeEsiRate.employeeContribution
+        : (statutoryConfig?.esi?.employeeContribution !== undefined
+          ? statutoryConfig.esi.employeeContribution
+          : 0.75)));
+
+  const esiEmployerRate = esiSummary?.rates?.employerContribution !== undefined
+    ? esiSummary.rates.employerContribution
+    : (statutoryConfig?.esi?.employerRate !== undefined
+      ? statutoryConfig.esi.employerRate
+      : (activeEsiRate?.employerContribution !== undefined
+        ? activeEsiRate.employerContribution
+        : (statutoryConfig?.esi?.employerContribution !== undefined
+          ? statutoryConfig.esi.employerContribution
+          : 3.25)));
+
+  const companyName = companyInfo?.name || companyInfo?.companyName || '';
+  const companyAddress = companyInfo?.address && companyInfo.address !== '—' ? companyInfo.address : '';
+  const pfNo = companyInfo?.employerPfCode || companyInfo?.pfCode || companyInfo?.pfNo || '—';
+  const esiNo = companyInfo?.employerEsiCode || companyInfo?.esiCode || companyInfo?.esiNo || '—';
   const monthLabel = period?.monthLabel || period?.month || 'Current Month';
   const toDate = period?.toDate || new Date().toISOString().slice(0, 10);
-
-  const clientName =
-    options?.clientInfo?.name ||
-    options?.clientName ||
-    companyInfo?.clientInfo?.name ||
-    (options?.filters?.company && options.filters.company !== 'All Companies' ? options.filters.company : null) ||
-    records[0]?.clientName ||
-    records[0]?.site ||
-    '';
 
   const aoa = [
     // Statutory Rules
@@ -89,13 +211,13 @@ export const downloadSalarySheetFormat1Excel = (
     // Company Header
     [companyName],
     [companyAddress],
-    [`PF No :- ${pfNo}`, '', `Date of Payment :- ${toDate}`, '', '', '', '', 'Wage/Salary Register', '', '', '', '', '', '', `For The Month Of ${monthLabel}`],
+    [`PF No :- ${pfNo}`, '', `Date of Payment :- ${toDate}`, '', '', 'Wage/Salary Register', '', '', '', '', '', '', '', '', '', `For The Month Of  ${monthLabel}`],
     [`ESI No :- ${esiNo}`],
     [''],
-    // Table Header Level 1
+    // Table Headers
     [
       'Sr. No.',
-      'Employee Name / Designation / Dept / UAN / PF / ESI',
+      'Employee Details',
       'Emp. ID',
       'Details of Attendance',
       'Rate of Wages',
@@ -104,9 +226,9 @@ export const downloadSalarySheetFormat1Excel = (
       'Earnings - CONV',
       'Earnings - SP.All / OT/PIB',
       'Gross Salary',
-      'Deduction - P.F / ESI',
+      `Deduction - P.F (${pfEmployeeRate}%) / ESI (${esiEmployeeRate}%)`,
       'Deduction - P.T. / I.T. / LWF',
-      'Deduction - Advance / LOAN / Food',
+      'Deduction - Advance / Loan / Food',
       'Deduction - Oth.Ded / E/Mbill',
       'Gross Deduct.',
       'Net Payable',
@@ -115,164 +237,208 @@ export const downloadSalarySheetFormat1Excel = (
   ];
 
   // Records
-  records.forEach((row, idx) => {
+  activeRecords.forEach((row, idx) => {
     const att = row.attendance || {};
     const rate = row.rateOfWages || {};
     const earn = row.earnings || {};
     const ded = row.deductions || {};
 
-    const empInfoText = [
-      row.name,
-      row.designation,
-      row.department,
-      row.uan ? `UAN: ${row.uan}` : '',
-      row.pfNo ? `PF: ${row.pfNo}` : '',
-      row.esiNo ? `ESI: ${row.esiNo}` : ''
-    ].filter(Boolean).join('\n');
+    const empLines = [];
+    if (selectedOptions.name !== false && row.name) empLines.push(row.name);
+    if (selectedOptions.designation !== false && row.designation) empLines.push(row.designation);
+    if (selectedOptions.department !== false && row.department) empLines.push(row.department);
+    if (selectedOptions.fatherHusbandName !== false && (row.fatherHusbandName || row.fatherName)) empLines.push(`F/H: ${row.fatherHusbandName || row.fatherName}`);
+    if (selectedOptions.site !== false && (row.site || row.siteLocation || row.clientName)) empLines.push(`Site: ${row.site || row.siteLocation || row.clientName}`);
+    if (selectedOptions.dutyPost && row.dutyPost) empLines.push(`Post: ${row.dutyPost}`);
+    if (selectedOptions.joiningDate && row.joiningDate) empLines.push(`DOJ: ${row.joiningDate}`);
+    if (selectedOptions.gender && row.gender) empLines.push(`Sex: ${row.gender}`);
+    if (selectedOptions.uan !== false && row.uan) empLines.push(`UAN No:${row.uan}`);
+    if (selectedOptions.pfNo !== false && row.pfNo) empLines.push(`PF.No ${row.pfNo}`);
+    if (selectedOptions.esiNo !== false && row.esiNo) empLines.push(`ESI No:${row.esiNo}`);
+    if (selectedOptions.pan && row.pan) empLines.push(`PAN: ${row.pan}`);
+    if (selectedOptions.aadhaar && row.aadhaar) empLines.push(`Aadhaar: ${row.aadhaar}`);
+    const empInfoText = empLines.join('\n');
 
-    const attText = `WD: ${att.wd || '0.00'}\nWO: ${att.wo || '0.00'}\nPH: ${att.ph || '0.00'}\nPD: ${att.pd || '0.00'}\nPL: ${att.pl || '0.00'}\nCL: ${att.cl || '0.00'}\nSL: ${att.sl || '0.00'}\nML/Adj: ${att.mlAdj || '0.00'}\nTOT: ${att.tot || '0.00'}`;
+    const attLines = [];
+    if (selectedOptions.attWd !== false) attLines.push(`WD: ${att.wd || '0.00'}`);
+    if (selectedOptions.attWo !== false) attLines.push(`WO: ${att.wo || '0.00'}`);
+    if (selectedOptions.attPh !== false) attLines.push(`PH: ${att.ph || '0.00'}`);
+    if (selectedOptions.attPd !== false) attLines.push(`PD: ${att.pd || '0.00'}`);
+    if (selectedOptions.attPl !== false) attLines.push(`PL: ${att.pl || '0.00'}`);
+    if (selectedOptions.attCl !== false) attLines.push(`CL: ${att.cl || '0.00'}`);
+    if (selectedOptions.attSl !== false) attLines.push(`SL: ${att.sl || '0.00'}`);
+    if (selectedOptions.attMlAdj !== false && (att.mlAdj || selectedOptions.attMlAdj === true)) attLines.push(`ML/Adj: ${att.mlAdj || '0.00'}`);
+    if (selectedOptions.attTot !== false) attLines.push(`TOT: ${att.tot || '0.00'}`);
+    const attText = attLines.join('\n');
 
-    const rateText = `BASIC: ${rate.basic || 0}\nDA: ${rate.da || 0}\nHRA: ${rate.hra || 0}\nCONV: ${rate.conv || 0}\nSP.All: ${rate.spAll || 0}\nOTH.All: ${rate.othAll || 0}\nTotal: ${rate.total || 0}`;
+    const rateLines = [];
+    if (selectedOptions.rateBasic !== false) rateLines.push(`BASIC: ${rate.basic || 0}`);
+    if (selectedOptions.rateDa !== false) rateLines.push(`DA: ${rate.da || 0}`);
+    if (selectedOptions.rateHra !== false) rateLines.push(`HRA: ${rate.hra || 0}`);
+    if (selectedOptions.rateConv !== false) rateLines.push(`CONV: ${rate.conv || 0}`);
+    if (selectedOptions.rateSpAll !== false) rateLines.push(`SP.All: ${rate.spAll || 0}`);
+    if (selectedOptions.rateOthAll !== false) rateLines.push(`OTH.All: ${rate.othAll || 0}`);
+    if (selectedOptions.rateTotal !== false) rateLines.push(`Total: ${rate.total || 0}`);
+    const rateText = rateLines.join('\n');
 
-    const grossText = `${row.grossSalary || 0}\nP ${row.pfWage || 0}\nE ${row.esiWage || 0}`;
+    const grossLines = [];
+    if (selectedOptions.grossSalary !== false) grossLines.push(String(row.grossSalary || 0));
+    if (selectedOptions.pfWage !== false && row.pfWage > 0) grossLines.push(`P ${row.pfWage}`);
+    if (selectedOptions.esiWage !== false && row.esiWage > 0) grossLines.push(`E ${row.esiWage}`);
+    const grossText = grossLines.join('\n') || '—';
 
-    const bankText = `Bank\n${row.bankName || '—'}\n${row.bankAccountNo || '—'}`;
+    const bankLines = [];
+    if (selectedOptions.bankName !== false && row.bankName) bankLines.push(row.bankName);
+    if (selectedOptions.bankAccountNo !== false && row.bankAccountNo) bankLines.push(row.bankAccountNo);
+    if (selectedOptions.ifsc && row.ifsc) bankLines.push(`IFSC: ${row.ifsc}`);
+    if (selectedOptions.paymentMode && row.paymentMode) bankLines.push(`Mode: ${row.paymentMode}`);
+    if (selectedOptions.signature !== false) bankLines.push('Sign: ________');
+    const bankText = bankLines.length ? `Bank\n${bankLines.join('\n')}` : '—';
+
+    const earnBasicDa = `${selectedOptions.earnBasic !== false ? (earn.basic || 0) : '—'}\n${selectedOptions.earnDa !== false ? (earn.da || 0) : '—'}`;
+    const earnHraOth = `${selectedOptions.earnHra !== false ? (earn.hra || 0) : '—'}\n${selectedOptions.earnOthAll !== false ? (earn.othAll || 0) : '—'}`;
+    const earnConvVal = `${selectedOptions.earnConv !== false ? (earn.conv || 0) : '—'}`;
+    const earnSpOt = `${selectedOptions.earnSpAll !== false ? (earn.spAll || 0) : '—'}\n${selectedOptions.earnOtPib !== false ? (earn.otPib || 0) : '—'}`;
+
+    const dedPfEsi = `${selectedOptions.dedPf !== false ? (ded.pf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (ded.esi || 0) : '—'}`;
+    const dedPtItLwf = `${selectedOptions.dedPt !== false ? (ded.pt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (ded.it || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (ded.lwf || 0) : '—'}`;
+    const dedAdvLoanFood = `${selectedOptions.dedAdvance !== false ? (ded.advance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (ded.loan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}`;
+    const dedOthEM = `${selectedOptions.dedOthDed !== false ? (ded.othDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (ded.eMbill || 0) : '—'}`;
 
     aoa.push([
-      row.srNo || idx + 1,
+      selectedOptions.srNo !== false ? (row.srNo || idx + 1) : '—',
       empInfoText,
-      row.employeeId || '',
+      selectedOptions.employeeId !== false ? (row.employeeId || '') : '—',
       attText,
       rateText,
-      `${earn.basic || 0}\n${earn.da || 0}`,
-      `${earn.hra || 0}\n${earn.othAll || 0}`,
-      `${earn.conv || 0}`,
-      `${earn.spAll || 0}\n${earn.otPib || 0}`,
+      earnBasicDa,
+      earnHraOth,
+      earnConvVal,
+      earnSpOt,
       grossText,
-      `${ded.pf || 0}\n${ded.esi || 0}`,
-      `${ded.pt || 0}\n${ded.it || 0}\n${ded.lwf || 0}`,
-      `${ded.advance || 0}\n${ded.loan || 0}\n${ded.food || 0}`,
-      `${ded.othDed || 0}\n${ded.eMbill || 0}`,
-      row.grossDeduct || 0,
-      row.netPayable || 0,
+      dedPfEsi,
+      dedPtItLwf,
+      dedAdvLoanFood,
+      dedOthEM,
+      selectedOptions.grossDeduct !== false ? (row.grossDeduct || 0) : '—',
+      selectedOptions.netPayable !== false ? (row.netPayable || 0) : '—',
       bankText
     ]);
   });
 
   // Grand Total Row
-  aoa.push([
-    'Grand Total',
-    '',
-    '',
-    `Total WO: ${(totals.totalWo || 0).toFixed(2)}\nTotal PH: ${(totals.totalPh || 0).toFixed(2)}\nTotal PD: ${(totals.totalPd || 0).toFixed(2)}\nTotal PL: ${(totals.totalPl || 0).toFixed(2)}\nTotal CL: ${(totals.totalCl || 0).toFixed(2)}\nTotal S.L.: ${(totals.totalSl || 0).toFixed(2)}\nML/Adj: ${(totals.totalMlAdj || 0).toFixed(2)}`,
-    totals.totalRateTotal || '',
-    `${totals.grandBasic || 0}\n${totals.grandDa || 0}`,
-    `${totals.grandHra || 0}\n${totals.grandOthAll || 0}`,
-    `${totals.grandConv || 0}`,
-    `${totals.grandSpAll || 0}\n${totals.grandOtPib || 0}`,
-    totals.grandGross || 0,
-    `${totals.grandPf || 0}\n${totals.grandEsi || 0}`,
-    `${totals.grandPt || 0}\n${totals.grandIt || 0}\n${totals.grandLwf || 0}`,
-    `${totals.grandAdvance || 0}\n${totals.grandLoan || 0}\n${totals.grandFood || 0}`,
-    `${totals.grandOthDed || 0}\n${totals.grandEMbill || 0}`,
-    totals.grandDeductions || 0,
-    totals.grandNet || 0,
-    `For ${companyName}`
-  ]);
+  if (activeRecords.length > 0) {
+    const attTotalLines = [];
+    if (selectedOptions.attWo !== false) attTotalLines.push(`Total WO: ${(activeTotals.totalWo || 0).toFixed(2)}`);
+    if (selectedOptions.attPh !== false) attTotalLines.push(`Total PH: ${(activeTotals.totalPh || 0).toFixed(2)}`);
+    if (selectedOptions.attPd !== false) attTotalLines.push(`Total PD: ${(activeTotals.totalPd || 0).toFixed(2)}`);
+    if (selectedOptions.attPl !== false) attTotalLines.push(`Total PL: ${(activeTotals.totalPl || 0).toFixed(2)}`);
+    if (selectedOptions.attCl !== false) attTotalLines.push(`Total CL: ${(activeTotals.totalCl || 0).toFixed(2)}`);
+    if (selectedOptions.attSl !== false) attTotalLines.push(`Total SL: ${(activeTotals.totalSl || 0).toFixed(2)}`);
+    if (selectedOptions.attMlAdj !== false && (activeTotals.totalMlAdj || selectedOptions.attMlAdj === true)) attTotalLines.push(`ML/Adj: ${(activeTotals.totalMlAdj || 0).toFixed(2)}`);
 
-  aoa.push(['']);
-  aoa.push(['']);
+    aoa.push([
+      'Grand Total',
+      '',
+      '',
+      attTotalLines.join('\n'),
+      selectedOptions.rateTotal !== false ? (activeTotals.totalRateTotal || '') : '',
+      `${selectedOptions.earnBasic !== false ? (activeTotals.grandBasic || 0) : '—'}\n${selectedOptions.earnDa !== false ? (activeTotals.grandDa || 0) : '—'}`,
+      `${selectedOptions.earnHra !== false ? (activeTotals.grandHra || 0) : '—'}\n${selectedOptions.earnOthAll !== false ? (activeTotals.grandOthAll || 0) : '—'}`,
+      selectedOptions.earnConv !== false ? (activeTotals.grandConv || 0) : '—',
+      `${selectedOptions.earnSpAll !== false ? (activeTotals.grandSpAll || 0) : '—'}\n${selectedOptions.earnOtPib !== false ? (activeTotals.grandOtPib || 0) : '—'}`,
+      selectedOptions.grossSalary !== false ? (activeTotals.grandGross || 0) : '—',
+      `${selectedOptions.dedPf !== false ? (activeTotals.grandPf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (activeTotals.grandEsi || 0) : '—'}`,
+      `${selectedOptions.dedPt !== false ? (activeTotals.grandPt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (activeTotals.grandIt || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (activeTotals.grandLwf || 0) : '—'}`,
+      `${selectedOptions.dedAdvance !== false ? (activeTotals.grandAdvance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (activeTotals.grandLoan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (activeTotals.grandFood || 0) : '—'}`,
+      `${selectedOptions.dedOthDed !== false ? (activeTotals.grandOthDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (activeTotals.grandEMbill || 0) : '—'}`,
+      selectedOptions.grossDeduct !== false ? (activeTotals.grandDeductions || 0) : '—',
+      selectedOptions.netPayable !== false ? (activeTotals.grandNet || 0) : '—',
+      `For ${companyName}`
+    ]);
+  }
 
-  // Bottom Summary Section: PF Summary, ESI Summary, PT Summary, Earning & Deduction Summary, Net Pay
-  aoa.push(['PF SUMMARY', '', '', '', '', '', '', '', '', 'ESI Summary', '', '', '', 'P.T. Summary', '', 'Earning Summary', 'Deduction Summary']);
-  aoa.push([
-    'PF Wages', 'Strn.', 'EE', 'ER (Diff)', 'A/C - 1', 'A/C 10', 'A/C 2', 'A/C - 21', 'A/C - 22',
-    'ESI Wages', 'Strn', 'EE Share', 'ER.Share',
-    'PT Amount', 'PT Count',
-    `BASIC: ${earningSummary.basic || totals.grandBasic || 0}`,
-    `P.F: ${deductionSummary.pf || totals.grandPf || 0}`
-  ]);
+  // Summary sections (Page 2) as per selectedOptions
+  if (selectedOptions.showPfSummary !== false || selectedOptions.showEsiSummary !== false || selectedOptions.showPtSummary !== false || selectedOptions.showEarningDeductionStatement !== false) {
+    aoa.push(['']);
+    aoa.push(['']);
+    aoa.push(['STATUTORY SUMMARIES']);
 
-  aoa.push([
-    pfSummary.pfWages || 0,
-    pfSummary.strn || 0,
-    pfSummary.ee || 0,
-    pfSummary.erDiff || 0,
-    pfSummary.ac1 || 0,
-    pfSummary.ac10 || 0,
-    pfSummary.ac2 || 0,
-    pfSummary.ac21 || 0,
-    pfSummary.ac22 || 0,
-    esiSummary.esiWages || 0,
-    esiSummary.strn || 0,
-    esiSummary.eeShare || 0,
-    esiSummary.erShare || 0,
-    ptSummary.ptAmount || totals.grandPt || 0,
-    ptSummary.ptCount || 0,
-    `DA: ${earningSummary.da || totals.grandDa || 0}`,
-    `ESI: ${deductionSummary.esi || totals.grandEsi || 0}`
-  ]);
+    if (selectedOptions.showPfSummary !== false) {
+      aoa.push(['PF SUMMARY']);
+      aoa.push(['PF Wages', 'Strn.', 'EE', 'ER (Diff)', 'A/C - 1', 'A/C 10', 'A/C 2', 'A/C - 21', 'A/C - 22']);
+      aoa.push([
+        pfSummary.pfWages || 0,
+        pfSummary.strn || 0,
+        pfSummary.ee || 0,
+        pfSummary.erDiff || 0,
+        pfSummary.ac1 || 0,
+        pfSummary.ac10 || 0,
+        pfSummary.ac2 || 0,
+        pfSummary.ac21 || 0,
+        pfSummary.ac22 || 0
+      ]);
+    }
 
-  aoa.push([
-    'Total PF:', pfSummary.total || 0, '', '', '', '', '', '', '',
-    'Total ESI:', esiSummary.totalEsi || 0, '', '',
-    '', '',
-    `HRA: ${earningSummary.hra || totals.grandHra || 0}`,
-    `P.T.: ${deductionSummary.pt || totals.grandPt || 0}`
-  ]);
+    if (selectedOptions.showEsiSummary !== false) {
+      aoa.push(['ESI SUMMARY']);
+      aoa.push(['ESI Wages', 'Strn', 'EE Share', 'ER.Share', 'Total ESI']);
+      aoa.push([
+        esiSummary.esiWages || 0,
+        esiSummary.strn || 0,
+        esiSummary.eeShare || 0,
+        esiSummary.erShare || 0,
+        esiSummary.total || 0
+      ]);
+    }
 
-  aoa.push([
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-    `CONV: ${earningSummary.conv || totals.grandConv || 0}`,
-    `I.T.: ${deductionSummary.it || totals.grandIt || 0}`
-  ]);
+    if (selectedOptions.showPtSummary !== false) {
+      aoa.push(['P.T. SUMMARY']);
+      aoa.push(['PT Amount', 'PT Count']);
+      aoa.push([ptSummary.amount || 0, ptSummary.count || 0]);
+    }
 
-  aoa.push([
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-    `SP.All: ${earningSummary.spAll || totals.grandSpAll || 0}`,
-    `LOAN: ${deductionSummary.loan || totals.grandLoan || 0}`
-  ]);
-
-  aoa.push([
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-    `OTH.All: ${earningSummary.othAll || totals.grandOthAll || 0}`,
-    `Advance: ${deductionSummary.advance || totals.grandAdvance || 0}`
-  ]);
-
-  aoa.push([
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-    `OT/PIB: ${earningSummary.otPib || totals.grandOtPib || 0}`,
-    `LWF: ${deductionSummary.lwf || totals.grandLwf || 0}`
-  ]);
-
-  aoa.push([
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-    `Gross Salary: ${earningSummary.grossSalary || totals.grandGross || 0}`,
-    `Gross Ded.: ${deductionSummary.grossDed || totals.grandDeductions || 0}`
-  ]);
-
-  aoa.push([
-    '', '', '', '', '', '', '', '', '', '', '', '', '', '', '',
-    'NET PAY:', totals.grandNet || 0
-  ]);
+    if (selectedOptions.showEarningDeductionStatement !== false) {
+      aoa.push(['CONSOLIDATED STATEMENT']);
+      aoa.push(['Component', 'Earnings (INR)', 'Deductions (INR)']);
+      aoa.push(['Basic / PF', earningSummary.basic || activeTotals.grandBasic || 0, deductionSummary.pf || activeTotals.grandPf || 0]);
+      aoa.push(['DA / ESI', earningSummary.da || activeTotals.grandDa || 0, deductionSummary.esi || activeTotals.grandEsi || 0]);
+      aoa.push(['HRA / PT', earningSummary.hra || activeTotals.grandHra || 0, deductionSummary.pt || activeTotals.grandPt || 0]);
+      aoa.push(['Gross / Gross Deductions', activeTotals.grandGross || 0, activeTotals.grandDeductions || 0]);
+      aoa.push(['Net Payable Salary', activeTotals.grandNet || 0, '']);
+    }
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(aoa);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Wage_Salary_Register');
+  XLSX.utils.book_append_sheet(wb, ws, 'Wage Salary Register');
 
   const fileName = `Salary_Sheet_Format_1_${String(monthLabel).replace(/\s+/g, '_')}.${options.format === 'csv' ? 'csv' : 'xlsx'}`;
 
   if (options.format === 'csv') {
-    XLSX.writeFile(wb, fileName, { bookType: 'csv' });
+    const csvContent = XLSX.utils.sheet_to_csv(ws);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   } else {
     XLSX.writeFile(wb, fileName);
   }
 };
 
-export const downloadSalarySheetFormat1Csv = (records, companyInfo, period, totals, pfSummary, esiSummary, ptSummary, earningSummary, deductionSummary) => {
-  downloadSalarySheetFormat1Excel(records, companyInfo, period, totals, pfSummary, esiSummary, ptSummary, earningSummary, deductionSummary, { format: 'csv' });
+export const downloadSalarySheetFormat1Csv = (records, companyInfo, period, totals, pfSummary, esiSummary, ptSummary, earningSummary, deductionSummary, options = {}) => {
+  return downloadSalarySheetFormat1Excel(records, companyInfo, period, totals, pfSummary, esiSummary, ptSummary, earningSummary, deductionSummary, { ...options, format: 'csv' });
 };
 
+/**
+ * Downloads Salary Sheet (Format 1) as Official Multi-Page PDF
+ * Strictly respects selectedOptions for all columns, details, attendance, rates, earnings, deductions, and Page 2 summaries
+ */
 export const downloadSalarySheetFormat1Pdf = async (
   records = [],
   companyInfo = {},
@@ -285,80 +451,81 @@ export const downloadSalarySheetFormat1Pdf = async (
   deductionSummary = {},
   options = {}
 ) => {
-  // Live preview capture for exact styling/layout parity
-  if (typeof document !== 'undefined') {
-    const previewEl = document.querySelector('#report-preview-capture-area') || document.querySelector('[class*="SalarySheetFormat1View_paperSheet"]');
-    if (previewEl) {
-      const cleanMonth = (period?.monthLabel || period?.month || 'Current').replace(/[^a-zA-Z0-9_-]/g, '_');
-      const ok = await downloadElementAsPdf(previewEl, {
-        filename: `Wage_Salary_Register_${cleanMonth}.pdf`,
-        title: 'Wage/Salary Register',
-        mode: options.mode || 'download',
-        orientation: 'landscape',
-        format: 'a3',
-      });
-      if (ok) return;
-    }
-  }
+  const selectedOptions = options?.selectedOptions || {};
+  const activeRecords = filterRecordsByOptions(records, selectedOptions);
+  const activeTotals = calculateDynamicTotals(activeRecords, totals);
 
-  const companyName = companyInfo?.name || companyInfo?.companyName || 'RR Security & Facilities';
-  const companyAddress =
-    companyInfo?.address && companyInfo.address !== '—'
-      ? companyInfo.address
-      : 'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
-  let savedSetup = {};
-  try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_company_setup') : null;
-    if (raw) savedSetup = JSON.parse(raw);
-  } catch (e) {}
+  const statutoryConfig = options.statutoryConfig || {};
+  const activePfRate = Array.isArray(statutoryConfig?.pf?.pfRates) ? statutoryConfig.pf.pfRates.find(r => r.enabled) : null;
+  const pfEmployeeRate = pfSummary?.rates?.employeeRate !== undefined
+    ? pfSummary.rates.employeeRate
+    : (statutoryConfig?.pf?.employeeRate !== undefined
+      ? statutoryConfig.pf.employeeRate
+      : (activePfRate?.employeeRate !== undefined
+        ? activePfRate.employeeRate
+        : (statutoryConfig?.pf?.employeeContribution !== undefined
+          ? statutoryConfig.pf.employeeContribution
+          : 12)));
 
-  let adminCompanies = [];
-  try {
-    const raw = typeof window !== 'undefined' ? localStorage.getItem('novaspark_admin_companies') : null;
-    if (raw) adminCompanies = JSON.parse(raw);
-  } catch (e) {}
-  const localDefaultComp = adminCompanies.find(c => c.isDefault) || adminCompanies[0] || {};
+  const pfEmployerRate = pfSummary?.rates?.employerRate !== undefined
+    ? pfSummary.rates.employerRate
+    : (statutoryConfig?.pf?.employerRate !== undefined
+      ? statutoryConfig.pf.employerRate
+      : (activePfRate?.employerRate !== undefined
+        ? activePfRate.employerRate
+        : (statutoryConfig?.pf?.epfEmployerContribution !== undefined
+          ? statutoryConfig.pf.epfEmployerContribution
+          : 3.67)));
 
-  const cleanPf = [
-    companyInfo?.employerPfCode,
-    companyInfo?.pfCode,
-    companyInfo?.pfNo,
-    companyInfo?.epfNo,
-    savedSetup?.employerPfCode,
-    savedSetup?.pfCode,
-    localDefaultComp?.employerPfCode,
-    localDefaultComp?.pfCode,
-  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
-  const pfNo = cleanPf || '—';
+  const pfPensionRate = pfSummary?.rates?.pensionRate !== undefined
+    ? pfSummary.rates.pensionRate
+    : (statutoryConfig?.pf?.pensionRate !== undefined
+      ? statutoryConfig.pf.pensionRate
+      : (activePfRate?.pensionRate !== undefined
+        ? activePfRate.pensionRate
+        : (statutoryConfig?.pf?.epsContribution !== undefined
+          ? statutoryConfig.pf.epsContribution
+          : 8.33)));
 
-  const cleanEsi = [
-    companyInfo?.employerEsiCode,
-    companyInfo?.esiCode,
-    companyInfo?.esicNo,
-    companyInfo?.esiNo,
-    savedSetup?.employerEsiCode,
-    savedSetup?.esiCode,
-    localDefaultComp?.employerEsiCode,
-    localDefaultComp?.esiCode,
-  ].find((v) => v && typeof v === 'string' && !['—', '-', '–', 'null', 'undefined', 'N/A', 'NA', ''].includes(v.trim()));
-  const esiNo = cleanEsi || '—';
+  const pfAdminRate = pfSummary?.rates?.adminRate !== undefined
+    ? pfSummary.rates.adminRate
+    : (statutoryConfig?.pf?.adminRate !== undefined
+      ? statutoryConfig.pf.adminRate
+      : 0.5);
+
+  const pfEdliRate = pfSummary?.rates?.edliRate !== undefined
+    ? pfSummary.rates.edliRate
+    : (statutoryConfig?.pf?.edliRate !== undefined
+      ? statutoryConfig.pf.edliRate
+      : 0.5);
+
+  const activeEsiRate = Array.isArray(statutoryConfig?.esi?.esiRates) ? statutoryConfig.esi.esiRates.find(r => r.enabled) : null;
+  const esiEmployeeRate = esiSummary?.rates?.employeeContribution !== undefined
+    ? esiSummary.rates.employeeContribution
+    : (statutoryConfig?.esi?.employeeRate !== undefined
+      ? statutoryConfig.esi.employeeRate
+      : (activeEsiRate?.employeeContribution !== undefined
+        ? activeEsiRate.employeeContribution
+        : (statutoryConfig?.esi?.employeeContribution !== undefined
+          ? statutoryConfig.esi.employeeContribution
+          : 0.75)));
+
+  const esiEmployerRate = esiSummary?.rates?.employerContribution !== undefined
+    ? esiSummary.rates.employerContribution
+    : (statutoryConfig?.esi?.employerRate !== undefined
+      ? statutoryConfig.esi.employerRate
+      : (activeEsiRate?.employerContribution !== undefined
+        ? activeEsiRate.employerContribution
+        : (statutoryConfig?.esi?.employerContribution !== undefined
+          ? statutoryConfig.esi.employerContribution
+          : 3.25)));
+
+  const companyName = companyInfo?.name || companyInfo?.companyName || '';
+  const companyAddress = companyInfo?.address && companyInfo.address !== '—' ? companyInfo.address : '';
+  const pfNo = companyInfo?.employerPfCode || companyInfo?.pfCode || companyInfo?.pfNo || '—';
+  const esiNo = companyInfo?.employerEsiCode || companyInfo?.esiCode || companyInfo?.esiNo || '—';
   const monthLabel = period?.monthLabel || period?.month || 'Current Month';
   const toDate = period?.toDate || new Date().toISOString().slice(0, 10);
-
-  const clientName =
-    options?.clientInfo?.name ||
-    options?.clientName ||
-    companyInfo?.clientInfo?.name ||
-    (options?.filters?.company && options.filters.company !== 'All Companies' ? options.filters.company : null) ||
-    records[0]?.clientName ||
-    records[0]?.site ||
-    '';
-
-  // If print mode requested, trigger window print with dedicated stylesheet
-  if (options.mode === 'print') {
-    window.print();
-    return;
-  }
 
   const doc = new jsPDF({
     orientation: 'landscape',
@@ -424,77 +591,121 @@ export const downloadSalarySheetFormat1Pdf = async (
       { content: 'HRA\nOTH.All', styles: { halign: 'right' } },
       { content: 'CONV', styles: { halign: 'right' } },
       { content: 'SP.All\nOT/PIB', styles: { halign: 'right' } },
-      { content: 'P.F\nESI', styles: { halign: 'right' } },
-      { content: 'P.T.\nI.T.\nLWF', styles: { halign: 'right' } },
-      { content: 'Advance\nLOAN\nFood', styles: { halign: 'right' } },
+      { content: `P.F (${pfEmployeeRate}%)\nESI (${esiEmployeeRate}%)`, styles: { halign: 'right' } },
+      { content: 'P.T.\nI.T. / LWF', styles: { halign: 'right' } },
+      { content: 'Advance\nLoan / Food', styles: { halign: 'right' } },
       { content: 'Oth.Ded\nE/Mbill', styles: { halign: 'right' } },
     ],
   ];
 
-  const tableBody = records.map((row, idx) => {
+  const tableBody = activeRecords.map((row, idx) => {
     const att = row.attendance || {};
     const rate = row.rateOfWages || {};
     const earn = row.earnings || {};
     const ded = row.deductions || {};
 
-    const empText = [
-      row.name,
-      row.designation,
-      row.department,
-      row.uan ? `UAN No:${row.uan}` : '',
-      row.pfNo ? `PF No:${row.pfNo}` : '',
-      row.esiNo ? `ESI No:${row.esiNo}` : '',
-    ].filter(Boolean).join('\n');
+    const empLines = [];
+    if (selectedOptions.name !== false && row.name) empLines.push(row.name);
+    if (selectedOptions.designation !== false && row.designation) empLines.push(row.designation);
+    if (selectedOptions.department !== false && row.department) empLines.push(row.department);
+    if (selectedOptions.fatherHusbandName !== false && (row.fatherHusbandName || row.fatherName)) empLines.push(`F/H: ${row.fatherHusbandName || row.fatherName}`);
+    if (selectedOptions.site !== false && (row.site || row.siteLocation || row.clientName)) empLines.push(`Site: ${row.site || row.siteLocation || row.clientName}`);
+    if (selectedOptions.dutyPost && row.dutyPost) empLines.push(`Post: ${row.dutyPost}`);
+    if (selectedOptions.joiningDate && row.joiningDate) empLines.push(`DOJ: ${row.joiningDate}`);
+    if (selectedOptions.gender && row.gender) empLines.push(`Sex: ${row.gender}`);
+    if (selectedOptions.uan !== false && row.uan) empLines.push(`UAN No:${row.uan}`);
+    if (selectedOptions.pfNo !== false && row.pfNo) empLines.push(`PF.No ${row.pfNo}`);
+    if (selectedOptions.esiNo !== false && row.esiNo) empLines.push(`ESI No:${row.esiNo}`);
+    if (selectedOptions.pan && row.pan) empLines.push(`PAN: ${row.pan}`);
+    if (selectedOptions.aadhaar && row.aadhaar) empLines.push(`Aadhaar: ${row.aadhaar}`);
+    const empText = empLines.join('\n');
 
-    const attText = `WD ${att.wd || '0.00'}\nWO ${att.wo || '0.00'}\nPH ${att.ph || '0.00'}\nPD ${att.pd || '0.00'}\nPL ${att.pl || '0.00'}\nCL ${att.cl || '0.00'}\nS.L. ${att.sl || '0.00'}\nML/Adj ${att.mlAdj || '0.00'}\nTOT ${att.tot || '0.00'}`;
+    const attLines = [];
+    if (selectedOptions.attWd !== false) attLines.push(`WD ${att.wd || '0.00'}`);
+    if (selectedOptions.attWo !== false) attLines.push(`WO ${att.wo || '0.00'}`);
+    if (selectedOptions.attPh !== false) attLines.push(`PH ${att.ph || '0.00'}`);
+    if (selectedOptions.attPd !== false) attLines.push(`PD ${att.pd || '0.00'}`);
+    if (selectedOptions.attPl !== false) attLines.push(`PL ${att.pl || '0.00'}`);
+    if (selectedOptions.attCl !== false) attLines.push(`CL ${att.cl || '0.00'}`);
+    if (selectedOptions.attSl !== false) attLines.push(`SL ${att.sl || '0.00'}`);
+    if (selectedOptions.attMlAdj !== false && (att.mlAdj || selectedOptions.attMlAdj === true)) attLines.push(`ML/Adj ${att.mlAdj || '0.00'}`);
+    if (selectedOptions.attTot !== false) attLines.push(`TOT ${att.tot || '0.00'}`);
+    const attText = attLines.join('\n');
 
-    const rateText = `BASIC ${rate.basic || 0}\nDA ${rate.da || 0}\nHRA ${rate.hra || 0}\nCONV ${rate.conv || 0}\nSP.All ${rate.spAll || 0}\nOTH.All ${rate.othAll || 0}\nTotal ${rate.total || 0}`;
+    const rateLines = [];
+    if (selectedOptions.rateBasic !== false) rateLines.push(`BASIC ${rate.basic || 0}`);
+    if (selectedOptions.rateDa !== false) rateLines.push(`DA ${rate.da || 0}`);
+    if (selectedOptions.rateHra !== false) rateLines.push(`HRA ${rate.hra || 0}`);
+    if (selectedOptions.rateConv !== false) rateLines.push(`CONV ${rate.conv || 0}`);
+    if (selectedOptions.rateSpAll !== false) rateLines.push(`SP.All ${rate.spAll || 0}`);
+    if (selectedOptions.rateOthAll !== false) rateLines.push(`OTH.All ${rate.othAll || 0}`);
+    if (selectedOptions.rateTotal !== false) rateLines.push(`Total ${rate.total || 0}`);
+    const rateText = rateLines.join('\n');
 
-    const grossText = `${(row.grossSalary || 0).toLocaleString('en-IN')}\nP ${(row.pfWage || 0).toLocaleString('en-IN')}\nE ${(row.esiWage || 0).toLocaleString('en-IN')}`;
+    const grossLines = [];
+    if (selectedOptions.grossSalary !== false) grossLines.push((row.grossSalary || 0).toLocaleString('en-IN'));
+    if (selectedOptions.pfWage !== false && row.pfWage > 0) grossLines.push(`P ${(row.pfWage || 0).toLocaleString('en-IN')}`);
+    if (selectedOptions.esiWage !== false && row.esiWage > 0) grossLines.push(`E ${(row.esiWage || 0).toLocaleString('en-IN')}`);
+    const grossText = grossLines.join('\n') || '—';
 
-    const signText = `Bank\n${row.bankName || '—'}\n${row.bankAccountNo || '—'}`;
+    const bankLines = [];
+    if (selectedOptions.bankName !== false && row.bankName) bankLines.push(row.bankName);
+    if (selectedOptions.bankAccountNo !== false && row.bankAccountNo) bankLines.push(row.bankAccountNo);
+    if (selectedOptions.ifsc && row.ifsc) bankLines.push(`IFSC: ${row.ifsc}`);
+    if (selectedOptions.paymentMode && row.paymentMode) bankLines.push(`Mode: ${row.paymentMode}`);
+    if (selectedOptions.signature !== false) bankLines.push('Sign: ________');
+    const signText = bankLines.length ? `Bank\n${bankLines.join('\n')}` : '—';
 
     return [
-      row.srNo || idx + 1,
+      selectedOptions.srNo !== false ? (row.srNo || idx + 1) : '—',
       empText,
-      row.employeeId || '',
+      selectedOptions.employeeId !== false ? (row.employeeId || '') : '—',
       attText,
       rateText,
-      `${earn.basic || 0}\n${earn.da || 0}`,
-      `${earn.hra || 0}\n${earn.othAll || 0}`,
-      `${earn.conv || 0}`,
-      `${earn.spAll || 0}\n${earn.otPib || 0}`,
+      `${selectedOptions.earnBasic !== false ? (earn.basic || 0) : '—'}\n${selectedOptions.earnDa !== false ? (earn.da || 0) : '—'}`,
+      `${selectedOptions.earnHra !== false ? (earn.hra || 0) : '—'}\n${selectedOptions.earnOthAll !== false ? (earn.othAll || 0) : '—'}`,
+      selectedOptions.earnConv !== false ? (earn.conv || 0) : '—',
+      `${selectedOptions.earnSpAll !== false ? (earn.spAll || 0) : '—'}\n${selectedOptions.earnOtPib !== false ? (earn.otPib || 0) : '—'}`,
       grossText,
-      `${ded.pf || 0}\n${ded.esi || 0}`,
-      `${ded.pt || 0}\n${ded.it || 0}\n${ded.lwf || 0}`,
-      `${ded.advance || 0}\n${ded.loan || 0}\n${ded.food || 0}`,
-      `${ded.othDed || 0}\n${ded.eMbill || 0}`,
-      (row.grossDeduct || 0).toLocaleString('en-IN'),
-      (row.netPayable || 0).toLocaleString('en-IN'),
+      `${selectedOptions.dedPf !== false ? (ded.pf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (ded.esi || 0) : '—'}`,
+      `${selectedOptions.dedPt !== false ? (ded.pt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (ded.it || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (ded.lwf || 0) : '—'}`,
+      `${selectedOptions.dedAdvance !== false ? (ded.advance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (ded.loan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}`,
+      `${selectedOptions.dedOthDed !== false ? (ded.othDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (ded.eMbill || 0) : '—'}`,
+      selectedOptions.grossDeduct !== false ? (row.grossDeduct || 0).toLocaleString('en-IN') : '—',
+      selectedOptions.netPayable !== false ? (row.netPayable || 0).toLocaleString('en-IN') : '—',
       signText,
     ];
   });
 
   // Grand Total Row
-  const attTotalText = `Total WO ${(totals.totalWo || 0).toFixed(2)}\nTotal PH ${(totals.totalPh || 0).toFixed(2)}\nTotal PD ${(totals.totalPd || 0).toFixed(2)}\nTotal PL ${(totals.totalPl || 0).toFixed(2)}\nTotal CL ${(totals.totalCl || 0).toFixed(2)}\nTotal S.L. ${(totals.totalSl || 0).toFixed(2)}\nML/Adj ${(totals.totalMlAdj || 0).toFixed(2)}`;
+  if (activeRecords.length > 0) {
+    const attTotalLines = [];
+    if (selectedOptions.attWo !== false) attTotalLines.push(`Total WO ${(activeTotals.totalWo || 0).toFixed(2)}`);
+    if (selectedOptions.attPh !== false) attTotalLines.push(`Total PH ${(activeTotals.totalPh || 0).toFixed(2)}`);
+    if (selectedOptions.attPd !== false) attTotalLines.push(`Total PD ${(activeTotals.totalPd || 0).toFixed(2)}`);
+    if (selectedOptions.attPl !== false) attTotalLines.push(`Total PL ${(activeTotals.totalPl || 0).toFixed(2)}`);
+    if (selectedOptions.attCl !== false) attTotalLines.push(`Total CL ${(activeTotals.totalCl || 0).toFixed(2)}`);
+    if (selectedOptions.attSl !== false) attTotalLines.push(`Total SL ${(activeTotals.totalSl || 0).toFixed(2)}`);
+    if (selectedOptions.attMlAdj !== false && (activeTotals.totalMlAdj || selectedOptions.attMlAdj === true)) attTotalLines.push(`ML/Adj ${(activeTotals.totalMlAdj || 0).toFixed(2)}`);
 
-  tableBody.push([
-    { content: 'Grand Total', colSpan: 3, styles: { halign: 'center', fontStyle: 'bold' } },
-    { content: attTotalText, styles: { fontStyle: 'bold' } },
-    { content: '', styles: { fontStyle: 'bold' } },
-    { content: `${totals.grandBasic || 0}\n${totals.grandDa || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandHra || 0}\n${totals.grandOthAll || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandConv || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandSpAll || 0}\n${totals.grandOtPib || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${(totals.grandGross || 0).toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandPf || 0}\n${totals.grandEsi || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandPt || 0}\n${totals.grandIt || 0}\n${totals.grandLwf || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandAdvance || 0}\n${totals.grandLoan || 0}\n${totals.grandFood || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${totals.grandOthDed || 0}\n${totals.grandEMbill || 0}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${(totals.grandDeductions || 0).toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `${(totals.grandNet || 0).toLocaleString('en-IN')}`, styles: { halign: 'right', fontStyle: 'bold' } },
-    { content: `For ${companyName}`, styles: { halign: 'center', fontStyle: 'bold' } },
-  ]);
+    tableBody.push([
+      { content: 'Grand Total', colSpan: 3, styles: { halign: 'center', fontStyle: 'bold' } },
+      { content: attTotalLines.join('\n'), styles: { fontStyle: 'bold' } },
+      { content: selectedOptions.rateTotal !== false ? String(activeTotals.totalRateTotal || '') : '', styles: { fontStyle: 'bold' } },
+      { content: `${selectedOptions.earnBasic !== false ? (activeTotals.grandBasic || 0) : '—'}\n${selectedOptions.earnDa !== false ? (activeTotals.grandDa || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.earnHra !== false ? (activeTotals.grandHra || 0) : '—'}\n${selectedOptions.earnOthAll !== false ? (activeTotals.grandOthAll || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: selectedOptions.earnConv !== false ? String(activeTotals.grandConv || 0) : '—', styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.earnSpAll !== false ? (activeTotals.grandSpAll || 0) : '—'}\n${selectedOptions.earnOtPib !== false ? (activeTotals.grandOtPib || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: selectedOptions.grossSalary !== false ? (activeTotals.grandGross || 0).toLocaleString('en-IN') : '—', styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.dedPf !== false ? (activeTotals.grandPf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (activeTotals.grandEsi || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.dedPt !== false ? (activeTotals.grandPt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (activeTotals.grandIt || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (activeTotals.grandLwf || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.dedAdvance !== false ? (activeTotals.grandAdvance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (activeTotals.grandLoan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (activeTotals.grandFood || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.dedOthDed !== false ? (activeTotals.grandOthDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (activeTotals.grandEMbill || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: selectedOptions.grossDeduct !== false ? (activeTotals.grandDeductions || 0).toLocaleString('en-IN') : '—', styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: selectedOptions.netPayable !== false ? (activeTotals.grandNet || 0).toLocaleString('en-IN') : '—', styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `For ${companyName}`, styles: { halign: 'center', fontStyle: 'bold' } },
+    ]);
+  }
 
   autoTable(doc, {
     startY: 85,
@@ -518,180 +729,147 @@ export const downloadSalarySheetFormat1Pdf = async (
     },
   });
 
-  // Dedicated Page 2: Statutory Summary & Reconciliation Sheet
-  doc.addPage('a3', 'landscape');
+  // Page 2 Summarization Sheet
+  const hasPage2Selected =
+    selectedOptions.showPfSummary !== false ||
+    selectedOptions.showEsiSummary !== false ||
+    selectedOptions.showPtSummary !== false ||
+    selectedOptions.showWorkforceStrength !== false ||
+    selectedOptions.showEarningDeductionStatement !== false ||
+    selectedOptions.showNetPayHighlight !== false ||
+    selectedOptions.showSignatures !== false;
 
-  // Page 2 Header
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text(companyName, 30, 32);
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'normal');
-  doc.text(companyAddress, 30, 44);
+  if (hasPage2Selected) {
+    doc.addPage();
 
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.text('WAGE / SALARY REGISTER — STATUTORY SUMMARY & RECONCILIATION STATEMENT', 590, 44, { align: 'center' });
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text(companyName, 30, 40);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(companyAddress, 30, 54);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Wage/Salary Register Summarization - ${monthLabel}`, 30, 72);
 
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text(`PF No :- ${pfNo}   |   ESI No :- ${esiNo}   |   Date of Payment :- ${toDate}`, 30, 60);
-  doc.text(`For The Month Of: ${monthLabel}${clientName ? `   |   Client: ${clientName}` : ''}`, 1150, 60, { align: 'right' });
+    let currentY = 90;
 
-  const finalY = 72;
+    // 1. PF Summary Statement
+    if (selectedOptions.showPfSummary !== false) {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('PF SUMMARY STATEMENT', 30, currentY);
+      currentY += 8;
 
-  // 1. PF Summary Table
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PF SUMMARY STATEMENT', 30, finalY);
+      const pfSummaryHead = [
+        ['PF Wages', 'Subscribers', `Employee (${pfEmployeeRate}%)`, `Employer (Diff ${pfEmployerRate}%)`, 'A/C 1', `A/C 10 (${pfPensionRate}%)`, `A/C 2 (${pfAdminRate}%)`, `A/C 21 (${pfEdliRate}%)`, 'A/C 22', 'Total Challan (INR)']
+      ];
+      const totalChallan = (pfSummary.ac1 || 0) + (pfSummary.ac10 || 0) + (pfSummary.ac2 || 0) + (pfSummary.ac21 || 0) + (pfSummary.ac22 || 0) + (pfSummary.ee || 0);
+      const pfSummaryBody = [
+        [
+          (pfSummary.pfWages || 0).toLocaleString('en-IN'),
+          pfSummary.strn || activeRecords.length,
+          (pfSummary.ee || 0).toLocaleString('en-IN'),
+          (pfSummary.erDiff || 0).toLocaleString('en-IN'),
+          (pfSummary.ac1 || 0).toLocaleString('en-IN'),
+          (pfSummary.ac10 || 0).toLocaleString('en-IN'),
+          (pfSummary.ac2 || 0).toLocaleString('en-IN'),
+          (pfSummary.ac21 || 0).toLocaleString('en-IN'),
+          (pfSummary.ac22 || 0).toLocaleString('en-IN'),
+          totalChallan.toLocaleString('en-IN')
+        ]
+      ];
 
-  autoTable(doc, {
-    startY: finalY + 4,
-    margin: { left: 30 },
-    tableWidth: 420,
-    head: [
-      ['PF Wages', 'Strn.', 'EE (12%)', 'ER (Diff)', 'A/C - 1', 'A/C 10', 'A/C 2', 'A/C - 21', 'A/C - 22', 'Total'],
-    ],
-    body: [
-      [
-        (pfSummary.pfWages || 0).toLocaleString('en-IN'),
-        pfSummary.strn || 0,
-        (pfSummary.ee || 0).toLocaleString('en-IN'),
-        (pfSummary.erDiff || 0).toLocaleString('en-IN'),
-        (pfSummary.ac1 || 0).toLocaleString('en-IN'),
-        (pfSummary.ac10 || 0).toLocaleString('en-IN'),
-        (pfSummary.ac2 || 0).toLocaleString('en-IN'),
-        (pfSummary.ac21 || 0).toLocaleString('en-IN'),
-        (pfSummary.ac22 || 0).toLocaleString('en-IN'),
-        (pfSummary.total || 0).toLocaleString('en-IN'),
-      ],
-      [
-        (pfSummary.pfWages || 0).toLocaleString('en-IN'),
-        '',
-        '',
-        '',
-        '',
-        '',
-        '',
-        (pfSummary.pfWages || 0).toLocaleString('en-IN'),
-        '',
-        '',
-      ],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
-  });
+      autoTable(doc, {
+        startY: currentY,
+        head: pfSummaryHead,
+        body: pfSummaryBody,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 4, halign: 'center' },
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
+      });
+      currentY = doc.lastAutoTable.finalY + 20;
+    }
 
-  // 2. ESI Summary Table
-  const esiY = doc.lastAutoTable.finalY + 12;
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('ESI SUMMARY', 30, esiY);
+    // 2. ESI & PT Summary Statements
+    if (selectedOptions.showEsiSummary !== false || selectedOptions.showPtSummary !== false) {
+      const dualHead = [
+        ['ESI SUMMARY', '', '', '', 'PROFESSIONAL TAX (P.T.) SUMMARY', '']
+      ];
+      const dualSubHead = [
+        ['ESI Wages', 'Employees', `EE Share (${esiEmployeeRate}%)`, `ER Share (${esiEmployerRate}%)`, 'PT Amount', 'PT Subscribers']
+      ];
+      const dualBody = [
+        [
+          (esiSummary.esiWages || 0).toLocaleString('en-IN'),
+          esiSummary.strn || activeRecords.length,
+          (esiSummary.eeShare || 0).toLocaleString('en-IN'),
+          (esiSummary.erShare || 0).toLocaleString('en-IN'),
+          (ptSummary.amount || 0).toLocaleString('en-IN'),
+          ptSummary.count || activeRecords.length
+        ]
+      ];
 
-  autoTable(doc, {
-    startY: esiY + 4,
-    margin: { left: 30 },
-    tableWidth: 260,
-    head: [['ESI Wages', 'Strn', 'EE Share (0.75%)', 'ER.Share (3.25%)', 'Total ESI (4%)']],
-    body: [
-      [
-        (esiSummary.esiWages || 0).toLocaleString('en-IN'),
-        esiSummary.strn || 0,
-        (esiSummary.eeShare || 0).toLocaleString('en-IN'),
-        (esiSummary.erShare || 0).toLocaleString('en-IN'),
-        (esiSummary.totalEsi || 0).toLocaleString('en-IN'),
-      ],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
-  });
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('ESI & P.T. STATUTORY STATEMENTS', 30, currentY);
+      currentY += 8;
 
-  // 3. P.T. Summary Table
-  doc.text('P.T. SUMMARY', 310, esiY);
-  autoTable(doc, {
-    startY: esiY + 4,
-    margin: { left: 310 },
-    tableWidth: 140,
-    head: [['P.T. Head', 'Count', 'Total Amount']],
-    body: [
-      ['PT Deducted', `${ptSummary.ptCount || 0}`, `₹${(ptSummary.ptAmount || 0).toLocaleString('en-IN')}`],
-      ['PT Total', `${ptSummary.ptCount || 0}`, `₹${(ptSummary.ptAmount || 0).toLocaleString('en-IN')}`],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [248, 250, 252], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
-  });
+      autoTable(doc, {
+        startY: currentY,
+        head: [...dualHead, ...dualSubHead],
+        body: dualBody,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 4, halign: 'center' },
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
+      });
+      currentY = doc.lastAutoTable.finalY + 20;
+    }
 
-  // 4. Earning Summary & Deduction Summary Side-by-Side Box
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('EARNING & DEDUCTION STATEMENT', 520, finalY);
+    // 3. Consolidated Earnings & Deductions Statement
+    if (selectedOptions.showEarningDeductionStatement !== false) {
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('CONSOLIDATED EARNINGS & DEDUCTIONS BREAKDOWN', 30, currentY);
+      currentY += 8;
 
-  autoTable(doc, {
-    startY: finalY + 4,
-    margin: { left: 520 },
-    tableWidth: 380,
-    head: [
-      [{ content: 'EARNING SUMMARY (₹)', colSpan: 2 }, { content: 'DEDUCTION SUMMARY (₹)', colSpan: 2 }],
-    ],
-    body: [
-      ['BASIC', `${(earningSummary.basic || totals.grandBasic || 0).toLocaleString('en-IN')}`, 'P.F', `${(deductionSummary.pf || totals.grandPf || 0).toLocaleString('en-IN')}`],
-      ['DA', `${(earningSummary.da || totals.grandDa || 0).toLocaleString('en-IN')}`, 'ESI', `${(deductionSummary.esi || totals.grandEsi || 0).toLocaleString('en-IN')}`],
-      ['HRA', `${(earningSummary.hra || totals.grandHra || 0).toLocaleString('en-IN')}`, 'P.T.', `${(deductionSummary.pt || totals.grandPt || 0).toLocaleString('en-IN')}`],
-      ['CONV', `${(earningSummary.conv || totals.grandConv || 0).toLocaleString('en-IN')}`, 'I.T.', `${(deductionSummary.it || totals.grandIt || 0).toLocaleString('en-IN')}`],
-      ['SP.All', `${(earningSummary.spAll || totals.grandSpAll || 0).toLocaleString('en-IN')}`, 'LOAN', `${(deductionSummary.loan || totals.grandLoan || 0).toLocaleString('en-IN')}`],
-      ['OTH.All', `${(earningSummary.othAll || totals.grandOthAll || 0).toLocaleString('en-IN')}`, 'Advance', `${(deductionSummary.advance || totals.grandAdvance || 0).toLocaleString('en-IN')}`],
-      ['OT/PIB', `${(earningSummary.otPib || totals.grandOtPib || 0).toLocaleString('en-IN')}`, 'LWF', `${(deductionSummary.lwf || totals.grandLwf || 0).toLocaleString('en-IN')}`],
-      ['—', '—', 'Oth.Ded', `${(deductionSummary.othDed || totals.grandOthDed || 0).toLocaleString('en-IN')}`],
-      ['—', '—', 'Food', `${(deductionSummary.food || totals.grandFood || 0).toLocaleString('en-IN')}`],
-      ['—', '—', 'E/Mbill', `${(deductionSummary.eMbill || totals.grandEMbill || 0).toLocaleString('en-IN')}`],
-      [
-        { content: `Gross Salary: ₹${(earningSummary.grossSalary || totals.grandGross || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold' } },
-        { content: `Gross Ded.: ₹${(deductionSummary.grossDed || totals.grandDeductions || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold' } },
-      ],
-    ],
-    theme: 'grid',
-    styles: { fontSize: 8, halign: 'right', valign: 'middle', cellPadding: 4, lineColor: [0, 0, 0], lineWidth: 0.5 },
-    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', valign: 'middle', cellPadding: 4 },
-  });
+      const compHead = [['Earnings Component', 'Amount (INR)', 'Deductions Component', 'Amount (INR)']];
+      const compBody = [
+        ['Basic Wages', (earningSummary.basic || activeTotals.grandBasic || 0).toLocaleString('en-IN'), 'Provident Fund (P.F)', (deductionSummary.pf || activeTotals.grandPf || 0).toLocaleString('en-IN')],
+        ['Dearness Allowance (DA)', (earningSummary.da || activeTotals.grandDa || 0).toLocaleString('en-IN'), 'Employee State Insurance (ESI)', (deductionSummary.esi || activeTotals.grandEsi || 0).toLocaleString('en-IN')],
+        ['House Rent Allowance (HRA)', (earningSummary.hra || activeTotals.grandHra || 0).toLocaleString('en-IN'), 'Professional Tax (P.T.)', (deductionSummary.pt || activeTotals.grandPt || 0).toLocaleString('en-IN')],
+        ['Conveyance Allowance', (earningSummary.conv || activeTotals.grandConv || 0).toLocaleString('en-IN'), 'Income Tax (I.T. / TDS)', (deductionSummary.it || activeTotals.grandIt || 0).toLocaleString('en-IN')],
+        ['Special Allowance', (earningSummary.spAll || activeTotals.grandSpAll || 0).toLocaleString('en-IN'), 'Labour Welfare Fund (LWF)', (deductionSummary.lwf || activeTotals.grandLwf || 0).toLocaleString('en-IN')],
+        ['Other Allowances', (earningSummary.othAll || activeTotals.grandOthAll || 0).toLocaleString('en-IN'), 'Salary Advance Recovery', (deductionSummary.advance || activeTotals.grandAdvance || 0).toLocaleString('en-IN')],
+        ['Gross Earnings', (activeTotals.grandGross || 0).toLocaleString('en-IN'), 'Gross Deductions Total', (activeTotals.grandDeductions || 0).toLocaleString('en-IN')],
+        [{ content: 'Net Salary Payable', colSpan: 2, styles: { fontStyle: 'bold' } }, { content: `INR ${(activeTotals.grandNet || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } }]
+      ];
 
-  // 5. Net Pay Highlight Box
-  doc.text('NET SALARY DISBURSED', 930, finalY);
-  autoTable(doc, {
-    startY: finalY + 4,
-    margin: { left: 930 },
-    tableWidth: 220,
-    head: [['NET SALARY DISBURSED']],
-    body: [
-      [{ content: `₹${(totals.grandNet || 0).toLocaleString('en-IN')}`, styles: { fontSize: 16, fontStyle: 'bold', halign: 'center' } }],
-    ],
-    theme: 'grid',
-    styles: { lineColor: [0, 0, 0], lineWidth: 1.5 },
-    headStyles: { fillColor: [241, 245, 249], textColor: [0, 0, 0], fontStyle: 'bold', halign: 'center' },
-  });
+      autoTable(doc, {
+        startY: currentY,
+        head: compHead,
+        body: compBody,
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0] }
+      });
+      currentY = doc.lastAutoTable.finalY + 30;
+    }
 
-  // Signatory Verification Block on Page 2
-  const signY = 280;
-  doc.setFontSize(8.5);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PREPARED BY', 120, signY, { align: 'center' });
-  doc.line(50, signY + 30, 190, signY + 30);
-  doc.setFont('helvetica', 'normal');
-  doc.text('HR / Payroll Executive', 120, signY + 40, { align: 'center' });
+    // 4. Verification Signatures
+    if (selectedOptions.showSignatures !== false) {
+      if (currentY + 60 > 800) {
+        doc.addPage();
+        currentY = 50;
+      }
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Prepared By: ____________________', 60, currentY + 30);
+      doc.text('Checked By: ____________________', 460, currentY + 30);
+      doc.text(`For ${companyName} (Authorized Signatory): ____________________`, 820, currentY + 30);
+    }
+  }
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('CHECKED & VERIFIED BY', 580, signY, { align: 'center' });
-  doc.line(500, signY + 30, 660, signY + 30);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Finance & Accounts Officer', 580, signY + 40, { align: 'center' });
-
-  doc.setFont('helvetica', 'bold');
-  doc.text(`FOR ${companyName.toUpperCase()}`, 1030, signY, { align: 'center' });
-  doc.line(950, signY + 30, 1110, signY + 30);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Authorised Signatory', 1030, signY + 40, { align: 'center' });
-
-  doc.save(`Salary_Sheet_Format_1_${String(monthLabel).replace(/\s+/g, '_')}.pdf`);
+  const fileName = `Salary_Sheet_Format_1_${String(monthLabel).replace(/\s+/g, '_')}.pdf`;
+  doc.save(fileName);
 };

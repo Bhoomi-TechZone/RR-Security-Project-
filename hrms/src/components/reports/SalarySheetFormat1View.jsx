@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   FileText,
   FileSpreadsheet,
@@ -37,6 +37,7 @@ export default function SalarySheetFormat1View({
   ptSummary = {},
   earningSummary = {},
   deductionSummary = {},
+  statutoryConfig = {},
   filters = {},
   selectedOptions: propSelectedOptions,
   onOptionsChange,
@@ -46,6 +47,245 @@ export default function SalarySheetFormat1View({
   const [internalSelectedOptions, setInternalSelectedOptions] = useState(() => getDefaultSelectedOptions());
   const selectedOptions = propSelectedOptions || internalSelectedOptions;
   const setSelectedOptions = onOptionsChange || setInternalSelectedOptions;
+
+  // Dynamic configured rates resolved from Statutory Setup / Report response
+  const activePfRate = Array.isArray(statutoryConfig?.pf?.pfRates)
+    ? statutoryConfig.pf.pfRates.find((r) => r.enabled)
+    : null;
+  const pfEmployeeRate = pfSummary?.rates?.employeeRate !== undefined
+    ? pfSummary.rates.employeeRate
+    : (statutoryConfig?.pf?.employeeRate !== undefined
+      ? statutoryConfig.pf.employeeRate
+      : (activePfRate?.employeeRate !== undefined
+        ? activePfRate.employeeRate
+        : (statutoryConfig?.pf?.employeeContribution !== undefined
+          ? statutoryConfig.pf.employeeContribution
+          : 12)));
+
+  const pfEmployerRate = pfSummary?.rates?.employerRate !== undefined
+    ? pfSummary.rates.employerRate
+    : (statutoryConfig?.pf?.employerRate !== undefined
+      ? statutoryConfig.pf.employerRate
+      : (activePfRate?.employerRate !== undefined
+        ? activePfRate.employerRate
+        : (statutoryConfig?.pf?.epfEmployerContribution !== undefined
+          ? statutoryConfig.pf.epfEmployerContribution
+          : 3.67)));
+
+  const pfPensionRate = pfSummary?.rates?.pensionRate !== undefined
+    ? pfSummary.rates.pensionRate
+    : (statutoryConfig?.pf?.pensionRate !== undefined
+      ? statutoryConfig.pf.pensionRate
+      : (activePfRate?.pensionRate !== undefined
+        ? activePfRate.pensionRate
+        : (statutoryConfig?.pf?.epsContribution !== undefined
+          ? statutoryConfig.pf.epsContribution
+          : 8.33)));
+
+  const pfAdminRate = pfSummary?.rates?.adminRate !== undefined
+    ? pfSummary.rates.adminRate
+    : (statutoryConfig?.pf?.adminRate !== undefined
+      ? statutoryConfig.pf.adminRate
+      : 0.5);
+
+  const pfEdliRate = pfSummary?.rates?.edliRate !== undefined
+    ? pfSummary.rates.edliRate
+    : (statutoryConfig?.pf?.edliRate !== undefined
+      ? statutoryConfig.pf.edliRate
+      : 0.5);
+
+  const activeEsiRate = Array.isArray(statutoryConfig?.esi?.esiRates)
+    ? statutoryConfig.esi.esiRates.find((r) => r.enabled)
+    : null;
+  const esiEmployeeRate = esiSummary?.rates?.employeeContribution !== undefined
+    ? esiSummary.rates.employeeContribution
+    : (statutoryConfig?.esi?.employeeRate !== undefined
+      ? statutoryConfig.esi.employeeRate
+      : (activeEsiRate?.employeeContribution !== undefined
+        ? activeEsiRate.employeeContribution
+        : (statutoryConfig?.esi?.employeeContribution !== undefined
+          ? statutoryConfig.esi.employeeContribution
+          : 0.75)));
+
+  const esiEmployerRate = esiSummary?.rates?.employerContribution !== undefined
+    ? esiSummary.rates.employerContribution
+    : (statutoryConfig?.esi?.employerRate !== undefined
+      ? statutoryConfig.esi.employerRate
+      : (activeEsiRate?.employerContribution !== undefined
+        ? activeEsiRate.employerContribution
+        : (statutoryConfig?.esi?.employerContribution !== undefined
+          ? statutoryConfig.esi.employerContribution
+          : 3.25)));
+
+  // Filter rows strictly as per selectedOptions (recordScope, excludeHoldSalary)
+  const displayRows = useMemo(() => {
+    let list = Array.isArray(records) ? records : [];
+    const scope = selectedOptions?.recordScope || 'active';
+    const excludeHold = selectedOptions?.excludeHoldSalary !== false;
+
+    if (scope === 'active') {
+      list = list.filter((r) => {
+        const isInactive =
+          r.status === 'Inactive' ||
+          r.status === 'Left' ||
+          r.status === 'Resigned' ||
+          r.status === 'Terminated' ||
+          r.isActive === false;
+        return !isInactive;
+      });
+    } else if (scope === 'inactive') {
+      list = list.filter((r) => {
+        const isInactive =
+          r.status === 'Inactive' ||
+          r.status === 'Left' ||
+          r.status === 'Resigned' ||
+          r.status === 'Terminated' ||
+          r.isActive === false;
+        return isInactive;
+      });
+    }
+
+    if (excludeHold) {
+      list = list.filter((r) => {
+        const isHold =
+          r.salaryHold === true ||
+          r.isHold === true ||
+          r.holdSalary === true ||
+          r.hold === true ||
+          r.salaryStatus === 'HOLD' ||
+          r.salaryStatus === 'Hold' ||
+          r.status === 'HOLD' ||
+          r.status === 'Hold';
+        return !isHold;
+      });
+    }
+
+    return list;
+  }, [records, selectedOptions?.recordScope, selectedOptions?.excludeHoldSalary]);
+
+  // Dynamically compute totals matching the filtered active display rows
+  const dynamicTotals = useMemo(() => {
+    let totalWo = 0, totalPh = 0, totalPd = 0, totalPl = 0, totalCl = 0, totalSl = 0, totalMlAdj = 0;
+    let grandBasic = 0, grandDa = 0, grandHra = 0, grandConv = 0, grandSpAll = 0, grandOthAll = 0, grandOtPib = 0;
+    let grandGross = 0, grandPf = 0, grandEsi = 0, grandPt = 0, grandIt = 0, grandLwf = 0;
+    let grandAdvance = 0, grandLoan = 0, grandFood = 0, grandOthDed = 0, grandEMbill = 0;
+    let grandDeductions = 0, grandNet = 0, totalRateTotal = 0;
+
+    displayRows.forEach((r) => {
+      const att = r.attendance || {};
+      const rate = r.rateOfWages || {};
+      const earn = r.earnings || {};
+      const ded = r.deductions || {};
+
+      totalWo += Number(att.wo) || 0;
+      totalPh += Number(att.ph) || 0;
+      totalPd += Number(att.pd) || 0;
+      totalPl += Number(att.pl) || 0;
+      totalCl += Number(att.cl) || 0;
+      totalSl += Number(att.sl) || 0;
+      totalMlAdj += Number(att.mlAdj) || 0;
+
+      totalRateTotal += Number(rate.total) || 0;
+
+      grandBasic += Number(earn.basic) || 0;
+      grandDa += Number(earn.da) || 0;
+      grandHra += Number(earn.hra) || 0;
+      grandConv += Number(earn.conv) || 0;
+      grandSpAll += Number(earn.spAll) || 0;
+      grandOthAll += Number(earn.othAll) || 0;
+      grandOtPib += Number(earn.otPib) || 0;
+
+      grandGross += Number(r.grossSalary) || 0;
+
+      grandPf += Number(ded.pf) || 0;
+      grandEsi += Number(ded.esi) || 0;
+      grandPt += Number(ded.pt) || 0;
+      grandIt += Number(ded.it) || 0;
+      grandLwf += Number(ded.lwf) || 0;
+      grandAdvance += Number(ded.advance) || 0;
+      grandLoan += Number(ded.loan) || 0;
+      grandFood += Number(ded.food) || 0;
+      grandOthDed += Number(ded.othDed) || 0;
+      grandEMbill += Number(ded.eMbill) || 0;
+
+      grandDeductions += Number(r.grossDeduct) || 0;
+      grandNet += Number(r.netPayable) || 0;
+    });
+
+    return {
+      ...totals,
+      totalWo, totalPh, totalPd, totalPl, totalCl, totalSl, totalMlAdj,
+      totalRateTotal,
+      grandBasic, grandDa, grandHra, grandConv, grandSpAll, grandOthAll, grandOtPib,
+      grandGross, grandPf, grandEsi, grandPt, grandIt, grandLwf,
+      grandAdvance, grandLoan, grandFood, grandOthDed, grandEMbill,
+      grandDeductions, grandNet,
+    };
+  }, [displayRows, totals]);
+
+  // Dynamic PF Summary reflecting displayRows and configured rates
+  const activePfSummary = useMemo(() => {
+    if (displayRows.length === records.length && pfSummary?.pfWages) {
+      return pfSummary;
+    }
+    let pfWages = 0;
+    let strn = 0;
+    let ee = 0;
+    displayRows.forEach((r) => {
+      const ded = r.deductions || {};
+      const pfVal = Number(ded.pf) || 0;
+      if (pfVal > 0) {
+        strn++;
+        ee += pfVal;
+        pfWages += Number(r.pfWage) || (Number(r.earnings?.basic || 0) + Number(r.earnings?.da || 0));
+      }
+    });
+    const erDiff = Math.round(pfWages * (pfEmployerRate / 100));
+    const ac1 = ee + erDiff;
+    const ac10 = Math.round(pfWages * (pfPensionRate / 100));
+    const ac2 = Math.round(pfWages * (pfAdminRate / 100));
+    const ac21 = Math.round(pfWages * (pfEdliRate / 100));
+    const ac22 = 0;
+    return {
+      pfWages,
+      strn,
+      ee,
+      erDiff,
+      ac1,
+      ac10,
+      ac2,
+      ac21,
+      ac22,
+      total: ac1 + ac10 + ac2 + ac21 + ac22,
+    };
+  }, [displayRows, records.length, pfSummary, pfEmployerRate, pfPensionRate, pfAdminRate, pfEdliRate]);
+
+  // Dynamic ESI Summary reflecting displayRows and configured rates
+  const activeEsiSummary = useMemo(() => {
+    if (displayRows.length === records.length && esiSummary?.esiWages) {
+      return esiSummary;
+    }
+    let esiWages = 0;
+    let strn = 0;
+    let eeShare = 0;
+    displayRows.forEach((r) => {
+      const ded = r.deductions || {};
+      const esiVal = Number(ded.esi) || 0;
+      if (esiVal > 0) {
+        strn++;
+        eeShare += esiVal;
+        esiWages += Number(r.esiWage) || Number(r.grossSalary) || 0;
+      }
+    });
+    const erShare = Math.round(esiWages * (esiEmployerRate / 100));
+    return {
+      esiWages,
+      strn,
+      eeShare,
+      erShare,
+      totalEsi: eeShare + erShare,
+    };
+  }, [displayRows, records.length, esiSummary, esiEmployerRate]);
 
   // Resolve configured company statutory codes strictly from Company Setup
   let savedSetup = {};
@@ -66,13 +306,13 @@ export default function SalarySheetFormat1View({
     companyInfo?.companyName ||
     savedSetup?.companyName ||
     localDefaultComp?.name ||
-    'RR Security & Facilities';
+    '';
 
   const companyAddress =
     (companyInfo?.address && companyInfo.address !== '—' ? companyInfo.address : null) ||
     (savedSetup?.address && savedSetup.address !== '—' ? savedSetup.address : null) ||
     (localDefaultComp?.address && localDefaultComp.address !== '—' ? localDefaultComp.address : null) ||
-    'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
+    '';
 
   const cleanPf = [
     companyInfo?.employerPfCode,
@@ -195,83 +435,7 @@ export default function SalarySheetFormat1View({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar (Web UI only - excluded from document print/download) */}
-      <div className={`${styles.toolbar} no-print`} data-no-print="true" data-html2canvas-ignore="true">
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={15} />
-            Statutory Wage/Salary Register (Salary Sheet Format 1)
-          </span>
-          <span className={styles.metaText}>
-            Period: <strong>{monthLabel}</strong>
-          </span>
-          <span className={styles.metaText}>
-            Establishment: <strong>{companyName}</strong>
-          </span>
-          {clientName && (
-            <span className={styles.metaText}>
-              Client / Site: <strong>{clientName}</strong>
-            </span>
-          )}
-          <span className={styles.metaText}>
-            Records: <strong>{records.length} Employees</strong>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleDownloadPdf}
-            disabled={Boolean(downloadingFormat)}
-            title="Download Official PDF Report"
-          >
-            {downloadingFormat === 'pdf' ? (
-              <>
-                <Loader2 size={14} className={styles.spinner} /> Generating PDF...
-              </>
-            ) : (
-              <>
-                <Download size={14} /> PDF
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleDownloadExcel}
-            disabled={Boolean(downloadingFormat)}
-            title="Download Excel Workbook (.xlsx)"
-          >
-            {downloadingFormat === 'excel' ? (
-              <>
-                <Loader2 size={14} className={styles.spinner} /> Preparing Excel...
-              </>
-            ) : (
-              <>
-                <FileSpreadsheet size={14} /> Excel
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnCsv}`}
-            onClick={handleDownloadCsv}
-            disabled={Boolean(downloadingFormat)}
-            title="Download CSV"
-          >
-            {downloadingFormat === 'csv' ? (
-              <>
-                <Loader2 size={14} className={styles.spinner} /> Exporting CSV...
-              </>
-            ) : (
-              <>
-                <FileText size={14} /> CSV
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      
 
       {/* Dynamic Report Options UI (Frontend Configurable Options Panel) */}
       {showOptions && (
@@ -359,14 +523,14 @@ export default function SalarySheetFormat1View({
                   <th className={styles.subHeader}>SP.All<br />OT/PIB</th>
 
                   {/* Deductions Sub-columns */}
-                  <th className={styles.subHeader}>P.F<br />ESI</th>
+                  <th className={styles.subHeader}>P.F ({pfEmployeeRate}%)<br />ESI ({esiEmployeeRate}%)</th>
                   <th className={styles.subHeader}>P.T.<br />I.T. / LWF</th>
                   <th className={styles.subHeader}>Advance<br />Loan / Food</th>
                   <th className={styles.subHeader}>Oth.Ded<br />E/Mbill</th>
                 </tr>
               </thead>
               <tbody>
-                {records.map((row, idx) => {
+                {displayRows.map((row, idx) => {
                   const att = row.attendance || {};
                   const rate = row.rateOfWages || {};
                   const earn = row.earnings || {};
@@ -390,20 +554,20 @@ export default function SalarySheetFormat1View({
                         {selectedOptions.site !== false && (row.site || row.siteLocation || row.clientName) && (
                           <div className={styles.empSub}>Site: {row.site || row.siteLocation || row.clientName}</div>
                         )}
-                        {selectedOptions.dutyPost && row.dutyPost && (
-                          <div className={styles.empSub}>Post: {row.dutyPost}</div>
+                        {(Boolean(selectedOptions.dutyPost)) && (row.dutyPost || row.post) && (
+                          <div className={styles.empSub}>Post: {row.dutyPost || row.post}</div>
                         )}
-                        {selectedOptions.joiningDate && row.joiningDate && (
-                          <div className={styles.empSub}>DOJ: {row.joiningDate}</div>
+                        {(Boolean(selectedOptions.joiningDate) || Boolean(selectedOptions.dateOfJoining)) && (row.joiningDate || row.doj) && (
+                          <div className={styles.empSub}>DOJ: {row.joiningDate || row.doj}</div>
                         )}
-                        {selectedOptions.gender && row.gender && (
-                          <div className={styles.empSub}>Sex: {row.gender}</div>
+                        {(Boolean(selectedOptions.gender) || Boolean(selectedOptions.sex)) && (
+                          <div className={styles.empSub}>Sex: {row.gender || row.sex || 'Male'}</div>
                         )}
                         {selectedOptions.uan !== false && row.uan && <div className={styles.empSub}>UAN No:{row.uan}</div>}
                         {selectedOptions.pfNo !== false && row.pfNo && <div className={styles.empSub}>PF.No {row.pfNo}</div>}
                         {selectedOptions.esiNo !== false && row.esiNo && <div className={styles.empSub}>ESI No:{row.esiNo}</div>}
-                        {selectedOptions.pan && row.pan && <div className={styles.empSub}>PAN: {row.pan}</div>}
-                        {selectedOptions.aadhaar && row.aadhaar && <div className={styles.empSub}>Aadhaar: {row.aadhaar}</div>}
+                        {(Boolean(selectedOptions.pan) || Boolean(selectedOptions.incomeTaxPan)) && (row.pan || row.panNo) && <div className={styles.empSub}>PAN: {row.pan || row.panNo}</div>}
+                        {(Boolean(selectedOptions.aadhaar) || Boolean(selectedOptions.aadhaarNumber)) && (row.aadhaar || row.aadhaarNo) && <div className={styles.empSub}>Aadhaar: {row.aadhaar || row.aadhaarNo}</div>}
                       </td>
 
                       {/* 3. Emp. ID */}
@@ -421,7 +585,7 @@ export default function SalarySheetFormat1View({
                           {selectedOptions.attPl !== false && <div className={styles.metricRow}><span>PL</span><span>{att.pl || '0.00'}</span></div>}
                           {selectedOptions.attCl !== false && <div className={styles.metricRow}><span>CL</span><span>{att.cl || '0.00'}</span></div>}
                           {selectedOptions.attSl !== false && <div className={styles.metricRow}><span>S.L.</span><span>{att.sl || '0.00'}</span></div>}
-                          {selectedOptions.attMlAdj !== false && <div className={styles.metricRow}><span>ML/Adj</span><span>{att.mlAdj || '0.00'}</span></div>}
+                          {selectedOptions.attMlAdj !== false && (att.mlAdj || selectedOptions.attMlAdj === true) && <div className={styles.metricRow}><span>ML/Adj</span><span>{att.mlAdj || '0.00'}</span></div>}
                           {selectedOptions.attTot !== false && (
                             <div className={styles.metricTotalRow}>
                               <span>TOT</span><span>{att.tot || '0.00'}</span>
@@ -527,7 +691,7 @@ export default function SalarySheetFormat1View({
                 })}
 
                 {/* Grand Total Row matching Image 2 */}
-                {records.length > 0 && (
+                {displayRows.length > 0 && (
                   <tr className={styles.grandTotalRow}>
                     <td colSpan="3" className={styles.center} style={{ fontSize: '0.85rem' }}>
                       Grand Total
@@ -536,71 +700,71 @@ export default function SalarySheetFormat1View({
                     {/* Attendance Totals */}
                     <td>
                       <div className={styles.metricList}>
-                        {selectedOptions.attWo !== false && <div className={styles.metricRow}><span>Total WO</span><span>{(totals.totalWo || 0).toFixed(2)}</span></div>}
-                        {selectedOptions.attPh !== false && <div className={styles.metricRow}><span>Total PH</span><span>{(totals.totalPh || 0).toFixed(2)}</span></div>}
-                        {selectedOptions.attPd !== false && <div className={styles.metricRow}><span>Total PD</span><span>{(totals.totalPd || 0).toFixed(2)}</span></div>}
-                        {selectedOptions.attPl !== false && <div className={styles.metricRow}><span>Total PL</span><span>{(totals.totalPl || 0).toFixed(2)}</span></div>}
-                        {selectedOptions.attCl !== false && <div className={styles.metricRow}><span>Total CL</span><span>{(totals.totalCl || 0).toFixed(2)}</span></div>}
-                        {selectedOptions.attSl !== false && <div className={styles.metricRow}><span>Total S.L.</span><span>{(totals.totalSl || 0).toFixed(2)}</span></div>}
-                        {selectedOptions.attMlAdj !== false && <div className={styles.metricRow}><span>ML/Adj</span><span>{(totals.totalMlAdj || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attWo !== false && <div className={styles.metricRow}><span>Total WO</span><span>{(dynamicTotals.totalWo || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attPh !== false && <div className={styles.metricRow}><span>Total PH</span><span>{(dynamicTotals.totalPh || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attPd !== false && <div className={styles.metricRow}><span>Total PD</span><span>{(dynamicTotals.totalPd || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attPl !== false && <div className={styles.metricRow}><span>Total PL</span><span>{(dynamicTotals.totalPl || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attCl !== false && <div className={styles.metricRow}><span>Total CL</span><span>{(dynamicTotals.totalCl || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attSl !== false && <div className={styles.metricRow}><span>Total S.L.</span><span>{(dynamicTotals.totalSl || 0).toFixed(2)}</span></div>}
+                        {selectedOptions.attMlAdj !== false && (dynamicTotals.totalMlAdj || selectedOptions.attMlAdj === true) && <div className={styles.metricRow}><span>ML/Adj</span><span>{(dynamicTotals.totalMlAdj || 0).toFixed(2)}</span></div>}
                       </div>
                     </td>
 
                     {/* Rate Totals */}
                     <td className={styles.right}>
-                      {selectedOptions.rateTotal !== false && totals.totalRateTotal ? totals.totalRateTotal.toLocaleString('en-IN') : ''}
+                      {selectedOptions.rateTotal !== false && dynamicTotals.totalRateTotal ? dynamicTotals.totalRateTotal.toLocaleString('en-IN') : ''}
                     </td>
 
                     {/* Earnings Totals */}
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.earnBasic !== false ? (totals.grandBasic || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.earnDa !== false ? (totals.grandDa || 0) : '—'}</div>
+                      <div>{selectedOptions.earnBasic !== false ? (dynamicTotals.grandBasic || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.earnDa !== false ? (dynamicTotals.grandDa || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.earnHra !== false ? (totals.grandHra || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.earnOthAll !== false ? (totals.grandOthAll || 0) : '—'}</div>
+                      <div>{selectedOptions.earnHra !== false ? (dynamicTotals.grandHra || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.earnOthAll !== false ? (dynamicTotals.grandOthAll || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.earnConv !== false ? (totals.grandConv || 0) : '—'}</div>
+                      <div>{selectedOptions.earnConv !== false ? (dynamicTotals.grandConv || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.earnSpAll !== false ? (totals.grandSpAll || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.earnOtPib !== false ? (totals.grandOtPib || 0) : '—'}</div>
+                      <div>{selectedOptions.earnSpAll !== false ? (dynamicTotals.grandSpAll || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.earnOtPib !== false ? (dynamicTotals.grandOtPib || 0) : '—'}</div>
                     </td>
 
                     {/* Gross Total */}
                     <td className={styles.right} style={{ fontSize: '0.82rem' }}>
-                      {selectedOptions.grossSalary !== false ? (totals.grandGross || 0).toLocaleString('en-IN') : '—'}
+                      {selectedOptions.grossSalary !== false ? (dynamicTotals.grandGross || 0).toLocaleString('en-IN') : '—'}
                     </td>
 
                     {/* Deductions Totals */}
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.dedPf !== false ? (totals.grandPf || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedEsi !== false ? (totals.grandEsi || 0) : '—'}</div>
+                      <div>{selectedOptions.dedPf !== false ? (dynamicTotals.grandPf || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedEsi !== false ? (dynamicTotals.grandEsi || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.dedPt !== false ? (totals.grandPt || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedIt !== false ? (totals.grandIt || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedLwf !== false ? (totals.grandLwf || 0) : '—'}</div>
+                      <div>{selectedOptions.dedPt !== false ? (dynamicTotals.grandPt || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedIt !== false ? (dynamicTotals.grandIt || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedLwf !== false ? (dynamicTotals.grandLwf || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.dedAdvance !== false ? (totals.grandAdvance || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedLoan !== false ? (totals.grandLoan || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedFood !== false ? (totals.grandFood || 0) : '—'}</div>
+                      <div>{selectedOptions.dedAdvance !== false ? (dynamicTotals.grandAdvance || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedLoan !== false ? (dynamicTotals.grandLoan || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedFood !== false ? (dynamicTotals.grandFood || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.dedOthDed !== false ? (totals.grandOthDed || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedEMbill !== false ? (totals.grandEMbill || 0) : '—'}</div>
+                      <div>{selectedOptions.dedOthDed !== false ? (dynamicTotals.grandOthDed || 0) : '—'}</div>
+                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedEMbill !== false ? (dynamicTotals.grandEMbill || 0) : '—'}</div>
                     </td>
 
                     {/* Gross Deductions Total */}
                     <td className={styles.right} style={{ fontSize: '0.82rem' }}>
-                      {selectedOptions.grossDeduct !== false ? (totals.grandDeductions || 0).toLocaleString('en-IN') : '—'}
+                      {selectedOptions.grossDeduct !== false ? (dynamicTotals.grandDeductions || 0).toLocaleString('en-IN') : '—'}
                     </td>
 
                     {/* Net Payable Total */}
                     <td className={styles.right} style={{ fontSize: '0.88rem', color: '#166534' }}>
-                      {selectedOptions.netPayable !== false ? (totals.grandNet || 0).toLocaleString('en-IN') : '—'}
+                      {selectedOptions.netPayable !== false ? (dynamicTotals.grandNet || 0).toLocaleString('en-IN') : '—'}
                     </td>
 
                     {/* Signature Total */}
@@ -658,40 +822,40 @@ export default function SalarySheetFormat1View({
                         <tr>
                           <th>PF Wages</th>
                           <th>Strn.</th>
-                          <th>EE (12%)</th>
-                          <th>ER (Diff)</th>
+                          <th>EE ({pfEmployeeRate}%)</th>
+                          <th>ER (Diff {pfEmployerRate}%)</th>
                           <th>A/C - 1</th>
-                          <th>A/C 10</th>
-                          <th>A/C 2</th>
-                          <th>A/C - 21</th>
+                          <th>A/C 10 ({pfPensionRate}%)</th>
+                          <th>A/C 2 ({pfAdminRate}%)</th>
+                          <th>A/C - 21 ({pfEdliRate}%)</th>
                           <th>A/C - 22</th>
                           <th>Total</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td>{(pfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
-                          <td style={{ textAlign: 'center' }}>{pfSummary.strn || 0}</td>
-                          <td>{(pfSummary.ee || 0).toLocaleString('en-IN')}</td>
-                          <td>{(pfSummary.erDiff || 0).toLocaleString('en-IN')}</td>
-                          <td>{(pfSummary.ac1 || 0).toLocaleString('en-IN')}</td>
-                          <td>{(pfSummary.ac10 || 0).toLocaleString('en-IN')}</td>
-                          <td>{(pfSummary.ac2 || 0).toLocaleString('en-IN')}</td>
-                          <td>{(pfSummary.ac21 || 0).toLocaleString('en-IN')}</td>
-                          <td>{(pfSummary.ac22 || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
+                          <td style={{ textAlign: 'center' }}>{activePfSummary.strn || 0}</td>
+                          <td>{(activePfSummary.ee || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.erDiff || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.ac1 || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.ac10 || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.ac2 || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.ac21 || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.ac22 || 0).toLocaleString('en-IN')}</td>
                           <td style={{ fontWeight: 800, background: '#f8fafc' }}>
-                            {(pfSummary.total || 0).toLocaleString('en-IN')}
+                            {(activePfSummary.total || 0).toLocaleString('en-IN')}
                           </td>
                         </tr>
                         <tr className={styles.reconciliationRow}>
-                          <td>{(pfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
                           <td></td>
                           <td></td>
                           <td></td>
                           <td></td>
                           <td></td>
                           <td></td>
-                          <td>{(pfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
+                          <td>{(activePfSummary.pfWages || 0).toLocaleString('en-IN')}</td>
                           <td></td>
                           <td></td>
                         </tr>
@@ -715,19 +879,19 @@ export default function SalarySheetFormat1View({
                             <tr>
                               <th>ESI Wages</th>
                               <th>Strn</th>
-                              <th>EE Share (0.75%)</th>
-                              <th>ER.Share (3.25%)</th>
-                              <th>Total ESI (4%)</th>
+                              <th>EE Share ({esiEmployeeRate}%)</th>
+                              <th>ER.Share ({esiEmployerRate}%)</th>
+                              <th>Total ESI ({(Number(esiEmployeeRate) + Number(esiEmployerRate)).toFixed(2).replace(/\.00$/, '')}%)</th>
                             </tr>
                           </thead>
                           <tbody>
                             <tr>
-                              <td>{(esiSummary.esiWages || 0).toLocaleString('en-IN')}</td>
-                              <td style={{ textAlign: 'center' }}>{esiSummary.strn || 0}</td>
-                              <td>{(esiSummary.eeShare || 0).toLocaleString('en-IN')}</td>
-                              <td>{(esiSummary.erShare || 0).toLocaleString('en-IN')}</td>
+                              <td>{(activeEsiSummary.esiWages || 0).toLocaleString('en-IN')}</td>
+                              <td style={{ textAlign: 'center' }}>{activeEsiSummary.strn || 0}</td>
+                              <td>{(activeEsiSummary.eeShare || 0).toLocaleString('en-IN')}</td>
+                              <td>{(activeEsiSummary.erShare || 0).toLocaleString('en-IN')}</td>
                               <td style={{ fontWeight: 800, background: '#f8fafc' }}>
-                                {(esiSummary.totalEsi || 0).toLocaleString('en-IN')}
+                                {(activeEsiSummary.totalEsi || 0).toLocaleString('en-IN')}
                               </td>
                             </tr>
                           </tbody>

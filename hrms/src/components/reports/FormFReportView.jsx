@@ -14,13 +14,13 @@ function FormFSheetItem({ record, globalCompanyInfo, filters }) {
     record.companyName ||
     filterCompName ||
     comp.name ||
-    'RR SECURITY & FACILITIES'
+    ''
   ).toUpperCase();
 
   const employerAddress =
     record.companyAddress ||
     comp.address ||
-    'G-75/A Street No 04 Block-G M.B. Extn., Badarpur, New Delhi-110044';
+    '';
 
   const employeeName = record.name || record.employeeName || '—';
   const employeeUpperName = employeeName.toUpperCase();

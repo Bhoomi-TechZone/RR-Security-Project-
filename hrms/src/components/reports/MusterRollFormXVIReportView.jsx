@@ -27,9 +27,9 @@ export default function MusterRollFormXVIReportView({
   filters = {},
 }) {
   const defaultComp = companyInfo || {};
-  const contractorName = defaultComp.name || 'RR SECURITY & FACILITIES';
+  const contractorName = defaultComp.name || defaultComp.companyName || '';
   const contractorAddress =
-    defaultComp.address || 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
+    defaultComp.address || '';
   const contractorFull = `${contractorName}, ${contractorAddress}`;
 
   const firstRec = records[0] || {};
@@ -90,89 +90,7 @@ export default function MusterRollFormXVIReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Workforce</span>
-            <span className={styles.kpiValue}>{records.length} Employees</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <Calendar size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Period / Month</span>
-            <span className={styles.kpiValue}>{monthLabel}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Statutory Format</span>
-            <span className={styles.kpiValue}>Form XVI (Rule 78)</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <CheckCircle2 size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Man-Days</span>
-            <span className={styles.kpiValue}>{totalWorkedDaysSum} Days</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badgeWorkforce}>
-            {records.length} {records.length === 1 ? 'Workman Record' : 'Workmen Records'}
-          </span>
-          <span className={styles.badgePeriod}>Period: {monthLabel}</span>
-          <span className={styles.badgePeriod}>{daysInMonth} Days in Month</span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            title="Download Statutory Muster Roll Excel"
-          >
-            <FileSpreadsheet size={15} />
-            <span>Download Excel</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            title="Download Statutory Muster Roll PDF (Landscape A3)"
-          >
-            <FileText size={15} />
-            <span>Download PDF</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Muster Roll Document"
-          >
-            <Printer size={15} />
-            <span>Print Form XVI</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* Statutory Attendance Legend */}
       <div className={styles.legendBar}>

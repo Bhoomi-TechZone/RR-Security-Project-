@@ -83,7 +83,7 @@ export async function downloadEmploymentCardPdf(
     const col1W = 210;
     const col2W = contentW - col1W;
 
-    const contractorName = record.contractorName || defaultComp.name || 'RR SECURITY & FACILITIES';
+    const contractorName = record.contractorName || defaultComp.name || defaultComp.companyName || '';
     const contractorAddress = record.contractorAddress || defaultComp.address || 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
     const contractorFull = `${contractorName}\n${contractorAddress}`;
 
@@ -260,7 +260,7 @@ export function downloadEmploymentCardExcel(
       aoa.push(['Employment Card', '']);
     }
 
-    const contractorFull = `${rec.contractorName || defaultComp.name || 'RR SECURITY & FACILITIES'}, ${rec.contractorAddress || defaultComp.address || 'G-75/A Badarpur New Delhi-110044'}`;
+    const contractorFull = `${rec.contractorName || defaultComp.name || defaultComp.companyName || ''}, ${rec.contractorAddress || defaultComp.address || ''}`;
     const establishmentFull = `${rec.establishmentName || 'Client Site'}, ${rec.establishmentAddress || 'Delhi NCR'}`;
 
     aoa.push(['Name and Address of Contractor :', contractorFull]);

@@ -33,11 +33,11 @@ export default function WagesRegisterFormXVIILReportView({
   const [downloadingFormat, setDownloadingFormat] = useState(null);
 
   const est = establishmentInfo || {};
-  const contractorName = est.contractorName || companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const contractorName = companyInfo?.name || est.contractorName || '';
   const contractorAddress =
     est.contractorAddress ||
     companyInfo?.address ||
-    'G-75/A, Ground Floor, Block-G, M.B. EXTN., Badarpur New Delhi-110044';
+    '';
   const workLocation =
     est.natureAndLocationOfWork ||
     'STAR TRACK TERMINALS PVT. LTD. ICD DADRI TILPATA ROAD, DADRI GREATER NOIDA';
@@ -83,52 +83,7 @@ export default function WagesRegisterFormXVIILReportView({
 
   return (
     <div className={styles.container}>
-      {/* Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badgeWorkforce}>
-            {records.length} Employees in Register
-          </span>
-          <span className={styles.badgePeriod}>Period: {wagesPeriod}</span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            disabled={Boolean(downloadingFormat)}
-            title="Download Statutory Form XVII as Excel spreadsheet"
-          >
-            {downloadingFormat === 'excel' ? (
-              <>
-                <Loader2 size={16} className={styles.spinner} /> Preparing Excel...
-              </>
-            ) : (
-              <>
-                <FileSpreadsheet size={16} /> Export Excel
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            disabled={Boolean(downloadingFormat)}
-            title="Download Official Form XVII Printable PDF"
-          >
-            {downloadingFormat === 'pdf' ? (
-              <>
-                <Loader2 size={16} className={styles.spinner} /> Generating PDF...
-              </>
-            ) : (
-              <>
-                <FileText size={16} /> Export PDF
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      
 
       {/* 3. Formal Paper Document Frame */}
       <div className={styles.paperSheet}>

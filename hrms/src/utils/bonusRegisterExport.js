@@ -17,7 +17,7 @@ export const downloadBonusRegisterExcel = (
   totals = {},
   options = {}
 ) => {
-  const companyName = (companyInfo.name || 'RR SECURITY & FACILITIES').toUpperCase();
+  const companyName = (companyInfo.name || companyInfo.companyName || '').toUpperCase();
   const companyAddress = companyInfo.address || 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
   const accountingYear =
     period.accountingYear ||
@@ -241,7 +241,7 @@ export const downloadBonusRegisterPdf = (
   options = {}
 ) => {
   const mode = options.mode || 'download';
-  const companyName = (companyInfo.name || 'RR SECURITY & FACILITIES').toUpperCase();
+  const companyName = (companyInfo.name || companyInfo.companyName || '').toUpperCase();
   const companyAddress = companyInfo.address || 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
   const accountingYear =
     period.accountingYear ||

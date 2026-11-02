@@ -75,7 +75,7 @@ export async function downloadPfChallanPdf(
   const adminName = (
     challan.establishmentName ||
     comp.name ||
-    'RR SECURITY & FACILITIES'
+    ''
   ).toUpperCase();
 
   const estCode =
@@ -87,7 +87,7 @@ export async function downloadPfChallanPdf(
   const estAddress =
     challan.establishmentAddress ||
     comp.address ||
-    'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI';
+    '';
 
   const wageMonth = challan.wageMonth || 'SEP 2026';
   const monthShortYear = challan.monthShortYear || 'oct-26';
@@ -306,7 +306,7 @@ export function downloadPfChallanExcel(reportData = {}, options = {}) {
   const comp = reportData.companyInfo || {};
   const records = reportData.records || [];
 
-  const adminName = (challan.establishmentName || comp.name || 'RR SECURITY & FACILITIES').toUpperCase();
+  const adminName = (challan.establishmentName || comp.name || '').toUpperCase();
   const estCode = challan.establishmentCode || comp.establishmentCode || 'DSNHP3718318000';
   const wageMonth = challan.wageMonth || 'SEP 2026';
 

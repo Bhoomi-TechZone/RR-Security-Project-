@@ -17,11 +17,11 @@ export const downloadWorkmanRegisterExcel = (
   options = {}
 ) => {
   const est = establishmentInfo || {};
-  const contractorName = est.contractorName || companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const contractorName = companyInfo?.name || est.contractorName || '';
   const contractorAddress =
     est.contractorAddress ||
     companyInfo?.address ||
-    'G-75/A, Ground Floor, Block-G, M.B. EXTN., Badarpur New Delhi-110044';
+    '';
   const workLocation =
     est.natureAndLocationOfWork ||
     'Security & Facility Services, At STAR TRACK TERMINALS PVT. LTD. ICD DADRI TILPATA ROAD, DADRI GREATER NOIDA';
@@ -179,11 +179,11 @@ export const downloadWorkmanRegisterPdf = async (
   });
 
   const est = establishmentInfo || {};
-  const contractorName = est.contractorName || companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const contractorName = companyInfo?.name || est.contractorName || '';
   const contractorAddress =
     est.contractorAddress ||
     companyInfo?.address ||
-    'G-75/A, Ground Floor, Block-G, M.B. EXTN., Badarpur New Delhi-110044';
+    '';
   const workLocation =
     est.natureAndLocationOfWork ||
     'Security & Facility Services, At STAR TRACK TERMINALS PVT. LTD. ICD DADRI TILPATA ROAD, DADRI GREATER NOIDA';

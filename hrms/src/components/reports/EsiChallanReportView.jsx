@@ -116,94 +116,6 @@ export default function EsiChallanReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={15} />
-            ESIC STATUTORY CHALLAN
-          </span>
-          <span className={styles.metaText}>
-            Contribution Month: <strong>{monthName}</strong>
-          </span>
-          <span className={styles.metaText}>
-            Total Payable: <strong>₹{totalContrib.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <select
-            className={styles.copySelect}
-            value={selectedCopy}
-            onChange={(e) => setSelectedCopy(e.target.value)}
-            title="Select Challan Copy to View / Export"
-          >
-            <option value="original">Original (For Bank)</option>
-            <option value="duplicate">Duplicate (For ESIC)</option>
-            <option value="triplicate">Triplicate (For Employer)</option>
-            <option value="quadruplicate">Quadruplicate (For Depositor)</option>
-            <option value="all">All 4 Copies</option>
-          </select>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleDownloadPdf}
-            title="Download Challan as PDF"
-          >
-            <Download size={14} /> PDF
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleDownloadExcel}
-            title="Download Excel Workbook"
-          >
-            <FileSpreadsheet size={14} /> Excel
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnCsv}`}
-            onClick={handleDownloadCsv}
-            title="Download CSV"
-          >
-            <FileText size={14} /> CSV
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Official Challan Receipt"
-          >
-            <Printer size={14} /> Print
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={`${styles.kpiCard} ${styles.kpiCardBlue}`}>
-          <span className={styles.kpiLabel}>Insured Employees</span>
-          <span className={styles.kpiValue}>{totalEmployeeCount} Employees</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardGreen}`}>
-          <span className={styles.kpiLabel}>Total ESI Wages</span>
-          <span className={styles.kpiValue}>₹{totalWages.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardPurple}`}>
-          <span className={styles.kpiLabel}>Employees Share (0.75%)</span>
-          <span className={styles.kpiValue}>₹{employeeContrib.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardOrange}`}>
-          <span className={styles.kpiLabel}>Employers Share (3.25%)</span>
-          <span className={styles.kpiValue}>₹{employerContrib.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardRed}`}>
-          <span className={styles.kpiLabel}>Total Challan Amount</span>
-          <span className={styles.kpiValue}>₹{totalContrib.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-        </div>
-      </div>
-
       {/* Paper Preview Card matching Image 2 */}
       <div className={styles.paperWrapper}>
         <div className={styles.challanCard}>
@@ -274,22 +186,22 @@ export default function EsiChallanReportView({
             </div>
             <div className={styles.depositorBlock}>
               <div>Deposited by</div>
-              <div><strong>For {comp?.name || 'RR SECURITY & FACILITIES'}</strong></div>
+              <div><strong>For {comp?.name || comp?.companyName || ''}</strong></div>
             </div>
           </div>
 
           {/* Employer Code and Factory Name / Address */}
           <div className={styles.establishmentSection}>
             <div className={styles.employerCodeLine}>
-              Employer's Code No : &nbsp; {comp?.employerCode || '20001853160000999'}
+              Employer's Code No : &nbsp; {comp?.employerEsiCode || comp?.esiNo || comp?.employerCode || ''}
             </div>
             <div className={styles.factoryLabel}>Name &amp; Address of Factory/Establishment</div>
             <div className={styles.companyNameLine}>
-              <span>{comp?.name || 'RR SECURITY & FACILITIES'}</span>
+              <span>{comp?.name || comp?.companyName || ''}</span>
               <span style={{ fontWeight: 'normal', color: '#475569' }}>(Signatory)</span>
             </div>
             <div className={styles.addressLine}>
-              {comp?.address || 'G-75/A, BLOCK-G M.B.EXTN. BADARPUR NEW DELHI-110044'}
+              {comp?.address || ''}
             </div>
           </div>
 

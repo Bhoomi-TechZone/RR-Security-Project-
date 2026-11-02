@@ -156,60 +156,6 @@ export default function FormILeaveReportView({
   return (
     <div className={styles.container}>
 
-      {/* Act Info Banner */}
-      <div className={styles.actBanner}>
-        <Info size={14} />
-        <span>
-          <strong>FORM I</strong>&nbsp;(See Rule 14) — Statutory Register of Leave under{' '}
-          <strong>Delhi Shops &amp; Establishments Act, 1954</strong>. Report Year:{' '}
-          <strong>{reportYear}</strong>
-        </span>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Registered Employees</span>
-            <span className={styles.kpiValue}>{totalEmployeesCount}</span>
-          </div>
-        </div>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <Clock size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Casual / Sick Availed</span>
-            <span className={styles.kpiValue}>
-              {casualAvailed} <small>/ {casualEntitled} Days</small>
-            </span>
-          </div>
-        </div>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <Calendar size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Privilege Leave Availed</span>
-            <span className={styles.kpiValue}>
-              {privilegeAvailed} <small>/ {privilegeEntitled} Days</small>
-            </span>
-          </div>
-        </div>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Privilege Leave Balance</span>
-            <span className={styles.kpiValue}>{privilegeBalance} Days</span>
-          </div>
-        </div>
-      </div>
-
       {/* Entitlement Progress Bars */}
       <div className={styles.entitlementBar}>
         <div className={styles.entitlementItem}>
@@ -267,20 +213,7 @@ export default function FormILeaveReportView({
             <span className={styles.empDeptBadge}>{activeEmployee.department}</span>
           )}
         </div>
-        <div className={styles.toolbarRight}>
-          <button type="button" className={styles.btnSecondary} onClick={handleExportExcel} title="Excel">
-            <FileSpreadsheet size={14} /><span>Excel</span>
-          </button>
-          <button type="button" className={styles.btnSecondary} onClick={handleExportCsv} title="CSV">
-            <FileText size={14} /><span>CSV</span>
-          </button>
-          <button type="button" className={styles.btnSecondary} onClick={handleDownloadPdf} title="PDF">
-            <FileText size={14} /><span>PDF</span>
-          </button>
-          <button type="button" className={styles.btnPrimary} onClick={handlePrint} title="Print">
-            <Printer size={14} /><span>Print</span>
-          </button>
-        </div>
+        
       </div>
 
       {/* Statutory Form I Sheet */}

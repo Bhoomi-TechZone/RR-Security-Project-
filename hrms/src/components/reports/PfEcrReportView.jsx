@@ -47,50 +47,7 @@ export default function PfEcrReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar (Excel ONLY per user requirement) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>EPFO Statutory PF ECR</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <Calendar size={15} />
-            <span>{monthLabel}</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeInfo}`}>
-            <Users size={15} />
-            <span>{records.length} Members</span>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <div className={styles.searchInputWrapper}>
-            <Search size={14} className={styles.searchIcon} />
-            <input
-              type="text"
-              placeholder="Search UAN, Member Name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={styles.searchInput}
-              aria-label="Search ECR Records"
-            />
-          </div>
-
-          <button
-            type="button"
-            className={styles.excelBtn}
-            onClick={handleDownloadExcel}
-            title="Download Official PF ECR Excel (.xlsx)"
-          >
-            <Download size={15} />
-            <FileSpreadsheet size={15} />
-            <span>Download Excel (.xlsx)</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* KPI Metric Cards */}
       {summaryCards.length > 0 && (

@@ -38,7 +38,7 @@ export default function EsiSummaryLocationReportView({
   const clientInfo = safeData.clientInfo || {};
   const period = safeData.period || {};
 
-  const headerCompanyName = clientInfo?.name || companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const headerCompanyName = companyInfo?.name || clientInfo?.name || '';
   const periodStr = period.periodStr || `From month: ${period.fromMonthNum || 9}.${period.fromYear || 2026} To ${period.toMonthNum || 9}.${period.toYear || 2026}`;
 
   const handleDownloadPdf = () => {
@@ -59,108 +59,8 @@ export default function EsiSummaryLocationReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. Quick KPI Summary Badges */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total Locations</span>
-            <span className={styles.kpiValue}>{records.length} Sites</span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconBlue}`}>
-            <MapPin size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Insured Staff</span>
-            <span className={styles.kpiValue}>{grandTotal.totEmp || 0} Staff</span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconPurple}`}>
-            <Users size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total Attendance</span>
-            <span className={styles.kpiValue}>{Number(grandTotal.atten || 0).toFixed(2)} Days</span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconIndigo}`}>
-            <Calendar size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total ESI Wages</span>
-            <span className={styles.kpiValue}>
-              ₹{Number(grandTotal.esiWages || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconGreen}`}>
-            <Coins size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total ESI Contribution</span>
-            <span className={styles.kpiValue}>
-              ₹{Number(grandTotal.totalAmt || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconOrange}`}>
-            <ShieldCheck size={20} />
-          </div>
-        </div>
-      </div>
-
       {/* 2. Export & Action Bar */}
-      <div className={styles.actionBar}>
-        <div className={styles.actionTitle}>
-          <FileText size={18} color="#2563eb" />
-          <span>Location Wise ESI Summary Report</span>
-        </div>
-        <div className={styles.actionButtons}>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleDownloadPdf}
-            title="Download formatted statutory PDF"
-          >
-            <Download size={14} />
-            Download PDF
-          </button>
-          <button
-            type="button"
-            className={styles.btnSuccess}
-            onClick={handleDownloadExcel}
-            title="Download Excel Workbook"
-          >
-            <FileSpreadsheet size={14} />
-            Download Excel
-          </button>
-          <button
-            type="button"
-            className={styles.btnOutline}
-            onClick={handleDownloadCsv}
-            title="Download CSV file"
-          >
-            <Download size={14} />
-            CSV
-          </button>
-          <button
-            type="button"
-            className={styles.btnOutline}
-            onClick={handlePrint}
-            title="Print report"
-          >
-            <Printer size={14} />
-            Print
-          </button>
-        </div>
-      </div>
+      
 
       {/* 3. Official Printable Paper Container */}
       <div className={styles.paperCard}>

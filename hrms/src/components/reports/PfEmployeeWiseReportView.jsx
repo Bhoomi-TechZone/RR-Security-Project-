@@ -23,7 +23,7 @@ export default function PfEmployeeWiseReportView({
   const records = reportData.records || [];
   const totals = reportData.totals || {};
   const acSummary = reportData.accountSummary || {};
-  const companyName = reportData.companyName || 'RR SECURITY & FACILITIES';
+  const companyName = reportData.companyInfo?.name || reportData.companyName || '';
   const forMonthString = reportData.forMonthString || '9,2026';
   const locationName = reportData.locationName || 'Petal communication';
   const monthLabel = reportData.monthLabel || 'Current Month';
@@ -51,50 +51,7 @@ export default function PfEmployeeWiseReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar (Excel ONLY per user requirement) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>EPFO Employee Wise Monthly PF Report</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <Calendar size={15} />
-            <span>FOR THE MONTH OF : {forMonthString}</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeInfo}`}>
-            <Users size={15} />
-            <span>{records.length} Employees</span>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <div className={styles.searchInputWrapper}>
-            <Search size={14} className={styles.searchIcon} />
-            <input
-              type="text"
-              placeholder="Search Code, UAN, Name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={styles.searchInput}
-              aria-label="Search Employee PF Records"
-            />
-          </div>
-
-          <button
-            type="button"
-            className={styles.excelBtn}
-            onClick={handleDownloadExcel}
-            title="Download Official Employee Wise PF Excel (.xlsx)"
-          >
-            <Download size={15} />
-            <FileSpreadsheet size={15} />
-            <span>Download Excel (.xlsx)</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* KPI Metric Cards */}
       {summaryCards.length > 0 && (

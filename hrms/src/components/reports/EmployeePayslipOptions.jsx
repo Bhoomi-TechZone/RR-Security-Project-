@@ -91,8 +91,13 @@ export default function EmployeePayslipOptions({
   // Handle Save
   const handleSave = () => {
     setIsSavedFeedback(true);
+    try {
+      localStorage.setItem('hrms_report_opts_employee_payslip', JSON.stringify(selectedOptions));
+    } catch (e) {
+      console.warn('Failed to save options to localStorage:', e);
+    }
     if (typeof onSave === 'function') {
-      onSave();
+      onSave(selectedOptions);
     }
     setTimeout(() => {
       setIsSavedFeedback(false);

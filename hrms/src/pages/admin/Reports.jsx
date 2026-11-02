@@ -9,11 +9,13 @@ import {
   CheckCircle2,
   Database,
   Download,
+  Eye,
   FileBarChart,
   FileCheck,
   FileSpreadsheet,
   FileText,
   Filter,
+  Loader2,
   Printer,
   RefreshCw,
   Search,
@@ -24,6 +26,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import { reportService } from '../../services/reportService';
+import statutoryService from '../../services/statutoryService';
 import { masterService } from '../../services/masterService';
 import { generateReportPdf } from '../../utils/pdfExportUtil';
 import { generateReportExcel } from '../../utils/excelExportUtil';
@@ -1455,8 +1458,8 @@ function WageSalaryRegisterTableLegacy({ reportData }) {
       {/* Official Header */}
       <div className={styles.officialHeader}>
         <div className={styles.officialCompanyInfo}>
-          <h2 className={styles.officialCompanyName}>{company.name || 'RR Security & Facilities'}</h2>
-          <p className={styles.officialCompanyAddress}>{company.address || 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044'}</p>
+          <h2 className={styles.officialCompanyName}>{company.name || company.companyName || ''}</h2>
+          <p className={styles.officialCompanyAddress}>{company.address || ''}</p>
         </div>
         <div className={styles.officialStatutoryRules}>
           <span>(1) Form under Rule - 5 of Equal Remuneration Rules 1976.</span>
@@ -1706,7 +1709,7 @@ function AttendanceTable({ rows }) {
         <tbody>
           {rows.map((item, idx) => {
             const empName = typeof item.employeeName === 'object' ? item.employeeName?.name : (item.employeeName || '—');
-            const clientTitle = typeof item.clientName === 'object' ? item.clientName?.name : (item.clientName || 'RR Security & Facilities');
+            const clientTitle = typeof item.clientName === 'object' ? item.clientName?.name : (item.clientName || company.name || '-');
             const dept = typeof item.department === 'object' ? item.department?.name : (item.department || 'Operations');
             const desig = typeof item.designation === 'object' ? item.designation?.name : (item.designation || 'Staff');
             const status = typeof item.status === 'object' ? item.status?.name : (item.status || 'Good');
@@ -1979,8 +1982,11 @@ function ReportFilters({
   filterOptions,
   setFilter,
   onGenerateReport,
+  onViewReport,
   onResetFilters,
-  isLoading
+  isLoading,
+  isReportGenerated,
+  isViewingReport
 }) {
   const meta = reportMeta[selectedReport] || reportMeta.payroll;
   const showMonth = meta.filters.includes('month');
@@ -2129,7 +2135,7 @@ function ReportFilters({
           <div className={styles.fieldGroup}>
             <label>Client</label>
             <select
-              value={filters.company}
+              value={filters.company || 'All Companies'}
               onChange={(e) => {
                 const newComp = e.target.value;
                 setFilter('company', newComp);
@@ -2196,7 +2202,7 @@ function ReportFilters({
               )}
             </label>
             <select
-              value={filters.employee}
+              value={filters.employee || 'All Employees'}
               onChange={(e) => setFilter('employee', e.target.value)}
             >
               <option value="All Employees">
@@ -2272,11 +2278,46 @@ function ReportFilters({
                 gap: '6px',
                 height: '42px',
                 whiteSpace: 'nowrap',
-                padding: '0 16px',
+                padding: '0 18px',
+                background: '#2563eb',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(37,99,235,0.2)'
               }}
             >
               <RefreshCw size={14} className={isLoading ? styles.spinIcon : ''} />
               {isLoading ? 'Generating...' : 'Generate Report'}
+            </button>
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={onViewReport}
+              disabled={!isReportGenerated || isLoading}
+              title={isReportGenerated ? 'View generated report' : 'Please click Generate Report first'}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                height: '42px',
+                whiteSpace: 'nowrap',
+                padding: '0 16px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: !isReportGenerated ? 'not-allowed' : 'pointer',
+                opacity: !isReportGenerated ? 0.55 : 1,
+                background: isReportGenerated ? (isViewingReport ? '#047857' : '#10b981') : '#f1f5f9',
+                color: isReportGenerated ? '#ffffff' : '#64748b',
+                border: isReportGenerated ? '1px solid #059669' : '1px solid #cbd5e1',
+                boxShadow: isReportGenerated ? '0 1px 3px rgba(16,185,129,0.2)' : 'none'
+              }}
+            >
+              <Eye size={15} />
+              {isViewingReport ? 'Viewing' : 'View'}
             </button>
             <button
               type="button"
@@ -2306,25 +2347,132 @@ function ReportBody({
   reportData,
   isLoading,
   onGenerateReport,
+  onViewReport,
   onResetFilters,
   isExporting = false,
   activeCompany: passedCompany = null,
   isReportGenerated = false,
+  isViewingReport = false,
+  salarySheet1Options: propSalarySheet1Options,
+  setSalarySheet1Options: propSetSalarySheet1Options,
+  salarySheet2Options: propSalarySheet2Options,
+  setSalarySheet2Options: propSetSalarySheet2Options,
+  payslipOptions: propPayslipOptions,
+  setPayslipOptions: propSetPayslipOptions,
+  employeeMasterOptions: propEmployeeMasterOptions,
+  setEmployeeMasterOptions: propSetEmployeeMasterOptions,
+  payrollOptions: propPayrollOptions,
+  setPayrollOptions: propSetPayrollOptions,
+  statutoryConfig = null,
+  onSaveOptionsToDatabase = null,
 }) {
   const companyCtx = typeof useCompany === 'function' ? useCompany() : null;
   const activeCompany = passedCompany || companyCtx?.activeCompany || null;
+  const effectiveCompany = useMemo(() => {
+    const comp = reportData?.companyInfo || {};
+    const active = activeCompany || {};
+    const finalName = comp.name || comp.companyName || active.name || active.companyName || '';
+    const finalAddress = comp.address || comp.registeredAddress || active.address || active.registeredAddress || '';
+    const finalPfNo = comp.pfNo || comp.employerPfCode || comp.pfCode || active.employerPfCode || active.pfCode || active.employerPfNo || '';
+    const finalEsiNo = comp.esiNo || comp.employerEsiCode || comp.esiCode || active.employerEsiCode || active.esiCode || active.employerEsiNo || '';
+
+    return {
+      ...active,
+      ...comp,
+      name: finalName,
+      companyName: finalName,
+      address: finalAddress,
+      city: comp.city || active.city || '',
+      state: comp.state || active.state || '',
+      pinCode: comp.pinCode || comp.pincode || active.pinCode || active.pincode || '',
+      phone: comp.phone || comp.contactNumber || active.phone || active.contactNumber || '',
+      email: comp.email || active.email || '',
+      website: comp.website || active.website || '',
+      logo: comp.logo || comp.logoUrl || active.logo || active.logoUrl || '',
+      pan: comp.pan || comp.panNumber || active.pan || active.panNumber || '',
+      tan: comp.tan || comp.tanNumber || active.tan || active.tanNumber || '',
+      gstin: comp.gstin || comp.gstNumber || active.gstin || active.gstNumber || '',
+      employerPfCode: finalPfNo,
+      employerEsiCode: finalEsiNo,
+      pfNo: finalPfNo,
+      esiNo: finalEsiNo,
+      bankName: comp.bankName || active.bankName || '',
+      bankBranch: comp.bankBranch || comp.branch || active.bankBranch || active.branch || '',
+      accountNumber: comp.accountNumber || comp.bankAccountNo || active.accountNumber || active.bankAccountNo || '',
+      ifsc: comp.ifsc || comp.ifscCode || active.ifsc || active.ifscCode || '',
+    };
+  }, [reportData?.companyInfo, activeCompany]);
+
+  const enrichedReportData = useMemo(() => {
+    if (!reportData) return reportData;
+    return {
+      ...reportData,
+      companyInfo: effectiveCompany,
+      employer: reportData?.employer || effectiveCompany?.name,
+      contractor: reportData?.contractor || effectiveCompany,
+    };
+  }, [reportData, effectiveCompany]);
   const meta = reportMeta[activeReport] || reportMeta.payroll;
   const summaryCards = reportData?.summaryCards || [];
   const isSalarySheet1 = activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1';
-  const [salarySheet1Options, setSalarySheet1Options] = useState(() => getDefaultSelectedOptions());
+  const [localSalarySheet1Options, setLocalSalarySheet1Options] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_salary_sheet_1');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptions();
+    } catch {
+      return getDefaultSelectedOptions();
+    }
+  });
+  const salarySheet1Options = propSalarySheet1Options || localSalarySheet1Options;
+  const setSalarySheet1Options = propSetSalarySheet1Options || setLocalSalarySheet1Options;
+
   const isSalarySheet2 = activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2';
-  const [salarySheet2Options, setSalarySheet2Options] = useState(() => getDefaultSelectedOptionsFormat2());
+  const [localSalarySheet2Options, setLocalSalarySheet2Options] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_salary_sheet_2');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsFormat2();
+    } catch {
+      return getDefaultSelectedOptionsFormat2();
+    }
+  });
+  const salarySheet2Options = propSalarySheet2Options || localSalarySheet2Options;
+  const setSalarySheet2Options = propSetSalarySheet2Options || setLocalSalarySheet2Options;
+
   const isEmployeePayslip = activeReport === 'employee-payslip' || activeReport === 'payslip';
-  const [payslipOptions, setPayslipOptions] = useState(() => getDefaultSelectedOptionsPayslip());
+  const [localPayslipOptions, setLocalPayslipOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_employee_payslip');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsPayslip();
+    } catch {
+      return getDefaultSelectedOptionsPayslip();
+    }
+  });
+  const payslipOptions = propPayslipOptions || localPayslipOptions;
+  const setPayslipOptions = propSetPayslipOptions || setLocalPayslipOptions;
+
   const isEmployeeMaster = activeReport === 'employee' || activeReport === 'employee-master';
-  const [employeeMasterOptions, setEmployeeMasterOptions] = useState(() => getDefaultSelectedOptionsEmployeeMaster());
+  const [localEmployeeMasterOptions, setLocalEmployeeMasterOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_employee_master');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsEmployeeMaster();
+    } catch {
+      return getDefaultSelectedOptionsEmployeeMaster();
+    }
+  });
+  const employeeMasterOptions = propEmployeeMasterOptions || localEmployeeMasterOptions;
+  const setEmployeeMasterOptions = propSetEmployeeMasterOptions || setLocalEmployeeMasterOptions;
+
   const isPayroll = activeReport === 'payroll' || activeReport === 'employee-payslip-report';
-  const [payrollOptions, setPayrollOptions] = useState(() => getDefaultSelectedOptionsPayroll());
+  const [localPayrollOptions, setLocalPayrollOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_payroll');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsPayroll();
+    } catch {
+      return getDefaultSelectedOptionsPayroll();
+    }
+  });
+  const payrollOptions = propPayrollOptions || localPayrollOptions;
+  const setPayrollOptions = propSetPayrollOptions || setLocalPayrollOptions;
   const records = reportData?.records || [];
 
   // Filter records by search term
@@ -2348,7 +2496,7 @@ function ReportBody({
 
   const renderTable = () => {
     if (activeReport === 'payroll' || activeReport === 'employee-payslip-report') {
-      return <WageSalaryRegisterTable reportData={{ ...reportData, records: filteredRows }} selectedOptions={payrollOptions} />;
+      return <WageSalaryRegisterTable reportData={{ ...enrichedReportData, records: filteredRows }} selectedOptions={payrollOptions} />;
     }
     if (activeReport === 'attendance') return <AttendanceTable rows={paginatedRows} />;
     if (activeReport === 'billing') return <BillingTable rows={paginatedRows} />;
@@ -2356,17 +2504,17 @@ function ReportBody({
       return (
         <EmployeeProfileReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           filters={filters}
           onExportEmployeePdf={(emp, comp) => {
-            downloadEmployeeProfile(emp, comp || reportData?.companyInfo, { mode: 'download' });
+            downloadEmployeeProfile(emp, comp || effectiveCompany, { mode: 'download' });
           }}
           onPrintEmployeePdf={(emp, comp) => {
-            downloadEmployeeProfile(emp, comp || reportData?.companyInfo, { mode: 'print' });
+            downloadEmployeeProfile(emp, comp || effectiveCompany, { mode: 'print' });
           }}
           onExportAllPdfs={async (empList, comp) => {
             for (const emp of empList) {
-              await downloadEmployeeProfile(emp, comp || reportData?.companyInfo, { mode: 'download' });
+              await downloadEmployeeProfile(emp, comp || effectiveCompany, { mode: 'download' });
             }
           }}
         />
@@ -2376,13 +2524,13 @@ function ReportBody({
       return (
         <FnfSettlementReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           filters={filters}
           onExportPdf={(rec, comp) => {
-            downloadFnfSettlementPdf(rec, comp || reportData?.companyInfo, { mode: 'download' });
+            downloadFnfSettlementPdf(rec, comp || effectiveCompany, { mode: 'download' });
           }}
           onPrintPdf={(rec, comp) => {
-            downloadFnfSettlementPdf(rec, comp || reportData?.companyInfo, { mode: 'print' });
+            downloadFnfSettlementPdf(rec, comp || effectiveCompany, { mode: 'print' });
           }}
         />
       );
@@ -2391,7 +2539,7 @@ function ReportBody({
       return (
         <Form16ReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           filters={filters}
         />
@@ -2401,7 +2549,7 @@ function ReportBody({
       return (
         <FormFReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           filters={filters}
         />
@@ -2411,22 +2559,14 @@ function ReportBody({
       return (
         <SalaryCertificateReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           filters={filters}
         />
       );
     }
     if (activeReport === 'employee-id-card' || activeReport === 'employee-id-card-report') {
-      const effectiveCompany = {
-        ...(activeCompany || {}),
-        ...(reportData?.companyInfo || {}),
-        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName || activeCompany?.name || activeCompany?.companyName,
-        address: reportData?.companyInfo?.address || activeCompany?.address || activeCompany?.registeredAddress,
-        phone: reportData?.companyInfo?.phone || activeCompany?.phone || activeCompany?.contactNumber,
-        email: reportData?.companyInfo?.email || activeCompany?.email,
-        logo: reportData?.companyInfo?.logo || activeCompany?.logo || activeCompany?.logoUrl,
-      };
+      
       return (
         <EmployeeIdCardReportView
           records={filteredRows}
@@ -2440,7 +2580,7 @@ function ReportBody({
       return (
         <BonusRegisterFormCView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2451,7 +2591,7 @@ function ReportBody({
       return (
         <EmploymentCardFormXIVReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           filters={filters}
         />
       );
@@ -2460,7 +2600,7 @@ function ReportBody({
       return (
         <MusterRollFormXVIReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2471,7 +2611,7 @@ function ReportBody({
       return (
         <AdvancesRegisterFormXXIIReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2482,7 +2622,7 @@ function ReportBody({
       return (
         <DeductionsDamageFormXXReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2493,7 +2633,7 @@ function ReportBody({
       return (
         <FinesRegisterFormXXIReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2504,7 +2644,7 @@ function ReportBody({
       return (
         <OvertimeRegisterFormXXIIIReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2522,9 +2662,9 @@ function ReportBody({
       return (
         <OvertimeRegisterFormIVReportView
           records={reportData?.records || filteredRows}
-          companyInfo={reportData?.contractor || reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           establishmentInfo={reportData?.establishment || reportData?.establishmentInfo}
-          contractor={reportData?.contractor}
+          contractor={reportData?.contractor || effectiveCompany}
           establishment={reportData?.establishment}
           period={reportData?.period}
           totals={reportData?.totals}
@@ -2540,7 +2680,7 @@ function ReportBody({
           selectedOptions={payslipOptions}
           onOptionsChange={setPayslipOptions}
           records={reportData?.records || filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           selectedEmployeeData={reportData?.selectedEmployeeData}
@@ -2559,8 +2699,8 @@ function ReportBody({
       return (
         <DeductionsDamageFormIIReportView
           records={reportData?.records || filteredRows}
-          employer={reportData?.employer}
-          employerInfo={reportData?.employerInfo}
+          employer={reportData?.employer || effectiveCompany?.name}
+          employerInfo={reportData?.employerInfo || effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           hasDamage={reportData?.hasDamage}
@@ -2576,8 +2716,8 @@ function ReportBody({
       return (
         <FinesFormIReportView
           records={reportData?.records || filteredRows}
-          employer={reportData?.employer}
-          employerInfo={reportData?.employerInfo}
+          employer={reportData?.employer || effectiveCompany?.name}
+          employerInfo={reportData?.employerInfo || effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           hasFines={reportData?.hasFines}
@@ -2587,14 +2727,7 @@ function ReportBody({
       );
     }
     if (activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1') {
-      const effectiveCompany = {
-        ...activeCompany,
-        ...reportData?.companyInfo,
-        employerPfCode: reportData?.companyInfo?.employerPfCode || activeCompany?.employerPfCode || activeCompany?.pfCode,
-        employerEsiCode: reportData?.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || activeCompany?.esiCode,
-        pfNo: reportData?.companyInfo?.pfNo || activeCompany?.employerPfCode || activeCompany?.pfCode,
-        esiNo: reportData?.companyInfo?.esiNo || activeCompany?.employerEsiCode || activeCompany?.esiCode,
-      };
+      
       return (
         <SalarySheetFormat1View
           records={reportData?.records || filteredRows}
@@ -2608,6 +2741,7 @@ function ReportBody({
           ptSummary={reportData?.ptSummary}
           earningSummary={reportData?.earningSummary}
           deductionSummary={reportData?.deductionSummary}
+          statutoryConfig={statutoryConfig || reportData?.statutoryConfig}
           selectedOptions={salarySheet1Options}
           onOptionsChange={setSalarySheet1Options}
           showOptions={false}
@@ -2616,14 +2750,7 @@ function ReportBody({
       );
     }
     if (activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2') {
-      const effectiveCompany = {
-        ...activeCompany,
-        ...reportData?.companyInfo,
-        employerPfCode: reportData?.companyInfo?.employerPfCode || activeCompany?.employerPfCode || activeCompany?.pfCode,
-        employerEsiCode: reportData?.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || activeCompany?.esiCode,
-        pfNo: reportData?.companyInfo?.pfNo || activeCompany?.employerPfCode || activeCompany?.pfCode,
-        esiNo: reportData?.companyInfo?.esiNo || activeCompany?.employerEsiCode || activeCompany?.esiCode,
-      };
+      
       return (
         <SalarySheetFormat2View
           records={reportData?.records || filteredRows}
@@ -2635,6 +2762,7 @@ function ReportBody({
           pfSummary={reportData?.pfSummary}
           esiSummary={reportData?.esiSummary}
           lwfSummary={reportData?.lwfSummary}
+          statutoryConfig={statutoryConfig || reportData?.statutoryConfig}
           selectedOptions={salarySheet2Options}
           onOptionsChange={setSalarySheet2Options}
           showOptions={false}
@@ -2649,7 +2777,7 @@ function ReportBody({
     ) {
       return (
         <EsiSummaryEmployeeReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2661,7 +2789,7 @@ function ReportBody({
     ) {
       return (
         <EsiSummaryLocationReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2669,7 +2797,7 @@ function ReportBody({
     if (activeReport === 'esic-form-3' || activeReport === 'form-3-esic') {
       return (
         <EsicForm3ReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2681,7 +2809,7 @@ function ReportBody({
     ) {
       return (
         <EsicForm5ReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2692,7 +2820,7 @@ function ReportBody({
     ) {
       return (
         <Form11AccidentBookReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2700,7 +2828,7 @@ function ReportBody({
     if (activeReport === 'epf-form-11' || activeReport === 'epf-form-11-declaration') {
       return (
         <EpfForm11ReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
           onSelectEmployee={(empId) => setFilter('employee', empId)}
         />
@@ -2709,7 +2837,7 @@ function ReportBody({
     if (activeReport === 'pf-challan' || activeReport === 'epf-challan') {
       return (
         <PfChallanReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2717,7 +2845,7 @@ function ReportBody({
     if (activeReport === 'pf-form-3a' || activeReport === 'form-3a') {
       return (
         <PfForm3AReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
           onSelectEmployee={(empId) => setFilter('employee', empId)}
         />
@@ -2726,7 +2854,7 @@ function ReportBody({
     if (activeReport === 'pf-form-5' || activeReport === 'form-5-epf') {
       return (
         <PfForm5ReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
           onScopeChange={() => fetchActiveReportData()}
         />
@@ -2735,7 +2863,7 @@ function ReportBody({
     if (activeReport === 'pf-form-6a' || activeReport === 'form-6a-epf') {
       return (
         <PfForm6AReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2743,7 +2871,7 @@ function ReportBody({
     if (activeReport === 'pf-form-10' || activeReport === 'form-10-epf') {
       return (
         <PfForm10ReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
           onScopeChange={() => fetchActiveReportData()}
         />
@@ -2752,7 +2880,7 @@ function ReportBody({
     if (activeReport === 'pf-form-12a' || activeReport === 'form-12a-epf') {
       return (
         <PfForm12AReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2760,7 +2888,7 @@ function ReportBody({
     if (activeReport === 'pf-ecr-excel' || activeReport === 'pf-ecr') {
       return (
         <PfEcrReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2768,7 +2896,7 @@ function ReportBody({
     if (activeReport === 'pf-report-employee-wise' || activeReport === 'pf-employee-wise') {
       return (
         <PfEmployeeWiseReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2776,7 +2904,7 @@ function ReportBody({
     if (activeReport === 'pf-report-location-wise' || activeReport === 'pf-location-wise') {
       return (
         <PfLocationWiseReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2784,7 +2912,7 @@ function ReportBody({
     if (activeReport === 'pf-summary-report' || activeReport === 'pf-summary') {
       return (
         <PfSummaryReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
         />
       );
@@ -2796,7 +2924,7 @@ function ReportBody({
     ) {
       return (
         <PfForm2ReportView
-          reportData={reportData || {}}
+          reportData={enrichedReportData || {}}
           filters={filters}
           onSelectEmployee={(empId) => setFilter('employee', empId)}
         />
@@ -2805,7 +2933,7 @@ function ReportBody({
     if (activeReport === 'esi-form-1') {
       return (
         <EsiForm1ReportView
-          reportData={reportData}
+          reportData={enrichedReportData}
           filters={filters}
           onSelectEmployee={(empId) => setFilter('employee', empId)}
         />
@@ -2814,7 +2942,7 @@ function ReportBody({
     if (activeReport === 'esi-challan') {
       return (
         <EsiChallanReportView
-          reportData={reportData}
+          reportData={enrichedReportData}
           filters={filters}
         />
       );
@@ -2823,7 +2951,7 @@ function ReportBody({
       return (
         <EsiForm7Option2ReportView
           records={reportData?.records || filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           clientInfo={reportData?.clientInfo}
           establishmentInfo={reportData?.establishmentInfo}
           period={reportData?.period}
@@ -2842,7 +2970,7 @@ function ReportBody({
       return (
         <EsiForm7ReportView
           records={reportData?.records || filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           clientInfo={reportData?.clientInfo}
           establishmentInfo={reportData?.establishmentInfo}
           period={reportData?.period}
@@ -2856,7 +2984,7 @@ function ReportBody({
       return (
         <WagesRegisterFormXVIILReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           establishmentInfo={reportData?.establishmentInfo}
           period={reportData?.period}
           totals={reportData?.totals}
@@ -2870,7 +2998,7 @@ function ReportBody({
       return (
         <WorkmanRegisterFormXIIIReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           establishmentInfo={reportData?.establishmentInfo}
           period={reportData?.period}
           totals={reportData?.totals}
@@ -2883,7 +3011,7 @@ function ReportBody({
         <BankTransferLetterReportView
           records={filteredRows}
           letterInfo={reportData?.letterInfo}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2895,7 +3023,7 @@ function ReportBody({
         <BankTransferReportView
           records={filteredRows}
           remitterInfo={reportData?.remitterInfo}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2911,7 +3039,7 @@ function ReportBody({
 
           showOptions={false}
           employees={reportData?.employees}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           filters={filters}
@@ -2922,7 +3050,7 @@ function ReportBody({
       return (
         <LeaveRegisterReportView
           records={filteredRows}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
           period={reportData?.period}
           totals={reportData?.totals}
           statutoryNotes={reportData?.statutoryNotes}
@@ -2936,7 +3064,7 @@ function ReportBody({
           records={filteredRows}
           rows={paginatedRows}
           selectedOptions={employeeMasterOptions}
-          companyInfo={reportData?.companyInfo}
+          companyInfo={effectiveCompany}
         />
       );
     }
@@ -2956,8 +3084,11 @@ function ReportBody({
         filterOptions={filterOptions}
         setFilter={setFilter}
         onGenerateReport={onGenerateReport}
+        onViewReport={onViewReport}
         onResetFilters={onResetFilters}
         isLoading={isLoading}
+        isReportGenerated={isReportGenerated}
+        isViewingReport={isViewingReport}
       />
 
       {/* For Salary Sheet (Format 1): Show Report Options BEFORE Generate Report */}
@@ -2965,12 +3096,25 @@ function ReportBody({
         <SalarySheetFormat1Options
           selectedOptions={salarySheet1Options}
           onChange={setSalarySheet1Options}
-          onReset={() => setSalarySheet1Options(getDefaultSelectedOptions())}
-          onSave={() => {
+          onReset={() => {
+            const defaults = getDefaultSelectedOptions();
+            setSalarySheet1Options(defaults);
+            try {
+              localStorage.setItem('hrms_report_opts_salary_sheet_1', JSON.stringify(defaults));
+            } catch {}
+            onSaveOptionsToDatabase?.('salary-sheet-format-1', defaults);
+          }}
+          onSave={(opts) => {
+            const toSave = opts || salarySheet1Options;
+            try {
+              localStorage.setItem('hrms_report_opts_salary_sheet_1', JSON.stringify(toSave));
+            } catch {}
+            onSaveOptionsToDatabase?.('salary-sheet-format-1', toSave);
             if (!isReportGenerated) {
               onGenerateReport();
             }
           }}
+          statutoryConfig={statutoryConfig || reportData?.statutoryConfig}
         />
       )}
 
@@ -2979,12 +3123,25 @@ function ReportBody({
         <SalarySheetFormat2Options
           selectedOptions={salarySheet2Options}
           onChange={setSalarySheet2Options}
-          onReset={() => setSalarySheet2Options(getDefaultSelectedOptionsFormat2())}
-          onSave={() => {
+          onReset={() => {
+            const defaults = getDefaultSelectedOptionsFormat2();
+            setSalarySheet2Options(defaults);
+            try {
+              localStorage.setItem('hrms_report_opts_salary_sheet_2', JSON.stringify(defaults));
+            } catch {}
+            onSaveOptionsToDatabase?.('salary-sheet-format-2', defaults);
+          }}
+          onSave={(opts) => {
+            const toSave = opts || salarySheet2Options;
+            try {
+              localStorage.setItem('hrms_report_opts_salary_sheet_2', JSON.stringify(toSave));
+            } catch {}
+            onSaveOptionsToDatabase?.('salary-sheet-format-2', toSave);
             if (!isReportGenerated) {
               onGenerateReport();
             }
           }}
+          statutoryConfig={statutoryConfig || reportData?.statutoryConfig}
         />
       )}
 
@@ -2993,8 +3150,20 @@ function ReportBody({
         <EmployeePayslipOptions
           selectedOptions={payslipOptions}
           onChange={setPayslipOptions}
-          onReset={() => setPayslipOptions(getDefaultSelectedOptionsPayslip())}
-          onSave={() => {
+          onReset={() => {
+            const defaults = getDefaultSelectedOptionsPayslip();
+            setPayslipOptions(defaults);
+            try {
+              localStorage.setItem('hrms_report_opts_employee_payslip', JSON.stringify(defaults));
+            } catch {}
+            onSaveOptionsToDatabase?.('employee-payslip', defaults);
+          }}
+          onSave={(opts) => {
+            const toSave = opts || payslipOptions;
+            try {
+              localStorage.setItem('hrms_report_opts_employee_payslip', JSON.stringify(toSave));
+            } catch {}
+            onSaveOptionsToDatabase?.('employee-payslip', toSave);
             if (!isReportGenerated) {
               onGenerateReport();
             }
@@ -3007,8 +3176,20 @@ function ReportBody({
         <EmployeeMasterOptions
           selectedOptions={employeeMasterOptions}
           onChange={setEmployeeMasterOptions}
-          onReset={() => setEmployeeMasterOptions(getDefaultSelectedOptionsEmployeeMaster())}
-          onSave={() => {
+          onReset={() => {
+            const defaults = getDefaultSelectedOptionsEmployeeMaster();
+            setEmployeeMasterOptions(defaults);
+            try {
+              localStorage.setItem('hrms_report_opts_employee_master', JSON.stringify(defaults));
+            } catch {}
+            onSaveOptionsToDatabase?.('employee-master', defaults);
+          }}
+          onSave={(opts) => {
+            const toSave = opts || employeeMasterOptions;
+            try {
+              localStorage.setItem('hrms_report_opts_employee_master', JSON.stringify(toSave));
+            } catch {}
+            onSaveOptionsToDatabase?.('employee-master', toSave);
             if (!isReportGenerated) {
               onGenerateReport();
             }
@@ -3021,8 +3202,20 @@ function ReportBody({
         <WageSalaryRegisterOptions
           selectedOptions={payrollOptions}
           onChange={setPayrollOptions}
-          onReset={() => setPayrollOptions(getDefaultSelectedOptionsPayroll())}
-          onSave={() => {
+          onReset={() => {
+            const defaults = getDefaultSelectedOptionsPayroll();
+            setPayrollOptions(defaults);
+            try {
+              localStorage.setItem('hrms_report_opts_payroll', JSON.stringify(defaults));
+            } catch {}
+            onSaveOptionsToDatabase?.('payroll', defaults);
+          }}
+          onSave={(opts) => {
+            const toSave = opts || payrollOptions;
+            try {
+              localStorage.setItem('hrms_report_opts_payroll', JSON.stringify(toSave));
+            } catch {}
+            onSaveOptionsToDatabase?.('payroll', toSave);
             if (!isReportGenerated) {
               onGenerateReport();
             }
@@ -3031,7 +3224,7 @@ function ReportBody({
       )}
 
       {/* If Report is NOT generated yet, show clean call-to-action placeholder */}
-      {!isReportGenerated || !reportData ? (
+      {!isReportGenerated ? (
         <div style={{
           textAlign: 'center',
           padding: '60px 24px',
@@ -3055,13 +3248,91 @@ function ReportBody({
             <FileBarChart size={32} />
           </div>
           <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '0 0 8px 0' }}>
-            Report Ready to Generate
+            Report Not Generated
           </h3>
-          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto', lineHeight: 1.5 }}>
-            {isSalarySheet1 || isSalarySheet2 || isEmployeePayslip || isEmployeeMaster || isPayroll
-              ? `Configure your filters and report options above, then click "Generate Report" (or "Save" in Report Options) to view the ${meta.title}.`
-              : `Configure your filters above and click "Generate Report" to query database records and render the ${meta.title}.`}
+          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+            Configure your filters above and click <strong>"Generate Report"</strong> to generate the {meta.title}.
           </p>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={onGenerateReport}
+            disabled={isLoading}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 24px',
+              fontSize: '14px',
+              fontWeight: 600,
+              borderRadius: '8px',
+              background: '#2563eb',
+              color: '#ffffff',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(37,99,235,0.2)'
+            }}
+          >
+            <RefreshCw size={15} className={isLoading ? styles.spinIcon : ''} />
+            {isLoading ? 'Generating Report...' : 'Generate Report'}
+          </button>
+        </div>
+      ) : !isViewingReport ? (
+        <div style={{
+          textAlign: 'center',
+          padding: '60px 24px',
+          background: '#ffffff',
+          borderRadius: '12px',
+          border: '1px solid #e2e8f0',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          margin: '20px 0'
+        }}>
+          <div style={{
+            width: '64px',
+            height: '64px',
+            borderRadius: '50%',
+            background: '#f0fdf4',
+            color: '#16a34a',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <CheckCircle2 size={36} color="#16a34a" />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#1e293b', margin: '0 0 8px 0' }}>
+            Report Generated Successfully
+          </h3>
+          <p style={{ fontSize: '14px', color: '#64748b', maxWidth: '480px', margin: '0 auto 20px', lineHeight: 1.5 }}>
+            {meta.title} records are generated and ready. Click <strong>"View"</strong> to view the report.
+          </p>
+          <button
+            type="button"
+            className={styles.primaryButton}
+            onClick={onViewReport}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 24px',
+              fontSize: '14px',
+              fontWeight: 600,
+              borderRadius: '8px',
+              background: '#10b981',
+              color: '#ffffff',
+              border: 'none',
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(16,185,129,0.25)'
+            }}
+          >
+            <Eye size={16} />
+            View Report
+          </button>
+        </div>
+      ) : isLoading ? (
+        <div className={styles.loadingOverlay}>
+          <div className={styles.loadingSpinner} />
+          <p>Generating {meta.title} from MongoDB...</p>
         </div>
       ) : (
         <>
@@ -3079,12 +3350,7 @@ function ReportBody({
           </div>
 
       {/* Table / Register Render */}
-      {isLoading ? (
-        <div className={styles.loadingOverlay}>
-          <div className={styles.loadingSpinner} />
-          <p>Generating {meta.title} from MongoDB...</p>
-        </div>
-      ) : (filteredRows.length > 0 ||
+      {(filteredRows.length > 0 ||
           activeReport === 'form-11-accident-book' ||
           activeReport === 'accident-book-form-11' ||
           activeReport === 'epf-form-11' ||
@@ -3175,11 +3441,11 @@ function ReportBody({
               <div className={styles.standardReportDocHeader}>
                 <div className={styles.standardReportHeaderTop}>
                   <div className={styles.standardReportCompanyBlock}>
-                    <h2 className={styles.standardReportCompanyName}>{reportData?.companyInfo?.name || 'RR SECURITY & FACILITIES'}</h2>
-                    <p className={styles.standardReportCompanyAddress}>{reportData?.companyInfo?.address || 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044'}</p>
+                    <h2 className={styles.standardReportCompanyName}>{effectiveCompany.name || activeCompany?.name || ''}</h2>
+                    <p className={styles.standardReportCompanyAddress}>{effectiveCompany.address || activeCompany?.address || '—'}</p>
                     <div className={styles.standardReportStatutoryRow}>
-                      <span>PF No: {reportData?.companyInfo?.pfNo || reportData?.companyInfo?.employerPfCode || activeCompany?.employerPfCode || '—'}</span>
-                      <span>ESI No: {reportData?.companyInfo?.esiNo || reportData?.companyInfo?.esicNo || reportData?.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || '—'}</span>
+                      <span>PF No: {effectiveCompany.pfNo || effectiveCompany.employerPfCode || activeCompany?.employerPfCode || '—'}</span>
+                      <span>ESI No: {effectiveCompany.esiNo || effectiveCompany.employerEsiCode || activeCompany?.employerEsiCode || '—'}</span>
                     </div>
                   </div>
                   <div className={styles.standardReportTitleBlock}>
@@ -3324,16 +3590,1104 @@ function ReportBody({
 /* =========================================================
    Export Report Modal (PDF & Excel download)
    ========================================================= */
+
+export function resolveEffectiveCompany(comp = {}, active = {}) {
+  const finalName = comp?.name || comp?.companyName || active?.name || active?.companyName || '';
+  const finalAddress = comp?.address || comp?.registeredAddress || active?.address || active?.registeredAddress || '';
+  const finalPfNo = comp?.pfNo || comp?.employerPfCode || comp?.pfCode || active?.employerPfCode || active?.pfCode || active?.employerPfNo || '';
+  const finalEsiNo = comp?.esiNo || comp?.employerEsiCode || comp?.esiCode || active?.employerEsiCode || active?.esiCode || active?.employerEsiNo || '';
+
+  return {
+    ...active,
+    ...comp,
+    name: finalName,
+    companyName: finalName,
+    address: finalAddress,
+    city: comp?.city || active?.city || '',
+    state: comp?.state || active?.state || '',
+    pinCode: comp?.pinCode || comp?.pincode || active?.pinCode || active?.pincode || '',
+    phone: comp?.phone || comp?.contactNumber || active?.phone || active?.contactNumber || '',
+    email: comp?.email || active?.email || '',
+    website: comp?.website || active?.website || '',
+    logo: comp?.logo || comp?.logoUrl || active?.logo || active?.logoUrl || '',
+    pan: comp?.pan || comp?.panNumber || active?.pan || active?.panNumber || '',
+    tan: comp?.tan || comp?.tanNumber || active?.tan || active?.tanNumber || '',
+    gstin: comp?.gstin || comp?.gstNumber || active?.gstin || active?.gstNumber || '',
+    employerPfCode: finalPfNo,
+    employerEsiCode: finalEsiNo,
+    pfNo: finalPfNo,
+    esiNo: finalEsiNo,
+    bankName: comp?.bankName || active?.bankName || '',
+    bankBranch: comp?.bankBranch || comp?.branch || active?.bankBranch || active?.branch || '',
+    accountNumber: comp?.accountNumber || comp?.bankAccountNo || active?.accountNumber || active?.bankAccountNo || '',
+    ifsc: comp?.ifsc || comp?.ifscCode || active?.ifsc || active?.ifscCode || '',
+  };
+}
+
+export const getReportFormats = (reportId) => {
+  if (!reportId) return ['PDF', 'Excel', 'CSV'];
+  
+  if ([
+    'pf-ecr-excel', 'pf-ecr', 
+    'pf-report-employee-wise', 'pf-employee-wise', 
+    'pf-report-location-wise', 'pf-location-wise'
+  ].includes(reportId)) {
+    return ['Excel'];
+  }
+  
+  if ([
+    'employee-profile', 'fnf-settlement', 'fnf-settlement-payslip',
+    'form-16', 'form-16-part-b', 'form-f-gratuity-nomination', 'form-f',
+    'salary-certificate', 'salary-certificate-report', 'employee-id-card',
+    'employee-id-card-report', 'employee-payslip', 'payslip',
+    'employee-payslip-report', 'epf-form-11', 'epf-form-11-declaration',
+    'pf-form-10', 'form-10-epf', 'pf-form-12a', 'form-12a-epf',
+    'pf-summary-report', 'pf-summary', 'pf-form-2-revised', 'form-2-revised', 'pf-form-2'
+  ].includes(reportId)) {
+    return ['PDF'];
+  }
+
+  if (reportId === 'bank-transfer-letter') {
+    return ['PDF', 'Excel', 'Word'];
+  }
+
+  if (['pf-challan', 'epf-challan', 'pf-form-3a', 'form-3a', 'employment-card-form-xiv', 'employment-card'].includes(reportId)) {
+    return ['PDF', 'Excel'];
+  }
+
+  return ['PDF', 'Excel', 'CSV'];
+};
+
+export async function triggerReportExport({
+  format,
+  selectedReport,
+  reportData,
+  filters = {},
+  activeCompany = null,
+  profileScope = 'single',
+  selectedOptions = {},
+  onStartExport,
+  onEndExport,
+  onExportSuccess,
+  onClose
+}) {
+  const effectiveCompany = resolveEffectiveCompany(reportData?.companyInfo, activeCompany);
+  const reportName = reportMeta[selectedReport]?.title || 'HRMS Report';
+  const isProfileReport = selectedReport === 'employee-profile';
+  const isFnfReport = selectedReport === 'fnf-settlement' || selectedReport === 'fnf-settlement-payslip';
+  const isForm16Report = selectedReport === 'form-16' || selectedReport === 'form-16-part-b';
+  const isFormFReport = selectedReport === 'form-f-gratuity-nomination' || selectedReport === 'form-f';
+  const isSalaryCertReport = selectedReport === 'salary-certificate' || selectedReport === 'salary-certificate-report';
+  const isIdCardReport = selectedReport === 'employee-id-card' || selectedReport === 'employee-id-card-report';
+  const isBonusReport = selectedReport === 'bonus-register-form-c' || selectedReport === 'form-c-bonus-paid';
+  const isEmploymentCardReport = selectedReport === 'employment-card-form-xiv' || selectedReport === 'employment-card';
+  const isMusterRollReport = selectedReport === 'muster-roll-form-xvi' || selectedReport === 'form-xvi' || selectedReport === 'muster-roll';
+  const isAdvancesReport = selectedReport === 'register-advances-form-xxii' || selectedReport === 'form-xxii' || selectedReport === 'register-advances';
+  const isDeductionsDamageReport = selectedReport === 'register-deduction-damage-form-xx' || selectedReport === 'form-xx' || selectedReport === 'register-deductions-damage';
+  const isFinesReport = selectedReport === 'register-fines-form-xxi' || selectedReport === 'form-xxi' || selectedReport === 'register-fines';
+  const isOvertimeReport = selectedReport === 'register-overtime-form-xxiii' || selectedReport === 'form-xxiii' || selectedReport === 'register-overtime';
+  const isOvertimeFormIVReport =
+    selectedReport === 'overtime-register-salary' ||
+    selectedReport === 'overtime-register-form-iv' ||
+    selectedReport === 'overtime-register' ||
+    selectedReport === 'form-iv' ||
+    selectedReport === 'form-iv-overtime' ||
+    selectedReport === 'salary-overtime';
+  const isEmployeePayslipReport = selectedReport === 'employee-payslip' || selectedReport === 'payslip' || selectedReport === 'employee-payslip-report';
+  const isDamageFormIIReport =
+    selectedReport === 'register-deductions-damage-salary' ||
+    selectedReport === 'form-ii-damage-loss' ||
+    selectedReport === 'form-ii';
+  const isFinesFormIReport =
+    selectedReport === 'register-fines-employer-salary' ||
+    selectedReport === 'form-i-fines';
+  const isWagesReport = selectedReport === 'wages-register-form-xvii' || selectedReport === 'form-xvii' || selectedReport === 'wages-register';
+  const isWorkmanRegisterReport = selectedReport === 'workman-register-form-xiii' || selectedReport === 'form-xiii' || selectedReport === 'workman-register';
+  const isBankTransferLetterReport = selectedReport === 'bank-transfer-letter';
+  const isBankTransferReport = selectedReport === 'bank-transfer-report';
+  const isFormIReport = selectedReport === 'register-of-leave-se-delhi';
+  const isLeaveReport = selectedReport === 'leave' || selectedReport === 'form-xxv-register-of-leave';
+  const isSalarySheet1Report =
+    selectedReport === 'salary-sheet-format-1' ||
+    selectedReport === 'salary-sheet-1';
+  const isSalarySheet2Report =
+    selectedReport === 'salary-sheet-format-2' ||
+    selectedReport === 'salary-sheet-2';
+  const isEsiForm7Report =
+    selectedReport === 'esi-form-7-opt1' ||
+    selectedReport === 'esi-form-7' ||
+    selectedReport === 'form-7-esi' ||
+    selectedReport === 'form-7';
+  const isEsiForm7Opt2Report = selectedReport === 'esi-form-7-opt2';
+  const isEsiChallanReport = selectedReport === 'esi-challan';
+  const isEsiForm1Report = selectedReport === 'esi-form-1';
+  const isEsiSummaryEmployeeReport =
+    selectedReport === 'esi-summary-employee-pdf' ||
+    selectedReport === 'esi-summary-employee-xls' ||
+    selectedReport === 'esi-summary-employee';
+  const isEsiSummaryLocationReport =
+    selectedReport === 'esi-summary-location' ||
+    selectedReport === 'esi-summary-location-pdf' ||
+    selectedReport === 'esi-summary-location-xls';
+  const isEsicForm3Report =
+    selectedReport === 'esic-form-3' ||
+    selectedReport === 'form-3-esic';
+  const isEsicForm5Report =
+    selectedReport === 'esic-returns-form-5' ||
+    selectedReport === 'esic-form-5' ||
+    selectedReport === 'form-5-esic';
+  const isForm11AccidentBookReport =
+    selectedReport === 'form-11-accident-book' ||
+    selectedReport === 'accident-book-form-11';
+  const isEpfForm11Report =
+    selectedReport === 'epf-form-11' ||
+    selectedReport === 'epf-form-11-declaration';
+  const isPfChallanReport =
+    selectedReport === 'pf-challan' ||
+    selectedReport === 'epf-challan';
+  const isPfForm3AReport =
+    selectedReport === 'pf-form-3a' ||
+    selectedReport === 'form-3a';
+  const isPfForm5Report =
+    selectedReport === 'pf-form-5' ||
+    selectedReport === 'form-5-epf';
+  const isPfForm6AReport =
+    selectedReport === 'pf-form-6a' ||
+    selectedReport === 'form-6a-epf';
+  const isPfForm10Report =
+    selectedReport === 'pf-form-10' ||
+    selectedReport === 'form-10-epf';
+  const isPfForm12AReport =
+    selectedReport === 'pf-form-12a' ||
+    selectedReport === 'form-12a-epf';
+  const isPfEcrReport =
+    selectedReport === 'pf-ecr-excel' ||
+    selectedReport === 'pf-ecr';
+  const isPfEmployeeWiseReport =
+    selectedReport === 'pf-report-employee-wise' ||
+    selectedReport === 'pf-employee-wise';
+  const isPfLocationWiseReport =
+    selectedReport === 'pf-report-location-wise' ||
+    selectedReport === 'pf-location-wise';
+  const isPfSummaryReport =
+    selectedReport === 'pf-summary-report' ||
+    selectedReport === 'pf-summary';
+  const isPfForm2Report =
+    selectedReport === 'pf-form-2-revised' ||
+    selectedReport === 'form-2-revised' ||
+    selectedReport === 'pf-form-2';
+  const records = reportData?.records || reportData?.cards || [];
+
+  const targetEmp = filters?.employee && filters.employee !== 'All Employees'
+    ? (records.find(r => r.name === filters.employee || r.employeeName === filters.employee || r.employeeId === filters.employee || r.employeeCode === filters.employee || (r.name && filters.employee.includes(r.name)) || (r.employeeName && filters.employee.includes(r.employeeName)) || (r.employeeId && filters.employee.includes(r.employeeId))) || records[0])
+    : records[0];
+
+  
+
+    if (!records.length && !isForm11AccidentBookReport && !isPfChallanReport && !isPfForm3AReport && !isPfForm5Report && !isPfForm6AReport && !isPfForm10Report && !isPfForm12AReport && !isPfEcrReport && !isPfEmployeeWiseReport && !isPfLocationWiseReport && !isPfSummaryReport && !isPfForm2Report) {
+      if (typeof onExportSuccess === "function") onExportSuccess('No records available to export.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Capture the live preview DOM for 100% exact layout, colors, table lines, cards and typography parity!
+    if (format === 'PDF') {
+      const captureEl = document.querySelector('#report-preview-capture-area');
+      if (captureEl) {
+        if (typeof onStartExport === "function") onStartExport();
+        await new Promise((r) => setTimeout(r, 120));
+
+        const cleanPeriodStr = (reportData?.period?.monthLabel || filters?.month || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
+        const filename = `${reportName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${cleanPeriodStr}.pdf`;
+
+        const ok = await downloadElementAsPdf(captureEl, {
+          filename,
+          title: reportName,
+          mode: 'download',
+        });
+
+        if (typeof onEndExport === "function") onEndExport();
+
+        if (ok) {
+          if (typeof onExportSuccess === "function") onExportSuccess(`✓ ${reportName} PDF downloaded successfully with exact preview layout.`);
+          if (typeof onClose === "function") onClose();
+          return;
+        }
+      }
+    }
+
+    // Special handling for Employee Profile report -> generates the exact official Employee Profile PDF
+    if (isProfileReport) {
+      if (profileScope === 'all' && records.length > 1) {
+        for (const emp of records) {
+          await downloadEmployeeProfile(emp, reportData?.companyInfo, { mode: 'download' });
+        }
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Employee Profiles successfully.`);
+      } else {
+        await downloadEmployeeProfile(targetEmp, reportData?.companyInfo, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Employee Profile PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Full & Final Settlement report -> generates the exact official F&F PDF
+    if (isFnfReport) {
+      if (profileScope === 'all' && records.length > 1) {
+        for (const emp of records) {
+          await downloadFnfSettlementPdf(emp, reportData?.companyInfo, { mode: 'download' });
+        }
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Full & Final Settlement statements successfully.`);
+      } else {
+        await downloadFnfSettlementPdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Full & Final Settlement PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Form 16 (Part B) report -> generates the exact official Form 16 PDF
+    if (isForm16Report) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadForm16Pdf(records, reportData?.companyInfo, reportData?.period, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Form 16 (Part B) certificates successfully.`);
+      } else {
+        await downloadForm16Pdf(targetEmp, reportData?.companyInfo, reportData?.period, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Form 16 (Part B) PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Form F Gratuity Nomination report -> generates the exact official Form F PDF
+    if (isFormFReport) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadFormFPdf(records, reportData?.companyInfo, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Form F Gratuity Nomination forms successfully.`);
+      } else {
+        await downloadFormFPdf(targetEmp, reportData?.companyInfo, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Form F Gratuity Nomination PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Salary Certificate report -> generates the exact official Salary Certificate PDF
+    if (isSalaryCertReport) {
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadSalaryCertificatePdf(records, reportData?.companyInfo, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Salary Certificates successfully.`);
+      } else {
+        await downloadSalaryCertificatePdf(targetEmp, reportData?.companyInfo, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Salary Certificate PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Employee ID Card report -> generates the exact official ID Card PDF
+    if (isIdCardReport) {
+      const effectiveCompany = {
+        ...(reportData?.companyInfo || {}),
+        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName,
+        address: reportData?.companyInfo?.address,
+        phone: reportData?.companyInfo?.phone,
+        email: reportData?.companyInfo?.email,
+        logo: reportData?.companyInfo?.logo,
+      };
+      const exportOptions = {
+        mode: 'download',
+        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
+      };
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadEmployeeIdCardPdf(records, effectiveCompany, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Employee ID Cards successfully.`);
+      } else {
+        await downloadEmployeeIdCardPdf(targetEmp, effectiveCompany, exportOptions);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Employee ID Card PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Employee Payslip report -> generates the exact official Employee Payslip PDF
+    if (isEmployeePayslipReport) {
+      const filteredSlips = records.filter((r) => {
+        if (selectedOptions?.recordScope === 'active') {
+          return r.status !== 'Inactive' && r.employeeStatus !== 'Inactive' && r.isActive !== false;
+        }
+        if (selectedOptions?.recordScope === 'inactive') {
+          return r.status === 'Inactive' || r.employeeStatus === 'Inactive' || r.isActive === false;
+        }
+        return true;
+      }).filter((r) => {
+        if (selectedOptions?.excludeHoldSalary) {
+          return !r.isHold && !r.salaryHold && r.status !== 'Hold';
+        }
+        return true;
+      });
+
+      const effectiveTarget = filters?.employee && filters.employee !== 'All Employees'
+        ? (filteredSlips.find(r => r.name === filters.employee || r.employeeName === filters.employee || r.employeeId === filters.employee || r.employeeCode === filters.employee || (r.name && filters.employee.includes(r.name)) || (r.employeeName && filters.employee.includes(r.employeeName)) || (r.employeeId && filters.employee.includes(r.employeeId))) || filteredSlips[0] || targetEmp)
+        : (filteredSlips[0] || targetEmp);
+
+      if (profileScope === 'all' && filteredSlips.length > 1) {
+        for (const slip of filteredSlips) {
+          downloadEmployeePayslipPdf(slip, reportData?.companyInfo, reportData?.period || filters, { mode: 'download', options: selectedOptions });
+        }
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${filteredSlips.length} Employee Payslips successfully.`);
+      } else {
+        downloadEmployeePayslipPdf(effectiveTarget, reportData?.companyInfo, reportData?.period || filters, { mode: 'download', options: selectedOptions });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Employee Payslip PDF (${effectiveTarget?.employeeName || effectiveTarget?.name || 'Employee'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Bonus Register (Form C) -> generates the exact official Form C Excel / PDF
+    if (isBonusReport) {
+      if (format === 'PDF') {
+        downloadBonusRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bonus Register (Form C) PDF downloaded successfully.`);
+      } else {
+        downloadBonusRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bonus Register (Form C) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Employment Card (Form XIV)
+    if (isEmploymentCardReport) {
+      if (format === 'Excel') {
+        if (profileScope === 'all' && records.length > 1) {
+          downloadEmploymentCardExcel(records, reportData?.companyInfo);
+          if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Employment Cards (.xlsx) successfully.`);
+        } else {
+          downloadEmploymentCardExcel(targetEmp, reportData?.companyInfo);
+          if (typeof onExportSuccess === "function") onExportSuccess(`✓ Employment Card Excel (${targetEmp?.workmanName || targetEmp?.name || 'Workman'}) downloaded successfully.`);
+        }
+      } else {
+        if (profileScope === 'all' && records.length > 1) {
+          await downloadEmploymentCardPdf(records, reportData?.companyInfo, { mode: 'download' });
+          if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} Employment Cards (Form XIV) successfully.`);
+        } else {
+          await downloadEmploymentCardPdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
+          if (typeof onExportSuccess === "function") onExportSuccess(`✓ Employment Card PDF (${targetEmp?.workmanName || targetEmp?.name || 'Workman'}) downloaded successfully.`);
+        }
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Muster Roll (Form XVI) -> generates the exact statutory Form XVI Excel / PDF
+    if (isMusterRollReport) {
+      if (format === 'PDF') {
+        downloadMusterRollPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Muster Roll (Form XVI) PDF downloaded successfully.`);
+      } else {
+        downloadMusterRollExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Muster Roll (Form XVI) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Advances (Form XXII) -> generates statutory Form XXII Excel / PDF
+    if (isAdvancesReport) {
+      if (format === 'PDF') {
+        downloadAdvancesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Advances (Form XXII) PDF downloaded successfully.`);
+      } else {
+        downloadAdvancesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Advances (Form XXII) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Deductions for Damage or Loss (Form XX) -> generates statutory Form XX Excel / PDF
+    if (isDeductionsDamageReport) {
+      if (format === 'PDF') {
+        downloadDeductionsDamagePdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form XX) PDF downloaded successfully.`);
+      } else {
+        downloadDeductionsDamageExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form XX) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Deductions for Damage or Loss (Form II) -> generates statutory Form II Excel / PDF / CSV
+    if (isDamageFormIIReport) {
+      if (format === 'PDF') {
+        downloadFormIIDeductionsDamagePdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadFormIIDeductionsDamageCsv(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadFormIIDeductionsDamageExcel(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) Excel spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Fines (Employer) Form I -> generates statutory Form I Excel / PDF / CSV
+    if (isFinesFormIReport) {
+      if (format === 'PDF') {
+        downloadFormIFinesPdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Fines (Form I) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadFormIFinesCsv(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Fines (Form I) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadFormIFinesExcel(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Fines (Form I) Excel spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Salary Sheet (Format 1) -> generates statutory Wage/Salary Register Excel / PDF / CSV
+    if (isSalarySheet1Report) {
+      if (format === 'PDF') {
+        downloadSalarySheetFormat1Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.ptSummary,
+          reportData?.earningSummary,
+          reportData?.deductionSummary,
+          { mode: 'download', clientInfo: reportData?.clientInfo, filters, selectedOptions, statutoryConfig: statutoryConfig || reportData?.statutoryConfig }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadSalarySheetFormat1Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.ptSummary,
+          reportData?.earningSummary,
+          reportData?.deductionSummary,
+          { clientInfo: reportData?.clientInfo, filters, selectedOptions, statutoryConfig: statutoryConfig || reportData?.statutoryConfig }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadSalarySheetFormat1Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.ptSummary,
+          reportData?.earningSummary,
+          reportData?.deductionSummary,
+          { format: 'xlsx', clientInfo: reportData?.clientInfo, filters, selectedOptions, statutoryConfig: statutoryConfig || reportData?.statutoryConfig }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) Excel spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Salary Sheet (Format 2) -> generates statutory Form IV Register of Payment of Wages Excel / PDF / CSV
+    if (isSalarySheet2Report) {
+      if (format === 'PDF') {
+        downloadSalarySheetFormat2Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.lwfSummary,
+          { mode: 'download', clientInfo: reportData?.clientInfo, filters, selectedOptions }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadSalarySheetFormat2Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.lwfSummary,
+          { clientInfo: reportData?.clientInfo, filters }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadSalarySheetFormat2Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.pfSummary,
+          reportData?.esiSummary,
+          reportData?.lwfSummary,
+          { format: 'xlsx', clientInfo: reportData?.clientInfo, filters, selectedOptions }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) Excel spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESI Summry Employee Wise
+    if (isEsiSummaryEmployeeReport) {
+      if (format === 'PDF') {
+        downloadEsiSummaryEmployeePdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Summary Employee Wise PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiSummaryEmployeeCsv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Summary Employee Wise CSV downloaded successfully.');
+      } else {
+        downloadEsiSummaryEmployeeExcel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Summary Employee Wise Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESI Summry Location Wise
+    if (isEsiSummaryLocationReport) {
+      if (format === 'PDF') {
+        downloadEsiSummaryLocationPdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Summary Location Wise PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiSummaryLocationCsv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Summary Location Wise CSV downloaded successfully.');
+      } else {
+        downloadEsiSummaryLocationExcel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Summary Location Wise Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESIC Form 3 Return Declaration
+    if (isEsicForm3Report) {
+      if (format === 'PDF') {
+        await downloadEsicForm3Pdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESIC Form 3 Return Declaration PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsicForm3Csv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESIC Form 3 Return Declaration CSV downloaded successfully.');
+      } else {
+        downloadEsicForm3Excel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESIC Form 3 Return Declaration Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESIC Form 5 Return of Contributions (Regulation 26)
+    if (isEsicForm5Report) {
+      if (format === 'PDF') {
+        await downloadEsicForm5Pdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESIC Form 5 Return of Contributions PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsicForm5Csv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESIC Form 5 Return CSV downloaded successfully.');
+      } else {
+        downloadEsicForm5Excel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESIC Form 5 Return Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Form 11 Accident Book (Regulation 66)
+    if (isForm11AccidentBookReport) {
+      if (format === 'PDF') {
+        downloadForm11AccidentBookPdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ Form 11 Accident Book PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadForm11AccidentBookCsv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ Form 11 Accident Book CSV downloaded successfully.');
+      } else {
+        downloadForm11AccidentBookExcel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ Form 11 Accident Book Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for EPF Form 11 - Declaration Form (PDF only, NO LOGO)
+    if (isEpfForm11Report) {
+      await downloadEpfForm11Pdf(records, reportData?.companyInfo, { mode: 'download' });
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ EPF Form 11 - Declaration Form PDF downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Challan (Provisional Challan for Wage Month - NO LOGO)
+    if (isPfChallanReport) {
+      if (format === 'PDF') {
+        await downloadPfChallanPdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ Provisional PF Challan PDF downloaded successfully.');
+      } else {
+        downloadPfChallanExcel(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ Provisional PF Challan Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Form 3A (Revised) Contribution Card (NO LOGO)
+    if (isPfForm3AReport) {
+      if (format === 'PDF') {
+        await downloadPfForm3APdf(reportData, { mode: 'download', scope: profileScope });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 3A (Revised) Contribution Card PDF downloaded successfully.');
+      } else {
+        downloadPfForm3AExcel(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 3A Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESI Form 1 Declaration Form
+    if (isEsiForm1Report) {
+      if (format === 'PDF') {
+        downloadEsiForm1Pdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Form 1 Declaration Form PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiForm1Csv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Form 1 Declaration Form CSV spreadsheet downloaded successfully.');
+      } else {
+        downloadEsiForm1Excel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Form 1 Declaration Form Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESI Challan
+    if (isEsiChallanReport) {
+      if (format === 'PDF') {
+        downloadEsiChallanPdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Challan PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadEsiChallanCsv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Challan CSV spreadsheet downloaded successfully.');
+      } else {
+        downloadEsiChallanExcel(reportData, { format: 'xlsx' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ ESI Challan Excel workbook downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESI Form 7 Half-Yearly Report (Option 2)
+    if (isEsiForm7Opt2Report) {
+      if (format === 'PDF') {
+        downloadEsiForm7Option2Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { mode: 'download' }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ ESI Form 7 (Option-2) PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadEsiForm7Option2Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ ESI Form 7 (Option-2) CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadEsiForm7Option2Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { format: 'xlsx' }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ ESI Form 7 (Option-2) Excel spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for ESI Form 7 Half-Yearly Report (Option 1)
+    if (isEsiForm7Report) {
+      if (format === 'PDF') {
+        downloadEsiForm7Pdf(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { mode: 'download' }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ ESI Form 7 Half-Yearly Report PDF downloaded successfully.`);
+      } else if (format === 'CSV') {
+        downloadEsiForm7Csv(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ ESI Form 7 Half-Yearly Report CSV spreadsheet downloaded successfully.`);
+      } else {
+        downloadEsiForm7Excel(
+          records,
+          reportData?.companyInfo,
+          reportData?.period || filters,
+          reportData?.totals,
+          reportData?.monthlySummaries,
+          { format: 'xlsx' }
+        );
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ ESI Form 7 Half-Yearly Report Excel spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Fines (Form XXI) -> generates statutory Form XXI Excel / PDF
+    if (isFinesReport) {
+      if (format === 'PDF') {
+        downloadFinesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Fines (Form XXI) PDF downloaded successfully.`);
+      } else {
+        downloadFinesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Fines (Form XXI) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Overtime (Form XXIII) -> generates statutory Form XXIII Excel / PDF
+    if (isOvertimeReport) {
+      if (format === 'PDF') {
+        downloadOvertimeRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Overtime (Form XXIII) PDF downloaded successfully.`);
+      } else {
+        downloadOvertimeRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Overtime (Form XXIII) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Overtime Register for Workers (Form IV) -> generates statutory Form IV Excel / CSV / PDF
+    if (isOvertimeFormIVReport) {
+      if (format === 'PDF') {
+        downloadFormIVOvertimePdf(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Overtime Register for Workers (Form IV) PDF downloaded successfully.`);
+      } else {
+        downloadFormIVOvertimeExcel(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Overtime Register for Workers (Form IV) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Wages (Form XVII) -> generates statutory Form XVII Excel / PDF
+    if (isWagesReport) {
+      if (format === 'PDF') {
+        downloadWagesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Wages (Form XVII) PDF downloaded successfully.`);
+      } else {
+        downloadWagesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Wages (Form XVII) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Workmen (Form XIII) -> generates statutory Form XIII Excel / PDF
+    if (isWorkmanRegisterReport) {
+      if (format === 'PDF') {
+        downloadWorkmanRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Workmen (Form XIII) PDF downloaded successfully.`);
+      } else {
+        downloadWorkmanRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Workmen (Form XIII) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Bank Transfer Letter -> generates official Advice Letter PDF / Word / Excel
+    if (isBankTransferLetterReport) {
+      if (format === 'Word') {
+        downloadBankTransferLetterWord(reportData?.letterInfo, records, reportData?.companyInfo);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bank Transfer Letter Word document (.doc) downloaded successfully.`);
+      } else if (format === 'Excel') {
+        downloadBankTransferLetterExcel(reportData?.letterInfo, records, reportData?.companyInfo);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bank Transfer Report Excel spreadsheet (.xlsx) downloaded successfully.`);
+      } else {
+        downloadBankTransferLetterPdf(reportData?.letterInfo, records, reportData?.companyInfo);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bank Transfer Letter PDF downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Bank Transfer Report -> generates exact CMS Excel / CSV / PDF matching reference
+    if (isBankTransferReport) {
+      if (format === 'CSV') {
+        downloadBankTransferReportCsv(reportData?.remitterInfo, records, reportData?.period || filters);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bank Transfer Report CSV (.csv) downloaded successfully.`);
+      } else if (format === 'PDF') {
+        downloadBankTransferReportPdf(reportData?.remitterInfo, records, reportData?.period || filters, reportData?.totals, reportData?.companyInfo, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bank Transfer Report PDF (.pdf) downloaded successfully.`);
+      } else {
+        downloadBankTransferReportExcel(reportData?.remitterInfo, records, reportData?.period || filters);
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Bank Transfer Report Excel (.xlsx) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Leave - Form I (Delhi S&E Act) -> generates statutory Form I Excel / CSV / PDF
+    if (isFormIReport) {
+      const empData = reportData?.selectedEmployeeData || { rows: records, ...reportData?.companyInfo };
+      if (format === 'PDF') {
+        downloadFormILeavePdf(empData, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Leave - Form I (Delhi S&E Act) PDF downloaded successfully.`);
+      } else {
+        downloadFormILeaveExcel(empData, reportData?.companyInfo, reportData?.period || filters, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Leave - Form I ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for Register of Leave (Form XXV) -> generates statutory Excel / CSV / PDF
+    if (isLeaveReport) {
+      if (format === 'PDF') {
+        downloadLeaveRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Leave (Form XXV) PDF downloaded successfully.`);
+      } else {
+        downloadLeaveRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
+          format: format === 'CSV' ? 'csv' : 'xlsx'
+        });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Register of Leave (Form XXV) ${format} spreadsheet downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Form 5 -> generates exact official Form 5 PDF / Excel / CSV
+    if (isPfForm5Report) {
+      if (format === 'PDF') {
+        downloadPfForm5Pdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 5 PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadPfForm5Csv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 5 CSV downloaded successfully.');
+      } else {
+        downloadPfForm5Excel(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 5 Excel spreadsheet downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Form 6A -> generates exact official Form 6A PDF / Excel / CSV
+    if (isPfForm6AReport) {
+      if (format === 'PDF') {
+        downloadPfForm6APdf(reportData, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 6A (Revised) PDF downloaded successfully.');
+      } else if (format === 'CSV') {
+        downloadPfForm6ACsv(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 6A CSV downloaded successfully.');
+      } else {
+        downloadPfForm6AExcel(reportData);
+        if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 6A Excel spreadsheet downloaded successfully.');
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Form 10 -> PDF ONLY per explicit user specification
+    if (isPfForm10Report) {
+      downloadPfForm10Pdf(reportData, { mode: 'download' });
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 10 PDF downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Form 12A -> PDF ONLY per explicit user specification
+    if (isPfForm12AReport) {
+      downloadPfForm12APdf(reportData, { mode: 'download' });
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Form 12A (Revised) PDF downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF ECR -> Excel ONLY per explicit user specification
+    if (isPfEcrReport) {
+      downloadPfEcrExcel(reportData);
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ PF ECR Excel workbook downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Report Employee Wise -> Excel ONLY per explicit user specification
+    if (isPfEmployeeWiseReport) {
+      downloadPfEmployeeWiseExcel(reportData);
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ Employee Wise Monthly PF Report Excel workbook downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Report Location Wise -> Excel ONLY per explicit user specification
+    if (isPfLocationWiseReport) {
+      downloadPfLocationWiseExcel(reportData);
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ Location Wise Monthly PF Report Excel workbook downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Summry Report -> PDF ONLY per explicit user specification
+    if (isPfSummaryReport) {
+      downloadPfSummaryReportPdf(reportData, { mode: 'download' });
+      if (typeof onExportSuccess === "function") onExportSuccess('✓ PF Summary Report PDF downloaded successfully.');
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    // Special handling for PF Form 2 (Revised) -> PDF ONLY per explicit user specification
+    if (isPfForm2Report) {
+      if (profileScope === 'all' && records.length > 1) {
+        await downloadPfForm2Pdf(records, reportData?.companyInfo, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ Downloaded all ${records.length} PF Form 2 (Revised) PDFs successfully.`);
+      } else {
+        await downloadPfForm2Pdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
+        if (typeof onExportSuccess === "function") onExportSuccess(`✓ PF Form 2 (Revised) PDF (${targetEmp?.name || 'Member'}) downloaded successfully.`);
+      }
+      if (typeof onClose === "function") onClose();
+      return;
+    }
+
+    if (format === 'PDF') {
+      generateReportPdf({
+        reportType: selectedReport,
+        title: reportMeta[selectedReport]?.title,
+        period: reportData?.period || filters,
+        companyInfo: reportData?.companyInfo,
+        records: reportData?.records || [],
+        totals: reportData?.totals,
+        statutoryRules: reportData?.statutoryRules,
+        mode: 'download',
+      });
+      if (typeof onExportSuccess === "function") onExportSuccess(`✓ ${reportName} PDF downloaded successfully.`);
+    } else {
+      generateReportExcel({
+        reportType: selectedReport,
+        title: reportMeta[selectedReport]?.title,
+        period: reportData?.period || filters,
+        companyInfo: reportData?.companyInfo,
+        records: reportData?.records || [],
+        totals: reportData?.totals,
+        format: format === 'CSV' ? 'csv' : 'xlsx',
+      });
+      if (typeof onExportSuccess === "function") onExportSuccess(`✓ ${reportName} downloaded as ${format} successfully.`);
+    }
+
+    if (typeof onClose === "function") onClose();
+  
+}
+
 function ExportReportModal({
   isOpen,
   onClose,
   selectedReport,
   reportData,
   filters,
+  selectedOptions = {},
   onExportSuccess,
   onStartExport,
   onEndExport
 }) {
+  const companyCtx = typeof useCompany === 'function' ? useCompany() : null;
+  const activeCompany = companyCtx?.activeCompany || null;
+  const effectiveCompany = useMemo(() => {
+    const comp = reportData?.companyInfo || {};
+    const active = activeCompany || {};
+    const finalName = comp.name || comp.companyName || active.name || active.companyName || '';
+    const finalAddress = comp.address || comp.registeredAddress || active.address || active.registeredAddress || '';
+    const finalPfNo = comp.pfNo || comp.employerPfCode || comp.pfCode || active.employerPfCode || active.pfCode || active.employerPfNo || '';
+    const finalEsiNo = comp.esiNo || comp.employerEsiCode || comp.esiCode || active.employerEsiCode || active.esiCode || active.employerEsiNo || '';
+
+    return {
+      ...active,
+      ...comp,
+      name: finalName,
+      companyName: finalName,
+      address: finalAddress,
+      city: comp.city || active.city || '',
+      state: comp.state || active.state || '',
+      pinCode: comp.pinCode || comp.pincode || active.pinCode || active.pincode || '',
+      phone: comp.phone || comp.contactNumber || active.phone || active.contactNumber || '',
+      email: comp.email || active.email || '',
+      website: comp.website || active.website || '',
+      logo: comp.logo || comp.logoUrl || active.logo || active.logoUrl || '',
+      pan: comp.pan || comp.panNumber || active.pan || active.panNumber || '',
+      tan: comp.tan || comp.tanNumber || active.tan || active.tanNumber || '',
+      gstin: comp.gstin || comp.gstNumber || active.gstin || active.gstNumber || '',
+      employerPfCode: finalPfNo,
+      employerEsiCode: finalEsiNo,
+      pfNo: finalPfNo,
+      esiNo: finalEsiNo,
+      bankName: comp.bankName || active.bankName || '',
+      bankBranch: comp.bankBranch || comp.branch || active.bankBranch || active.branch || '',
+      accountNumber: comp.accountNumber || comp.bankAccountNo || active.accountNumber || active.bankAccountNo || '',
+      ifsc: comp.ifsc || comp.ifscCode || active.ifsc || active.ifscCode || '',
+    };
+  }, [reportData?.companyInfo, activeCompany]);
   const [format, setFormat] = useState(
     selectedReport === 'bonus-register-form-c' ||
     selectedReport === 'form-c-bonus-paid' ||
@@ -3487,842 +4841,20 @@ function ExportReportModal({
     ? (records.find(r => r.name === filters.employee || r.employeeName === filters.employee || r.employeeId === filters.employee || r.employeeCode === filters.employee || (r.name && filters.employee.includes(r.name)) || (r.employeeName && filters.employee.includes(r.employeeName)) || (r.employeeId && filters.employee.includes(r.employeeId))) || records[0])
     : records[0];
 
-  const handleExportSubmit = async () => {
-    if (!records.length && !isForm11AccidentBookReport && !isPfChallanReport && !isPfForm3AReport && !isPfForm5Report && !isPfForm6AReport && !isPfForm10Report && !isPfForm12AReport && !isPfEcrReport && !isPfEmployeeWiseReport && !isPfLocationWiseReport && !isPfSummaryReport && !isPfForm2Report) {
-      onExportSuccess('No records available to export.');
-      onClose();
-      return;
-    }
-
-    // Capture the live preview DOM for 100% exact layout, colors, table lines, cards and typography parity!
-    if (format === 'PDF') {
-      const captureEl = document.querySelector('#report-preview-capture-area');
-      if (captureEl) {
-        if (onStartExport) onStartExport();
-        await new Promise((r) => setTimeout(r, 120));
-
-        const cleanPeriodStr = (reportData?.period?.monthLabel || filters?.month || 'Report').replace(/[^a-zA-Z0-9_-]/g, '_');
-        const filename = `${reportName.replace(/[^a-zA-Z0-9_-]/g, '_')}_${cleanPeriodStr}.pdf`;
-
-        const ok = await downloadElementAsPdf(captureEl, {
-          filename,
-          title: reportName,
-          mode: 'download',
-        });
-
-        if (onEndExport) onEndExport();
-
-        if (ok) {
-          onExportSuccess(`✓ ${reportName} PDF downloaded successfully with exact preview layout.`);
-          onClose();
-          return;
-        }
-      }
-    }
-
-    // Special handling for Employee Profile report -> generates the exact official Employee Profile PDF
-    if (isProfileReport) {
-      if (profileScope === 'all' && records.length > 1) {
-        for (const emp of records) {
-          await downloadEmployeeProfile(emp, reportData?.companyInfo, { mode: 'download' });
-        }
-        onExportSuccess(`✓ Downloaded all ${records.length} Employee Profiles successfully.`);
-      } else {
-        await downloadEmployeeProfile(targetEmp, reportData?.companyInfo, { mode: 'download' });
-        onExportSuccess(`✓ Employee Profile PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Full & Final Settlement report -> generates the exact official F&F PDF
-    if (isFnfReport) {
-      if (profileScope === 'all' && records.length > 1) {
-        for (const emp of records) {
-          await downloadFnfSettlementPdf(emp, reportData?.companyInfo, { mode: 'download' });
-        }
-        onExportSuccess(`✓ Downloaded all ${records.length} Full & Final Settlement statements successfully.`);
-      } else {
-        await downloadFnfSettlementPdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
-        onExportSuccess(`✓ Full & Final Settlement PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Form 16 (Part B) report -> generates the exact official Form 16 PDF
-    if (isForm16Report) {
-      const exportOptions = {
-        mode: 'download',
-        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
-      };
-      if (profileScope === 'all' && records.length > 1) {
-        await downloadForm16Pdf(records, reportData?.companyInfo, reportData?.period, exportOptions);
-        onExportSuccess(`✓ Downloaded all ${records.length} Form 16 (Part B) certificates successfully.`);
-      } else {
-        await downloadForm16Pdf(targetEmp, reportData?.companyInfo, reportData?.period, exportOptions);
-        onExportSuccess(`✓ Form 16 (Part B) PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Form F Gratuity Nomination report -> generates the exact official Form F PDF
-    if (isFormFReport) {
-      const exportOptions = {
-        mode: 'download',
-        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
-      };
-      if (profileScope === 'all' && records.length > 1) {
-        await downloadFormFPdf(records, reportData?.companyInfo, exportOptions);
-        onExportSuccess(`✓ Downloaded all ${records.length} Form F Gratuity Nomination forms successfully.`);
-      } else {
-        await downloadFormFPdf(targetEmp, reportData?.companyInfo, exportOptions);
-        onExportSuccess(`✓ Form F Gratuity Nomination PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Salary Certificate report -> generates the exact official Salary Certificate PDF
-    if (isSalaryCertReport) {
-      const exportOptions = {
-        mode: 'download',
-        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
-      };
-      if (profileScope === 'all' && records.length > 1) {
-        await downloadSalaryCertificatePdf(records, reportData?.companyInfo, exportOptions);
-        onExportSuccess(`✓ Downloaded all ${records.length} Salary Certificates successfully.`);
-      } else {
-        await downloadSalaryCertificatePdf(targetEmp, reportData?.companyInfo, exportOptions);
-        onExportSuccess(`✓ Salary Certificate PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Employee ID Card report -> generates the exact official ID Card PDF
-    if (isIdCardReport) {
-      const effectiveCompany = {
-        ...(reportData?.companyInfo || {}),
-        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName,
-        address: reportData?.companyInfo?.address,
-        phone: reportData?.companyInfo?.phone,
-        email: reportData?.companyInfo?.email,
-        logo: reportData?.companyInfo?.logo,
-      };
-      const exportOptions = {
-        mode: 'download',
-        companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
-      };
-      if (profileScope === 'all' && records.length > 1) {
-        await downloadEmployeeIdCardPdf(records, effectiveCompany, exportOptions);
-        onExportSuccess(`✓ Downloaded all ${records.length} Employee ID Cards successfully.`);
-      } else {
-        await downloadEmployeeIdCardPdf(targetEmp, effectiveCompany, exportOptions);
-        onExportSuccess(`✓ Employee ID Card PDF (${targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Employee Payslip report -> generates the exact official Employee Payslip PDF
-    if (isEmployeePayslipReport) {
-      if (profileScope === 'all' && records.length > 1) {
-        for (const slip of records) {
-          downloadEmployeePayslipPdf(slip, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
-        }
-        onExportSuccess(`✓ Downloaded all ${records.length} Employee Payslips successfully.`);
-      } else {
-        downloadEmployeePayslipPdf(targetEmp, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
-        onExportSuccess(`✓ Employee Payslip PDF (${targetEmp?.employeeName || targetEmp?.name || 'Employee'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Bonus Register (Form C) -> generates the exact official Form C Excel / PDF
-    if (isBonusReport) {
-      if (format === 'PDF') {
-        downloadBonusRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Bonus Register (Form C) PDF downloaded successfully.`);
-      } else {
-        downloadBonusRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Bonus Register (Form C) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Employment Card (Form XIV)
-    if (isEmploymentCardReport) {
-      if (format === 'Excel') {
-        if (profileScope === 'all' && records.length > 1) {
-          downloadEmploymentCardExcel(records, reportData?.companyInfo);
-          onExportSuccess(`✓ Downloaded all ${records.length} Employment Cards (.xlsx) successfully.`);
-        } else {
-          downloadEmploymentCardExcel(targetEmp, reportData?.companyInfo);
-          onExportSuccess(`✓ Employment Card Excel (${targetEmp?.workmanName || targetEmp?.name || 'Workman'}) downloaded successfully.`);
-        }
-      } else {
-        if (profileScope === 'all' && records.length > 1) {
-          await downloadEmploymentCardPdf(records, reportData?.companyInfo, { mode: 'download' });
-          onExportSuccess(`✓ Downloaded all ${records.length} Employment Cards (Form XIV) successfully.`);
-        } else {
-          await downloadEmploymentCardPdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
-          onExportSuccess(`✓ Employment Card PDF (${targetEmp?.workmanName || targetEmp?.name || 'Workman'}) downloaded successfully.`);
-        }
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Muster Roll (Form XVI) -> generates the exact statutory Form XVI Excel / PDF
-    if (isMusterRollReport) {
-      if (format === 'PDF') {
-        downloadMusterRollPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Muster Roll (Form XVI) PDF downloaded successfully.`);
-      } else {
-        downloadMusterRollExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Muster Roll (Form XVI) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Advances (Form XXII) -> generates statutory Form XXII Excel / PDF
-    if (isAdvancesReport) {
-      if (format === 'PDF') {
-        downloadAdvancesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Advances (Form XXII) PDF downloaded successfully.`);
-      } else {
-        downloadAdvancesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Advances (Form XXII) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Deductions for Damage or Loss (Form XX) -> generates statutory Form XX Excel / PDF
-    if (isDeductionsDamageReport) {
-      if (format === 'PDF') {
-        downloadDeductionsDamagePdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form XX) PDF downloaded successfully.`);
-      } else {
-        downloadDeductionsDamageExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form XX) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Deductions for Damage or Loss (Form II) -> generates statutory Form II Excel / PDF / CSV
-    if (isDamageFormIIReport) {
-      if (format === 'PDF') {
-        downloadFormIIDeductionsDamagePdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) PDF downloaded successfully.`);
-      } else if (format === 'CSV') {
-        downloadFormIIDeductionsDamageCsv(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) CSV spreadsheet downloaded successfully.`);
-      } else {
-        downloadFormIIDeductionsDamageExcel(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Deductions for Damage or Loss (Form II) Excel spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Fines (Employer) Form I -> generates statutory Form I Excel / PDF / CSV
-    if (isFinesFormIReport) {
-      if (format === 'PDF') {
-        downloadFormIFinesPdf(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Fines (Form I) PDF downloaded successfully.`);
-      } else if (format === 'CSV') {
-        downloadFormIFinesCsv(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Fines (Form I) CSV spreadsheet downloaded successfully.`);
-      } else {
-        downloadFormIFinesExcel(records, reportData?.employer || filters.company, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Fines (Form I) Excel spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Salary Sheet (Format 1) -> generates statutory Wage/Salary Register Excel / PDF / CSV
-    if (isSalarySheet1Report) {
-      if (format === 'PDF') {
-        downloadSalarySheetFormat1Pdf(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.pfSummary,
-          reportData?.esiSummary,
-          reportData?.ptSummary,
-          reportData?.earningSummary,
-          reportData?.deductionSummary,
-          { mode: 'download', clientInfo: reportData?.clientInfo, filters }
-        );
-        onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) PDF downloaded successfully.`);
-      } else if (format === 'CSV') {
-        downloadSalarySheetFormat1Csv(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.pfSummary,
-          reportData?.esiSummary,
-          reportData?.ptSummary,
-          reportData?.earningSummary,
-          reportData?.deductionSummary,
-          { clientInfo: reportData?.clientInfo, filters }
-        );
-        onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) CSV spreadsheet downloaded successfully.`);
-      } else {
-        downloadSalarySheetFormat1Excel(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.pfSummary,
-          reportData?.esiSummary,
-          reportData?.ptSummary,
-          reportData?.earningSummary,
-          reportData?.deductionSummary,
-          { format: 'xlsx', clientInfo: reportData?.clientInfo, filters }
-        );
-        onExportSuccess(`✓ Wage/Salary Register (Salary Sheet Format 1) Excel spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Salary Sheet (Format 2) -> generates statutory Form IV Register of Payment of Wages Excel / PDF / CSV
-    if (isSalarySheet2Report) {
-      if (format === 'PDF') {
-        downloadSalarySheetFormat2Pdf(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.pfSummary,
-          reportData?.esiSummary,
-          reportData?.lwfSummary,
-          { mode: 'download', clientInfo: reportData?.clientInfo, filters }
-        );
-        onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) PDF downloaded successfully.`);
-      } else if (format === 'CSV') {
-        downloadSalarySheetFormat2Csv(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.pfSummary,
-          reportData?.esiSummary,
-          reportData?.lwfSummary,
-          { clientInfo: reportData?.clientInfo, filters }
-        );
-        onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) CSV spreadsheet downloaded successfully.`);
-      } else {
-        downloadSalarySheetFormat2Excel(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.pfSummary,
-          reportData?.esiSummary,
-          reportData?.lwfSummary,
-          { format: 'xlsx', clientInfo: reportData?.clientInfo, filters }
-        );
-        onExportSuccess(`✓ Register of Payment of Wages (Salary Sheet Format 2) Excel spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESI Summry Employee Wise
-    if (isEsiSummaryEmployeeReport) {
-      if (format === 'PDF') {
-        downloadEsiSummaryEmployeePdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ ESI Summary Employee Wise PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadEsiSummaryEmployeeCsv(reportData);
-        onExportSuccess('✓ ESI Summary Employee Wise CSV downloaded successfully.');
-      } else {
-        downloadEsiSummaryEmployeeExcel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ ESI Summary Employee Wise Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESI Summry Location Wise
-    if (isEsiSummaryLocationReport) {
-      if (format === 'PDF') {
-        downloadEsiSummaryLocationPdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ ESI Summary Location Wise PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadEsiSummaryLocationCsv(reportData);
-        onExportSuccess('✓ ESI Summary Location Wise CSV downloaded successfully.');
-      } else {
-        downloadEsiSummaryLocationExcel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ ESI Summary Location Wise Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESIC Form 3 Return Declaration
-    if (isEsicForm3Report) {
-      if (format === 'PDF') {
-        await downloadEsicForm3Pdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ ESIC Form 3 Return Declaration PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadEsicForm3Csv(reportData);
-        onExportSuccess('✓ ESIC Form 3 Return Declaration CSV downloaded successfully.');
-      } else {
-        downloadEsicForm3Excel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ ESIC Form 3 Return Declaration Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESIC Form 5 Return of Contributions (Regulation 26)
-    if (isEsicForm5Report) {
-      if (format === 'PDF') {
-        await downloadEsicForm5Pdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ ESIC Form 5 Return of Contributions PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadEsicForm5Csv(reportData);
-        onExportSuccess('✓ ESIC Form 5 Return CSV downloaded successfully.');
-      } else {
-        downloadEsicForm5Excel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ ESIC Form 5 Return Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Form 11 Accident Book (Regulation 66)
-    if (isForm11AccidentBookReport) {
-      if (format === 'PDF') {
-        downloadForm11AccidentBookPdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ Form 11 Accident Book PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadForm11AccidentBookCsv(reportData);
-        onExportSuccess('✓ Form 11 Accident Book CSV downloaded successfully.');
-      } else {
-        downloadForm11AccidentBookExcel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ Form 11 Accident Book Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for EPF Form 11 - Declaration Form (PDF only, NO LOGO)
-    if (isEpfForm11Report) {
-      await downloadEpfForm11Pdf(records, reportData?.companyInfo, { mode: 'download' });
-      onExportSuccess('✓ EPF Form 11 - Declaration Form PDF downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Challan (Provisional Challan for Wage Month - NO LOGO)
-    if (isPfChallanReport) {
-      if (format === 'PDF') {
-        await downloadPfChallanPdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ Provisional PF Challan PDF downloaded successfully.');
-      } else {
-        downloadPfChallanExcel(reportData);
-        onExportSuccess('✓ Provisional PF Challan Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Form 3A (Revised) Contribution Card (NO LOGO)
-    if (isPfForm3AReport) {
-      if (format === 'PDF') {
-        await downloadPfForm3APdf(reportData, { mode: 'download', scope: profileScope });
-        onExportSuccess('✓ PF Form 3A (Revised) Contribution Card PDF downloaded successfully.');
-      } else {
-        downloadPfForm3AExcel(reportData);
-        onExportSuccess('✓ PF Form 3A Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESI Form 1 Declaration Form
-    if (isEsiForm1Report) {
-      if (format === 'PDF') {
-        downloadEsiForm1Pdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ ESI Form 1 Declaration Form PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadEsiForm1Csv(reportData);
-        onExportSuccess('✓ ESI Form 1 Declaration Form CSV spreadsheet downloaded successfully.');
-      } else {
-        downloadEsiForm1Excel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ ESI Form 1 Declaration Form Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESI Challan
-    if (isEsiChallanReport) {
-      if (format === 'PDF') {
-        downloadEsiChallanPdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ ESI Challan PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadEsiChallanCsv(reportData);
-        onExportSuccess('✓ ESI Challan CSV spreadsheet downloaded successfully.');
-      } else {
-        downloadEsiChallanExcel(reportData, { format: 'xlsx' });
-        onExportSuccess('✓ ESI Challan Excel workbook downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESI Form 7 Half-Yearly Report (Option 2)
-    if (isEsiForm7Opt2Report) {
-      if (format === 'PDF') {
-        downloadEsiForm7Option2Pdf(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.monthlySummaries,
-          { mode: 'download' }
-        );
-        onExportSuccess(`✓ ESI Form 7 (Option-2) PDF downloaded successfully.`);
-      } else if (format === 'CSV') {
-        downloadEsiForm7Option2Csv(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.monthlySummaries
-        );
-        onExportSuccess(`✓ ESI Form 7 (Option-2) CSV spreadsheet downloaded successfully.`);
-      } else {
-        downloadEsiForm7Option2Excel(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.monthlySummaries,
-          { format: 'xlsx' }
-        );
-        onExportSuccess(`✓ ESI Form 7 (Option-2) Excel spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for ESI Form 7 Half-Yearly Report (Option 1)
-    if (isEsiForm7Report) {
-      if (format === 'PDF') {
-        downloadEsiForm7Pdf(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.monthlySummaries,
-          { mode: 'download' }
-        );
-        onExportSuccess(`✓ ESI Form 7 Half-Yearly Report PDF downloaded successfully.`);
-      } else if (format === 'CSV') {
-        downloadEsiForm7Csv(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.monthlySummaries
-        );
-        onExportSuccess(`✓ ESI Form 7 Half-Yearly Report CSV spreadsheet downloaded successfully.`);
-      } else {
-        downloadEsiForm7Excel(
-          records,
-          reportData?.companyInfo,
-          reportData?.period || filters,
-          reportData?.totals,
-          reportData?.monthlySummaries,
-          { format: 'xlsx' }
-        );
-        onExportSuccess(`✓ ESI Form 7 Half-Yearly Report Excel spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Fines (Form XXI) -> generates statutory Form XXI Excel / PDF
-    if (isFinesReport) {
-      if (format === 'PDF') {
-        downloadFinesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Fines (Form XXI) PDF downloaded successfully.`);
-      } else {
-        downloadFinesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Fines (Form XXI) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Overtime (Form XXIII) -> generates statutory Form XXIII Excel / PDF
-    if (isOvertimeReport) {
-      if (format === 'PDF') {
-        downloadOvertimeRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Register of Overtime (Form XXIII) PDF downloaded successfully.`);
-      } else {
-        downloadOvertimeRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Overtime (Form XXIII) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Overtime Register for Workers (Form IV) -> generates statutory Form IV Excel / CSV / PDF
-    if (isOvertimeFormIVReport) {
-      if (format === 'PDF') {
-        downloadFormIVOvertimePdf(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals);
-        onExportSuccess(`✓ Overtime Register for Workers (Form IV) PDF downloaded successfully.`);
-      } else {
-        downloadFormIVOvertimeExcel(records, reportData?.contractor || reportData?.companyInfo, reportData?.establishment || reportData?.establishmentInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Overtime Register for Workers (Form IV) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Wages (Form XVII) -> generates statutory Form XVII Excel / PDF
-    if (isWagesReport) {
-      if (format === 'PDF') {
-        downloadWagesRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo);
-        onExportSuccess(`✓ Register of Wages (Form XVII) PDF downloaded successfully.`);
-      } else {
-        downloadWagesRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.pfSummary, reportData?.esiSummary, reportData?.establishmentInfo, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Wages (Form XVII) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Workmen (Form XIII) -> generates statutory Form XIII Excel / PDF
-    if (isWorkmanRegisterReport) {
-      if (format === 'PDF') {
-        downloadWorkmanRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo);
-        onExportSuccess(`✓ Register of Workmen (Form XIII) PDF downloaded successfully.`);
-      } else {
-        downloadWorkmanRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, reportData?.establishmentInfo, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Workmen (Form XIII) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Bank Transfer Letter -> generates official Advice Letter PDF / Word / Excel
-    if (isBankTransferLetterReport) {
-      if (format === 'Word') {
-        downloadBankTransferLetterWord(reportData?.letterInfo, records, reportData?.companyInfo);
-        onExportSuccess(`✓ Bank Transfer Letter Word document (.doc) downloaded successfully.`);
-      } else if (format === 'Excel') {
-        downloadBankTransferLetterExcel(reportData?.letterInfo, records, reportData?.companyInfo);
-        onExportSuccess(`✓ Bank Transfer Report Excel spreadsheet (.xlsx) downloaded successfully.`);
-      } else {
-        downloadBankTransferLetterPdf(reportData?.letterInfo, records, reportData?.companyInfo);
-        onExportSuccess(`✓ Bank Transfer Letter PDF downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Bank Transfer Report -> generates exact CMS Excel / CSV / PDF matching reference
-    if (isBankTransferReport) {
-      if (format === 'CSV') {
-        downloadBankTransferReportCsv(reportData?.remitterInfo, records, reportData?.period || filters);
-        onExportSuccess(`✓ Bank Transfer Report CSV (.csv) downloaded successfully.`);
-      } else if (format === 'PDF') {
-        downloadBankTransferReportPdf(reportData?.remitterInfo, records, reportData?.period || filters, reportData?.totals, reportData?.companyInfo, { mode: 'download' });
-        onExportSuccess(`✓ Bank Transfer Report PDF (.pdf) downloaded successfully.`);
-      } else {
-        downloadBankTransferReportExcel(reportData?.remitterInfo, records, reportData?.period || filters);
-        onExportSuccess(`✓ Bank Transfer Report Excel (.xlsx) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Leave - Form I (Delhi S&E Act) -> generates statutory Form I Excel / CSV / PDF
-    if (isFormIReport) {
-      const empData = reportData?.selectedEmployeeData || { rows: records, ...reportData?.companyInfo };
-      if (format === 'PDF') {
-        downloadFormILeavePdf(empData, reportData?.companyInfo, reportData?.period || filters, { mode: 'download' });
-        onExportSuccess(`✓ Register of Leave - Form I (Delhi S&E Act) PDF downloaded successfully.`);
-      } else {
-        downloadFormILeaveExcel(empData, reportData?.companyInfo, reportData?.period || filters, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Leave - Form I ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for Register of Leave (Form XXV) -> generates statutory Excel / CSV / PDF
-    if (isLeaveReport) {
-      if (format === 'PDF') {
-        downloadLeaveRegisterPdf(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, { mode: 'download' });
-        onExportSuccess(`✓ Register of Leave (Form XXV) PDF downloaded successfully.`);
-      } else {
-        downloadLeaveRegisterExcel(records, reportData?.companyInfo, reportData?.period || filters, reportData?.totals, {
-          format: format === 'CSV' ? 'csv' : 'xlsx'
-        });
-        onExportSuccess(`✓ Register of Leave (Form XXV) ${format} spreadsheet downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Form 5 -> generates exact official Form 5 PDF / Excel / CSV
-    if (isPfForm5Report) {
-      if (format === 'PDF') {
-        downloadPfForm5Pdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ PF Form 5 PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadPfForm5Csv(reportData);
-        onExportSuccess('✓ PF Form 5 CSV downloaded successfully.');
-      } else {
-        downloadPfForm5Excel(reportData);
-        onExportSuccess('✓ PF Form 5 Excel spreadsheet downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Form 6A -> generates exact official Form 6A PDF / Excel / CSV
-    if (isPfForm6AReport) {
-      if (format === 'PDF') {
-        downloadPfForm6APdf(reportData, { mode: 'download' });
-        onExportSuccess('✓ PF Form 6A (Revised) PDF downloaded successfully.');
-      } else if (format === 'CSV') {
-        downloadPfForm6ACsv(reportData);
-        onExportSuccess('✓ PF Form 6A CSV downloaded successfully.');
-      } else {
-        downloadPfForm6AExcel(reportData);
-        onExportSuccess('✓ PF Form 6A Excel spreadsheet downloaded successfully.');
-      }
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Form 10 -> PDF ONLY per explicit user specification
-    if (isPfForm10Report) {
-      downloadPfForm10Pdf(reportData, { mode: 'download' });
-      onExportSuccess('✓ PF Form 10 PDF downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Form 12A -> PDF ONLY per explicit user specification
-    if (isPfForm12AReport) {
-      downloadPfForm12APdf(reportData, { mode: 'download' });
-      onExportSuccess('✓ PF Form 12A (Revised) PDF downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF ECR -> Excel ONLY per explicit user specification
-    if (isPfEcrReport) {
-      downloadPfEcrExcel(reportData);
-      onExportSuccess('✓ PF ECR Excel workbook downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Report Employee Wise -> Excel ONLY per explicit user specification
-    if (isPfEmployeeWiseReport) {
-      downloadPfEmployeeWiseExcel(reportData);
-      onExportSuccess('✓ Employee Wise Monthly PF Report Excel workbook downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Report Location Wise -> Excel ONLY per explicit user specification
-    if (isPfLocationWiseReport) {
-      downloadPfLocationWiseExcel(reportData);
-      onExportSuccess('✓ Location Wise Monthly PF Report Excel workbook downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Summry Report -> PDF ONLY per explicit user specification
-    if (isPfSummaryReport) {
-      downloadPfSummaryReportPdf(reportData, { mode: 'download' });
-      onExportSuccess('✓ PF Summary Report PDF downloaded successfully.');
-      onClose();
-      return;
-    }
-
-    // Special handling for PF Form 2 (Revised) -> PDF ONLY per explicit user specification
-    if (isPfForm2Report) {
-      if (profileScope === 'all' && records.length > 1) {
-        await downloadPfForm2Pdf(records, reportData?.companyInfo, { mode: 'download' });
-        onExportSuccess(`✓ Downloaded all ${records.length} PF Form 2 (Revised) PDFs successfully.`);
-      } else {
-        await downloadPfForm2Pdf(targetEmp, reportData?.companyInfo, { mode: 'download' });
-        onExportSuccess(`✓ PF Form 2 (Revised) PDF (${targetEmp?.name || 'Member'}) downloaded successfully.`);
-      }
-      onClose();
-      return;
-    }
-
-    if (format === 'PDF') {
-      generateReportPdf({
-        reportType: selectedReport,
-        title: reportMeta[selectedReport]?.title,
-        period: reportData?.period || filters,
-        companyInfo: reportData?.companyInfo,
-        records: reportData?.records || [],
-        totals: reportData?.totals,
-        statutoryRules: reportData?.statutoryRules,
-        mode: 'download',
-      });
-      onExportSuccess(`✓ ${reportName} PDF downloaded successfully.`);
-    } else {
-      generateReportExcel({
-        reportType: selectedReport,
-        title: reportMeta[selectedReport]?.title,
-        period: reportData?.period || filters,
-        companyInfo: reportData?.companyInfo,
-        records: reportData?.records || [],
-        totals: reportData?.totals,
-        format: format === 'CSV' ? 'csv' : 'xlsx',
-      });
-      onExportSuccess(`✓ ${reportName} downloaded as ${format} successfully.`);
-    }
-
-    onClose();
+    const handleExportSubmit = async () => {
+    await triggerReportExport({
+      format,
+      selectedReport,
+      reportData,
+      filters,
+      activeCompany,
+      profileScope,
+      selectedOptions,
+      onStartExport,
+      onEndExport,
+      onExportSuccess,
+      onClose
+    });
   };
 
   return (
@@ -4548,6 +5080,218 @@ function ExportReportModal({
 function Reports() {
   const navigate = useNavigate();
   const { activeCompany, activeCompanyId } = useCompany();
+  const [downloadingFormat, setDownloadingFormat] = useState(null);
+
+  // Lifted report options state so header download buttons strictly respect selected options (persisted across page refresh)
+  const [salarySheet1Options, setSalarySheet1Options] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_salary_sheet_1');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptions();
+    } catch {
+      return getDefaultSelectedOptions();
+    }
+  });
+  const [salarySheet2Options, setSalarySheet2Options] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_salary_sheet_2');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsFormat2();
+    } catch {
+      return getDefaultSelectedOptionsFormat2();
+    }
+  });
+  const [payslipOptions, setPayslipOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_employee_payslip');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsPayslip();
+    } catch {
+      return getDefaultSelectedOptionsPayslip();
+    }
+  });
+  const [employeeMasterOptions, setEmployeeMasterOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_employee_master');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsEmployeeMaster();
+    } catch {
+      return getDefaultSelectedOptionsEmployeeMaster();
+    }
+  });
+  const [payrollOptions, setPayrollOptions] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hrms_report_opts_payroll');
+      return saved ? JSON.parse(saved) : getDefaultSelectedOptionsPayroll();
+    } catch {
+      return getDefaultSelectedOptionsPayroll();
+    }
+  });
+  const [statutoryConfig, setStatutoryConfig] = useState(null);
+
+  // Automatically persist any report option updates to localStorage
+  useEffect(() => {
+    try {
+      if (payslipOptions) {
+        localStorage.setItem('hrms_report_opts_employee_payslip', JSON.stringify(payslipOptions));
+      }
+    } catch {}
+  }, [payslipOptions]);
+
+  useEffect(() => {
+    try {
+      if (salarySheet1Options) {
+        localStorage.setItem('hrms_report_opts_salary_sheet_1', JSON.stringify(salarySheet1Options));
+      }
+    } catch {}
+  }, [salarySheet1Options]);
+
+  useEffect(() => {
+    try {
+      if (salarySheet2Options) {
+        localStorage.setItem('hrms_report_opts_salary_sheet_2', JSON.stringify(salarySheet2Options));
+      }
+    } catch {}
+  }, [salarySheet2Options]);
+
+  useEffect(() => {
+    try {
+      if (employeeMasterOptions) {
+        localStorage.setItem('hrms_report_opts_employee_master', JSON.stringify(employeeMasterOptions));
+      }
+    } catch {}
+  }, [employeeMasterOptions]);
+
+  useEffect(() => {
+    try {
+      if (payrollOptions) {
+        localStorage.setItem('hrms_report_opts_payroll', JSON.stringify(payrollOptions));
+      }
+    } catch {}
+  }, [payrollOptions]);
+
+  // Hybrid Architecture: Synchronize options from MongoDB company preferences on load/company change
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCompanyReportOptions = async () => {
+      try {
+        const remoteOptions = await reportService.getReportOptions(activeCompanyId);
+        if (!isMounted || !remoteOptions) return;
+
+        if (remoteOptions['employee-payslip']) {
+          setPayslipOptions(remoteOptions['employee-payslip']);
+          try {
+            localStorage.setItem('hrms_report_opts_employee_payslip', JSON.stringify(remoteOptions['employee-payslip']));
+          } catch {}
+        }
+        if (remoteOptions['salary-sheet-format-1']) {
+          setSalarySheet1Options(remoteOptions['salary-sheet-format-1']);
+          try {
+            localStorage.setItem('hrms_report_opts_salary_sheet_1', JSON.stringify(remoteOptions['salary-sheet-format-1']));
+          } catch {}
+        }
+        if (remoteOptions['salary-sheet-format-2']) {
+          setSalarySheet2Options(remoteOptions['salary-sheet-format-2']);
+          try {
+            localStorage.setItem('hrms_report_opts_salary_sheet_2', JSON.stringify(remoteOptions['salary-sheet-format-2']));
+          } catch {}
+        }
+        if (remoteOptions['employee-master']) {
+          setEmployeeMasterOptions(remoteOptions['employee-master']);
+          try {
+            localStorage.setItem('hrms_report_opts_employee_master', JSON.stringify(remoteOptions['employee-master']));
+          } catch {}
+        }
+        if (remoteOptions['payroll']) {
+          setPayrollOptions(remoteOptions['payroll']);
+          try {
+            localStorage.setItem('hrms_report_opts_payroll', JSON.stringify(remoteOptions['payroll']));
+          } catch {}
+        }
+      } catch (e) {
+        console.warn('Failed to load remote report options:', e);
+      }
+    };
+    fetchCompanyReportOptions();
+    return () => { isMounted = false; };
+  }, [activeCompanyId]);
+
+  const handleSaveOptionsToDatabase = async (reportType, options) => {
+    try {
+      const storageKeyMap = {
+        'employee-payslip': 'hrms_report_opts_employee_payslip',
+        'salary-sheet-format-1': 'hrms_report_opts_salary_sheet_1',
+        'salary-sheet-format-2': 'hrms_report_opts_salary_sheet_2',
+        'employee-master': 'hrms_report_opts_employee_master',
+        'payroll': 'hrms_report_opts_payroll',
+      };
+      const key = storageKeyMap[reportType];
+      if (key && options) {
+        localStorage.setItem(key, JSON.stringify(options));
+      }
+
+      await reportService.saveReportOptions(activeCompanyId, reportType, options);
+      setToastMessage('✓ Report options saved to company settings in database & cached locally.');
+    } catch (e) {
+      console.warn('Failed to save report options to database:', e);
+      setToastMessage('✓ Report options saved locally.');
+    }
+  };
+
+  // Pre-load company statutory configuration to immediately supply active rates to report options
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStatutory = async () => {
+      try {
+        const conf = await statutoryService.getStatutoryConfig(activeCompanyId);
+        if (isMounted && conf) setStatutoryConfig(conf);
+      } catch (e) {
+        // Fallback gracefully if not yet configured
+      }
+    };
+    fetchStatutory();
+    return () => { isMounted = false; };
+  }, [activeCompanyId]);
+
+  const handleDirectDownload = async (targetFormat) => {
+    if (targetFormat === 'Print') {
+      handlePrintReport();
+      return;
+    }
+    if (downloadingFormat || isLoading) return;
+
+    let activeOptions = {};
+    if (activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1') {
+      activeOptions = salarySheet1Options;
+    } else if (activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2') {
+      activeOptions = salarySheet2Options;
+    } else if (activeReport === 'employee-payslip' || activeReport === 'payslip') {
+      activeOptions = payslipOptions;
+    } else if (activeReport === 'employee' || activeReport === 'employee-master') {
+      activeOptions = employeeMasterOptions;
+    } else if (activeReport === 'payroll' || activeReport === 'employee-payslip-report') {
+      activeOptions = payrollOptions;
+    }
+
+    try {
+      setDownloadingFormat(targetFormat);
+      setIsLoading(true);
+      await triggerReportExport({
+        format: targetFormat,
+        selectedReport: activeReport,
+        reportData: enrichedReportData,
+        filters,
+        activeCompany,
+        selectedOptions: activeOptions,
+        onStartExport: () => setIsLoading(true),
+        onEndExport: () => setIsLoading(false),
+        onExportSuccess: (msg) => setToastMessage(msg)
+      });
+    } catch (err) {
+      console.error('Download error:', err);
+      setToastMessage('Download failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      setDownloadingFormat(null);
+      setIsLoading(false);
+    }
+  };
+
   const [searchParams] = useSearchParams();
   const tabParam = searchParams.get('tab') || searchParams.get('type');
   const validReportTypes = [
@@ -4696,6 +5440,52 @@ function Reports() {
 
   const [reportData, setReportData] = useState(null);
   const [isReportGenerated, setIsReportGenerated] = useState(false);
+  const [isViewingReport, setIsViewingReport] = useState(false);
+
+  const effectiveCompany = useMemo(() => {
+    const comp = reportData?.companyInfo || {};
+    const active = activeCompany || {};
+    const finalName = comp.name || comp.companyName || active.name || active.companyName || '';
+    const finalAddress = comp.address || comp.registeredAddress || active.address || active.registeredAddress || '';
+    const finalPfNo = comp.pfNo || comp.employerPfCode || comp.pfCode || active.employerPfCode || active.pfCode || active.employerPfNo || '';
+    const finalEsiNo = comp.esiNo || comp.employerEsiCode || comp.esiCode || active.employerEsiCode || active.esiCode || active.employerEsiNo || '';
+
+    return {
+      ...active,
+      ...comp,
+      name: finalName,
+      companyName: finalName,
+      address: finalAddress,
+      city: comp.city || active.city || '',
+      state: comp.state || active.state || '',
+      pinCode: comp.pinCode || comp.pincode || active.pinCode || active.pincode || '',
+      phone: comp.phone || comp.contactNumber || active.phone || active.contactNumber || '',
+      email: comp.email || active.email || '',
+      website: comp.website || active.website || '',
+      logo: comp.logo || comp.logoUrl || active.logo || active.logoUrl || '',
+      pan: comp.pan || comp.panNumber || active.pan || active.panNumber || '',
+      tan: comp.tan || comp.tanNumber || active.tan || active.tanNumber || '',
+      gstin: comp.gstin || comp.gstNumber || active.gstin || active.gstNumber || '',
+      employerPfCode: finalPfNo,
+      employerEsiCode: finalEsiNo,
+      pfNo: finalPfNo,
+      esiNo: finalEsiNo,
+      bankName: comp.bankName || active.bankName || '',
+      bankBranch: comp.bankBranch || comp.branch || active.bankBranch || active.branch || '',
+      accountNumber: comp.accountNumber || comp.bankAccountNo || active.accountNumber || active.bankAccountNo || '',
+      ifsc: comp.ifsc || comp.ifscCode || active.ifsc || active.ifscCode || '',
+    };
+  }, [reportData?.companyInfo, activeCompany]);
+
+  const enrichedReportData = useMemo(() => {
+    if (!reportData) return reportData;
+    return {
+      ...reportData,
+      companyInfo: effectiveCompany,
+      employer: reportData?.employer || effectiveCompany?.name,
+      contractor: reportData?.contractor || effectiveCompany,
+    };
+  }, [reportData, effectiveCompany]);
 
   const [filters, setFilters] = useState({
     month: getCurrentMonthStr(),
@@ -4732,10 +5522,11 @@ function Reports() {
   useEffect(() => {
     const loadInit = async () => {
       try {
+        const targetCompId = activeCompanyId || activeCompany?.companyId || activeCompany?._id || activeCompany?.id || '';
         const [overviewRes, filterRes, masterSitesRes] = await Promise.all([
-          reportService.getOverview(activeCompanyId).catch(() => null),
-          reportService.getFilterOptions(activeCompanyId).catch(() => null),
-          masterService.getMasters('sites', activeCompanyId).catch(() => [])
+          reportService.getOverview(targetCompId).catch(() => null),
+          reportService.getFilterOptions(targetCompId).catch(() => null),
+          masterService.getMasters('sites', targetCompId, true).catch(() => [])
         ]);
 
         if (overviewRes?.stats) {
@@ -4743,15 +5534,29 @@ function Reports() {
         }
         if (filterRes) {
           const directMasterSites = Array.isArray(masterSitesRes) ? masterSitesRes : [];
+          const validClientIds = new Set((filterRes.clients || []).map((c) => String(c.clientId || c.id || c._id || '').toLowerCase()));
+          const validClientNames = new Set((filterRes.clients || []).map((c) => String(c.name || '').trim().toLowerCase()));
+
+          const filteredDirectSites = directMasterSites.filter((s) => {
+            const sComp = String(s.companyId || '').trim();
+            if (sComp && targetCompId && (sComp === targetCompId || targetCompId.includes(sComp) || sComp.includes(targetCompId))) return true;
+            const sCliId = String(s.clientId || s.client || '').trim().toLowerCase();
+            const sCliName = String(s.clientName || '').trim().toLowerCase();
+            if (sCliId && validClientIds.has(sCliId)) return true;
+            if (sCliName && validClientNames.has(sCliName)) return true;
+            return !sComp;
+          });
+
           const combinedSiteRecords = [
             ...(filterRes.siteRecords || []),
-            ...directMasterSites.map((s) => ({
+            ...filteredDirectSites.map((s) => ({
               name: (s.name || s.siteName || '').trim(),
               code: (s.code || '').trim(),
               clientId: (s.clientId || s.client || '').trim(),
               clientName: (s.clientName || '').trim(),
               city: (s.city || '').trim(),
               address: (s.address || '').trim(),
+              companyId: (s.companyId || targetCompId || '').trim(),
             }))
           ].filter((s) => s.name);
 
@@ -4774,7 +5579,7 @@ function Reports() {
       }
     };
     loadInit();
-  }, [activeCompanyId]);
+  }, [activeCompanyId, activeCompany]);
 
   // Fetch active report data dynamically from MongoDB
   const fetchActiveReportData = useCallback(async () => {
@@ -4855,124 +5660,160 @@ function Reports() {
         activeReport === 'esi-summary-employee-xls' ||
         activeReport === 'esi-summary-employee'
       ) {
-        data = await reportService.getEsiSummaryEmployeeReport('', filters);
+        data = await reportService.getEsiSummaryEmployeeReport(targetCompId, filters);
       } else if (
         activeReport === 'esi-summary-location' ||
         activeReport === 'esi-summary-location-pdf' ||
         activeReport === 'esi-summary-location-xls'
       ) {
-        data = await reportService.getEsiSummaryLocationReport('', filters);
+        data = await reportService.getEsiSummaryLocationReport(targetCompId, filters);
       } else if (activeReport === 'esic-form-3' || activeReport === 'form-3-esic') {
-        data = await reportService.getEsicForm3Report('', filters);
+        data = await reportService.getEsicForm3Report(targetCompId, filters);
       } else if (
         activeReport === 'esic-returns-form-5' ||
         activeReport === 'esic-form-5' ||
         activeReport === 'form-5-esic'
       ) {
-        data = await reportService.getEsicForm5Report('', filters);
+        data = await reportService.getEsicForm5Report(targetCompId, filters);
       } else if (
         activeReport === 'form-11-accident-book' ||
         activeReport === 'accident-book-form-11'
       ) {
-        data = await reportService.getForm11AccidentBookReport('', filters);
+        data = await reportService.getForm11AccidentBookReport(targetCompId, filters);
       } else if (
         activeReport === 'epf-form-11' ||
         activeReport === 'epf-form-11-declaration'
       ) {
-        data = await reportService.getEpfForm11Report('', filters);
+        data = await reportService.getEpfForm11Report(targetCompId, filters);
       } else if (
         activeReport === 'pf-challan' ||
         activeReport === 'epf-challan'
       ) {
-        data = await reportService.getPfChallanReport('', filters);
+        data = await reportService.getPfChallanReport(targetCompId, filters);
       } else if (
         activeReport === 'pf-form-3a' ||
         activeReport === 'form-3a'
       ) {
-        data = await reportService.getPfForm3AReport('', filters);
+        data = await reportService.getPfForm3AReport(targetCompId, filters);
       } else if (
         activeReport === 'pf-form-5' ||
         activeReport === 'form-5-epf'
       ) {
-        data = await reportService.getPfForm5Report('', filters);
+        data = await reportService.getPfForm5Report(targetCompId, filters);
       } else if (
         activeReport === 'pf-form-6a' ||
         activeReport === 'form-6a-epf'
       ) {
-        data = await reportService.getPfForm6AReport('', filters);
+        data = await reportService.getPfForm6AReport(targetCompId, filters);
       } else if (
         activeReport === 'pf-form-10' ||
         activeReport === 'form-10-epf'
       ) {
-        data = await reportService.getPfForm10Report('', filters);
+        data = await reportService.getPfForm10Report(targetCompId, filters);
       } else if (
         activeReport === 'pf-form-12a' ||
         activeReport === 'form-12a-epf'
       ) {
-        data = await reportService.getPfForm12AReport('', filters);
+        data = await reportService.getPfForm12AReport(targetCompId, filters);
       } else if (
         activeReport === 'pf-ecr-excel' ||
         activeReport === 'pf-ecr'
       ) {
-        data = await reportService.getPfEcrReport('', filters);
+        data = await reportService.getPfEcrReport(targetCompId, filters);
       } else if (
         activeReport === 'pf-report-employee-wise' ||
         activeReport === 'pf-employee-wise'
       ) {
-        data = await reportService.getPfReportEmployeeWise('', filters);
+        data = await reportService.getPfReportEmployeeWise(targetCompId, filters);
       } else if (
         activeReport === 'pf-report-location-wise' ||
         activeReport === 'pf-location-wise'
       ) {
-        data = await reportService.getPfReportLocationWise('', filters);
+        data = await reportService.getPfReportLocationWise(targetCompId, filters);
       } else if (
         activeReport === 'pf-summary-report' ||
         activeReport === 'pf-summary'
       ) {
-        data = await reportService.getPfSummaryReport('', filters);
+        data = await reportService.getPfSummaryReport(targetCompId, filters);
       } else if (
         activeReport === 'pf-form-2-revised' ||
         activeReport === 'form-2-revised' ||
         activeReport === 'pf-form-2'
       ) {
-        data = await reportService.getPfForm2Report('', filters);
+        data = await reportService.getPfForm2Report(targetCompId, filters);
       } else if (activeReport === 'esi-form-1') {
-        data = await reportService.getEsiForm1Report('', filters);
+        data = await reportService.getEsiForm1Report(targetCompId, filters);
       } else if (activeReport === 'esi-challan') {
-        data = await reportService.getEsiChallanReport('', filters);
+        data = await reportService.getEsiChallanReport(targetCompId, filters);
       } else if (activeReport === 'esi-form-7-opt2') {
-        data = await reportService.getEsiForm7Option2Report('', filters);
+        data = await reportService.getEsiForm7Option2Report(targetCompId, filters);
       } else if (
         activeReport === 'esi-form-7-opt1' ||
         activeReport === 'esi-form-7' ||
         activeReport === 'form-7-esi' ||
         activeReport === 'form-7'
       ) {
-        data = await reportService.getEsiForm7Report('', filters);
+        data = await reportService.getEsiForm7Report(targetCompId, filters);
       } else if (activeReport === 'wages-register-form-xvii' || activeReport === 'form-xvii' || activeReport === 'wages-register') {
-        data = await reportService.getWagesRegisterReport('', filters);
+        data = await reportService.getWagesRegisterReport(targetCompId, filters);
       } else if (activeReport === 'workman-register-form-xiii' || activeReport === 'form-xiii' || activeReport === 'workman-register') {
-        data = await reportService.getWorkmanRegisterReport('', filters);
+        data = await reportService.getWorkmanRegisterReport(targetCompId, filters);
       } else if (activeReport === 'bank-transfer-letter') {
-        data = await reportService.getBankTransferLetterReport('', filters);
+        data = await reportService.getBankTransferLetterReport(targetCompId, filters);
       } else if (activeReport === 'bank-transfer-report') {
-        data = await reportService.getBankTransferReport('', filters);
+        data = await reportService.getBankTransferReport(targetCompId, filters);
       } else if (activeReport === 'register-of-leave-se-delhi') {
-        data = await reportService.getFormILeaveReport('', filters);
+        data = await reportService.getFormILeaveReport(targetCompId, filters);
       } else if (activeReport === 'leave' || activeReport === 'form-xxv-register-of-leave') {
-        data = await reportService.getRegisterOfLeaveReport('', filters);
+        data = await reportService.getRegisterOfLeaveReport(targetCompId, filters);
       }
 
       if (data) {
-        setReportData(data);
+        const enrichedCompany = {
+          ...(activeCompany || {}),
+          ...(data.companyInfo || {}),
+          name: data.companyInfo?.name || data.companyInfo?.companyName || activeCompany?.name || activeCompany?.companyName || '',
+          companyName: data.companyInfo?.companyName || data.companyInfo?.name || activeCompany?.companyName || activeCompany?.name || '',
+          address: data.companyInfo?.address || data.companyInfo?.registeredAddress || activeCompany?.address || activeCompany?.registeredAddress || '',
+          city: data.companyInfo?.city || activeCompany?.city || '',
+          state: data.companyInfo?.state || activeCompany?.state || '',
+          pinCode: data.companyInfo?.pinCode || data.companyInfo?.pincode || activeCompany?.pinCode || activeCompany?.pincode || '',
+          phone: data.companyInfo?.phone || data.companyInfo?.contactNumber || activeCompany?.phone || activeCompany?.contactNumber || '',
+          email: data.companyInfo?.email || activeCompany?.email || '',
+          logo: data.companyInfo?.logo || data.companyInfo?.logoUrl || activeCompany?.logo || activeCompany?.logoUrl || '',
+          pan: data.companyInfo?.pan || data.companyInfo?.panNumber || activeCompany?.pan || activeCompany?.panNumber || '',
+          tan: data.companyInfo?.tan || data.companyInfo?.tanNumber || activeCompany?.tan || activeCompany?.tanNumber || '',
+          gstin: data.companyInfo?.gstin || data.companyInfo?.gstNumber || activeCompany?.gstin || activeCompany?.gstNumber || '',
+          employerPfCode: data.companyInfo?.employerPfCode || data.companyInfo?.pfNo || activeCompany?.employerPfCode || activeCompany?.pfCode || '',
+          employerEsiCode: data.companyInfo?.employerEsiCode || data.companyInfo?.esiNo || activeCompany?.employerEsiCode || activeCompany?.esiCode || '',
+          pfNo: data.companyInfo?.pfNo || data.companyInfo?.employerPfCode || activeCompany?.employerPfCode || activeCompany?.pfCode || '',
+          esiNo: data.companyInfo?.esiNo || data.companyInfo?.employerEsiCode || activeCompany?.employerEsiCode || activeCompany?.esiCode || '',
+          bankName: data.companyInfo?.bankName || activeCompany?.bankName || '',
+          bankBranch: data.companyInfo?.bankBranch || activeCompany?.bankBranch || '',
+          accountNumber: data.companyInfo?.accountNumber || data.companyInfo?.bankAccountNo || activeCompany?.accountNumber || '',
+          ifsc: data.companyInfo?.ifsc || data.companyInfo?.ifscCode || activeCompany?.ifsc || '',
+        };
+        const finalReportObj = {
+          ...data,
+          companyInfo: enrichedCompany,
+          employer: data.employer || enrichedCompany.name,
+          contractor: data.contractor || enrichedCompany,
+          statutoryConfig: data.statutoryConfig || null,
+        };
+        if (data?.statutoryConfig) {
+          setStatutoryConfig(data.statutoryConfig);
+        }
+        setReportData(finalReportObj);
+        return finalReportObj;
       }
+      return null;
     } catch (err) {
       console.error('Error fetching report data:', err);
       setToastMessage(`Error: ${err.message}`);
     } finally {
       setIsLoading(false);
     }
-  }, [activeReport, filters]);
+  }, [activeReport, filters, activeCompany, activeCompanyId]);
 
   // Only update if report was already explicitly generated by the user
   useEffect(() => {
@@ -4991,11 +5832,15 @@ function Reports() {
 
   const updateFilter = (key, value) => {
     setFilters((current) => ({ ...current, [key]: value }));
+    setIsReportGenerated(false);
+    setIsViewingReport(false);
+    setReportData(null);
   };
 
   const handleSelectReport = (reportId) => {
     setReportData(null);
     setIsReportGenerated(false);
+    setIsViewingReport(false);
     navigate(`/admin/reports?tab=${reportId}`);
     setSearchTerm('');
   };
@@ -5005,12 +5850,34 @@ function Reports() {
     setSearchTerm('');
     setReportData(null);
     setIsReportGenerated(false);
+    setIsViewingReport(false);
   };
 
   const handleGenerateReport = async () => {
-    setIsReportGenerated(true);
-    await fetchActiveReportData();
-    setToastMessage('✓ Report dynamically generated from database.');
+    setIsLoading(true);
+    try {
+      const data = await fetchActiveReportData();
+      if (data) {
+        setIsReportGenerated(true);
+        setToastMessage('✓ Report data generated successfully. Click "View" to view the report.');
+      } else {
+        setIsReportGenerated(true);
+        setToastMessage('✓ Report data generated from database.');
+      }
+    } catch (err) {
+      console.error('Error generating report:', err);
+      setToastMessage(`Error generating report: ${err.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleViewReport = () => {
+    if (!isReportGenerated) {
+      setToastMessage('⚠️ Please click "Generate Report" first. Report has not been generated yet.');
+      return;
+    }
+    setIsViewingReport(true);
   };
 
   const handleResetFilters = () => {
@@ -5029,6 +5896,7 @@ function Reports() {
     setSearchTerm('');
     setReportData(null);
     setIsReportGenerated(false);
+    setIsViewingReport(false);
     setToastMessage('✓ Report filters reset.');
   };
 
@@ -5134,15 +6002,7 @@ function Reports() {
         alert('No employee available to print ID Card.');
         return;
       }
-      const effectiveCompany = {
-        ...(activeCompany || {}),
-        ...(reportData?.companyInfo || {}),
-        name: reportData?.companyInfo?.name || reportData?.companyInfo?.companyName || activeCompany?.name || activeCompany?.companyName,
-        address: reportData?.companyInfo?.address || activeCompany?.address || activeCompany?.registeredAddress,
-        phone: reportData?.companyInfo?.phone || activeCompany?.phone || activeCompany?.contactNumber,
-        email: reportData?.companyInfo?.email || activeCompany?.email,
-        logo: reportData?.companyInfo?.logo || activeCompany?.logo || activeCompany?.logoUrl,
-      };
+      
       downloadEmployeeIdCardPdf(targetEmp, effectiveCompany, {
         mode: 'print',
         companyName: filters?.company && filters.company !== 'All Companies' ? filters.company : undefined,
@@ -5605,36 +6465,114 @@ function Reports() {
             <header className={styles.pageHeader}>
               <div className={styles.pageHeaderContent} style={{ width: '100%' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
-                  <button
-                    type="button"
-                    onClick={handleBackToReports}
-                    className={styles.secondaryButton}
-                    style={{
-                      order: 2,
-                      marginLeft: 'auto',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '7px',
-                      padding: '8px 16px',
-                      background: 'rgb(215, 119, 5)',
-                      color: '#ffffff',
-                      border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '12.5px',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      whiteSpace: 'nowrap'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = 'rgb(180, 83, 9)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = 'rgb(215, 119, 5)';
-                    }}
-                  >
-                    <ArrowLeft size={15} color="#fff" /> Back to Reports
-                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', order: 2, marginLeft: 'auto' }}>
+                    {isReportGenerated && reportData && (
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        {getReportFormats(activeReport).map((fmt) => {
+                          const isCurrentDownloading = downloadingFormat === fmt;
+                          let bg = '#16a34a';
+                          let hoverBg = '#15803d';
+                          let text = '#ffffff';
+                          let border = 'none';
+                          let Icon = FileSpreadsheet;
+
+                          if (fmt === 'PDF') {
+                            bg = '#dc2626';
+                            hoverBg = '#b91c1c';
+                            Icon = Download;
+                          } else if (fmt === 'CSV') {
+                            bg = '#0284c7';
+                            hoverBg = '#0369a1';
+                            Icon = FileText;
+                          } else if (fmt === 'Word') {
+                            bg = '#2563eb';
+                            hoverBg = '#1d4ed8';
+                            Icon = FileText;
+                          } else if (fmt === 'Print') {
+                            bg = '#ffffff';
+                            hoverBg = '#f8fafc';
+                            text = '#334155';
+                            border = '1px solid #cbd5e1';
+                            Icon = Printer;
+                          }
+
+                          return (
+                            <button
+                              key={fmt}
+                              type="button"
+                              onClick={() => handleDirectDownload(fmt)}
+                              disabled={Boolean(downloadingFormat) || isLoading}
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                padding: '8px 14px',
+                                borderRadius: '8px',
+                                fontSize: '12.5px',
+                                fontWeight: 600,
+                                cursor: Boolean(downloadingFormat) || isLoading ? 'not-allowed' : 'pointer',
+                                background: bg,
+                                color: text,
+                                border,
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap',
+                                opacity: Boolean(downloadingFormat) && !isCurrentDownloading ? 0.6 : 1
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!Boolean(downloadingFormat) && !isLoading) {
+                                  e.currentTarget.style.background = hoverBg;
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = bg;
+                              }}
+                              title={`Download ${reportMeta[activeReport]?.title || ''} as ${fmt}`}
+                            >
+                              {isCurrentDownloading ? (
+                                <>
+                                  <Loader2 size={14} className={styles.spinner} />
+                                  <span>Generating...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Icon size={14} />
+                                  <span>{fmt}</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleBackToReports}
+                      className={styles.secondaryButton}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '7px',
+                        padding: '8px 16px',
+                        background: 'rgb(215, 119, 5)',
+                        color: '#ffffff',
+                        border: 'none',
+                        borderRadius: '8px',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgb(180, 83, 9)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgb(215, 119, 5)';
+                      }}
+                    >
+                      <ArrowLeft size={15} color="#fff" /> Back to Reports
+                    </button>
+                  </div>
                   <h1 style={{ margin: 0, fontSize: '22px', order: 1 }}>{reportMeta[activeReport]?.title}</h1>
                 </div>
                 <p className={styles.pageDescription}>{reportMeta[activeReport]?.description}</p>
@@ -5656,13 +6594,27 @@ function Reports() {
                   updateFilter(key, value);
                 }
               }}
-              reportData={reportData}
+              reportData={enrichedReportData}
               isLoading={isLoading}
               onGenerateReport={handleGenerateReport}
+              onViewReport={handleViewReport}
               onResetFilters={handleResetFilters}
               isExporting={isExportingPdf}
               activeCompany={activeCompany}
               isReportGenerated={isReportGenerated}
+              isViewingReport={isViewingReport}
+              salarySheet1Options={salarySheet1Options}
+              setSalarySheet1Options={setSalarySheet1Options}
+              salarySheet2Options={salarySheet2Options}
+              setSalarySheet2Options={setSalarySheet2Options}
+              payslipOptions={payslipOptions}
+              setPayslipOptions={setPayslipOptions}
+              employeeMasterOptions={employeeMasterOptions}
+              setEmployeeMasterOptions={setEmployeeMasterOptions}
+              payrollOptions={payrollOptions}
+              setPayrollOptions={setPayrollOptions}
+              statutoryConfig={statutoryConfig || enrichedReportData?.statutoryConfig}
+              onSaveOptionsToDatabase={handleSaveOptionsToDatabase}
             />
           </>
         )}
@@ -5671,8 +6623,15 @@ function Reports() {
           isOpen={isExportOpen}
           onClose={() => setIsExportOpen(false)}
           selectedReport={activeReport}
-          reportData={reportData}
+          reportData={enrichedReportData}
           filters={filters}
+          selectedOptions={
+            activeReport === 'employee-payslip' || activeReport === 'payslip' ? payslipOptions
+            : activeReport === 'salary-sheet-format-1' || activeReport === 'salary-sheet-1' ? salarySheet1Options
+            : activeReport === 'salary-sheet-format-2' || activeReport === 'salary-sheet-2' ? salarySheet2Options
+            : activeReport === 'employee' || activeReport === 'employee-master' ? employeeMasterOptions
+            : payrollOptions
+          }
           onExportSuccess={(msg) => setToastMessage(msg)}
           onStartExport={() => setIsExportingPdf(true)}
           onEndExport={() => setIsExportingPdf(false)}

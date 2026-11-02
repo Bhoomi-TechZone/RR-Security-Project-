@@ -98,7 +98,7 @@ export async function generateSalarySlipPdf({
     company?.name ||
     slip.company ||
     slip.clientName ||
-    'RR Security & Facilities';
+    '';
 
   const companyAddress =
     slip.companyAddress ||

@@ -39,8 +39,8 @@ export default function PfForm3AReportView({
   const currencyPeriod = reportData.currencyPeriod || { label: '01 Apr 2025 to 31 Mar 2026' };
   const summaryCards = reportData.summaryCards || [];
 
-  const adminName = (activeCard.establishmentName || comp.name || 'RR SECURITY & FACILITIES').toUpperCase();
-  const adminAddress = activeCard.establishmentAddress || comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI';
+  const adminName = (comp.name || activeCard.establishmentName || '').toUpperCase();
+  const adminAddress = comp.address || activeCard.establishmentAddress || '';
   const statutoryRate = activeCard.statutoryRate || '12%';
 
   const handleDownloadPdf = (scope = 'single') => {
@@ -124,49 +124,7 @@ export default function PfForm3AReportView({
           )}
         </div>
 
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrimary}`}
-            onClick={() => handleDownloadPdf('single')}
-            title="Download Statutory Form 3A PDF for active member (without logo)"
-          >
-            <Download size={15} />
-            <span>Download PDF</span>
-          </button>
-
-          {cards.length > 1 && (
-            <button
-              type="button"
-              className={`${styles.actionBtn} ${styles.btnSecondary}`}
-              onClick={() => handleDownloadPdf('all')}
-              title={`Download all ${cards.length} members Form 3A in one PDF`}
-            >
-              <Users size={15} />
-              <span>Download All ({cards.length})</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={handlePrint}
-            title="Print Form 3A Contribution Card"
-          >
-            <Printer size={15} />
-            <span>Print Card</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={handleExportExcel}
-            title="Export Excel with Form 3A & All Members Summary"
-          >
-            <FileSpreadsheet size={15} color="#16a34a" />
-            <span>Export Excel</span>
-          </button>
-        </div>
+        
       </div>
 
       {/* KPI Cards */}

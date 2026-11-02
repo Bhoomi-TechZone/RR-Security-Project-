@@ -40,7 +40,7 @@ export default function EpfForm11ReportView({
     reportData?.companyInfo?.name ||
     activeEmp.adminCompanyName ||
     activeEmp.companyInfo?.name ||
-    'RR SECURITY & FACILITIES'
+    ''
   ).toUpperCase();
 
   const isFather = activeEmp.isFather !== false && !activeEmp.isSpouse;
@@ -89,39 +89,7 @@ export default function EpfForm11ReportView({
           )}
         </div>
 
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrimary}`}
-            onClick={handleDownloadSinglePdf}
-            title="Download this employee's statutory 2-page EPF Form 11 as PDF"
-          >
-            <Download size={15} />
-            <span>Download Form 11 (PDF)</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={handlePrint}
-            title="Print EPF Form 11 PDF"
-          >
-            <Printer size={15} />
-            <span>Print</span>
-          </button>
-
-          {records.length > 1 && (
-            <button
-              type="button"
-              className={`${styles.actionBtn} ${styles.btnSecondary}`}
-              onClick={handleDownloadAllPdf}
-              title="Download all employees Form 11 in a combined PDF"
-            >
-              <FileText size={15} color="#2563eb" />
-              <span>Download All ({records.length}) PDF</span>
-            </button>
-          )}
-        </div>
+        
       </div>
 
       {/* Summary KPI Cards */}

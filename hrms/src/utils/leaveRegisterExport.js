@@ -13,10 +13,10 @@ export const downloadLeaveRegisterExcel = (
   totals = {},
   options = {}
 ) => {
-  const establishmentName = companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const establishmentName = companyInfo?.name || companyInfo?.companyName || '';
   const establishmentAddress =
     companyInfo?.address ||
-    'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
+    '';
   const registrationNo =
     companyInfo?.registrationNo ||
     companyInfo?.gstin ||
@@ -123,10 +123,10 @@ export const downloadLeaveRegisterPdf = (
     format: 'a4',
   });
 
-  const establishmentName = companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const establishmentName = companyInfo?.name || companyInfo?.companyName || '';
   const establishmentAddress =
     companyInfo?.address ||
-    'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
+    '';
   const registrationNo =
     companyInfo?.registrationNo ||
     companyInfo?.gstin ||

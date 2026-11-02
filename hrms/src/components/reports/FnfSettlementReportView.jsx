@@ -32,10 +32,9 @@ function getAmountInWords(amount) {
 function FnfSettlementSheetItem({ record, globalCompanyInfo }) {
   // Dynamic header company resolution: Employee's specific company or global company
   const company = record.companyInfo || globalCompanyInfo || {};
-  const companyName = company.name || 'RR Security & Facilities';
+  const companyName = company.name || company.companyName || '';
   const companyAddress =
-    company.address ||
-    'G-75/A Block-G M.B. Extn Badarpur New Delhi Delhi 110044 India';
+    company.address || '';
 
   // Logo resolution priority:
   // 1. Company logo in record

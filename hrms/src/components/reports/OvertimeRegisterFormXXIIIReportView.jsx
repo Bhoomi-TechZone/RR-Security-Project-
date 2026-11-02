@@ -28,9 +28,9 @@ export default function OvertimeRegisterFormXXIIIReportView({
   filters = {},
 }) {
   const defaultComp = companyInfo || {};
-  const contractorName = defaultComp.name || 'RR SECURITY & FACILITIES';
+  const contractorName = defaultComp.name || defaultComp.companyName || '';
   const contractorAddress =
-    defaultComp.address || 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
+    defaultComp.address || '';
   const contractorFull = `${contractorName}, ${contractorAddress}`;
 
   const firstRec = records[0] || {};
@@ -78,89 +78,7 @@ export default function OvertimeRegisterFormXXIIIReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Clock size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Overtime Hours</span>
-            <span className={styles.kpiValue}>{totalHours} Hours</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Workforce Overtime</span>
-            <span className={styles.kpiValue}>{records.length} Workmen</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <IndianRupee size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total OT Wages Paid</span>
-            <span className={styles.kpiValue}>₹{totalEarnings.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Statutory Format</span>
-            <span className={styles.kpiValue}>Form XXIII [Rule 78(1)(a)(iii)]</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badgeWorkforce}>
-            {records.length} {records.length === 1 ? 'Record' : 'Records'}
-          </span>
-          <span className={styles.badgePeriod}>Period: {monthLabel}</span>
-          <span className={styles.badgeHours}>Total OT: {totalHours} hrs</span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            title="Download Statutory Register of Overtime Excel"
-          >
-            <FileSpreadsheet size={15} />
-            <span>Download Excel</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            title="Download Statutory Register of Overtime PDF"
-          >
-            <FileText size={15} />
-            <span>Download PDF</span>
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Form XXIII Document"
-          >
-            <Printer size={15} />
-            <span>Print Form XXIII</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* 3. Statutory Document Frame (Matching Image 1) */}
       <div className={styles.paperCard}>

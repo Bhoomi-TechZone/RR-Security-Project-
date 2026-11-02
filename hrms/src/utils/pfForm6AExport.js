@@ -80,8 +80,8 @@ export function downloadPfForm6APdf(reportData = {}, options = {}) {
   y += 16;
 
   // 4. Establishment Name, Address & Code
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
   const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
 
   doc.text('Name and Address of the Establishment : ', marginX, y);
@@ -381,7 +381,7 @@ export function downloadPfForm6AExcel(reportData = {}, options = {}) {
     ['AND', '', '', '', '', '', '', '', '', '', '', '', ''],
     ["THE EMPLOYEES' PENSION SCHEME, 1995 [PARAGRAPH 20(4)]", '', '', '', '', '', '', '', '', '', '', '', ''],
     [`Annual Statement of Contribution for the Currency period from ${period.label || ''}`, '', '', '', '', '', 'Statutory Rate of Contribution: 12%', '', '', '', '', '', ''],
-    ['Name and Address of the Establishment :', `${comp.name || 'RR Security & Facilities'}, ${comp.address || ''}`, '', '', '', '', '', '', '', '', '', '', ''],
+    ['Name and Address of the Establishment :', `${comp.name || comp.companyName || ''}, ${comp.address || ''}`, '', '', '', '', '', '', '', '', '', '', ''],
     ['Code No. of the Establishment :', comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE', '', '', '', '', '', '', '', '', '', '', ''],
     [],
     [

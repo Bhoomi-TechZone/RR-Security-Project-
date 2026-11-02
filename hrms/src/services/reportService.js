@@ -3158,6 +3158,46 @@ class ReportService {
     }
     return data;
   }
+
+  /**
+   * Get Report Options (from company preferences in MongoDB)
+   */
+  async getReportOptions(companyId, reportType) {
+    try {
+      const url = reportType 
+        ? `${API_BASE_URL}/reports/options/${reportType}`
+        : `${API_BASE_URL}/reports/options`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders(companyId),
+      });
+      const data = await res.json();
+      return data?.options || null;
+    } catch (e) {
+      console.warn('Failed to fetch report options from backend:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Save Report Options (to company preferences in MongoDB)
+   */
+  async saveReportOptions(companyId, reportType, options) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/reports/options/${reportType}`, {
+        method: 'PUT',
+        headers: {
+          ...this.getHeaders(companyId),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ options }),
+      });
+      return await res.json();
+    } catch (e) {
+      console.warn('Failed to save report options to backend:', e);
+      return null;
+    }
+  }
 }
 
 export const reportService = new ReportService();

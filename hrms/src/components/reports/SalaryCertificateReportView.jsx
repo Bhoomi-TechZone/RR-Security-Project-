@@ -22,15 +22,12 @@ function SalaryCertificateSheetItem({ record, globalCompanyInfo, filters }) {
   const filterCompName =
     filters?.company && filters.company !== 'All Companies' ? filters.company : null;
   const employerName =
-    record.companyName ||
-    filterCompName ||
-    comp.name ||
-    'RR Security & Facilities';
+    comp.name || record.companyName || filterCompName || '';
 
   const employerAddress =
     record.companyAddress ||
     comp.address ||
-    'G-75/A Block-G M.B. Extn Badarpur New Delhi Delhi 110044 India';
+    '';
 
   const logoSrc = record.companyLogo || comp.logo || globalCompanyInfo?.logo || hrLogo;
 

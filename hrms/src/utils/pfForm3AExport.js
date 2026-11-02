@@ -41,8 +41,8 @@ export async function downloadPfForm3APdf(
     const empName = card.name || 'Member';
     const fatherName = card.fatherHusbandName || '-';
     const accountNo = card.accountNo || 'DSNHP3718318000/0000001';
-    const adminName = (card.establishmentName || comp.name || 'RR SECURITY & FACILITIES').toUpperCase();
-    const adminAddress = card.establishmentAddress || comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI';
+    const adminName = (card.establishmentName || comp.name || '').toUpperCase();
+    const adminAddress = card.establishmentAddress || comp.address || '';
     const statutoryRate = card.statutoryRate || '12%';
     const exitDate = card.exitDate || '';
     const exitReason = card.exitReason || '';
@@ -341,8 +341,8 @@ export function downloadPfForm3AExcel(reportData = {}) {
   const comp = reportData.companyInfo || {};
   const currencyPeriod = reportData.currencyPeriod || { label: '01 Apr 2025 to 31 Mar 2026' };
 
-  const adminName = (activeCard.establishmentName || comp.name || 'RR SECURITY & FACILITIES').toUpperCase();
-  const adminAddress = activeCard.establishmentAddress || comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI';
+  const adminName = (activeCard.establishmentName || comp.name || '').toUpperCase();
+  const adminAddress = activeCard.establishmentAddress || comp.address || '';
 
   const wb = XLSX.utils.book_new();
 

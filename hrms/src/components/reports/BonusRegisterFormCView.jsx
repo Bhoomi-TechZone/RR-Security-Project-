@@ -104,92 +104,7 @@ export default function BonusRegisterFormCView({
 
   return (
     <div className={styles.container}>
-      {/* 1. Summary KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Eligible Employees</span>
-            <span className={styles.kpiValue}>{records.length}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <IndianRupee size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Annual Wages</span>
-            <span className={styles.kpiValue}>₹{sumWages.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Bonus Payable (8.33%)</span>
-            <span className={styles.kpiValue}>₹{sumBonus.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <Calendar size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Net Disbursed</span>
-            <span className={styles.kpiValue}>₹{sumPaid.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* 2. Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badgeEmployees}>
-            {records.length} {records.length === 1 ? 'Employee' : 'Employees'}
-          </span>
-          <span className={styles.accountingYearBadge}>
-            Accounting Year: {accountingYear}
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            title="Download Form C as formatted Excel (.xlsx)"
-          >
-            <FileSpreadsheet size={15} />
-            Download Excel
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            title="Download Form C as printable PDF (.pdf)"
-          >
-            <FileText size={15} />
-            Download PDF
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Direct print preview of Form C"
-          >
-            <Printer size={15} />
-            Print
-          </button>
-        </div>
-      </div>
+      
 
       {/* 3. Sheet Paper View (Matching Image 2) */}
       <div className={styles.paperCard}>
@@ -207,8 +122,8 @@ export default function BonusRegisterFormCView({
             <div className={styles.metaRow}>
               <span className={styles.metaLabel}>Name of the establishment:</span>
               <span className={styles.metaValue}>
-                {companyInfo?.name || 'RR SECURITY & FACILITIES'}{' '}
-                {companyInfo?.address ? `${companyInfo.address}` : 'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044'}
+                {companyInfo?.name || companyInfo?.companyName || ''}{' '}
+                {companyInfo?.address ? `${companyInfo.address}` : ''}
               </span>
             </div>
             <div className={styles.metaRow}>

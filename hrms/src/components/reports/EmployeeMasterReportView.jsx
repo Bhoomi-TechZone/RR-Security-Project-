@@ -87,49 +87,6 @@ export default function EmployeeMasterReportView({
 
   return (
     <div className={styles.container}>
-      {/* KPI Cards Row */}
-      <div className={`${styles.kpiGrid} no-print`} data-no-print="true">
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={22} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Employees</span>
-            <span className={styles.kpiValue}>{poolRecords.length} Guards</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <UserCheck size={22} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Active Workforce</span>
-            <span className={styles.kpiValue}>{activeCount} Enrolled</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <UserX size={22} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Inactive Records</span>
-            <span className={styles.kpiValue}>{inactiveCount} Staff</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <Building size={22} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Deployment Units</span>
-            <span className={styles.kpiValue}>{totalClients} Clients / Sites</span>
-          </div>
-        </div>
-      </div>
-
       {/* Dynamic Data Table */}
       <div className={styles.tableWrap} id="printable-employee-master-table">
         <table className={styles.dataTable}>

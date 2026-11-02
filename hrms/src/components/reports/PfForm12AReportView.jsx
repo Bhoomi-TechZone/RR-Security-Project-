@@ -31,9 +31,9 @@ export default function PfForm12AReportView({
   const bankInfo = reportData.bankInfo || { name: 'State Bank of India', address: 'EPFO Collection Account, Main Branch' };
   const summaryCards = reportData.summaryCards || [];
 
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur, SOUTH DELHI - 110044';
-  const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
+  const estCode = comp.establishmentCode || comp.employerPfCode || comp.employerPfCode || comp.pfNo || '';
 
   const handleDownloadPdf = () => {
     downloadPfForm12APdf(reportData, { mode: 'download' });
@@ -56,47 +56,7 @@ export default function PfForm12AReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar (PDF ONLY format per explicit user instruction) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>EPFO Statutory Form 12-A (Revised)</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <Calendar size={15} />
-            <span>{monthLabel}</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeInfo}`}>
-            <Users size={15} />
-            <span>{employeeCounts.total || 0} Total Subscribers</span>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.primaryBtn}`}
-            onClick={handleDownloadPdf}
-            title="Download Official Form 12A PDF"
-          >
-            <Download size={14} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handlePrint}
-            title="Print Form 12A Document"
-          >
-            <Printer size={14} />
-            <span>Print Form</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* Metric Cards */}
       {summaryCards.length > 0 && (

@@ -380,7 +380,7 @@ export default function EmployeeProfileReportView({
     );
   }
 
-  const companyName = (companyInfo?.name || employeesToRender[0]?.companyName || employeesToRender[0]?.clientName || 'RR SECURITY & FACILITIES').toUpperCase();
+  const companyName = (companyInfo?.name || employeesToRender[0]?.companyName || employeesToRender[0]?.clientName || '').toUpperCase();
   const companyLogo = companyInfo?.logo || companyInfo?.logoUrl || localStorage.getItem('novaspark_company_logo_preview');
 
   return (

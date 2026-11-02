@@ -113,13 +113,13 @@ export async function downloadSalaryCertificatePdf(
       options.companyName ||
       record.companyName ||
       comp.name ||
-      'RR Security & Facilities';
+      '';
 
     const employerAddress =
       options.companyAddress ||
       record.companyAddress ||
       comp.address ||
-      'G-75/A Block-G M.B. Extn Badarpur New Delhi Delhi 110044 India';
+      '';
 
     const employeeName = record.name || record.employeeName || '—';
     const employeeId = record.employeeId || record.employeeCode || '—';

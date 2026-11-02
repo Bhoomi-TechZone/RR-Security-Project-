@@ -38,14 +38,14 @@ export async function downloadFormFPdf(
       options.companyName ||
       record.companyName ||
       comp.name ||
-      'RR SECURITY & FACILITIES'
+      ''
     ).toUpperCase();
 
     const employerAddress =
       options.companyAddress ||
       record.companyAddress ||
       comp.address ||
-      'G-75/A Street No 04 Block-G M.B. Extn., Badarpur, New Delhi-110044';
+      '';
 
     const employeeName = record.name || record.employeeName || '—';
     const employeeUpperName = employeeName.toUpperCase();

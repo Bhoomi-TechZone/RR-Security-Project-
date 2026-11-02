@@ -108,10 +108,10 @@ export default function WageSalaryRegisterTable({ reportData, selectedOptions = 
       <div className={styles.officialHeader}>
         <div className={styles.officialCompanyInfo}>
           <h2 className={styles.officialCompanyName}>
-            {company.name || company.companyName || 'RR Security & Facilities'}
+            {company.name || company.companyName || ''}
           </h2>
           <p className={styles.officialCompanyAddress}>
-            {company.address || 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044'}
+            {company.address || ''}
           </p>
         </div>
         <div className={styles.officialStatutoryRules}>
@@ -273,14 +273,14 @@ export default function WageSalaryRegisterTable({ reportData, selectedOptions = 
                       {opt.fatherHusbandName !== false && (row.fatherName || row.fatherHusbandName) && (
                         <div className={styles.empSubText}>F/H: {row.fatherName || row.fatherHusbandName}</div>
                       )}
-                      {opt.gender !== false && row.gender && (
-                        <div className={styles.empSubText}>Gender: {row.gender}</div>
+                      {(Boolean(opt.gender) || Boolean(opt.sex)) && (
+                        <div className={styles.empSubText}>Gender: {row.gender || row.sex || 'Male'}</div>
                       )}
-                      {opt.dateOfJoining !== false && row.doj && (
-                        <div className={styles.empSubText}>DOJ: {row.doj}</div>
+                      {(Boolean(opt.dateOfJoining) || Boolean(opt.joiningDate)) && (row.joiningDate || row.doj) && (
+                        <div className={styles.empSubText}>DOJ: {row.joiningDate || row.doj}</div>
                       )}
-                      {opt.dutyPost !== false && row.dutyPost && (
-                        <div className={styles.empSubText}>Post: {row.dutyPost}</div>
+                      {Boolean(opt.dutyPost) && (row.dutyPost || row.post) && (
+                        <div className={styles.empSubText}>Post: {row.dutyPost || row.post}</div>
                       )}
                       {opt.workLocation !== false && (row.location || row.site) && (
                         <div className={styles.empSubText}>Loc: {row.location || row.site}</div>
@@ -294,11 +294,11 @@ export default function WageSalaryRegisterTable({ reportData, selectedOptions = 
                       {opt.esiIpNumber !== false && (
                         <div className={styles.empSubText}>ESI No: {row.esiNo || '-'}</div>
                       )}
-                      {opt.incomeTaxPan !== false && row.pan && (
-                        <div className={styles.empSubText}>PAN: {row.pan}</div>
+                      {(Boolean(opt.incomeTaxPan) || Boolean(opt.pan)) && (row.pan || row.panNo) && (
+                        <div className={styles.empSubText}>PAN: {row.pan || row.panNo}</div>
                       )}
-                      {opt.aadhaarNumber !== false && row.aadhaar && (
-                        <div className={styles.empSubText}>Aadhaar: {row.aadhaar}</div>
+                      {(Boolean(opt.aadhaarNumber) || Boolean(opt.aadhaar)) && (row.aadhaar || row.aadhaarNo) && (
+                        <div className={styles.empSubText}>Aadhaar: {row.aadhaar || row.aadhaarNo}</div>
                       )}
                     </td>
                   )}

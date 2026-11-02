@@ -26,7 +26,7 @@ function Form16SheetItem({ record, globalCompanyInfo, globalPeriod, filters }) {
   const comp = record.companyInfo || globalCompanyInfo || {};
   const filterCompName =
     filters?.company && filters.company !== 'All Companies' ? filters.company : null;
-  const employerName = record.companyName || filterCompName || comp.name || 'RR SECURITY & FACILITIES';
+  const employerName = comp.name || record.companyName || filterCompName || '';
   const employerAddress =
     record.companyAddress ||
     comp.address ||

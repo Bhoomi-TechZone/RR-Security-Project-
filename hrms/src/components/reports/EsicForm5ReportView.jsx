@@ -43,9 +43,9 @@ export default function EsicForm5ReportView({
   const wageComponents = safeData.wageComponents || {};
   const totals = safeData.totals || {};
 
-  const companyName = clientInfo?.name || companyInfo?.name || 'RR SECURITY & FACILITIES';
-  const companyAddress = clientInfo?.address || companyInfo?.address || 'B-279 PATEL GARDEN EXTN. KAKROLA MORE, NEW DELHI - 110059';
-  const employerCode = companyInfo?.employerCode || '11001002790000905';
+  const companyName = companyInfo?.name || clientInfo?.name || '';
+  const companyAddress = companyInfo?.address || clientInfo?.address || '';
+  const employerCode = companyInfo?.employerEsiCode || companyInfo?.esiNo || companyInfo?.employerCode || '';
   const branchOffice = companyInfo?.branchOffice || 'MAYAPURI';
   const principalEmployer = companyInfo?.principalEmployer || {
     name: 'MR. RAM NIWAS',
@@ -80,102 +80,8 @@ export default function EsicForm5ReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. Quick KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Covered Insured Persons</span>
-            <span className={styles.kpiValue}>
-              {declarations.coveredEmployeesCount ?? records.length} Employees
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconBlue}`}>
-            <Users size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total Wages Paid</span>
-            <span className={styles.kpiValue}>
-              ₹ {formatCurrency(totals.totalWages || declarations.coveredEmployeesWages)}
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconGreen}`}>
-            <CreditCard size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total ESI Contribution</span>
-            <span className={styles.kpiValue}>
-              ₹ {formatCurrency(contributions.totalContribution || safeData.totalAmountPaid)}
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconIndigo}`}>
-            <ShieldCheck size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Challans Filed (6M)</span>
-            <span className={styles.kpiValue}>
-              {challans.length} Months Verified
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconOrange}`}>
-            <Building size={20} />
-          </div>
-        </div>
-      </div>
-
       {/* 2. Action Bar */}
-      <div className={styles.actionBar}>
-        <div className={styles.actionTitle}>
-          <FileText size={18} color="#2563eb" />
-          <span>ESIC Form 5 - Statutory Return of Contributions (Regulation 26)</span>
-        </div>
-        <div className={styles.actionButtons}>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handleDownloadPdf}
-            title="Download Official Statutory PDF (Exact Template)"
-          >
-            <Download size={14} />
-            <span>Export PDF</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnSuccess}
-            onClick={handleDownloadExcel}
-            title="Export Excel Worksheet"
-          >
-            <FileSpreadsheet size={14} />
-            <span>Export Excel</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnOutline}
-            onClick={handleDownloadCsv}
-            title="Export Clean CSV"
-          >
-            <Download size={14} />
-            <span>CSV</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnOutline}
-            onClick={handlePrint}
-            title="Print Official Form 5 Document"
-          >
-            <Printer size={14} />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* 3. Official Document Sheet */}
       <div className={styles.paperCard}>
