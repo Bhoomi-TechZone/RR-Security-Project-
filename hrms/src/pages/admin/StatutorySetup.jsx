@@ -19,7 +19,11 @@ import LWFStateModal from '../../components/statutorySetup/LWFStateModal';
 import PFRateModal from '../../components/statutorySetup/PFRateModal';
 import PFConfigurationTab from '../../components/statutorySetup/PFConfigurationTab';
 import ESIConfigurationTab from '../../components/statutorySetup/ESIConfigurationTab';
-import PTConfigurationTab from '../../components/statutorySetup/PTConfigurationTab';
+import PTConfigurationTab from '../../components/statutorySetup/PTConfigurationTab'; 
+import TDSConfigurationTab from '../../components/statutorySetup/TDSConfigurationTab';
+import BonusConfigurationTab from '../../components/statutorySetup/BonusConfigurationTab';
+import GratuityConfigurationTab from '../../components/statutorySetup/GratuityConfigurationTab';
+import LWFConfigurationTab from '../../components/statutorySetup/LWFConfigurationTab';
 
 import { useCompany } from '../../context/CompanyContext';
 import statutoryService from '../../services/statutoryService';
@@ -1452,7 +1456,7 @@ function StatutorySetup() {
             )}
 
             {/* TAB 4: TDS CONFIGURATION */}
-            {activeTab === 'tds' && (
+            {activeTab === 'tds' && ( <TDSConfigurationTab showToast={showToast} tdsConfig={tdsConfig} setTDSConfig={setTDSConfig} compId={compId} /> )} {/* LEGACY TDS FORM (INACTIVE) */} {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>
@@ -1577,7 +1581,7 @@ function StatutorySetup() {
             )}
 
             {/* TAB 5: BONUS CONFIGURATION */}
-            {activeTab === 'bonus' && (
+            {activeTab === 'bonus' && ( <BonusConfigurationTab showToast={showToast} bonusConfig={bonusConfig} setBonusConfig={setBonusConfig} compId={compId} /> )} {/* LEGACY BONUS FORM (INACTIVE) */} {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>
@@ -1704,7 +1708,7 @@ function StatutorySetup() {
             )}
 
             {/* TAB 6: GRATUITY CONFIGURATION */}
-            {activeTab === 'gratuity' && (
+            {activeTab === 'gratuity' && ( <GratuityConfigurationTab showToast={showToast} gratuityConfig={gratuityConfig} setGratuityConfig={setGratuityConfig} compId={compId} /> )} {/* LEGACY GRATUITY FORM */} {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>
@@ -1811,7 +1815,7 @@ function StatutorySetup() {
             )}
 
             {/* TAB 7: LWF CONFIGURATION */}
-            {activeTab === 'lwf' && (
+            {activeTab === 'lwf' && ( <LWFConfigurationTab showToast={showToast} lwfConfig={lwfConfig} setLWFConfig={setLWFConfig} lwfRules={lwfRules} setLWFRules={setLWFRules} compId={compId} /> )} {/* LEGACY LWF FORM */} {false && (
               <div className={styles.configContainer}>
                 <div className={styles.configHeader}>
                   <div>
