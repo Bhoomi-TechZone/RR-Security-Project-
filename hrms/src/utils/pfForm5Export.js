@@ -78,8 +78,8 @@ export function downloadPfForm5Pdf(reportData = {}, options = {}) {
   y += 16;
 
   // 4. Establishment Name, Address & Code No
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
   const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
 
   doc.setFont('helvetica', 'normal');
@@ -250,7 +250,7 @@ export function downloadPfForm5Excel(reportData = {}, options = {}) {
     ["THE EMPLOYEES' PROVIDENT FUND SCHEME, 1952 [Paragraph 36(2)(a)] AND THE EMPLOYEES' PENSION SCHEME, 1995 [Paragraph 20(4)]", '', '', '', '', '', '', '', ''],
     [`Return of Employees' qualifying for membership of the Employees' Provident Fund, Employees' Pension Fund & Employees' Deposit Linked Insurance Fund for the first time during the month of ${monthLabel}`, '', '', '', '', '', '', '', ''],
     [],
-    ['Name and Address of the Factory / Estt:', `${comp.name || 'RR Security & Facilities'}, ${comp.address || ''}`, '', '', '', 'CODE NO. of the Factory/ Estt:', comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE', '', ''],
+    ['Name and Address of the Factory / Estt:', `${comp.name || comp.companyName || ''}, ${comp.address || ''}`, '', '', '', 'CODE NO. of the Factory/ Estt:', comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE', '', ''],
     [],
     [
       'Sl No',

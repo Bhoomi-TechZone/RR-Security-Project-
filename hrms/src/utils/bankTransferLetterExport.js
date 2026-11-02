@@ -30,8 +30,8 @@ export async function downloadBankTransferLetterPdf(
   const info = letterData || {};
   const comp = companyInfo || {};
 
-  const companyName = (info.companyName || comp.name || 'RR SECURITY AND FACILITIES').toUpperCase();
-  const companyAddress = comp.address || 'G-75/A, Ground Floor, Block-G, M.B. EXTN., Badarpur New Delhi-110044';
+  const companyName = (info.companyName || comp.name || '').toUpperCase();
+  const companyAddress = comp.address || '';
   const companyPhone = comp.phone || '9891325151, 9891325252';
   const companyEmail = comp.email || 'Office.rrsf@gmail.com';
 
@@ -296,7 +296,7 @@ export function downloadBankTransferLetterExcel(
 ) {
   const info = letterData || {};
   const comp = companyInfo || {};
-  const companyName = (info.companyName || comp.name || 'RR SECURITY AND FACILITIES').toUpperCase();
+  const companyName = (info.companyName || comp.name || '').toUpperCase();
   const bankName = (info.bankName || 'HDFC BANK').toUpperCase();
   const chequeNo = info.chequeNo || '000040';
   const chequeDate = info.chequeDate || '07/10/2026';
@@ -386,8 +386,8 @@ export function downloadBankTransferLetterWord(
 ) {
   const info = letterData || {};
   const comp = companyInfo || {};
-  const companyName = (info.companyName || comp.name || 'RR SECURITY AND FACILITIES').toUpperCase();
-  const companyAddress = comp.address || 'G-75/A, Ground Floor, Block-G, M.B. EXTN., Badarpur New Delhi-110044';
+  const companyName = (info.companyName || comp.name || '').toUpperCase();
+  const companyAddress = comp.address || '';
   const letterDate = info.letterDate || '07/10/2026';
   const chequeNo = info.chequeNo || '000040';
   const chequeDate = info.chequeDate || letterDate;

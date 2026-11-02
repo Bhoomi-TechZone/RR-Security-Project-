@@ -42,10 +42,10 @@ export default function BankTransferReportView({
   const baseRemitter = remitterInfo || {};
 
   const [remitterAccountNo, setRemitterAccountNo] = useState(
-    baseRemitter.remitterAccountNo || '50200094608378'
+    baseRemitter.remitterAccountNo || comp.accountNumber || comp.bankAccountNo || ''
   );
   const [remitterName, setRemitterName] = useState(
-    (baseRemitter.remitterName || comp.name || 'RR SECURITY AND FACILITIES').toUpperCase()
+    (baseRemitter.remitterName || comp.name || comp.companyName || '').toUpperCase()
   );
 
   useEffect(() => {
@@ -85,49 +85,6 @@ export default function BankTransferReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <CreditCard size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Disbursement</span>
-            <span className={styles.kpiValue}>₹{formatINR(totalAmount)}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Beneficiaries Count</span>
-            <span className={styles.kpiValue}>{records.length} Accounts</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <Building size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Remitter Account</span>
-            <span className={styles.kpiValue}>{remitterAccountNo}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconAmber}`}>
-            <DollarSign size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Remitter Name</span>
-            <span className={styles.kpiValue}>{remitterName}</span>
-          </div>
-        </div>
-      </div>
-
       {/* 2. Action Toolbar & Remitter Account Control */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
@@ -147,40 +104,7 @@ export default function BankTransferReportView({
           </span>
         </div>
 
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            title="Download exact Bank Transfer Excel spreadsheet (.xlsx)"
-          >
-            <FileSpreadsheet size={15} /> Export Excel
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnCsv}`}
-            onClick={handleExportCsv}
-            title="Download CSV for Corporate Banking upload (.csv)"
-          >
-            <Download size={15} /> Export CSV
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            title="Download Bank Transfer Report PDF (.pdf)"
-          >
-            <FileText size={15} /> Export PDF
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Bank Transfer Report"
-          >
-            <Printer size={15} /> Print
-          </button>
-        </div>
+        
       </div>
 
       {/* 3. Sheet Table Frame matching Image 1 */}

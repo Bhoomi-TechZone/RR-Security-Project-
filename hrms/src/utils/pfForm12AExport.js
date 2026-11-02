@@ -78,8 +78,8 @@ export function downloadPfForm12APdf(reportData = {}, options = {}) {
   doc.setFontSize(8.5);
   doc.text('Name and Address of the Establishment', leftX, y);
 
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur, SOUTH DELHI - 110044';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
   const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
 
   let currentLeftY = y + 12;

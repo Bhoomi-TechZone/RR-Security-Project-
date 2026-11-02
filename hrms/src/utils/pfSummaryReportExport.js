@@ -36,7 +36,7 @@ export const downloadPfSummaryReportPdf = async (reportData = {}, options = {}) 
   const locations = safeData.locations || safeData.records || [];
   const grandTotal = safeData.grandTotal || {};
   const comp = safeData.companyInfo || {};
-  const companyName = safeData.companyName || comp.name || 'RR SECURITY & FACILITIES';
+  const companyName = comp.name || safeData.companyName || '';
 
   const monthName = (safeData.monthName || 'SEPTEMBER').toUpperCase();
   const year = safeData.year || 2026;

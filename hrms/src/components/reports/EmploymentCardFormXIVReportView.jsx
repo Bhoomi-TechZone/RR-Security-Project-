@@ -214,49 +214,6 @@ export default function EmploymentCardFormXIVReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. Summary KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Employment Cards</span>
-            <span className={styles.kpiValue}>{records.length}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Active Workforces</span>
-            <span className={styles.kpiValue}>{records.length} Guards</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <Award size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Statutory Regulation</span>
-            <span className={styles.kpiValue}>CL(R&A) Rule 76</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <Building2 size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Contractor</span>
-            <span className={styles.kpiValue}>RR Security</span>
-          </div>
-        </div>
-      </div>
-
       {/* 2. Action Toolbar */}
       <div className={styles.toolbar}>
         <div className={styles.toolbarLeft}>
@@ -280,37 +237,7 @@ export default function EmploymentCardFormXIVReportView({
           )}
         </div>
 
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            title="Download Form XIV as printable PDF"
-          >
-            <FileText size={15} />
-            Download PDF
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            title="Download Form XIV as Excel sheet"
-          >
-            <FileSpreadsheet size={15} />
-            Download Excel
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Direct print preview of Form XIV"
-          >
-            <Printer size={15} />
-            Print Card
-          </button>
-        </div>
+        
       </div>
 
       {/* 3. Cards List View */}

@@ -186,6 +186,24 @@ export const computePTWageBase = ({
 };
 
 /**
+ * Universal PT wage base resolver supporting both positional arguments and option objects
+ */
+export const getPtWageBase = (emp, monthlyGross, earnedGross, statutoryPt, salaryComponentsMaster, ptEnabled, earningsObj) => {
+  if (typeof emp === 'object' && !monthlyGross && !earnedGross && emp.emp) {
+    return computePTWageBase(emp);
+  }
+  return computePTWageBase({
+    emp,
+    monthlyGross: Number(monthlyGross) || 0,
+    earnedGross: Number(earnedGross) || 0,
+    statutoryPt,
+    salaryComponentsMaster,
+    earnedEarnings: earningsObj || {},
+    monthlyEarnings: earningsObj || {},
+  });
+};
+
+/**
  * Helper to calculate Professional Tax strictly from active dynamic PT slabs in MongoDB
  */
 export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = true, gender = '') => {
@@ -477,6 +495,9 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, 
     epfEmployer,
     edli,
     admin,
+    pfWage,
+    epsWage,
+    qualifyingWage,
   };
 };
 
@@ -568,6 +589,7 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
   return {
     employee: esiEmployee,
     employer: esiEmployer,
+    esiWage,
   };
 };
 

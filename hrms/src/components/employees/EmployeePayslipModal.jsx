@@ -68,7 +68,10 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
     if (isOpen) {
       window.addEventListener('keydown', handleKeyDown);
     }
-    const dynamicEarningsList = useMemo(() => {
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
+  const dynamicEarningsList = useMemo(() => {
     if (!slipData?.earnings) return [];
     const list = [];
     if (Number(slipData.earnings.basic) > 0) list.push({ label: 'Basic Salary', amount: slipData.earnings.basic });
@@ -120,9 +123,6 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
 
     return list;
   }, [slipData]);
-
-  return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
 
   // Reset scroll to top whenever new slip loads or modal opens
   useEffect(() => {

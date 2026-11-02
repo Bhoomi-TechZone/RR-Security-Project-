@@ -43,7 +43,7 @@ export default function EsiSummaryEmployeeReportView({
   const clientInfo = safeData.clientInfo || {};
   const period = safeData.period || {};
 
-  const headerCompanyName = clientInfo?.name || companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const headerCompanyName = companyInfo?.name || clientInfo?.name || '';
   const monthLabel = period.monthLabel || `FOR THE MONTH OF :${period.monthNum || ''},${period.year || ''}`;
 
   const handleDownloadPdf = () => {
@@ -64,79 +64,6 @@ export default function EsiSummaryEmployeeReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={15} />
-            ESI SUMMARY EMPLOYEE WISE
-          </span>
-          <span className={styles.monthTag}>
-            <Calendar size={13} style={{ display: 'inline', marginRight: '5px', verticalAlign: '-1px' }} />
-            {monthLabel}
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleDownloadPdf}
-            title="Download Official PDF Report"
-          >
-            <Download size={14} /> PDF
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleDownloadExcel}
-            title="Download Excel Spreadsheet"
-          >
-            <FileSpreadsheet size={14} /> Excel
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnCsv}`}
-            onClick={handleDownloadCsv}
-            title="Download CSV"
-          >
-            <FileText size={14} /> CSV
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Official Report"
-          >
-            <Printer size={14} /> Print
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={`${styles.kpiCard} ${styles.kpiCardBlue}`}>
-          <span className={styles.kpiLabel}>Total Employees</span>
-          <span className={styles.kpiValue}>{totals.count ?? records.length} Employees</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardPurple}`}>
-          <span className={styles.kpiLabel}>Total Working Days</span>
-          <span className={styles.kpiValue}>{totals.days ?? 0} Days</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardGreen}`}>
-          <span className={styles.kpiLabel}>Total ESI Wages</span>
-          <span className={styles.kpiValue}>₹{Number(totals.esiWages || 0).toLocaleString('en-IN')}</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardOrange}`}>
-          <span className={styles.kpiLabel}>Exempted Wages</span>
-          <span className={styles.kpiValue}>₹{Number(totals.exemptedWages || 0).toLocaleString('en-IN')}</span>
-        </div>
-        <div className={`${styles.kpiCard} ${styles.kpiCardIndigo}`}>
-          <span className={styles.kpiLabel}>Total Contribution (4%)</span>
-          <span className={styles.kpiValue}>₹{Number(totals.totalContribution || 0).toLocaleString('en-IN')}</span>
-        </div>
-      </div>
-
       {/* Main Statutory Paper Sheet */}
       <div className={styles.paperWrapper}>
         <div className={styles.paperSheet}>

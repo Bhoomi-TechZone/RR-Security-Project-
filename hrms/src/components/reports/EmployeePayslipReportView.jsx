@@ -43,13 +43,27 @@ export default function EmployeePayslipReportView({
   const selectedOptions = propSelectedOptions || internalSelectedOptions;
   const setSelectedOptions = onOptionsChange || setInternalSelectedOptions;
 
+  // Filter records by selected options
+  const filteredRecords = useMemo(() => {
+    let list = records || [];
+    if (selectedOptions?.recordScope === 'active') {
+      list = list.filter((r) => r.status !== 'Inactive' && r.employeeStatus !== 'Inactive' && r.isActive !== false);
+    } else if (selectedOptions?.recordScope === 'inactive') {
+      list = list.filter((r) => r.status === 'Inactive' || r.employeeStatus === 'Inactive' || r.isActive === false);
+    }
+    if (selectedOptions?.excludeHoldSalary) {
+      list = list.filter((r) => !r.isHold && !r.salaryHold && r.status !== 'Hold');
+    }
+    return list;
+  }, [records, selectedOptions?.recordScope, selectedOptions?.excludeHoldSalary]);
+
   // Active Payslip
   const activeSlip = useMemo(() => {
-    if (records && records.length > 0) {
-      return records[selectedIdx] || records[0];
+    if (filteredRecords && filteredRecords.length > 0) {
+      return filteredRecords[selectedIdx] || filteredRecords[0];
     }
     return selectedEmployeeData || {};
-  }, [records, selectedIdx, selectedEmployeeData]);
+  }, [filteredRecords, selectedIdx, selectedEmployeeData]);
 
   // Handlers
   const handleDownloadPdf = () => {
@@ -65,16 +79,16 @@ export default function EmployeePayslipReportView({
   };
 
   const handleNext = () => {
-    if (selectedIdx < records.length - 1) setSelectedIdx(selectedIdx + 1);
+    if (selectedIdx < filteredRecords.length - 1) setSelectedIdx(selectedIdx + 1);
   };
 
   // Company details
   const comp = activeSlip.companyInfo || companyInfo || {};
-  const compName = (comp.name || 'RR SECURITY & FACILITIES').toUpperCase();
-  const compAddr = (comp.address || 'G-75/A, BLOCK-G M.B.EXTN., BADARPUR NEW DELHI-110044').toUpperCase();
-  const compPhone = comp.phone ? `TEL NO. ${comp.phone}` : 'TEL NO. 9891325151';
-  const compPan = comp.pan || 'DSNHP3718318000';
-  const compEsic = comp.esic || comp.registrationNo || '20001853160000999';
+  const compName = (comp.name || comp.companyName || '').toUpperCase();
+  const compAddr = (comp.address || comp.registeredAddress || '').toUpperCase();
+  const compPhone = comp.phone ? `TEL NO. ${comp.phone}` : '';
+  const compPan = comp.pan || comp.panNumber || '';
+  const compEsic = comp.esiNo || comp.employerEsiCode || comp.registrationNo || '';
 
   // Allowances & Deductions matching
   const allowances = activeSlip.allowances || [];
@@ -98,69 +112,6 @@ export default function EmployeePayslipReportView({
 
   return (
     <div className={styles.container}>
-      {/* Statutory Act Banner */}
-      <div className={styles.actBanner}>
-        <Info size={15} />
-        <span>
-          <strong>Monthly Employee Payslip</strong> — Statutory Salary Slip matching verified HRMS format. Period:{' '}
-          <strong>{activeSlip.salaryMonth || period?.monthLabel || 'Current Month'}</strong>
-        </span>
-      </div>
-
-      {/* Dynamic Report Options UI (Frontend Configurable Options Panel) */}
-      {showOptions && (
-        <EmployeePayslipOptions
-          selectedOptions={selectedOptions}
-          onChange={setSelectedOptions}
-          onReset={() => setSelectedOptions(getDefaultSelectedOptions())}
-        />
-      )}
-
-      {/* KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Payslips</span>
-            <span className={styles.kpiValue}>{records.length} Employees</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <IndianRupee size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Net Salary</span>
-            <span className={styles.kpiValue}>
-              ₹{Number(activeSlip.netSalary || 0).toLocaleString('en-IN')}
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <Clock size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Days Paid</span>
-            <span className={styles.kpiValue}>{activeSlip.daysPaid ?? 30} Days</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <ShieldCheck size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Statutory Format</span>
-            <span className={styles.kpiValue}>Corporate Payslip</span>
-          </div>
-        </div>
-      </div>
-
       {/* Interactive Toolbar */}
       <div className={styles.toolbarCard}>
         <div className={styles.selectorWrap}>
@@ -170,7 +121,7 @@ export default function EmployeePayslipReportView({
             value={selectedIdx}
             onChange={(e) => setSelectedIdx(Number(e.target.value))}
           >
-            {records.map((r, i) => (
+            {filteredRecords.map((r, i) => (
               <option key={r.id || r.employeeCode || i} value={i}>
                 {r.employeeName || 'Staff'} ({r.employeeCode || r.employeeId || `RR0${i + 1}`})
               </option>
@@ -188,13 +139,13 @@ export default function EmployeePayslipReportView({
               <ChevronLeft size={16} /> Prev
             </button>
             <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>
-              {selectedIdx + 1} / {records.length || 1}
+              {selectedIdx + 1} / {filteredRecords.length || 1}
             </span>
             <button
               type="button"
               className={styles.navBtn}
               onClick={handleNext}
-              disabled={selectedIdx >= records.length - 1}
+              disabled={selectedIdx >= filteredRecords.length - 1}
               title="Next Employee"
             >
               Next <ChevronRight size={16} />
@@ -202,26 +153,7 @@ export default function EmployeePayslipReportView({
           </div>
         </div>
 
-        <div className={styles.actionBtnGroup}>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleDownloadPdf}
-            title="Download PDF Document"
-          >
-            <FileText size={15} />
-            <span>Download PDF</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handlePrint}
-            title="Print Official Payslip"
-          >
-            <Printer size={15} />
-            <span>Print Payslip</span>
-          </button>
-        </div>
+        
       </div>
 
       {/* ========================================================
@@ -233,8 +165,8 @@ export default function EmployeePayslipReportView({
           {selectedOptions.showCompanyHeader !== false && (
             <div className={styles.docHeader}>
               <div className={styles.docLogoCircle}>
-                <span>RR SECURITY</span>
-                <span style={{ fontSize: '7.5px' }}>&amp; FACILITIES</span>
+                <span>{compName ? compName.split(' ')[0] : ''}</span>
+                <span style={{ fontSize: '7.5px' }}>{compName ? compName.split(' ').slice(1).join(' ') : ''}</span>
               </div>
 
               <div className={styles.docHeaderCenter}>

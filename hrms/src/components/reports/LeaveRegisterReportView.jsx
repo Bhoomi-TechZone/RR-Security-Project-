@@ -33,15 +33,15 @@ export default function LeaveRegisterReportView({
   const [selectedLeaveType, setSelectedLeaveType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const establishmentName = companyInfo?.name || 'RR SECURITY & FACILITIES';
+  const establishmentName = companyInfo?.name || companyInfo?.companyName || '';
   const establishmentAddress =
     companyInfo?.address ||
-    'G-75/A, Ground Floor, Block-G M.B. EXTN., Badarpur New Delhi-110044';
+    '';
   const registrationNo =
     companyInfo?.registrationNo ||
     companyInfo?.gstin ||
     companyInfo?.pan ||
-    'DL-SHOPS/110044/2016';
+    '';
 
   // Build unique employees for dropdown filter
   const uniqueEmployees = useMemo(() => {
@@ -149,49 +149,6 @@ export default function LeaveRegisterReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Calendar size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Applications</span>
-            <span className={styles.kpiValue}>{totalApplications}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <Clock size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Leave Days</span>
-            <span className={styles.kpiValue}>{totalDays} Days</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconOrange}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Employees on Leave</span>
-            <span className={styles.kpiValue}>{uniqueEmpCount}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <CheckCircle2 size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Avg. Entitlement</span>
-            <span className={styles.kpiValue}>{avgEntitled} Days</span>
-          </div>
-        </div>
-      </div>
-
       {/* 2. Action & Filter Toolbar */}
       <div className={styles.toolbarCard}>
         <div className={styles.toolbarLeft}>
@@ -231,44 +188,7 @@ export default function LeaveRegisterReportView({
           />
         </div>
 
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleExportExcel}
-            title="Download Excel (.xlsx)"
-          >
-            <FileSpreadsheet size={15} />
-            <span>Excel</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleExportCsv}
-            title="Download CSV"
-          >
-            <FileText size={15} />
-            <span>CSV</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnSecondary}
-            onClick={handleDownloadPdf}
-            title="Download PDF"
-          >
-            <FileText size={15} />
-            <span>PDF</span>
-          </button>
-          <button
-            type="button"
-            className={styles.btnPrimary}
-            onClick={handlePrint}
-            title="Print Register of Leave"
-          >
-            <Printer size={15} />
-            <span>Print</span>
-          </button>
-        </div>
+        
       </div>
 
       {/* 3. Statutory Register Card Matching Image 1 */}

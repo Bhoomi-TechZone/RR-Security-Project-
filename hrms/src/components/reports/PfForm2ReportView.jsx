@@ -38,12 +38,12 @@ export default function PfForm2ReportView({
   const companyName = (
     companyInfo?.name ||
     activeEmp.adminCompanyName ||
-    'RR SECURITY & FACILITIES'
+    ''
   ).toUpperCase();
 
   const companyAddress = (
     companyInfo?.address ||
-    'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044'
+    ''
   );
 
   const todayStr = new Date().toLocaleDateString('en-GB');
@@ -67,121 +67,6 @@ export default function PfForm2ReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. Header Toolbar (Strictly PDF only) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.titleBadge}>
-            <ShieldCheck size={18} className={styles.iconRed} />
-            <div>
-              <h2 className={styles.reportTitle}>PF-Form-2_Revised_</h2>
-              <span className={styles.reportSubtitle}>Nomination and Declaration Form for EPF & EPS Schemes</span>
-            </div>
-          </span>
-
-          {records.length > 0 && (
-            <div className={styles.employeeSelectorWrap}>
-              <UserCheck size={15} className={styles.selectIcon} />
-              <select
-                className={styles.employeeSelect}
-                value={selectedEmpId}
-                onChange={(e) => {
-                  setSelectedEmpId(e.target.value);
-                  if (onSelectEmployee) onSelectEmployee(e.target.value);
-                }}
-                title="Select Employee for Form 2"
-              >
-                {records.map((emp) => (
-                  <option key={emp.employeeId || emp.id} value={emp.employeeId || emp.id}>
-                    {emp.name} {emp.allottedPfNo ? `(${emp.allottedPfNo})` : `(${emp.employeeId})`}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={handleDownloadSinglePdf}
-            title="Download Form 2 PDF for current employee"
-          >
-            <Download size={15} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnOutline}`}
-            onClick={handlePrint}
-            title="Print Form 2"
-          >
-            <Printer size={15} />
-            <span>Print</span>
-          </button>
-
-          {records.length > 1 && (
-            <button
-              type="button"
-              className={`${styles.btn} ${styles.btnSecondary}`}
-              onClick={handleDownloadAllPdf}
-              title={`Download all ${records.length} Employees Form 2 PDFs`}
-            >
-              <Users size={15} />
-              <span>Download All ({records.length})</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 2. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#e0f2fe', color: '#0284c7' }}>
-            <Users size={18} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>Selected Member</div>
-            <div className={styles.kpiValue}>{activeEmp.name || 'Staff Member'}</div>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#ecfdf5', color: '#059669' }}>
-            <Building size={18} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>PF Account No.</div>
-            <div className={styles.kpiValue}>{activeEmp.allottedPfNo || 'Active'}</div>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#fef3c7', color: '#d97706' }}>
-            <Layers size={18} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>EPF Nominees (Part A)</div>
-            <div className={styles.kpiValue}>
-              {epfNominees.length > 0 ? `${epfNominees.length} Registered` : 'Self / Dependent'}
-            </div>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#fee2e2', color: '#dc2626' }}>
-            <ShieldCheck size={18} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>EPS Family Members (Part B)</div>
-            <div className={styles.kpiValue}>
-              {epsFamilyMembers.length > 0 ? `${epsFamilyMembers.length} Members` : '1 Nominee'}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 3. Page View Switcher Tabs */}
       <div className={styles.viewTabContainer}>
         <button

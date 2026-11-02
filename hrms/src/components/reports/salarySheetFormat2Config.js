@@ -139,6 +139,60 @@ export const SALARY_SHEET_FORMAT_2_LAYOUT = [
   },
 ];
 
+export function getSalarySheetFormat2Layout(statutoryConfig = null) {
+  const activePfRate = Array.isArray(statutoryConfig?.pf?.pfRates)
+    ? statutoryConfig.pf.pfRates.find((r) => r.enabled)
+    : null;
+  const pfEmployeeRate = statutoryConfig?.pf?.employeeRate !== undefined
+    ? statutoryConfig.pf.employeeRate
+    : (activePfRate?.employeeRate !== undefined
+      ? activePfRate.employeeRate
+      : (statutoryConfig?.pf?.employeeContribution !== undefined
+        ? statutoryConfig.pf.employeeContribution
+        : 12));
+
+  const activeEsiRate = Array.isArray(statutoryConfig?.esi?.esiRates)
+    ? statutoryConfig.esi.esiRates.find((r) => r.enabled)
+    : null;
+  const esiEmployeeRate = statutoryConfig?.esi?.employeeRate !== undefined
+    ? statutoryConfig.esi.employeeRate
+    : (activeEsiRate?.employeeContribution !== undefined
+      ? activeEsiRate.employeeContribution
+      : (statutoryConfig?.esi?.employeeContribution !== undefined
+        ? statutoryConfig.esi.employeeContribution
+        : 0.75));
+
+  return SALARY_SHEET_FORMAT_2_LAYOUT.map((col) => {
+    if (col.columnId !== 'col_4') return col;
+    return {
+      ...col,
+      sections: col.sections.map((sec) => {
+        if (sec.id === 'deductions') {
+          return {
+            ...sec,
+            fields: sec.fields.map((f) => {
+              if (f.id === 'dedPf') return { ...f, label: `PF (EPF EE ${pfEmployeeRate}%)` };
+              if (f.id === 'dedEsi') return { ...f, label: `ESI (ESIC EE ${esiEmployeeRate}%)` };
+              return f;
+            }),
+          };
+        }
+        if (sec.id === 'summarization') {
+          return {
+            ...sec,
+            fields: sec.fields.map((f) => {
+              if (f.id === 'showPfSummary') return { ...f, label: `PF Summary Box (${pfEmployeeRate}% EE)` };
+              if (f.id === 'showEsiSummary') return { ...f, label: `ESI Summary Box (${esiEmployeeRate}% EE)` };
+              return f;
+            }),
+          };
+        }
+        return sec;
+      }),
+    };
+  });
+}
+
 /**
  * Returns default selected options mapping: { [fieldId]: boolean }
  */

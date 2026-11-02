@@ -22,7 +22,7 @@ export default function PfLocationWiseReportView({
 }) {
   const locations = reportData.locations || [];
   const grandTotal = reportData.grandTotal || {};
-  const companyName = reportData.companyName || 'RR SECURITY & FACILITIES';
+  const companyName = reportData.companyInfo?.name || reportData.companyName || '';
   const headerSubtitle = reportData.headerSubtitle || 'PF Summary Report Form month: SEPTEMBER,2026 To SEPTEMBER,2026';
   const monthName = reportData.monthName || 'SEPTEMBER';
   const year = reportData.year || 2026;
@@ -50,50 +50,7 @@ export default function PfLocationWiseReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar (Excel ONLY per user requirement) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>EPFO PF Location Wise Summary Report</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <Calendar size={15} />
-            <span>{monthName}, {year}</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeInfo}`}>
-            <Building2 size={15} />
-            <span>{locations.length} Locations</span>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <div className={styles.searchInputWrapper}>
-            <Search size={14} className={styles.searchIcon} />
-            <input
-              type="text"
-              placeholder="Search Location Name..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={styles.searchInput}
-              aria-label="Search PF Locations"
-            />
-          </div>
-
-          <button
-            type="button"
-            className={styles.excelBtn}
-            onClick={handleDownloadExcel}
-            title="Download Official Location Wise PF Excel (.xlsx)"
-          >
-            <Download size={15} />
-            <FileSpreadsheet size={15} />
-            <span>Download Excel (.xlsx)</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* KPI Metric Cards */}
       {summaryCards.length > 0 && (

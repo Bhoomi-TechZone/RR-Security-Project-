@@ -16,7 +16,7 @@ export const downloadMusterRollExcel = (
   options = {}
 ) => {
   const defaultComp = companyInfo || {};
-  const contractorFull = `${defaultComp.name || 'RR SECURITY & FACILITIES'}, ${defaultComp.address || 'G-75/A Badarpur New Delhi-110044'}`;
+  const contractorFull = `${defaultComp.name || defaultComp.companyName || ''}, ${defaultComp.address || ''}`;
   const firstRec = records[0] || {};
   const establishmentFull = firstRec.establishmentFull || 'Client Establishment Site, Delhi NCR';
   const workLocation = firstRec.workNameLocation || `Security & Facility Services, At ${firstRec.establishmentName || 'Client Site'}`;
@@ -155,7 +155,7 @@ export const downloadMusterRollPdf = async (
   }
 
   const defaultComp = companyInfo || {};
-  const contractorFull = `${defaultComp.name || 'RR SECURITY & FACILITIES'}, ${defaultComp.address || 'G-75/A Badarpur New Delhi-110044'}`;
+  const contractorFull = `${defaultComp.name || defaultComp.companyName || ''}, ${defaultComp.address || ''}`;
   const firstRec = records[0] || {};
   const establishmentFull = firstRec.establishmentFull || 'Client Establishment Site, Delhi NCR';
   const workLocation = firstRec.workNameLocation || `Security & Facility Services, At ${firstRec.establishmentName || 'Client Site'}`;

@@ -13,7 +13,7 @@ import * as XLSX from 'xlsx';
 export function downloadPfLocationWiseExcel(reportData = {}) {
   const locations = reportData.locations || [];
   const grandTotal = reportData.grandTotal || {};
-  const companyName = reportData.companyName || 'RR SECURITY & FACILITIES';
+  const companyName = reportData.companyInfo?.name || reportData.companyName || '';
   const headerSubtitle = reportData.headerSubtitle || 'PF Summary Report Form month: SEPTEMBER,2026 To SEPTEMBER,2026';
   const monthLabel = reportData.monthLabel || 'Current_Month';
 

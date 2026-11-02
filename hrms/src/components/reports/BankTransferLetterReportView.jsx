@@ -60,8 +60,8 @@ export default function BankTransferLetterReportView({
     if (baseInfo.bankBranch) setBankBranch(baseInfo.bankBranch);
   }, [baseInfo.letterDate, baseInfo.chequeNo, baseInfo.chequeDate, baseInfo.bankName, baseInfo.bankBranch]);
 
-  const companyName = (baseInfo.companyName || comp.name || 'RR SECURITY AND FACILITIES').toUpperCase();
-  const companyAddress = comp.address || 'G-75/A, Ground Floor, Block-G, M.B. EXTN., Badarpur New Delhi-110044';
+  const companyName = (baseInfo.companyName || comp.name || comp.companyName || '').toUpperCase();
+  const companyAddress = comp.address || '';
 
   const totalAmount = totals?.totalAmount ?? records.reduce((acc, r) => acc + (Number(r.netSalary) || 0), 0);
   const totalAmountWords = baseInfo.totalAmountWords || 'Zero Only';
@@ -101,49 +101,6 @@ export default function BankTransferLetterReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. KPI Summary Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconGreen}`}>
-            <CreditCard size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Disbursement</span>
-            <span className={styles.kpiValue}>₹{formatINR(totalAmount)}</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Users size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Beneficiary Accounts</span>
-            <span className={styles.kpiValue}>{records.length} Employees</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconPurple}`}>
-            <Calendar size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Cheque Reference</span>
-            <span className={styles.kpiValue}>#{chequeNo} ({chequeDate})</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconAmber}`}>
-            <Building size={20} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Disbursement Bank</span>
-            <span className={styles.kpiValue}>{bankName}</span>
-          </div>
-        </div>
-      </div>
-
       {/* 2. Interactive Letter Config Bar (Customize details before printing) */}
       <div className={styles.configCard}>
         <div className={styles.configCardHeader}>
@@ -204,59 +161,7 @@ export default function BankTransferLetterReportView({
       </div>
 
       {/* 3. Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badgeInfo}>
-            Salary Month: {salaryMonth} ({salaryMonthLabel})
-          </span>
-          <span className={styles.badgePeriod}>
-            Total Net Transfer: ₹{formatINR(totalAmount)}
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPdf}`}
-            onClick={handleExportPdf}
-            title="Download Bank Transfer Letter PDF"
-          >
-            <FileText size={15} /> Export PDF
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnPrint}`}
-            onClick={handlePrint}
-            title="Print Bank Transfer Letter"
-          >
-            <Printer size={15} /> Print Letter
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnWord}`}
-            onClick={handleExportWord}
-            title="Download Word Document (.doc)"
-          >
-            <FileText size={15} /> Export Word
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnExcel}`}
-            onClick={handleExportExcel}
-            title="Download Bank Disbursement Spreadsheet (.xlsx)"
-          >
-            <FileSpreadsheet size={15} /> Export Excel
-          </button>
-          <button
-            type="button"
-            className={`${styles.btnAction} ${styles.btnToggle}`}
-            onClick={() => setShowSchedule(!showSchedule)}
-          >
-            {showSchedule ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {showSchedule ? 'Hide Schedule' : 'View Schedule'}
-          </button>
-        </div>
-      </div>
+      
 
       {/* 4. Realistic Letter Paper Document matching Image 1 */}
       <div className={styles.paperLetter}>

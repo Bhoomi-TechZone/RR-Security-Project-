@@ -51,6 +51,8 @@ import {
   getPfReportEmployeeWise,
   getPfReportLocationWise,
   getPfForm2Report,
+  getReportOptions,
+  saveReportOptions,
 } from '../controllers/reportController.js';
 
 const router = express.Router();
@@ -166,6 +168,11 @@ router.get('/pf-form-2', getPfForm2Report);
 router.get('/pf-form-2-revised', getPfForm2Report);
 router.get('/form-2-revised', getPfForm2Report);
 router.get('/form-2-epf', getPfForm2Report);
+
+// Report Options Preferences (Hybrid Database persistence)
+router.get('/options/:reportType?', getReportOptions);
+router.put('/options/:reportType', saveReportOptions);
+router.post('/options/:reportType', saveReportOptions);
 
 export default router;
 

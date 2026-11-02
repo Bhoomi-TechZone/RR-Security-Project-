@@ -30,21 +30,19 @@ export default function PfChallanReportView({
   const [activeTab, setActiveTab] = useState('challan'); // 'challan' | 'breakdown'
 
   const adminName = (
-    challan.establishmentName ||
-    comp.name ||
-    'RR SECURITY & FACILITIES'
+    comp.name || challan.establishmentName || ''
   ).toUpperCase();
 
   const estCode =
     challan.establishmentCode ||
     comp.establishmentCode ||
     comp.employerPfCode ||
-    'DSNHP3718318000';
+    comp.employerPfCode || comp.pfNo || '';
 
   const estAddress =
     challan.establishmentAddress ||
     comp.address ||
-    'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI';
+    comp.address || '';
 
   const wageMonth = challan.wageMonth || 'SEP 2026';
   const monthShortYear = challan.monthShortYear || 'oct-26';
@@ -74,50 +72,7 @@ export default function PfChallanReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            EPFO PF CHALLAN
-          </span>
-          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155' }}>
-            Wage Month : {wageMonth}
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrimary}`}
-            onClick={handleDownloadPdf}
-            title="Download Statutory PF Challan PDF (without logo)"
-          >
-            <Download size={15} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={handlePrint}
-            title="Print PF Challan"
-          >
-            <Printer size={15} />
-            <span>Print Challan</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={handleDownloadExcel}
-            title="Export Excel (XLSX) with Subscribers Breakdown"
-          >
-            <FileSpreadsheet size={15} color="#16a34a" />
-            <span>Export Excel</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* Summary KPI Cards */}
       {summaryCards.length > 0 && (

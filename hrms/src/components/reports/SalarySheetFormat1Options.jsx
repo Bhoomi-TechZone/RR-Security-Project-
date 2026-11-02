@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import {
   SALARY_SHEET_FORMAT_1_LAYOUT,
+  getSalarySheetFormat1Layout,
   getAllSelectedOptions,
   getDefaultSelectedOptions,
   getTotalOptionsCount,
@@ -30,15 +31,30 @@ export default function SalarySheetFormat1Options({
   onChange,
   onReset,
   onSave,
+  statutoryConfig = null,
 }) {
   const [isSavedFeedback, setIsSavedFeedback] = useState(false);
 
-  const totalCount = useMemo(() => getTotalOptionsCount(), []);
+  // Dynamic layout reflecting company-configured deduction rates & components
+  const layout = useMemo(
+    () => getSalarySheetFormat1Layout(statutoryConfig),
+    [statutoryConfig]
+  );
+
+  const totalCount = useMemo(() => {
+    let count = 0;
+    layout.forEach((col) => {
+      col.sections.forEach((sec) => {
+        count += sec.fields.length;
+      });
+    });
+    return count;
+  }, [layout]);
 
   // Count active options
   const selectedCount = useMemo(() => {
     let count = 0;
-    SALARY_SHEET_FORMAT_1_LAYOUT.forEach((col) => {
+    layout.forEach((col) => {
       col.sections.forEach((sec) => {
         sec.fields.forEach((f) => {
           if (selectedOptions[f.id] !== false) count++;
@@ -46,7 +62,7 @@ export default function SalarySheetFormat1Options({
       });
     });
     return count;
-  }, [selectedOptions]);
+  }, [layout, selectedOptions]);
 
   // Toggle individual field
   const handleToggleField = (fieldId) => {
@@ -91,8 +107,13 @@ export default function SalarySheetFormat1Options({
   // Handle Save
   const handleSave = () => {
     setIsSavedFeedback(true);
+    try {
+      localStorage.setItem('hrms_report_opts_salary_sheet_1', JSON.stringify(selectedOptions));
+    } catch (e) {
+      console.warn('Failed to save options to localStorage:', e);
+    }
     if (typeof onSave === 'function') {
-      onSave();
+      onSave(selectedOptions);
     }
     setTimeout(() => {
       setIsSavedFeedback(false);
@@ -182,7 +203,7 @@ export default function SalarySheetFormat1Options({
 
         {/* 4-Column Options Grid */}
         <div className={styles.columnsGrid}>
-          {SALARY_SHEET_FORMAT_1_LAYOUT.map((col) => (
+          {layout.map((col) => (
             <div key={col.columnId} className={styles.column}>
               {col.sections.map((section) => (
                 <div key={section.id} className={styles.sectionBlock}>

@@ -34,6 +34,7 @@ export default function SalarySheetFormat2View({
   pfSummary = {},
   esiSummary = {},
   lwfSummary = {},
+  statutoryConfig = {},
   filters = {},
   selectedOptions: propSelectedOptions,
   onOptionsChange,
@@ -43,11 +44,79 @@ export default function SalarySheetFormat2View({
   const selectedOptions = propSelectedOptions || internalSelectedOptions;
   const setSelectedOptions = onOptionsChange || setInternalSelectedOptions;
 
-  const companyName = companyInfo?.name || companyInfo?.companyName || 'RR SECURITY & FACILITIES';
+  const activePfRate = Array.isArray(statutoryConfig?.pf?.pfRates)
+    ? statutoryConfig.pf.pfRates.find((r) => r.enabled)
+    : null;
+  const pfEmployeeRate = pfSummary?.rates?.employeeRate !== undefined
+    ? pfSummary.rates.employeeRate
+    : (statutoryConfig?.pf?.employeeRate !== undefined
+      ? statutoryConfig.pf.employeeRate
+      : (activePfRate?.employeeRate !== undefined
+        ? activePfRate.employeeRate
+        : (statutoryConfig?.pf?.employeeContribution !== undefined
+          ? statutoryConfig.pf.employeeContribution
+          : 12)));
+
+  const pfEmployerRate = pfSummary?.rates?.employerRate !== undefined
+    ? pfSummary.rates.employerRate
+    : (statutoryConfig?.pf?.employerRate !== undefined
+      ? statutoryConfig.pf.employerRate
+      : (activePfRate?.employerRate !== undefined
+        ? activePfRate.employerRate
+        : (statutoryConfig?.pf?.epfEmployerContribution !== undefined
+          ? statutoryConfig.pf.epfEmployerContribution
+          : 3.67)));
+
+  const pfPensionRate = pfSummary?.rates?.pensionRate !== undefined
+    ? pfSummary.rates.pensionRate
+    : (statutoryConfig?.pf?.pensionRate !== undefined
+      ? statutoryConfig.pf.pensionRate
+      : (activePfRate?.pensionRate !== undefined
+        ? activePfRate.pensionRate
+        : (statutoryConfig?.pf?.epsContribution !== undefined
+          ? statutoryConfig.pf.epsContribution
+          : 8.33)));
+
+  const pfAdminRate = pfSummary?.rates?.adminRate !== undefined
+    ? pfSummary.rates.adminRate
+    : (statutoryConfig?.pf?.adminRate !== undefined
+      ? statutoryConfig.pf.adminRate
+      : 0.5);
+
+  const pfEdliRate = pfSummary?.rates?.edliRate !== undefined
+    ? pfSummary.rates.edliRate
+    : (statutoryConfig?.pf?.edliRate !== undefined
+      ? statutoryConfig.pf.edliRate
+      : 0.5);
+
+  const activeEsiRate = Array.isArray(statutoryConfig?.esi?.esiRates)
+    ? statutoryConfig.esi.esiRates.find((r) => r.enabled)
+    : null;
+  const esiEmployeeRate = esiSummary?.rates?.employeeContribution !== undefined
+    ? esiSummary.rates.employeeContribution
+    : (statutoryConfig?.esi?.employeeRate !== undefined
+      ? statutoryConfig.esi.employeeRate
+      : (activeEsiRate?.employeeContribution !== undefined
+        ? activeEsiRate.employeeContribution
+        : (statutoryConfig?.esi?.employeeContribution !== undefined
+          ? statutoryConfig.esi.employeeContribution
+          : 0.75)));
+
+  const esiEmployerRate = esiSummary?.rates?.employerContribution !== undefined
+    ? esiSummary.rates.employerContribution
+    : (statutoryConfig?.esi?.employerRate !== undefined
+      ? statutoryConfig.esi.employerRate
+      : (activeEsiRate?.employerContribution !== undefined
+        ? activeEsiRate.employerContribution
+        : (statutoryConfig?.esi?.employerContribution !== undefined
+          ? statutoryConfig.esi.employerContribution
+          : 3.25)));
+
+  const companyName = companyInfo?.name || companyInfo?.companyName || '';
   const companyAddress =
     companyInfo?.address && companyInfo.address !== '—'
       ? companyInfo.address
-      : 'G-75/A, GROUND FLOOR, BLOCK-G, M.B. EXTN., BADARPUR, NEW DELHI, 110044';
+      : '';
   // Resolve configured company statutory codes strictly from Company Setup
   let savedSetup = {};
   try {
@@ -187,78 +256,7 @@ export default function SalarySheetFormat2View({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={15} />
-            FORM - IV [Payment of Wages Rules, 1971] (Salary Sheet Format 2)
-          </span>
-          <span className={styles.metaText}>
-            Period: <strong>{monthLabel}</strong>
-          </span>
-          <span className={styles.metaText}>
-            Client: <strong>{clientName}</strong>
-          </span>
-          <span className={styles.metaText}>
-            Records: <strong>{records.length} Employees</strong>
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPdf}`}
-            onClick={handleDownloadPdf}
-            disabled={Boolean(downloadingFormat)}
-            title="Download Official PDF Report"
-          >
-            {downloadingFormat === 'pdf' ? (
-              <>
-                <Loader2 size={14} className={styles.spinner} /> Generating PDF...
-              </>
-            ) : (
-              <>
-                <Download size={14} /> PDF
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnExcel}`}
-            onClick={handleDownloadExcel}
-            disabled={Boolean(downloadingFormat)}
-            title="Download Excel Workbook (.xlsx)"
-          >
-            {downloadingFormat === 'excel' ? (
-              <>
-                <Loader2 size={14} className={styles.spinner} /> Preparing Excel...
-              </>
-            ) : (
-              <>
-                <FileSpreadsheet size={14} /> Excel
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnCsv}`}
-            onClick={handleDownloadCsv}
-            disabled={Boolean(downloadingFormat)}
-            title="Download CSV"
-          >
-            {downloadingFormat === 'csv' ? (
-              <>
-                <Loader2 size={14} className={styles.spinner} /> Exporting CSV...
-              </>
-            ) : (
-              <>
-                <FileText size={14} /> CSV
-              </>
-            )}
-          </button>
-        </div>
-      </div>
+      
 
       {/* Dynamic Report Options UI (Frontend Configurable Options Panel) */}
       {showOptions && (
@@ -654,23 +652,23 @@ export default function SalarySheetFormat2View({
                 <span>{pfSummary.pfWages || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>A/C NO. 1(EE_12%)</span>
+                <span>A/C NO. 1(EE_{pfEmployeeRate}%)</span>
                 <span>{pfSummary.ee || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>A/C NO. 1(ER_3.67%)</span>
+                <span>A/C NO. 1(ER_{pfEmployerRate}%)</span>
                 <span>{pfSummary.erDiff || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>A/C NO. 2(0.50%)</span>
+                <span>A/C NO. 2({pfAdminRate}%)</span>
                 <span>{pfSummary.ac2 || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>A/C NO. 10(8.33%)</span>
+                <span>A/C NO. 10({pfPensionRate}%)</span>
                 <span>{pfSummary.ac10 || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>A/C NO. 21(0.50%)</span>
+                <span>A/C NO. 21({pfEdliRate}%)</span>
                 <span>{pfSummary.ac21 || 0}</span>
               </div>
               <div className={styles.summaryRowBold}>
@@ -693,15 +691,15 @@ export default function SalarySheetFormat2View({
                 <span>{esiSummary.esiWages || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>EE_WAGES_0.75%</span>
+                <span>EE_WAGES_{esiEmployeeRate}%</span>
                 <span>{esiSummary.eeShare || 0}</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>EE_OT_0.75%</span>
+                <span>EE_OT_{esiEmployeeRate}%</span>
                 <span>0</span>
               </div>
               <div className={styles.summaryRow}>
-                <span>ER_3.25%</span>
+                <span>ER_{esiEmployerRate}%</span>
                 <span>{esiSummary.erShare || 0}</span>
               </div>
               <div style={{ flex: 1 }}></div>

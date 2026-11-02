@@ -90,7 +90,7 @@ const loadImageInfo = (src) => {
 export async function downloadFnfSettlementPdf(record, globalCompanyInfo, options = {}) {
   const mode = options.mode || 'download';
   const company = record.companyInfo || globalCompanyInfo || {};
-  const companyName = company.name || 'RR Security & Facilities';
+  const companyName = company.name || company.companyName || '';
   const companyAddress =
     company.address ||
     'G-75/A Block-G M.B. Extn Badarpur New Delhi Delhi 110044 India';

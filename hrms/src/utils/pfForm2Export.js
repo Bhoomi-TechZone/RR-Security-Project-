@@ -42,11 +42,11 @@ export async function downloadPfForm2Pdf(
     const companyName = (
       comp.name ||
       emp.adminCompanyName ||
-      'RR SECURITY & FACILITIES'
+      ''
     ).toUpperCase();
     const companyAddress = (
       comp.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044'
+      ''
     );
     const city = comp.city || 'Delhi';
     const todayStr = new Date().toLocaleDateString('en-GB');

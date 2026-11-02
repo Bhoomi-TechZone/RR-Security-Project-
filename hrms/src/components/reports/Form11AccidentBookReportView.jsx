@@ -58,107 +58,6 @@ export default function Form11AccidentBookReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.statutoryTag}>
-            <ShieldCheck size={16} color="#2563eb" />
-            ESIC Form 11 (Regulation 66)
-          </span>
-          <span className={styles.statutoryTag}>
-            <Calendar size={16} color="#059669" />
-            {monthLabel}
-          </span>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnPrimary}`}
-            onClick={() => downloadForm11AccidentBookPdf(safeData)}
-            title="Download Statutory Landscape PDF"
-          >
-            <Download size={15} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={() => downloadForm11AccidentBookExcel(safeData)}
-            title="Export Excel (XLSX)"
-          >
-            <FileSpreadsheet size={15} color="#16a34a" />
-            <span>Export Excel</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={() => downloadForm11AccidentBookCsv(safeData)}
-            title="Export CSV"
-          >
-            <FileText size={15} color="#475569" />
-            <span>CSV</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.btnSecondary}`}
-            onClick={handlePrint}
-            title="Print Form 11"
-          >
-            <Printer size={15} color="#2563eb" />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Total Accidents Logged</span>
-            <span className={styles.kpiValue}>{records.length}</span>
-          </div>
-          <div className={`${styles.kpiIcon} ${records.length === 0 ? styles.iconGreen : styles.iconOrange}`}>
-            <AlertTriangle size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Statutory Status</span>
-            <span className={styles.kpiValue}>
-              {records.length === 0 ? 'NIL Accident Recorded' : `${records.length} Incidents Filed`}
-            </span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconBlue}`}>
-            <ShieldCheck size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Reporting Month</span>
-            <span className={styles.kpiValue}>{monthLabel}</span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconPurple}`}>
-            <Calendar size={20} />
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiInfo}>
-            <span className={styles.kpiLabel}>Compliance Regulation</span>
-            <span className={styles.kpiValue}>Regulation 66 Compliant</span>
-          </div>
-          <div className={`${styles.kpiIcon} ${styles.iconIndigo}`}>
-            <Building size={20} />
-          </div>
-        </div>
-      </div>
-
       {/* Statutory Document Paper Sheet */}
       <div className={styles.paperSheet}>
         {/* Document Header */}
@@ -174,7 +73,7 @@ export default function Form11AccidentBookReportView({
           <div className={styles.infoItem}>
             <span className={styles.infoTitle}>Name & Address of Factory / Establishment</span>
             <span className={styles.infoValue}>
-              {company.name || 'RR SECURITY & FACILITIES'}{' '}
+              {company.name || company.companyName || ''}{' '}
               {company.address ? `— ${company.address}` : ''}
             </span>
           </div>

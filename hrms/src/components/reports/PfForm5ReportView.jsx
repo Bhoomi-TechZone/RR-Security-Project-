@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Download,
   FileSpreadsheet,
@@ -48,9 +48,9 @@ export default function PfForm5ReportView({
     return allRecords;
   }, [allRecords, scope]);
 
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044';
-  const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
+  const estCode = comp.establishmentCode || comp.employerPfCode || comp.employerPfCode || comp.pfNo || '';
 
   const handleDownloadPdf = () => {
     downloadPfForm5Pdf({
@@ -82,80 +82,7 @@ export default function PfForm5ReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>EPFO Statutory Form 5</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <Users size={15} />
-            <span>{displayedRecords.length} Qualifying Member{displayedRecords.length === 1 ? '' : 's'}</span>
-          </span>
-
-          {allRecords.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Filter size={14} style={{ color: '#64748b' }} />
-              <select
-                className={styles.scopeSelect}
-                value={scope}
-                onChange={(e) => setScope(e.target.value)}
-                aria-label="Filter Scope"
-              >
-                <option value="auto">
-                  {hasMonthJoiners ? `Month New Joiners (${reportData.monthJoinersCount || displayedRecords.length})` : 'All Active PF Members'}
-                </option>
-                <option value="all">All Eligible PF Members ({reportData.totalPfMembersCount || allRecords.length})</option>
-                <option value="newOnly">Only New Joiners in {monthLabel} ({reportData.monthJoinersCount || 0})</option>
-              </select>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.primaryBtn}`}
-            onClick={handleDownloadPdf}
-            title="Download Official Statutory PDF"
-          >
-            <Download size={14} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handleExportExcel}
-            title="Download Excel Spreadsheet"
-          >
-            <FileSpreadsheet size={14} />
-            <span>Excel</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handleExportCsv}
-            title="Download CSV"
-          >
-            <FileText size={14} />
-            <span>CSV</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handlePrint}
-            title="Print Official Form"
-          >
-            <Printer size={14} />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* Official Form 5 Printable Paper Container */}
       <div className={styles.paperWrap}>

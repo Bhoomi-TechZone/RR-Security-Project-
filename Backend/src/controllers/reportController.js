@@ -1,3 +1,12 @@
+import {
+  resolveTenantContext,
+  resolveCompanyBranding,
+  resolveEstablishmentInfo,
+  resolveReportPayrollAndAttendance,
+  getDaysInMonthString,
+  getMonthLabel,
+  isValidStatutoryCode,
+} from '../services/reportDataService.js';
 import mongoose from 'mongoose';
 import Employee from '../models/employeeModel.js';
 import Attendance from '../models/attendanceModel.js';
@@ -15,6 +24,8 @@ import {
   calculatePF,
   calculateESI,
   calculateBonus,
+  calculateComponentWageBase,
+  getPtWageBase,
 } from '../services/statutoryCalculationService.js';
 import { AdvanceLoanRequest } from '../models/advanceLoanModel.js';
 import DamageLossDeduction from '../models/damageLossModel.js';
@@ -27,165 +38,10 @@ import AccidentBook from '../models/accidentBookModel.js';
 import { generateDailyAttendanceForMonth } from './attendanceController.js';
 
 
-// Helper to get total days in a month string "YYYY-MM"
-const getDaysInMonthString = (monthStr) => {
-  if (!monthStr || !monthStr.includes('-')) return 30;
-  const [year, month] = monthStr.split('-').map(Number);
-  return new Date(year, month, 0).getDate();
-};
-
-// Helper to format month name
-const getMonthLabel = (monthStr) => {
-  if (!monthStr || !monthStr.includes('-')) return monthStr || 'Current Month';
-  const [year, month] = monthStr.split('-').map(Number);
-  const d = new Date(year, month - 1, 1);
-  return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-};
-
-const isValidStatutoryCode = (val) => {
-  if (!val || typeof val !== 'string') return false;
-  const trimmed = val.trim();
-  return (
-    trimmed !== '' &&
-    trimmed !== '—' &&
-    trimmed !== '-' &&
-    trimmed !== 'null' &&
-    trimmed !== 'undefined' &&
-    trimmed !== 'N/A' &&
-    trimmed !== 'NA'
-  );
-};
-
-// Dynamic Company Branding Resolver (Strictly from MongoDB)
-const resolveCompanyBranding = async (companyId) => {
-  let compDoc = null;
-  if (companyId && companyId !== 'undefined' && companyId !== 'null' && companyId !== 'All Companies') {
-    const isObjId = (typeof mongoose !== 'undefined' && mongoose?.isValidObjectId)
-      ? mongoose.isValidObjectId(companyId)
-      : (typeof companyId === 'string' && /^[0-9a-fA-F]{24}$/.test(companyId));
-    compDoc = await Company.findOne({
-      $or: [
-        ...(isObjId ? [{ _id: companyId }] : []),
-        { companyId },
-        { code: companyId },
-      ],
-    }).lean().catch(() => null);
-  }
-  if (!compDoc) {
-    compDoc = await Company.findOne({ isDefault: true }).lean().catch(() => null);
-  }
-  if (!compDoc) {
-    compDoc = await Company.findOne({}).sort({ updatedAt: -1 }).lean().catch(() => null);
-  }
-
-  const name = compDoc?.name || compDoc?.companyName || 'RR Security & Facilities';
-  const fullAddress = [
-    compDoc?.address || compDoc?.registeredAddress,
-    compDoc?.city,
-    compDoc?.state,
-    compDoc?.pinCode,
-  ].filter(Boolean).join(', ');
-  const address = fullAddress || compDoc?.address || compDoc?.registeredAddress || 'G-75/A, Ground Floor, Block-G, M.B. Extn., Badarpur, New Delhi-110044';
-  
-  const pfCandidates = [
-    compDoc?.employerPfCode,
-    compDoc?.pfCode,
-    compDoc?.pfNo,
-    compDoc?.epfNo,
-    compDoc?.compliance?.employerPfCode,
-    compDoc?.compliance?.pfNo,
-  ];
-  const validPf = pfCandidates.find(isValidStatutoryCode) || compDoc?.employerPfCode || compDoc?.pfCode || '';
-
-  const esiCandidates = [
-    compDoc?.employerEsiCode,
-    compDoc?.esiCode,
-    compDoc?.esicNo,
-    compDoc?.esiNo,
-    compDoc?.compliance?.employerEsiCode,
-    compDoc?.compliance?.esiNo,
-  ];
-  const validEsi = esiCandidates.find(isValidStatutoryCode) || compDoc?.employerEsiCode || compDoc?.esiCode || '';
-
-  return {
-    doc: compDoc,
-    name,
-    address,
-    regdOffice: compDoc?.registeredAddress || address,
-    phone: compDoc?.phone || compDoc?.contactNumber || '—',
-    email: compDoc?.email || '—',
-    website: compDoc?.website || '—',
-    pfNo: validPf,
-    esiNo: validEsi,
-    employerPfCode: validPf,
-    employerEsiCode: validEsi,
-    pan: compDoc?.pan || '—',
-    gstin: compDoc?.gstin || '—',
-    bankName: compDoc?.bankName || '—',
-    bankBranch: compDoc?.bankBranch || compDoc?.branch || '—',
-    accountNumber: compDoc?.bankAccountNo || compDoc?.accountNumber || '—',
-    ifsc: compDoc?.ifscCode || compDoc?.ifsc || '—',
-    registrationNo: compDoc?.registrationNo || compDoc?.companyId || '—',
-    logo: compDoc?.logo || compDoc?.logoUrl || '',
-  };
-};
-
-// Dynamic Establishment / Principal Employer Resolver (Strictly from MongoDB Client & Employee)
-const resolveEstablishmentInfo = async (companyParam, employeeList = [], companyId = null) => {
-  let clientDoc = null;
-  if (companyParam && companyParam !== 'All Companies' && companyParam !== 'All Clients' && companyParam !== 'All Companies & Clients') {
-    clientDoc = await Client.findOne({
-      ...(companyId ? { companyId } : {}),
-      $or: [
-        { clientName: companyParam },
-        { name: companyParam },
-        { companyName: companyParam },
-        { clientId: companyParam },
-      ],
-    }).lean().catch(() => null);
-  }
-
-  if (!clientDoc && Array.isArray(employeeList) && employeeList.length > 0) {
-    const firstWithClient = employeeList.find((e) => e.clientName || e.site);
-    const targetName = firstWithClient?.clientName || firstWithClient?.site;
-    if (targetName) {
-      clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
-        $or: [{ clientName: targetName }, { name: targetName }, { companyName: targetName }],
-      }).lean().catch(() => null);
-    }
-  }
-
-  if (!clientDoc && companyId) {
-    clientDoc = await Client.findOne({ companyId }).lean().catch(() => null);
-  }
-
-  const name = clientDoc?.clientName || clientDoc?.name || (employeeList[0]?.clientName || employeeList[0]?.site) || '—';
-  const address = clientDoc?.address || clientDoc?.siteAddress || clientDoc?.location || '—';
-  const principalEmployer = clientDoc?.principalEmployer || clientDoc?.contactPerson || name;
-  const workLocation = address !== '—' ? `${name}, ${address}` : name;
-
-  return {
-    doc: clientDoc,
-    name,
-    address,
-    principalEmployer,
-    workLocation,
-  };
-};
-
-
-/**
- * @desc    Get Report Overview Stats for Top Cards & Categories (Live from MongoDB)
- * @route   GET /api/reports/overview
- * @access  Private
- */
 export const getReportOverview = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
-
-    const query = companyId ? { companyId } : {};
+    const { compDoc, resolvedCompanyIds, primaryCompanyId } = await resolveTenantContext(req);
+    const query = resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {};
 
     const [
       totalEmployees,
@@ -196,7 +52,7 @@ export const getReportOverview = async (req, res) => {
       totalInventoryItems,
     ] = await Promise.all([
       Employee.countDocuments(query),
-      Company.countDocuments(),
+      resolvedCompanyIds.length > 0 ? (compDoc ? 1 : 0) : Company.countDocuments(),
       Client.countDocuments(query),
       Attendance.countDocuments(query),
       PayrollRun.countDocuments(query),
@@ -213,15 +69,15 @@ export const getReportOverview = async (req, res) => {
     res.status(200).json({
       success: true,
       stats: {
-        availableReports: 5,
+        availableReports: 53,
         generatedToday: Math.max(1, totalPayrollRuns),
-        totalCompanies: totalCompanies || (totalClients ? totalClients : 1),
+        totalCompanies: resolvedCompanyIds.length > 0 ? 1 : (totalCompanies || 1),
         totalRecords: totalRecords || 0,
       },
       categories: {
         attendance: totalAttendance || totalEmployees,
         payroll: totalEmployees,
-        billing: totalClients || totalCompanies || 0,
+        billing: totalClients || (compDoc ? 1 : 0) || 0,
         employee: totalEmployees,
         inventory: totalInventoryItems,
       },
@@ -232,59 +88,37 @@ export const getReportOverview = async (req, res) => {
   }
 };
 
-/**
- * @desc    Get Dynamic Filter Options (Live from MongoDB)
- * @route   GET /api/reports/filter-options
- * @access  Private
- */
 export const getFilterOptions = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
-    const adminEmail = user?.email?.toLowerCase();
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    let companyIds = resolvedCompanyIds;
 
-    // 1. Resolve company IDs for this company admin
-    let companyIds = companyId ? [companyId] : [];
-    try {
-      const comp = await Company.findOne({
-        $or: [
-          ...(companyId ? [
-            { companyId },
-            ...(mongoose.Types.ObjectId.isValid(companyId) ? [{ _id: companyId }] : [])
-          ] : []),
-          ...(adminEmail ? [{ adminEmail }] : [])
-        ]
-      }).lean();
-      if (comp) {
-        companyIds = Array.from(new Set([...companyIds, comp.companyId, comp._id?.toString(), comp.code])).filter(Boolean);
-      }
-    } catch {}
+    // 2. Client query strictly scoped to active company
+    const clientQuery = companyIds.length > 0
+      ? { companyId: { $in: companyIds } }
+      : (adminEmail ? { adminEmail } : {});
 
-    // 2. Client query strictly scoped to logged in admin and active company
-    const clientQueryConditions = [];
-    if (adminEmail) {
-      clientQueryConditions.push({ adminEmail });
-    }
-    if (companyIds.length > 0) {
-      clientQueryConditions.push({ companyId: { $in: companyIds } });
-    }
-    const clientQuery = clientQueryConditions.length > 0 ? { $or: clientQueryConditions } : {};
+    // 3. Employee query strictly scoped to active company
+    const employeeQuery = companyIds.length > 0
+      ? { companyId: { $in: companyIds } }
+      : (adminEmail ? { adminEmail } : (primaryCompanyId ? { companyId: primaryCompanyId } : {}));
 
-    // 3. Employee query strictly scoped to logged in admin / active company
-    const empQueryConditions = [];
-    if (companyIds.length > 0) {
-      empQueryConditions.push({ companyId: { $in: companyIds } });
-    }
-    if (adminEmail) {
-      empQueryConditions.push({ adminEmail });
-    }
-    const employeeQuery = empQueryConditions.length > 0 ? { $or: empQueryConditions } : (companyId ? { companyId } : {});
+    // 4. Masters query (sites must belong to this company, departments/designations can be shared)
+    const masterQuery = companyIds.length > 0
+      ? {
+          $or: [
+            { type: { $in: ['sites', 'site'] }, companyId: { $in: companyIds } },
+            { type: { $in: ['department', 'departments', 'designation', 'designations'] } }
+          ]
+        }
+      : { type: { $in: ['department', 'departments', 'designation', 'designations', 'sites', 'site'] } };
 
+    const validObjIds = companyIds.filter(id => mongoose.isValidObjectId(id));
     const [companies, employees, rawClients, masters, invCategories, invTypes] = await Promise.all([
-      Company.find(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, ...(adminEmail ? [{ adminEmail }] : [])] } : {}).select('companyId name code address gstin pan pfNo esicNo phone email').lean(),
+      Company.find(companyIds.length > 0 ? { $or: [{ companyId: { $in: companyIds } }, ...(validObjIds.length > 0 ? [{ _id: { $in: validObjIds } }] : [])] } : {}).select('companyId name code address gstin pan pfNo esicNo phone email').lean(),
       Employee.find(employeeQuery).select('employeeId employeeCode name department designation companyId companyName clientId clientName site siteLocation status grossSalary basic hra').sort({ name: 1 }).lean(),
       Client.find(clientQuery).select('clientId name companyId adminEmail address location contactPerson').sort({ name: 1 }).lean(),
-      Master.find({ type: { $in: ['department', 'departments', 'designation', 'designations', 'sites', 'site'] } }).lean(),
+      Master.find(masterQuery).lean(),
       InventoryItem.distinct('category', companyIds.length > 0 ? { companyId: { $in: companyIds } } : {}).catch(() => []),
       InventoryItem.distinct('itemType', companyIds.length > 0 ? { companyId: { $in: companyIds } } : {}).catch(() => []),
     ]);
@@ -317,9 +151,22 @@ export const getFilterOptions = async (req, res) => {
     const masterDesigs = masters.filter((m) => m.type === 'designation' || m.type === 'designations').map((m) => m.name);
     const designations = Array.from(new Set([...empDesigs, ...masterDesigs])).filter(Boolean);
 
-    // Extract structured master sites
+    // Extract structured master sites strictly for active company
+    const validClientIds = new Set(clientsList.map((c) => String(c.clientId || c.id || c._id || '').toLowerCase()));
+    const validClientNames = new Set(clientsList.map((c) => String(c.name || '').trim().toLowerCase()));
+
     const masterSitesList = masters
       .filter((m) => m.type === 'sites' || m.type === 'site')
+      .filter((m) => {
+        if (companyIds.length === 0) return true;
+        const mComp = String(m.companyId || '').trim();
+        if (mComp && companyIds.includes(mComp)) return true;
+        const mCliId = String(m.clientId || '').trim().toLowerCase();
+        const mCliName = String(m.clientName || '').trim().toLowerCase();
+        if (mCliId && validClientIds.has(mCliId)) return true;
+        if (mCliName && validClientNames.has(mCliName)) return true;
+        return false;
+      })
       .map((m) => ({
         name: (m.name || '').trim(),
         code: (m.code || '').trim(),
@@ -328,6 +175,7 @@ export const getFilterOptions = async (req, res) => {
         city: (m.city || '').trim(),
         address: (m.address || '').trim(),
         workLocationName: (m.workLocationName || '').trim(),
+        companyId: m.companyId || '',
       }))
       .filter((s) => s.name);
 
@@ -379,13 +227,14 @@ export const getFilterOptions = async (req, res) => {
  */
 export const getPayrollReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const month = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
     const { department, employee: selectedEmployee, company: selectedCompany, site: selectedSite, search } = req.query;
 
     // 1. Fetch Company details dynamically from DB
-    const branding = await resolveCompanyBranding(companyId);
+    ;
     let activeCompanyBranding = branding;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       const specificComp = await Company.findOne({
@@ -466,7 +315,7 @@ export const getPayrollReport = async (req, res) => {
 
     // 2. Build Employee Query with $and to prevent conditions overwriting each other
     const andList = [];
-    if (companyId) andList.push({ companyId });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) andList.push({ companyId: { $in: resolvedCompanyIds } });
 
     if (department && department !== 'All Departments') {
       andList.push({ department });
@@ -592,29 +441,76 @@ export const getPayrollReport = async (req, res) => {
       natureAndLocationOfWork: resolvedClientLocation,
     };
 
-    // 3. Fetch Statutory Config from MongoDB
-    const statutory = (await resolveStatutoryConfig(companyId, req.user?.email)).config;
+    // 3. Fetch Statutory Config from MongoDB strictly matching Company Setup
+    const resolvedStat = await resolveStatutoryConfig(companyId, req.user?.email);
+    let statutory = resolvedStat?.config;
+    let salaryComponentsMaster = resolvedStat?.salaryComponents || [];
+    if (!statutory) {
+      statutory = await StatutoryConfig.findOne({}).lean();
+    }
+
+    // Dynamic PF settings & active rates
     const pfEnabled = statutory?.pf?.enabled !== false;
+    const activePfRate = Array.isArray(statutory?.pf?.pfRates) ? statutory.pf.pfRates.find((r) => r.enabled) : null;
+    const pfEmployeeRate = activePfRate?.employeeRate !== undefined ? Number(activePfRate.employeeRate) : (Number(statutory?.pf?.employeeContribution) || 12);
+    const pfEmployerRate = activePfRate?.employerRate !== undefined ? Number(activePfRate.employerRate) : (Number(statutory?.pf?.epfEmployerContribution) || 3.67);
+    const pfPensionRate = activePfRate?.pensionRate !== undefined ? Number(activePfRate.pensionRate) : (Number(statutory?.pf?.epsContribution) || 8.33);
+    const pfEdliRate = activePfRate?.edliAdminRate !== undefined ? Number(activePfRate.edliAdminRate) / 2 : (Number(statutory?.pf?.edliContribution) || 0.5);
+    const pfAdminRate = Number(statutory?.pf?.adminCharges) || 0.5;
+    const pfWageCeiling = activePfRate?.wageCeiling !== undefined ? Number(activePfRate.wageCeiling) : (Number(statutory?.pf?.wageCeiling) || 15000);
+    const isPfRestricted = statutory?.pf?.wageCeilingRestricted !== false;
+    const pfSelectedComponents = statutory?.pf?.selectedComponentIds || [];
+
+    // Dynamic ESI settings & active rates
     const esiEnabled = statutory?.esi?.enabled !== false;
+    const activeEsiRate = Array.isArray(statutory?.esi?.esiRates) ? statutory.esi.esiRates.find((r) => r.enabled) : null;
+    const esiEmployeeRate = activeEsiRate?.employeeContribution !== undefined ? Number(activeEsiRate.employeeContribution) : (Number(statutory?.esi?.employeeContribution) || 0.75);
+    const esiEmployerRate = activeEsiRate?.employerContribution !== undefined ? Number(activeEsiRate.employerContribution) : (Number(statutory?.esi?.employerContribution) || 3.25);
+    const esiEligibilityCeiling = activeEsiRate?.eligibilityWageCeiling !== undefined ? Number(activeEsiRate.eligibilityWageCeiling) : (Number(statutory?.esi?.wageEligibilityLimit) || 21000);
+    const esiSelectedComponents = statutory?.esi?.selectedComponentIds || [];
+
+    // Dynamic PT settings
     const ptEnabled = statutory?.pt?.enabled !== false;
+    const ptCalculateOn = statutory?.pt?.calculateOn || 'Gross Salary';
+    const ptSelectedComponents = statutory?.pt?.selectedComponentIds || [];
     const ptSlabs = statutory?.ptSlabs || [];
+
+    // Dynamic LWF settings
+    const lwfEnabled = statutory?.lwf?.enabled !== false;
+    const lwfRules = statutory?.lwfRules || [];
 
     // 4. Fetch Attendance from DB for the month
     const totalDaysInMonth = getDaysInMonthString(month);
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${month}`) },
     }).lean();
 
     // 5. Fetch Saved Payroll Run if exists
     const savedPayroll = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month,
     }).lean();
     const savedMap = new Map();
     if (savedPayroll?.records) {
       savedPayroll.records.forEach((r) => savedMap.set(r.employeeId, r));
     }
+
+    // 5b. Fetch active Advance/Loan requests, Damages, and Fines from DB
+    const advanceLoans = await AdvanceLoanRequest.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      status: { $in: ['approved', 'active', 'Approved', 'Active'] },
+    }).lean().catch(() => []);
+
+    const damageRecords = await DamageLossDeduction.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      date: { $regex: new RegExp(`^${month}`) },
+    }).lean().catch(() => []);
+
+    const fineRecords = await FineDeduction.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      date: { $regex: new RegExp(`^${month}`) },
+    }).lean().catch(() => []);
 
     const rows = [];
     let grandGross = 0;
@@ -734,21 +630,52 @@ export const getPayrollReport = async (req, res) => {
         ? saved.earnings?.totalGross
         : earnedBasic + earnedDa + earnedHra + earnedConv + earnedSpAll + earnedOthAll + otPib;
 
-      // Deductions
+      // Map of pro-rated earnings for dynamic component wage base resolution
+      const earningsObj = {
+        basic: earnedBasic,
+        vda: earnedDa,
+        da: earnedDa,
+        hra: earnedHra,
+        conveyance: earnedConv,
+        specialAllowance: earnedSpAll,
+        otherAllowance: earnedOthAll,
+        overtime: otPib,
+        bonus: 0,
+        arrears: 0,
+      };
+
+      // Deductions strictly calculated from configured rates and components
       let pf = 0;
+      let pfWage = 0;
       if (saved?.deductions?.pfEmployee !== undefined) {
         pf = Number(saved.deductions.pfEmployee) || 0;
+        pfWage = Number(saved.statutoryWages?.pfWage || saved.pfWage || 0);
       } else {
-        const pfCalc = calculatePF(earnedBasic, earnedDa, emp, statutory?.pf);
+        const pfCalc = calculatePF(earnedBasic, earnedDa, emp, statutory?.pf, earningsObj, salaryComponentsMaster);
         pf = pfCalc.employee;
+        pfWage = pfCalc.pfWage || 0;
+      }
+      if (pfWage <= 0 && pf > 0) {
+        const rawPfBase = Array.isArray(pfSelectedComponents) && pfSelectedComponents.length > 0
+          ? calculateComponentWageBase({ selectedComponentIds: pfSelectedComponents, salaryComponentsMaster, earningsMap: earningsObj, defaultComponents: ['basic', 'vda'] })
+          : (earnedBasic + earnedDa);
+        pfWage = isPfRestricted ? Math.min(rawPfBase, pfWageCeiling) : rawPfBase;
       }
 
       let esi = 0;
+      let esiWage = 0;
       if (saved?.deductions?.esiEmployee !== undefined) {
         esi = Number(saved.deductions.esiEmployee) || 0;
+        esiWage = Number(saved.statutoryWages?.esiWage || saved.esiWage || 0);
       } else {
-        const esiCalc = calculateESI(grossSalary, Number(emp.grossSalary) || grossSalary, pd, emp, statutory?.esi);
+        const esiCalc = calculateESI(grossSalary, Number(emp.grossSalary) || grossSalary, pd, emp, statutory?.esi, earningsObj, salaryComponentsMaster);
         esi = esiCalc.employee;
+        esiWage = esiCalc.esiWage || 0;
+      }
+      if (esiWage <= 0 && esi > 0) {
+        esiWage = Array.isArray(esiSelectedComponents) && esiSelectedComponents.length > 0
+          ? calculateComponentWageBase({ selectedComponentIds: esiSelectedComponents, salaryComponentsMaster, earningsMap: earningsObj, defaultComponents: ['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance'] })
+          : grossSalary;
       }
 
       const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
@@ -756,7 +683,8 @@ export const getPayrollReport = async (req, res) => {
       if (saved?.deductions?.pt !== undefined) {
         pt = Number(saved.deductions.pt) || 0;
       } else {
-        pt = calculatePT(grossSalary, empState, ptSlabs, month, ptEnabled);
+        const ptWage = getPtWageBase(emp, Number(emp.grossSalary) || grossSalary, grossSalary, statutory?.pt, salaryComponentsMaster, true, earningsObj);
+        pt = calculatePT(ptWage, empState, ptSlabs, month, ptEnabled, emp.gender);
       }
 
       let it = 0;
@@ -771,21 +699,43 @@ export const getPayrollReport = async (req, res) => {
         lwf = Number(saved.deductions.lwf) || 0;
       } else {
         const isLwfApplicable = emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no';
-        const lwfCalc = calculateLWF(grossSalary, empState, statutory?.lwfRules, month, isLwfApplicable, statutory?.lwf?.enabled !== false);
+        const lwfCalc = calculateLWF(grossSalary, empState, statutory?.lwfRules || lwfRules, month, isLwfApplicable, lwfEnabled);
         lwf = lwfCalc.employee;
       }
 
-      const advance = saved?.deductions?.advances || 0;
-      const loan = saved?.deductions?.loanEmi || 0;
-      const food = 0;
-      const othDed = saved?.deductions?.otherDeductions || 0;
-      const eMbill = 0;
+      let advance = saved?.deductions?.advances;
+      let loan = saved?.deductions?.loanEmi;
+      let food = Number(saved?.deductions?.food) || 0;
+      let othDed = saved?.deductions?.otherDeductions;
+      let eMbill = Number(saved?.deductions?.eMbill) || 0;
+
+      if (advance === undefined) {
+        advance = advanceLoans
+          .filter((a) => (a.employeeId === empId || a.employeeCode === emp.employeeCode) && a.type !== 'loan')
+          .reduce((sum, a) => {
+            const inst = (a.installments || []).find((i) => i.month === month && i.status !== 'skipped');
+            return sum + (inst ? Number(inst.amount) : (Number(a.monthlyDeduction) || 0));
+          }, 0);
+      }
+      if (loan === undefined) {
+        loan = advanceLoans
+          .filter((a) => (a.employeeId === empId || a.employeeCode === emp.employeeCode) && a.type === 'loan')
+          .reduce((sum, a) => {
+            const inst = (a.installments || []).find((i) => i.month === month && i.status !== 'skipped');
+            return sum + (inst ? Number(inst.amount) : (Number(a.monthlyDeduction) || 0));
+          }, 0);
+      }
+      if (othDed === undefined) {
+        const empDamages = damageRecords.filter((d) => d.employeeId === empId || d.employeeCode === emp.employeeCode);
+        const empFines = fineRecords.filter((f) => f.employeeId === empId || f.employeeCode === emp.employeeCode);
+        const damageTotal = empDamages.reduce((sum, d) => sum + (Number(d.amountRecovered || d.amount || 0)), 0);
+        const fineTotal = empFines.reduce((sum, f) => sum + (Number(f.amount || 0)), 0);
+        othDed = damageTotal + fineTotal;
+      }
 
       const grossDeduct = pf + esi + pt + it + lwf + advance + loan + food + othDed + eMbill;
       const netPayable = Math.max(0, grossSalary - grossDeduct);
 
-      const pfWage = pf > 0 ? Math.min(15000, earnedBasic + earnedDa) : 0;
-      const esiWage = esi > 0 ? grossSalary : 0;
       if (pf > 0) {
         pfEligibleWages += pfWage;
         pfEmployeesCount += 1;
@@ -843,20 +793,41 @@ export const getPayrollReport = async (req, res) => {
         name: emp.name || emp.employeeName || 'Employee',
         designation: emp.designation || 'Staff',
         department: emp.department || 'Operations',
+        gender: emp.gender || emp.sex || 'Male',
+        sex: emp.gender || emp.sex || 'Male',
+        dutyPost: emp.dutyPost || emp.post || '',
+        post: emp.dutyPost || emp.post || '',
+        doj: emp.joiningDate || emp.doj || emp.dateOfJoining || '-',
+        joiningDate: emp.joiningDate || emp.doj || emp.dateOfJoining || '-',
+        dateOfJoining: emp.joiningDate || emp.doj || emp.dateOfJoining || '-',
+        pan: emp.pan || emp.panNo || '',
+        panNo: emp.pan || emp.panNo || '',
+        site: emp.site || emp.siteLocation || emp.dutyPost || resolvedClientName || 'Main Site',
+        location: emp.siteLocation || emp.site || emp.dutyPost || resolvedClientLocation || companyInfo.address || '',
+        siteLocation: emp.siteLocation || emp.site || emp.dutyPost || resolvedClientLocation || companyInfo.address || '',
+        workLocation: emp.siteLocation || emp.site || emp.dutyPost || resolvedClientLocation || companyInfo.address || '',
         uan: emp.uan || '-',
         pfNo: emp.pfNo || '-',
         esiNo: emp.esicNo || emp.esiNo || '-',
         fatherHusbandName: emp.fatherHusbandName || emp.fatherName || '-',
+        fatherName: emp.fatherHusbandName || emp.fatherName || '-',
         dob: emp.dob || emp.dateOfBirth || '-',
-        doj: emp.joiningDate || emp.doj || emp.dateOfJoining || '-',
         aadhaar: emp.aadhaar || emp.aadhar || emp.aadhaarNo || '-',
+        aadhaarNo: emp.aadhaar || emp.aadhar || emp.aadhaarNo || '-',
         paymentMode: emp.paymentMode || 'Bank',
         bankName: emp.bankName || '-',
         bankAccountNo: emp.accountNumber || emp.bankAccountNo || '-',
         ifscCode: emp.ifsc || emp.ifscCode || '-',
+        ifsc: emp.ifsc || emp.ifscCode || '-',
         clientName: emp.clientName || emp.companyName || companyInfo.name,
-        clientLocation: emp.siteLocation || emp.site || emp.dutyPost || 'GREATER NOIDA U.P.',
+        clientLocation: emp.siteLocation || emp.site || emp.dutyPost || resolvedClientLocation || companyInfo.address || '',
         companyName: emp.companyName || companyInfo.name,
+        status: emp.status || emp.employeeStatus || 'Active',
+        employeeStatus: emp.employeeStatus || emp.status || 'Active',
+        isActive: (emp.status || emp.employeeStatus || 'Active').toLowerCase() === 'active',
+        isHold: Boolean(emp.salaryHold || emp.isHold),
+        salaryHold: Boolean(emp.salaryHold || emp.isHold),
+        holdSalary: Boolean(emp.salaryHold || emp.isHold),
 
         // Attendance Details
         attendance: {
@@ -922,12 +893,12 @@ export const getPayrollReport = async (req, res) => {
 
     const monthLabel = getMonthLabel(month);
 
-    // Statutory Summaries matching Wage/Salary Register Image 3
-    const pfErDiff = Math.round(pfEligibleWages * 0.0367);
+    // Statutory Summaries matching Wage/Salary Register using dynamic configured rates
+    const pfErDiff = Math.round(pfEligibleWages * (pfEmployerRate / 100));
     const pfAc1 = grandPf + pfErDiff;
-    const pfAc10 = Math.round(pfEligibleWages * 0.0833);
-    const pfAc2 = Math.round(pfEligibleWages * 0.005);
-    const pfAc21 = Math.round(pfEligibleWages * 0.005);
+    const pfAc10 = Math.round(pfEligibleWages * (pfPensionRate / 100));
+    const pfAc2 = Math.round(pfEligibleWages * (pfAdminRate / 100));
+    const pfAc21 = Math.round(pfEligibleWages * (pfEdliRate / 100));
     const pfAc22 = 0;
     const pfTotalContribution = pfAc1 + pfAc10 + pfAc2 + pfAc21 + pfAc22;
 
@@ -942,9 +913,17 @@ export const getPayrollReport = async (req, res) => {
       ac21: pfAc21,
       ac22: pfAc22,
       total: pfTotalContribution,
+      rates: {
+        employeeRate: pfEmployeeRate,
+        employerRate: pfEmployerRate,
+        pensionRate: pfPensionRate,
+        adminRate: pfAdminRate,
+        edliRate: pfEdliRate,
+        wageCeiling: pfWageCeiling,
+      },
     };
 
-    const esiErShare = Math.round(esiEligibleWages * 0.0325);
+    const esiErShare = Math.round(esiEligibleWages * (esiEmployerRate / 100));
     const esiTotal = grandEsi + esiErShare;
     const esiSummary = {
       esiWages: esiEligibleWages,
@@ -952,6 +931,11 @@ export const getPayrollReport = async (req, res) => {
       eeShare: grandEsi,
       erShare: esiErShare,
       totalEsi: esiTotal,
+      rates: {
+        employeeContribution: esiEmployeeRate,
+        employerContribution: esiEmployerRate,
+        eligibilityLimit: esiEligibilityCeiling,
+      },
     };
 
     const ptSummary = {
@@ -1077,6 +1061,35 @@ export const getPayrollReport = async (req, res) => {
       lwfSummary,
       earningSummary,
       deductionSummary,
+      statutoryConfig: {
+        pf: {
+          enabled: pfEnabled,
+          employeeRate: pfEmployeeRate,
+          employerRate: pfEmployerRate,
+          pensionRate: pfPensionRate,
+          edliRate: pfEdliRate,
+          adminRate: pfAdminRate,
+          wageCeiling: pfWageCeiling,
+          selectedComponentIds: pfSelectedComponents,
+        },
+        esi: {
+          enabled: esiEnabled,
+          employeeRate: esiEmployeeRate,
+          employerRate: esiEmployerRate,
+          wageEligibilityLimit: esiEligibilityCeiling,
+          selectedComponentIds: esiSelectedComponents,
+        },
+        pt: {
+          enabled: ptEnabled,
+          calculateOn: ptCalculateOn,
+          selectedComponentIds: ptSelectedComponents,
+          slabs: ptSlabs,
+        },
+        lwf: {
+          enabled: lwfEnabled,
+          rules: lwfRules,
+        },
+      },
       netPay: grandNet,
       records: rows,
     });
@@ -1093,8 +1106,9 @@ export const getPayrollReport = async (req, res) => {
  */
 export const getAttendanceReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const month = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
@@ -1102,7 +1116,7 @@ export const getAttendanceReport = async (req, res) => {
 
     // Build query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -1125,7 +1139,7 @@ export const getAttendanceReport = async (req, res) => {
     const employees = await Employee.find(empQuery).sort({ employeeId: 1 }).lean();
 
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${month}`) },
     }).lean();
 
@@ -1175,7 +1189,7 @@ export const getAttendanceReport = async (req, res) => {
         srNo: index + 1,
         employeeName: emp.name || emp.employeeName || 'Staff Member',
         employeeId: empId,
-        clientName: emp.clientName || emp.companyName || 'RR Security & Facilities',
+        clientName: emp.clientName || emp.companyName || branding?.name || 'Company',
         department: emp.department || 'Operations',
         designation: emp.designation || 'Staff',
         workingDays,
@@ -1191,6 +1205,7 @@ export const getAttendanceReport = async (req, res) => {
     res.status(200).json({
       success: true,
       reportType: 'attendance',
+      companyInfo: branding,
       period: {
         month,
         monthLabel: getMonthLabel(month),
@@ -1234,9 +1249,11 @@ export const getAttendanceReport = async (req, res) => {
  */
 export const getBillingReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const month = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
+    const totalDaysInMonth = getDaysInMonthString(month);
     const { company: selectedCompany, search } = req.query;
 
     const query = companyId ? { companyId } : {};
@@ -1257,7 +1274,7 @@ export const getBillingReport = async (req, res) => {
       clients.map(async (client, index) => {
         // Fetch actual assigned employees from Employee collection
         const assignedEmployees = await Employee.find({
-          ...(companyId ? { companyId } : {}),
+          ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
           $or: [{ clientId: client.clientId }, { clientName: client.name }, { companyName: client.name }],
         }).select('grossSalary salary basicSalary employeeId').lean();
 
@@ -1296,6 +1313,7 @@ export const getBillingReport = async (req, res) => {
     res.status(200).json({
       success: true,
       reportType: 'billing',
+      companyInfo: branding,
       period: {
         month,
         monthLabel: getMonthLabel(month),
@@ -1337,8 +1355,9 @@ export const getBillingReport = async (req, res) => {
  */
 export const getEmployeeMasterReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const query = {};
@@ -1368,13 +1387,10 @@ export const getEmployeeMasterReport = async (req, res) => {
       ];
     }
 
-    const [employees, branding] = await Promise.all([
-      Employee.find(query)
-        .select('-documents -documentList -password -savedPassword')
-        .sort({ employeeId: 1 })
-        .lean(),
-      resolveCompanyBranding(companyId),
-    ]);
+    const employees = await Employee.find(query)
+      .select('-documents -documentList -password -savedPassword')
+      .sort({ employeeId: 1 })
+      .lean();
     const companyDoc = branding.doc;
 
     const activeCount = employees.filter((e) => String(e.status || '').toLowerCase() === 'active').length;
@@ -1486,8 +1502,9 @@ export const getEmployeeMasterReport = async (req, res) => {
  */
 export const getInventoryReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { category, itemType, status, search } = req.query;
 
     const query = {};
@@ -1567,6 +1584,7 @@ export const getInventoryReport = async (req, res) => {
     res.status(200).json({
       success: true,
       reportType: 'inventory',
+      companyInfo: branding,
       summaryCards: [
         {
           label: 'Total Stock Units',
@@ -1611,30 +1629,24 @@ export const getInventoryReport = async (req, res) => {
  */
 export const getFnfSettlementReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const month = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const totalDaysInMonth = getDaysInMonthString(month);
 
     // 1. Fetch all Companies and Clients to map branding dynamically
-    const allCompanies = await Company.find({}).lean();
-    const allClients = await Client.find({}).lean();
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
-    let primaryCompany = null;
-    if (companyId) {
-      primaryCompany = allCompanies.find((c) => c.companyId === companyId);
-    }
+    let primaryCompany = compDoc || null;
     if (!primaryCompany && selectedCompany && selectedCompany !== 'All Companies') {
-      primaryCompany = allCompanies.find((c) => c.name === selectedCompany) ||
-                       allClients.find((cl) => cl.name === selectedCompany);
-    }
-    if (!primaryCompany) {
-      primaryCompany = allCompanies[0] || null;
+      primaryCompany = allClients.find((cl) => cl.name === selectedCompany || cl.clientName === selectedCompany) || null;
     }
 
-    const branding = await resolveCompanyBranding(companyId);
+    ;
     const defaultCompanyInfo = {
       name: branding.name,
       address: branding.address,
@@ -1652,7 +1664,7 @@ export const getFnfSettlementReport = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -1703,7 +1715,7 @@ export const getFnfSettlementReport = async (req, res) => {
 
     const payrollRuns = await PayrollRun.find({
       period: month,
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
     }).lean();
 
     const savedMap = new Map();
@@ -1943,8 +1955,9 @@ export const getFnfSettlementReport = async (req, res) => {
  */
 export const getForm16Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const yearParam = req.query.financialYear || req.query.year || req.query.month;
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
@@ -1981,23 +1994,16 @@ export const getForm16Report = async (req, res) => {
     }
 
     // 1. Fetch Companies & Clients to resolve exact employer details dynamically
-    const allCompanies = await Company.find({}).lean();
-    const allClients = await Client.find({}).lean();
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
-    let primaryCompany = null;
-    if (companyId) {
-      primaryCompany = allCompanies.find((c) => c.companyId === companyId);
-    }
+    let primaryCompany = compDoc || null;
     if (!primaryCompany && selectedCompany && selectedCompany !== 'All Companies') {
-      primaryCompany = allCompanies.find((c) => c.name === selectedCompany) ||
-                       allClients.find((cl) => cl.name === selectedCompany);
-    }
-    if (!primaryCompany) {
-      primaryCompany = allCompanies[0] || null;
+      primaryCompany = allClients.find((cl) => cl.name === selectedCompany || cl.clientName === selectedCompany) || null;
     }
 
     const defaultCompanyInfo = {
-      name: primaryCompany?.name || 'RR SECURITY & FACILITIES',
+      name: primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase(),
       address: primaryCompany?.address
         ? `${primaryCompany.address}, ${primaryCompany.city || ''} ${primaryCompany.state || ''} ${primaryCompany.pinCode || ''}`.trim()
         : 'G-75/A Street No 04 Block-G M.B. Extn., Badarpur, New Delhi-110044',
@@ -2015,7 +2021,7 @@ export const getForm16Report = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -2060,7 +2066,7 @@ export const getForm16Report = async (req, res) => {
 
     const payrollRuns = await PayrollRun.find({
       period: { $in: monthsInFy },
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
     }).lean();
 
     const empPayrollSummary = new Map();
@@ -2221,15 +2227,14 @@ export const getForm16Report = async (req, res) => {
  */
 export const getFormFGratuityReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     // 1. Resolve Company Info
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const primaryCompany =
       allCompanies.find((c) => c.companyId === companyId) ||
@@ -2237,7 +2242,7 @@ export const getFormFGratuityReport = async (req, res) => {
       null;
 
     const defaultCompanyInfo = {
-      name: (primaryCompany?.name || 'RR SECURITY & FACILITIES').toUpperCase(),
+      name: (primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase(),
       address:
         primaryCompany?.address ||
         'G-75/A Street No 04 Block-G M.B. Extn., Badarpur, New Delhi-110044',
@@ -2248,7 +2253,7 @@ export const getFormFGratuityReport = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -2432,15 +2437,14 @@ export const getFormFGratuityReport = async (req, res) => {
  */
 export const getSalaryCertificateReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search, month } = req.query;
 
     // 1. Resolve Company Info
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const primaryCompany =
       allCompanies.find((c) => c.companyId === companyId) ||
@@ -2448,7 +2452,7 @@ export const getSalaryCertificateReport = async (req, res) => {
       null;
 
     const defaultCompanyInfo = {
-      name: primaryCompany?.name || 'RR Security & Facilities',
+      name: primaryCompany?.name || branding?.name || primaryCompany?.name || compDoc?.name || 'Company',
       address:
         primaryCompany?.address ||
         'G-75/A Block-G M.B. Extn Badarpur New Delhi Delhi 110044 India',
@@ -2460,7 +2464,7 @@ export const getSalaryCertificateReport = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -2642,16 +2646,14 @@ export const getSalaryCertificateReport = async (req, res) => {
  */
 export const getEmployeeIdCardReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     // 1. Resolve Company Info strictly dynamically from MongoDB
-    const branding = await resolveCompanyBranding(companyId);
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const defaultCompanyInfo = {
       name: branding.name,
@@ -2668,7 +2670,7 @@ export const getEmployeeIdCardReport = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -2874,8 +2876,8 @@ export const getEmployeeIdCardReport = async (req, res) => {
  */
 export const getBonusRegisterReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, accountingYear: reqAccountingYear, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     // 1. Resolve Accounting Year (April to March)
@@ -2910,7 +2912,7 @@ export const getBonusRegisterReport = async (req, res) => {
     }
 
     // 2. Resolve Company Info
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const defaultCompanyInfo = {
       name: branding.name.toUpperCase(),
       address: branding.address,
@@ -2934,7 +2936,7 @@ export const getBonusRegisterReport = async (req, res) => {
 
     // 4. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -2977,7 +2979,7 @@ export const getBonusRegisterReport = async (req, res) => {
 
     // 5. Query PayrollRun and Attendance across the accounting year
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: { $gte: `${startYear}-04`, $lte: `${endYear}-03` },
     }).lean();
 
@@ -3000,7 +3002,7 @@ export const getBonusRegisterReport = async (req, res) => {
     });
 
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $gte: `${startYear}-04-01`, $lte: `${endYear}-03-31` },
     }).lean();
 
@@ -3208,16 +3210,14 @@ export const getBonusRegisterReport = async (req, res) => {
  */
 export const getEmploymentCardReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     // 1. Resolve Companies & Clients
-    const branding = await resolveCompanyBranding(companyId);
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const defaultContractor = {
       name: branding.name.toUpperCase(),
@@ -3229,7 +3229,7 @@ export const getEmploymentCardReport = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -3376,8 +3376,8 @@ export const getEmploymentCardReport = async (req, res) => {
  */
 export const getMusterRollReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -3385,11 +3385,9 @@ export const getMusterRollReport = async (req, res) => {
     const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
 
     // 1. Resolve Contractor & Establishments
-    const branding = await resolveCompanyBranding(companyId);
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const defaultContractor = {
       name: branding.name.toUpperCase(),
@@ -3401,7 +3399,7 @@ export const getMusterRollReport = async (req, res) => {
 
     // 2. Build Employee Filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -3764,15 +3762,15 @@ export const getMusterRollReport = async (req, res) => {
  */
 export const getRegisterOfAdvancesReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
     // 1. Resolve contractor details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const defaultContractor = {
       name: branding.name.toUpperCase(),
       address: branding.address,
@@ -3783,7 +3781,7 @@ export const getRegisterOfAdvancesReport = async (req, res) => {
 
     // 2. Build employee filter query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') {
       empQuery.department = department;
     }
@@ -3823,7 +3821,7 @@ export const getRegisterOfAdvancesReport = async (req, res) => {
 
     // 3. Fetch real advance records from AdvanceLoanRequest matching query
     const advQuery = {};
-    if (companyId) advQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) advQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') advQuery.department = department;
 
     let advanceReqs = await AdvanceLoanRequest.find(advQuery).sort({ requestDate: -1, createdAt: -1 }).lean();
@@ -3988,15 +3986,15 @@ export const getRegisterOfAdvancesReport = async (req, res) => {
  */
 export const getRegisterOfDeductionsDamageReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
     // 1. Resolve contractor details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const defaultContractor = {
       name: branding.name.toUpperCase(),
       address: branding.address,
@@ -4213,15 +4211,15 @@ export const getRegisterOfDeductionsDamageReport = async (req, res) => {
  */
 export const getRegisterOfFinesReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
     // 1. Resolve contractor details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const defaultContractor = {
       name: branding.name.toUpperCase(),
       address: branding.address,
@@ -4398,15 +4396,15 @@ export const getRegisterOfFinesReport = async (req, res) => {
  */
 export const getRegisterOfOvertimeReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
     // 1. Resolve contractor details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const defaultContractor = {
       name: branding.name.toUpperCase(),
       address: branding.address,
@@ -4435,7 +4433,7 @@ export const getRegisterOfOvertimeReport = async (req, res) => {
     try {
       const payrollRun = await PayrollRun.findOne({
         month: targetMonth,
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       }).lean();
 
       if (payrollRun && Array.isArray(payrollRun.records)) {
@@ -4631,8 +4629,8 @@ export const getRegisterOfOvertimeReport = async (req, res) => {
  */
 export const getWagesRegisterReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -4640,7 +4638,7 @@ export const getWagesRegisterReport = async (req, res) => {
     const totalDaysInMonth = getDaysInMonthString(targetMonth);
 
     // 1. Resolve contractor details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let contractorName = branding.name;
     let contractorAddress = branding.address;
     let contractorPhone = branding.phone;
@@ -4648,7 +4646,7 @@ export const getWagesRegisterReport = async (req, res) => {
 
     // 2. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') {
       empQuery.department = department;
     }
@@ -4687,7 +4685,7 @@ export const getWagesRegisterReport = async (req, res) => {
 
     // 4. Fetch Saved Payroll Run if exists
     const savedPayroll = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
     const savedMap = new Map();
@@ -4697,13 +4695,13 @@ export const getWagesRegisterReport = async (req, res) => {
 
     // 5. Fetch Attendance from DB for the month
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${targetMonth}`) },
     }).lean();
 
     // 6. Fetch Overtime records for the month
     const overtimeRecords = await Overtime.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${targetMonth}`) },
     }).lean();
     const otMap = new Map();
@@ -5008,12 +5006,12 @@ export const getWagesRegisterReport = async (req, res) => {
  */
 export const getRegisterOfWorkmenReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search, status } = req.query;
 
     // 1. Resolve contractor details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let contractorName = branding.name;
     let contractorAddress = branding.address;
     let contractorPhone = branding.phone;
@@ -5021,7 +5019,7 @@ export const getRegisterOfWorkmenReport = async (req, res) => {
 
     // 2. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') {
       empQuery.department = department;
     }
@@ -5262,8 +5260,8 @@ function convertNumberToIndianWords(amount) {
  */
 export const getBankTransferLetterReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const {
       month,
       company,
@@ -5289,7 +5287,7 @@ export const getBankTransferLetterReport = async (req, res) => {
     const chequeDate = qChequeDate || defaultAdviceDate;
 
     // 1. Resolve contractor / company details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let contractorName = branding.name;
     let contractorAddress = branding.address;
     let contractorPhone = branding.phone;
@@ -5302,7 +5300,7 @@ export const getBankTransferLetterReport = async (req, res) => {
     // 2. Fetch payroll records for target month
     let beneficiaryRows = [];
     const payrollRun = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
 
@@ -5340,8 +5338,14 @@ export const getBankTransferLetterReport = async (req, res) => {
 
     // 3. Fallback: if no saved PayrollRun, dynamically compute from active Employees and Attendance
     if (beneficiaryRows.length === 0) {
-      const empQuery = { status: 'Active' };
-      if (companyId) empQuery.companyId = companyId;
+      const empQuery = {
+        $or: [
+          { status: { $in: ['Active', 'active'] } },
+          { employeeStatus: { $in: ['Active', 'active'] } },
+          { status: { $exists: false } }
+        ]
+      };
+      if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
       if (department && department !== 'All Departments') {
         empQuery.department = department;
       }
@@ -5353,21 +5357,23 @@ export const getBankTransferLetterReport = async (req, res) => {
       const totalDaysInMonth = getDaysInMonthString(targetMonth);
 
       const attendanceRecords = await Attendance.find({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         date: { $regex: new RegExp(`^${targetMonth}`) },
       }).lean();
 
       activeEmps.forEach((emp, idx) => {
-        let pd = 0;
+        let pd = 26;
         const empAtt = attendanceRecords.filter((a) => a.employeeId === emp.employeeId || a.employeeId === emp.employeeCode);
         if (empAtt.length > 0) {
+          let count = 0;
           empAtt.forEach((a) => {
-            if (a.status === 'present') pd += 1;
-            else if (a.status === 'halfDay') pd += 0.5;
-            if (a.present !== undefined && a.present > 0) pd = Number(a.present);
+            if (a.status === 'present') count += 1;
+            else if (a.status === 'halfDay') count += 0.5;
+            if (a.present !== undefined && a.present > 0) count = Number(a.present);
           });
+          pd = count;
         } else {
-          pd = 0;
+          pd = 26;
         }
 
         const basic = Number(emp.basic) || (emp.salary ? Math.round(emp.salary * 0.5) : 0);
@@ -5505,8 +5511,8 @@ export const getBankTransferLetterReport = async (req, res) => {
  */
 export const getBankTransferReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const {
       month,
       company,
@@ -5521,7 +5527,7 @@ export const getBankTransferReport = async (req, res) => {
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
     // 1. Resolve remitter / company details
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let contractorName = branding.name;
     let contractorAccountNo = branding.accountNumber;
     let contractorAddress = branding.address;
@@ -5534,7 +5540,7 @@ export const getBankTransferReport = async (req, res) => {
     // 2. Fetch payroll records for target month
     let beneficiaryRows = [];
     const payrollRun = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
 
@@ -5547,6 +5553,27 @@ export const getBankTransferReport = async (req, res) => {
         const empMaster = empMap.get(rec.employeeId) || {};
         const netSal = Math.round(Number(rec.netSalary || rec.earnings?.totalGross || 0));
         if (netSal <= 0) return;
+
+        // Apply filters
+        if (department && department !== 'All Departments') {
+          const empDept = rec.department || empMaster.department;
+          if (empDept !== department) return;
+        }
+        if (company && company !== 'All Companies') {
+          const empComp = rec.clientName || empMaster.clientName || rec.companyName || empMaster.companyName;
+          if (!empComp || !empComp.toLowerCase().includes(company.toLowerCase())) return;
+        }
+        if (employee && employee !== 'All Employees') {
+          const targetId = employee.includes('—') ? employee.split('—')[1].trim() : employee;
+          if (rec.employeeId !== targetId && rec.employeeCode !== targetId && !rec.employeeName?.includes(employee.split('—')[0].trim())) return;
+        }
+        if (search) {
+          const q = search.toLowerCase();
+          const benName = (rec.employeeName || empMaster.name || '').toLowerCase();
+          const empId = (rec.employeeId || '').toLowerCase();
+          const acc = (rec.bankAccountNo || empMaster.accountNumber || '').toLowerCase();
+          if (!benName.includes(q) && !empId.includes(q) && !acc.includes(q)) return;
+        }
 
         const ifsc = (rec.ifscCode || empMaster.ifsc || '—').trim().toUpperCase();
         const accNo = (rec.bankAccountNo || empMaster.accountNumber || '').trim();
@@ -5574,32 +5601,74 @@ export const getBankTransferReport = async (req, res) => {
 
     // 3. Fallback: if no saved PayrollRun, dynamically compute from active Employees and Attendance
     if (beneficiaryRows.length === 0) {
-      const empQuery = { status: 'Active' };
-      if (companyId) empQuery.companyId = companyId;
+      const andList = [];
+      if (resolvedCompanyIds && resolvedCompanyIds.length > 0) andList.push({ companyId: { $in: resolvedCompanyIds } });
+      andList.push({
+        $or: [
+          { status: { $in: ['Active', 'active'] } },
+          { employeeStatus: { $in: ['Active', 'active'] } },
+          { status: { $exists: false } },
+        ],
+      });
       if (department && department !== 'All Departments') {
-        empQuery.department = department;
+        andList.push({ department });
       }
       if (company && company !== 'All Companies') {
-        empQuery.$or = [{ companyName: company }, { clientName: company }, { site: company }];
+        const safeComp = company.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        andList.push({
+          $or: [
+            { companyName: company },
+            { clientName: company },
+            { site: company },
+            { companyName: { $regex: new RegExp(safeComp, 'i') } },
+            { clientName: { $regex: new RegExp(safeComp, 'i') } },
+          ],
+        });
+      }
+      if (employee && employee !== 'All Employees') {
+        const empIdMatch = employee.includes('—') ? employee.split('—')[1].trim() : employee;
+        andList.push({
+          $or: [
+            { employeeId: empIdMatch },
+            { employeeCode: empIdMatch },
+            { name: { $regex: new RegExp(employee.split('—')[0].trim(), 'i') } },
+          ],
+        });
+      }
+      if (search) {
+        const sRegex = { $regex: search, $options: 'i' };
+        andList.push({
+          $or: [
+            { name: sRegex },
+            { employeeId: sRegex },
+            { employeeCode: sRegex },
+            { department: sRegex },
+            { designation: sRegex },
+            { clientName: sRegex },
+          ],
+        });
       }
 
+      const empQuery = andList.length > 0 ? { $and: andList } : {};
       const activeEmps = await Employee.find(empQuery).sort({ employeeId: 1 }).lean();
       const attendanceRecords = await Attendance.find({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         date: { $regex: new RegExp(`^${targetMonth}`) },
       }).lean();
 
       activeEmps.forEach((emp) => {
-        let pd = 0;
+        let pd = 26;
         const empAtt = attendanceRecords.filter((a) => a.employeeId === emp.employeeId || a.employeeId === emp.employeeCode);
         if (empAtt.length > 0) {
+          let count = 0;
           empAtt.forEach((a) => {
-            if (a.status === 'present') pd += 1;
-            else if (a.status === 'halfDay') pd += 0.5;
-            if (a.present !== undefined && a.present > 0) pd = Number(a.present);
+            if (a.status === 'present') count += 1;
+            else if (a.status === 'halfDay') count += 0.5;
+            if (a.present !== undefined && a.present > 0) count = Number(a.present);
           });
+          pd = count;
         } else {
-          pd = 0;
+          pd = 26;
         }
 
         const basic = Number(emp.basic) || (emp.salary ? Math.round(emp.salary * 0.5) : 0);
@@ -5718,22 +5787,22 @@ export const getBankTransferReport = async (req, res) => {
  */
 export const getRegisterOfLeaveReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, leaveType, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
     // 1. Resolve Establishment Details (Image 1 Header Box)
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let establishmentName = branding.name;
     let establishmentAddress = branding.address;
     let registrationNo = branding.registrationNo;
 
     // 2. Query Employees
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (company && company !== 'All Companies') {
       empQuery.$or = [{ companyName: company }, { clientName: company }];
@@ -5776,7 +5845,7 @@ export const getRegisterOfLeaveReport = async (req, res) => {
 
     // 3. Query Leave Balances to calculate Entitlement (Col 5)
     const leaveBalances = await LeaveBalance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       employeeId: { $in: empIds },
     }).lean();
 
@@ -5787,7 +5856,7 @@ export const getRegisterOfLeaveReport = async (req, res) => {
 
     // 4. Query Leave Applications
     const leaveQuery = {
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       ...(empIds.length > 0 ? { employeeId: { $in: empIds } } : {}),
     };
 
@@ -5964,8 +6033,8 @@ export const getRegisterOfLeaveReport = async (req, res) => {
  */
 export const getFormILeaveReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, year, company, department, employee, search } = req.query;
 
     const currentYear = new Date().getFullYear();
@@ -5973,7 +6042,7 @@ export const getFormILeaveReport = async (req, res) => {
     const targetMonth = month || `${yearNum}-10`;
 
     // 1. Resolve Establishment Details dynamically from Company
-    const branding = await resolveCompanyBranding(companyId);
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let establishmentName = branding.name;
     let establishmentAddress = branding.address;
     let registrationNo = branding.registrationNo;
@@ -5981,7 +6050,7 @@ export const getFormILeaveReport = async (req, res) => {
 
     // 2. Query Employees
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (company && company !== 'All Companies') {
       empQuery.$or = [{ companyName: company }, { clientName: company }];
@@ -6028,7 +6097,7 @@ export const getFormILeaveReport = async (req, res) => {
     // 3. Query Leave Balances
     const empIds = employees.map((e) => e.employeeId || e.employeeCode).filter(Boolean);
     const leaveBalances = await LeaveBalance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       employeeId: { $in: empIds },
     }).lean();
 
@@ -6041,7 +6110,7 @@ export const getFormILeaveReport = async (req, res) => {
     const yearStart = `${yearNum}-01-01`;
     const yearEnd = `${yearNum}-12-31`;
     const rawLeaves = await Leave.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       employeeId: { $in: empIds },
       fromDate: { $gte: yearStart, $lte: yearEnd },
     })
@@ -6264,41 +6333,20 @@ export const getFormILeaveReport = async (req, res) => {
  */
 export const getFormIVOvertimeReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, company, department, employee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
     const [yearNum, monthNum] = targetMonth.split('-').map(Number);
 
-    // 1. Resolve Contractor details dynamically from Company collection
-    let contractorName = '';
-    let contractorAddress = '';
-    let regdOffice = '';
-    let contractorPhone = '';
-    let contractorEmail = '';
-
-    let compDoc = null;
-    if (companyId) {
-      compDoc = await Company.findOne({
-        $or: [{ _id: companyId }, { companyId }],
-      }).lean();
-    }
-    if (!compDoc) {
-      compDoc = await Company.findOne({}).lean();
-    }
-
-    if (compDoc) {
-      contractorName = compDoc.name || compDoc.companyName || '';
-      const fullAddr = [compDoc.address, compDoc.city, compDoc.state, compDoc.pinCode].filter(Boolean).join(', ');
-      contractorAddress = fullAddr || compDoc.address || '';
-      regdOffice = compDoc.registeredAddress || contractorAddress || '';
-      contractorPhone = compDoc.phone || '';
-      contractorEmail = compDoc.email || '';
-    }
-
-    if (!contractorName) contractorName = '—';
-    if (!regdOffice) regdOffice = contractorAddress || '—';
+        // 1. Resolve Contractor details dynamically from Company collection
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    const contractorName = branding.name || '—';
+    const contractorAddress = branding.address || '—';
+    const regdOffice = branding.regdOffice || contractorAddress || '—';
+    const contractorPhone = branding.phone || '—';
+    const contractorEmail = branding.email || '—';
 
     // 2. Resolve Establishment and Principal Employer details dynamically from Client / Employee
     let establishmentName = '';
@@ -6325,7 +6373,7 @@ export const getFormIVOvertimeReport = async (req, res) => {
 
     if (!establishmentName) {
       const firstClient = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         status: 'active',
       }).lean();
       if (firstClient) {
@@ -6344,7 +6392,7 @@ export const getFormIVOvertimeReport = async (req, res) => {
 
     // 3. Query Overtime Records from Overtime collection (strictly dynamic for selected month)
     const otQuery = {};
-    if (companyId) otQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) otQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') otQuery.department = department;
 
     let otDocs = await Overtime.find(otQuery).sort({ date: -1, createdAt: -1 }).lean();
@@ -6361,7 +6409,7 @@ export const getFormIVOvertimeReport = async (req, res) => {
     try {
       const payrollRun = await PayrollRun.findOne({
         month: targetMonth,
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       }).lean();
 
       if (payrollRun && Array.isArray(payrollRun.records)) {
@@ -6487,6 +6535,7 @@ export const getFormIVOvertimeReport = async (req, res) => {
     res.json({
       success: true,
       reportType: 'overtime-register-form-iv',
+      companyInfo: branding,
       title: 'Overtime register for workers',
       form: 'FORM IV',
       rule: '[Rules 25 (2)]',
@@ -6559,8 +6608,8 @@ export const getFormIVOvertimeReport = async (req, res) => {
  */
 export const getEmployeePayslipReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, year, company, department, employee, search } = req.query;
 
     const currentYear = new Date().getFullYear();
@@ -6574,19 +6623,44 @@ export const getEmployeePayslipReport = async (req, res) => {
     const totalDaysInMonth = new Date(yearNum, monthNum, 0).getDate();
 
     // 1. Resolve Company Branding dynamically from MongoDB
-    const branding = await resolveCompanyBranding(companyId);
-    let contractorName = branding.name || 'RR SECURITY & FACILITIES';
-    let contractorAddress = branding.address || 'G-75/A, BLOCK-G M.B.EXTN., BADARPUR NEW DELHI-110044';
-    let contractorPhone = branding.phone || '9891325151';
-    let contractorPan = branding.pan || 'DSNHP3718318000';
-    let contractorEsic = branding.registrationNo || branding.cin || '20001853160000999';
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    let contractorName = branding.name || compDoc?.name || 'Company';
+    let contractorAddress = branding.address || compDoc?.address || '';
+    let contractorPhone = branding.phone || compDoc?.phone || compDoc?.contactNumber || '';
+    let contractorPan = branding.pan || compDoc?.pan || '';
+    let contractorEsic = branding.esiNo || branding.employerEsiCode || branding.registrationNo || '';
+
+    // 1b. Resolve Statutory Configuration dynamically from MongoDB
+    const resolvedStat = await resolveStatutoryConfig(companyId, adminEmail);
+    let statutory = resolvedStat?.config;
+    let salaryComponentsMaster = resolvedStat?.salaryComponents || [];
+    if (!statutory) {
+      statutory = await StatutoryConfig.findOne({}).lean();
+    }
+
+    const pfEnabled = statutory?.pf?.enabled !== false;
+    const activePfRate = Array.isArray(statutory?.pf?.pfRates) ? statutory.pf.pfRates.find((r) => r.enabled) : null;
+    const pfEmployeeRate = activePfRate?.employeeRate !== undefined ? Number(activePfRate.employeeRate) : (Number(statutory?.pf?.employeeContribution) || 12);
+    const pfWageCeiling = activePfRate?.wageCeiling !== undefined ? Number(activePfRate.wageCeiling) : (Number(statutory?.pf?.wageCeiling) || 15000);
+    const isPfRestricted = statutory?.pf?.wageCeilingRestricted !== false;
+
+    const esiEnabled = statutory?.esi?.enabled !== false;
+    const activeEsiRate = Array.isArray(statutory?.esi?.esiRates) ? statutory.esi.esiRates.find((r) => r.enabled) : null;
+    const esiEmployeeRate = activeEsiRate?.employeeContribution !== undefined ? Number(activeEsiRate.employeeContribution) : (Number(statutory?.esi?.employeeContribution) || 0.75);
+    const esiEligibilityCeiling = activeEsiRate?.eligibilityWageCeiling !== undefined ? Number(activeEsiRate.eligibilityWageCeiling) : (Number(statutory?.esi?.wageEligibilityLimit) || 21000);
+
+    const ptEnabled = statutory?.pt?.enabled !== false;
+    const ptSlabs = statutory?.ptSlabs || [];
+
+    const lwfEnabled = statutory?.lwf?.enabled !== false;
+    const lwfRules = statutory?.lwfRules || [];
 
     // 2. Query Employees from MongoDB
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (company && company !== 'All Companies') {
-      empQuery.$or = [{ companyName: company }, { clientName: company }];
+      empQuery.$or = [{ companyName: company }, { clientName: company }, { site: company }];
     }
 
     let employees = await Employee.find(empQuery)
@@ -6615,12 +6689,33 @@ export const getEmployeePayslipReport = async (req, res) => {
       );
     }
 
-    // 3. Query dynamic PayrollRun records for targetMonth
+    // 3. Query real-time attendance, advance/loans, damages, and fines from MongoDB
+    const attendanceRecords = await Attendance.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      date: { $regex: new RegExp(`^${targetMonth}`) },
+    }).lean().catch(() => []);
+
+    const advanceLoans = await AdvanceLoanRequest.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      status: { $in: ['approved', 'active', 'Approved', 'Active'] },
+    }).lean().catch(() => []);
+
+    const damageRecords = await DamageLossDeduction.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      date: { $regex: new RegExp(`^${targetMonth}`) },
+    }).lean().catch(() => []);
+
+    const fineRecords = await FineDeduction.find({
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
+      date: { $regex: new RegExp(`^${targetMonth}`) },
+    }).lean().catch(() => []);
+
+    // Also query dynamic PayrollRun records for targetMonth
     let payrollRecordsMap = new Map();
     try {
       const payrollRun = await PayrollRun.findOne({
         month: targetMonth,
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       }).lean();
 
       if (payrollRun && Array.isArray(payrollRun.records)) {
@@ -6638,7 +6733,7 @@ export const getEmployeePayslipReport = async (req, res) => {
     try {
       const slips = await SalarySlip.find({
         month: targetMonth,
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       }).lean();
 
       slips.forEach((s) => {
@@ -6658,21 +6753,46 @@ export const getEmployeePayslipReport = async (req, res) => {
       const prRec = payrollRecordsMap.get(empKey) || {};
       const slipDoc = salarySlipsMap.get(empKey) || {};
 
-      // Attendance values
-      const workingDays = prRec.totalDaysInMonth || slipDoc.workingDays || totalDaysInMonth;
-      const presentDays = prRec.presentDays !== undefined ? prRec.presentDays : (slipDoc.presentDays !== undefined ? slipDoc.presentDays : workingDays);
-      const paidDays = prRec.paidDays !== undefined ? prRec.paidDays : (slipDoc.paidDays !== undefined ? slipDoc.paidDays : presentDays);
-      const lopDays = prRec.lopDays !== undefined ? prRec.lopDays : (slipDoc.lopDays !== undefined ? slipDoc.lopDays : 0);
+      // Match actual attendance for this employee
+      const empAtt = attendanceRecords.filter((a) => a.employeeId === empId || a.employeeId === empCode);
+      let pdCount = 0;
+      let wOffCount = 0;
+      let phCount = 0;
+      let clCount = 0;
+      let slCount = 0;
+      let elCount = 0;
+      let lwpCount = 0;
+      if (empAtt.length > 0) {
+        empAtt.forEach((a) => {
+          if (a.status === 'present') pdCount += 1;
+          else if (a.status === 'halfDay') pdCount += 0.5;
+          else if (a.status === 'onLeave' || a.status === 'leave') elCount += 1;
+          else if (a.status === 'absent') lwpCount += 1;
+          if (a.present !== undefined && a.present > 0) pdCount = Number(a.present);
+          if (a.weekOff !== undefined) wOffCount = Number(a.weekOff);
+          if (a.holidays !== undefined) phCount = Number(a.holidays);
+          if (a.cl !== undefined) clCount = Number(a.cl);
+          if (a.sl !== undefined) slCount = Number(a.sl);
+          if (a.el !== undefined) elCount = Number(a.el);
+        });
+      }
 
       // Calculate Sunday weekly offs in this month
-      let weeklyOffCount = 0;
+      let sundayCount = 0;
       for (let day = 1; day <= totalDaysInMonth; day++) {
-        if (new Date(yearNum, monthNum - 1, day).getDay() === 0) weeklyOffCount++;
+        if (new Date(yearNum, monthNum - 1, day).getDay() === 0) sundayCount++;
       }
+      if (wOffCount === 0) wOffCount = sundayCount;
+
+      // Attendance values
+      const workingDays = prRec.totalDaysInMonth || slipDoc.workingDays || totalDaysInMonth;
+      const presentDays = prRec.presentDays !== undefined ? prRec.presentDays : (slipDoc.presentDays !== undefined ? slipDoc.presentDays : (pdCount > 0 ? pdCount : workingDays));
+      const paidDays = prRec.paidDays !== undefined ? prRec.paidDays : (slipDoc.paidDays !== undefined ? slipDoc.paidDays : presentDays);
+      const lopDays = prRec.lopDays !== undefined ? prRec.lopDays : (slipDoc.lopDays !== undefined ? slipDoc.lopDays : lwpCount);
 
       // Salary structure & rates
       const monthlyGross = Number(emp.salary || emp.grossSalary || (Number(emp.basicSalary || 0) + Number(emp.hra || 0)) || 19000);
-      const basicRate = Number(emp.basicSalary || emp.basicWage || Math.round(monthlyGross * (15000 / 19000)));
+      const basicRate = Number(emp.basicSalary || emp.basicWage || emp.basic || Math.round(monthlyGross * (15000 / 19000)));
       const hraRate = Number(emp.hra || Math.max(0, monthlyGross - basicRate));
       const conveyanceRate = Number(emp.conveyance || emp.transportAllowance || 0);
       const specialRate = Number(emp.specialAllowance || 0);
@@ -6681,10 +6801,10 @@ export const getEmployeePayslipReport = async (req, res) => {
 
       // Earned / Payable earnings
       const prEarnings = prRec.earnings || slipDoc.earningsBreakdown || {};
-      const earnedBasic = Number(prEarnings.basic || Math.round((basicRate / workingDays) * paidDays));
-      const earnedHra = Number(prEarnings.hra || Math.round((hraRate / workingDays) * paidDays));
-      const earnedConveyance = Number(prEarnings.conveyance || Math.round((conveyanceRate / workingDays) * paidDays));
-      const earnedSpecial = Number(prEarnings.specialAllowance || Math.round((specialRate / workingDays) * paidDays));
+      const earnedBasic = Number(prEarnings.basic !== undefined ? prEarnings.basic : Math.round((basicRate / workingDays) * paidDays));
+      const earnedHra = Number(prEarnings.hra !== undefined ? prEarnings.hra : Math.round((hraRate / workingDays) * paidDays));
+      const earnedConveyance = Number(prEarnings.conveyance !== undefined ? prEarnings.conveyance : Math.round((conveyanceRate / workingDays) * paidDays));
+      const earnedSpecial = Number(prEarnings.specialAllowance !== undefined ? prEarnings.specialAllowance : Math.round((specialRate / workingDays) * paidDays));
       const earnedOvertime = Number(prEarnings.overtime || prRec.overtimePay || slipDoc.overtime || 0);
       const earnedOther = Number(prEarnings.otherAllowance || 0);
 
@@ -6692,15 +6812,58 @@ export const getEmployeePayslipReport = async (req, res) => {
         Number(prEarnings.totalGross || prRec.grossSalary || slipDoc.grossSalary) ||
         (earnedBasic + earnedHra + earnedConveyance + earnedSpecial + earnedOvertime + earnedOther);
 
-      // Deductions
+      // Dynamic Deductions
       const prDeductions = prRec.deductions || slipDoc.deductionsBreakdown || {};
-      const pfDeduction = Number(prDeductions.pfEmployee || prDeductions.pf || Math.round(earnedBasic * 0.12));
-      const esiDeduction = Number(prDeductions.esiEmployee || prDeductions.esi || (totalGrossPayable <= 21000 ? Math.ceil(totalGrossPayable * 0.0075) : 0));
-      const ptDeduction = Number(prDeductions.pt || 0);
+
+      let pfDeduction = prDeductions.pfEmployee !== undefined ? Number(prDeductions.pfEmployee) : (prDeductions.pf !== undefined ? Number(prDeductions.pf) : 0);
+      if (!prDeductions.pfEmployee && !prDeductions.pf) {
+        if (pfEnabled && emp.pfApplicable !== false && String(emp.pfApplicable).toLowerCase() !== 'no') {
+          const pfWage = isPfRestricted ? Math.min(earnedBasic, pfWageCeiling) : earnedBasic;
+          pfDeduction = Math.round(pfWage * (pfEmployeeRate / 100));
+        }
+      }
+
+      let esiDeduction = prDeductions.esiEmployee !== undefined ? Number(prDeductions.esiEmployee) : (prDeductions.esi !== undefined ? Number(prDeductions.esi) : 0);
+      if (!prDeductions.esiEmployee && !prDeductions.esi) {
+        if (esiEnabled && emp.esiApplicable !== false && String(emp.esiApplicable).toLowerCase() !== 'no') {
+          if (totalGrossPayable <= esiEligibilityCeiling) {
+            esiDeduction = Math.ceil(totalGrossPayable * (esiEmployeeRate / 100));
+          }
+        }
+      }
+
+      let ptDeduction = Number(prDeductions.pt || 0);
+      if (ptDeduction === 0 && ptEnabled && emp.ptApplicable !== false && String(emp.ptApplicable).toLowerCase() !== 'no') {
+        const empState = emp.state || emp.siteLocation || branding.state || 'Delhi';
+        ptDeduction = calculatePT(totalGrossPayable, empState, ptSlabs, targetMonth, ptEnabled, emp.gender);
+      }
+
       const tdsDeduction = Number(prDeductions.tds || 0);
-      const advanceDeduction = Number(prDeductions.advances || prDeductions.loanEmi || 0);
-      const lwfDeduction = Number(prDeductions.lwf || 0);
-      const otherDeduction = Number(prDeductions.otherDeductions || 0);
+
+      let advanceDeduction = prDeductions.advances !== undefined ? Number(prDeductions.advances) : (prDeductions.loanEmi !== undefined ? Number(prDeductions.loanEmi) : 0);
+      if (advanceDeduction === 0) {
+        const empAdvances = advanceLoans.filter((a) => a.employeeId === empId || a.employeeCode === empCode);
+        advanceDeduction = empAdvances.reduce((sum, a) => {
+          const inst = (a.installments || []).find((i) => i.month === targetMonth && i.status !== 'skipped');
+          return sum + (inst ? Number(inst.amount) : (Number(a.monthlyDeduction) || 0));
+        }, 0);
+      }
+
+      let lwfDeduction = Number(prDeductions.lwf || 0);
+      if (lwfDeduction === 0 && lwfEnabled && emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no') {
+        const empState = emp.state || emp.siteLocation || branding.state || 'Delhi';
+        const lwfCalc = calculateLWF(totalGrossPayable, empState, lwfRules, targetMonth, true, lwfEnabled);
+        lwfDeduction = lwfCalc.employee || 0;
+      }
+
+      let otherDeduction = Number(prDeductions.otherDeductions || 0);
+      if (otherDeduction === 0) {
+        const empDamages = damageRecords.filter((d) => d.employeeId === empId || d.employeeCode === empCode);
+        const empFines = fineRecords.filter((f) => f.employeeId === empId || f.employeeCode === empCode);
+        const damageTotal = empDamages.reduce((sum, d) => sum + (Number(d.amountRecovered || d.amount || 0)), 0);
+        const fineTotal = empFines.reduce((sum, f) => sum + (Number(f.amount || 0)), 0);
+        otherDeduction = damageTotal + fineTotal;
+      }
 
       const totalDeductions =
         Number(prDeductions.totalDeductions || prRec.totalDeductions || slipDoc.totalDeductions) ||
@@ -6762,19 +6925,25 @@ export const getEmployeePayslipReport = async (req, res) => {
         empCardNo: emp.employmentCardNo || emp.cardNo || '—',
         employeeName: (emp.name || '—').toUpperCase(),
         fatherHusbandName: (emp.fatherHusbandName || emp.fatherName || '—').toUpperCase(),
-        designation: (emp.designation || 'HELPER').toUpperCase(),
-        department: (emp.department || 'OFFICE').toUpperCase(),
-        location: (emp.site || emp.clientName || emp.companyName || 'RSAG (GREATER NOIDA U.P.)').toUpperCase(),
+        designation: (emp.designation || 'Staff').toUpperCase(),
+        department: (emp.department || 'Operations').toUpperCase(),
+        location: (emp.site || emp.siteLocation || emp.dutyPost || emp.clientName || emp.companyName || contractorAddress || 'Main Site').toUpperCase(),
         dateOfJoining: dateOfJoiningFormatted,
         paymentMode: emp.paymentMode || 'Bank',
         accountNo: emp.accountNumber || emp.bankAccountNo || emp.accountNo || '—',
-        bankName: (emp.bankName || 'PUNJAB & SINDH BANK').toUpperCase(),
+        bankName: (emp.bankName || '—').toUpperCase(),
         ifscCode: (emp.ifsc || emp.ifscCode || '—').toUpperCase(),
         esiNo: emp.esiNo || emp.esicNo || '—',
         uan: emp.uan || emp.uanNo || '—',
         pan: (emp.pan || emp.panNo || '—').toUpperCase(),
         lwfNo: emp.lwfNo || '—',
         daysPaid: paidDays,
+        status: emp.status || emp.employeeStatus || 'Active',
+        employeeStatus: emp.employeeStatus || emp.status || 'Active',
+        isActive: (emp.status || emp.employeeStatus || 'Active').toLowerCase() === 'active',
+        isHold: Boolean(emp.salaryHold || emp.isHold),
+        salaryHold: Boolean(emp.salaryHold || emp.isHold),
+        holdSalary: Boolean(emp.salaryHold || emp.isHold),
         companyInfo: {
           name: contractorName,
           address: contractorAddress,
@@ -6793,13 +6962,13 @@ export const getEmployeePayslipReport = async (req, res) => {
         attendanceDetails: {
           monthDays: workingDays,
           present: presentDays,
-          wOff: weeklyOffCount,
+          wOff: wOffCount,
           lwp: lopDays,
           payable: paidDays,
-          holiday: '—',
-          cl: '—',
-          sl: '—',
-          el: '—',
+          holiday: phCount > 0 ? phCount : '—',
+          cl: clCount > 0 ? clCount : '—',
+          sl: slCount > 0 ? slCount : '—',
+          el: elCount > 0 ? elCount : '—',
         },
       };
     });
@@ -6882,8 +7051,8 @@ export const getEmployeePayslipReport = async (req, res) => {
  */
 export const getFormIIDeductionsDamageReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, year, company, department, employee, search } = req.query;
 
     const currentYear = new Date().getFullYear();
@@ -6897,14 +7066,14 @@ export const getFormIIDeductionsDamageReport = async (req, res) => {
     const monthLabel = `${monthName} / ${yearNum}`;
 
     // 1. Resolve Employer details dynamically
-    const branding = await resolveCompanyBranding(companyId);
-    let employerName = (branding.name || 'RR SECURITY & FACILITIES').toUpperCase();
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    let employerName = (branding.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase();
     let employerAddress = branding.address || 'G-75/A, BLOCK-G M.B.EXTN. BADARPUR NEW DELHI-110044';
     let employerPhone = branding.phone || '9891325151';
 
     if (company && company !== 'All Companies') {
       const clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { clientName: company },
           { name: company },
@@ -6984,7 +7153,7 @@ export const getFormIIDeductionsDamageReport = async (req, res) => {
     let payrollDeductions = [];
     try {
       const payrollRuns = await PayrollRun.find({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         month: targetMonth,
       }).lean();
 
@@ -7149,6 +7318,7 @@ export const getFormIIDeductionsDamageReport = async (req, res) => {
     res.json({
       success: true,
       reportType: 'register-deductions-damage-salary',
+      companyInfo: branding,
       form: 'FORM-II',
       rule: 'Rules 21 (4)',
       title: 'Register of Deductions for Damage or Loss',
@@ -7231,8 +7401,8 @@ export const getFormIIDeductionsDamageReport = async (req, res) => {
  */
 export const getFormIFinesReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
     const { month, year, company, department, employee, search } = req.query;
 
     const currentYear = new Date().getFullYear();
@@ -7246,14 +7416,14 @@ export const getFormIFinesReport = async (req, res) => {
     const monthLabel = `${monthName} / ${yearNum}`;
 
     // 1. Resolve Employer details dynamically
-    const branding = await resolveCompanyBranding(companyId);
-    let employerName = (branding.name || 'RR SECURITY & FACILITIES').toUpperCase();
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
+    let employerName = (branding.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase();
     let employerAddress = branding.address || 'G-75/A, BLOCK-G M.B.EXTN. BADARPUR NEW DELHI-110044';
     let employerPhone = branding.phone || '9891325151';
 
     if (company && company !== 'All Companies') {
       const clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { clientName: company },
           { name: company },
@@ -7281,7 +7451,7 @@ export const getFormIFinesReport = async (req, res) => {
     let payrollFines = [];
     try {
       const payrollRuns = await PayrollRun.find({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         month: targetMonth,
       }).lean();
 
@@ -7438,6 +7608,7 @@ export const getFormIFinesReport = async (req, res) => {
     res.json({
       success: true,
       reportType: 'register-fines-employer-salary',
+      companyInfo: branding,
       form: 'FORM-I',
       rule: 'Rule-21(4)',
       title: 'Register of Fines',
@@ -7504,8 +7675,9 @@ export const getSalarySheetFormat2Report = getPayrollReport;
  */
 export const getEsiForm7Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const requestedMonth = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
@@ -7553,25 +7725,11 @@ export const getEsiForm7Report = async (req, res) => {
 
     // Build filter query for employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
-    if (user?.email) {
-      andList.push({
-        $or: [
-          { adminEmail: user.email.toLowerCase() },
-          { adminEmail: { $exists: false } },
-          { adminEmail: '' },
-          { adminEmail: null },
-        ],
-      });
+    if (adminEmail) {
+      andList.push({ adminEmail });
     }
 
     if (department && department !== 'All Departments') {
@@ -7616,11 +7774,11 @@ export const getEsiForm7Report = async (req, res) => {
     const employees = await Employee.find(empQuery).sort({ name: 1 }).lean();
 
     // Resolve company and client info dynamically
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -7634,7 +7792,7 @@ export const getEsiForm7Report = async (req, res) => {
       const cName = empWithClient?.clientName || empWithClient?.site;
       if (cName) {
         clientDoc = await Client.findOne({
-          ...(companyId ? { companyId } : {}),
+          ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
           $or: [{ name: cName }, { clientName: cName }, { companyName: cName }],
         }).lean();
       }
@@ -7671,13 +7829,13 @@ export const getEsiForm7Report = async (req, res) => {
     // Fetch Attendance records across the 6 months
     const monthRegexList = months.map((m) => m.monthStr);
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^(${monthRegexList.join('|')})`) },
     }).lean();
 
     // Fetch Saved Payroll Runs across the 6 months
     const savedPayrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: { $in: monthRegexList },
     }).lean();
 
@@ -7886,8 +8044,9 @@ export const getEsiForm7Report = async (req, res) => {
  */
 export const getEsiChallanReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const requestedMonth = req.query.month || (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
@@ -7904,25 +8063,11 @@ export const getEsiChallanReport = async (req, res) => {
 
     // Build filter query for employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
-    if (user?.email) {
-      andList.push({
-        $or: [
-          { adminEmail: user.email.toLowerCase() },
-          { adminEmail: { $exists: false } },
-          { adminEmail: '' },
-          { adminEmail: null },
-        ],
-      });
+    if (adminEmail) {
+      andList.push({ adminEmail });
     }
     if (department && department !== 'All Departments') {
       andList.push({ department });
@@ -7961,13 +8106,13 @@ export const getEsiChallanReport = async (req, res) => {
     }
 
     // Resolve company branding
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     // Resolve client doc if company selected
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -7980,23 +8125,23 @@ export const getEsiChallanReport = async (req, res) => {
     const resolvedCompanyName =
       companyInfo?.name && companyInfo.name !== '—'
         ? companyInfo.name
-        : 'RR SECURITY & FACILITIES';
+        : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     const resolvedCompanyAddress =
       companyInfo?.address && companyInfo.address !== '—'
         ? companyInfo.address
-        : 'G-75/A, BLOCK-G M.B.EXTN., BADARPUR NEW DELHI-110044';
+        : branding?.address || primaryCompany?.address || '';
 
     const esicCode =
       companyInfo?.esiNo && companyInfo.esiNo !== '—'
         ? companyInfo.esiNo
         : companyInfo?.doc?.esicNo ||
           clientDoc?.compliance?.esicNo ||
-          '20001853160000999';
+          branding?.esiNo || '';
 
     // Fetch saved payroll for this month
     const savedPayrollRun = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: requestedMonth,
     }).lean();
 
@@ -8009,7 +8154,7 @@ export const getEsiChallanReport = async (req, res) => {
 
     // Fetch attendance for this month
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${requestedMonth}`) },
     }).lean();
 
@@ -8228,18 +8373,19 @@ export const getEsiChallanReport = async (req, res) => {
  */
 export const getEsiForm1Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     // 1. Resolve Company Info
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     // Resolve client doc if company selected
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -8252,41 +8398,27 @@ export const getEsiForm1Report = async (req, res) => {
     const resolvedCompanyName =
       companyInfo?.name && companyInfo.name !== '—'
         ? companyInfo.name
-        : 'RR SECURITY & FACILITIES';
+        : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     const resolvedCompanyAddress =
       companyInfo?.address && companyInfo.address !== '—'
         ? companyInfo.address
-        : 'G-75/A, BLOCK-G M.B.EXTN., BADARPUR NEW DELHI-110044';
+        : branding?.address || primaryCompany?.address || '';
 
     const esicCode =
       companyInfo?.esiNo && companyInfo.esiNo !== '—'
         ? companyInfo.esiNo
         : companyInfo?.doc?.esicNo ||
           clientDoc?.compliance?.esicNo ||
-          '20001853160000999';
+          branding?.esiNo || '';
 
     // 2. Query Employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
-    if (user?.email) {
-      andList.push({
-        $or: [
-          { adminEmail: user.email.toLowerCase() },
-          { adminEmail: { $exists: false } },
-          { adminEmail: '' },
-          { adminEmail: null },
-        ],
-      });
+    if (adminEmail) {
+      andList.push({ adminEmail });
     }
     if (department && department !== 'All Departments') {
       andList.push({ department });
@@ -8602,8 +8734,9 @@ export const getEsiForm1Report = async (req, res) => {
  */
 export const getEsiSummaryEmployeeReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const requestedMonth = month && month.trim() ? month.trim() : new Date().toISOString().slice(0, 7);
@@ -8613,12 +8746,12 @@ export const getEsiSummaryEmployeeReport = async (req, res) => {
     const daysInMonth = new Date(year, monthNum, 0).getDate();
 
     // 1. Resolve Company / Client Branding
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -8632,32 +8765,25 @@ export const getEsiSummaryEmployeeReport = async (req, res) => {
       ? clientDoc.name || clientDoc.clientName || clientDoc.companyName
       : companyInfo?.name && companyInfo.name !== '—'
       ? companyInfo.name
-      : 'RR SECURITY & FACILITIES';
+      : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     const resolvedCompanyAddress = clientDoc
       ? clientDoc.address || ''
       : companyInfo?.address && companyInfo.address !== '—'
       ? companyInfo.address
-      : 'G-75/A, BLOCK-G M.B.EXTN., BADARPUR NEW DELHI-110044';
+      : branding?.address || primaryCompany?.address || '';
 
     const esicCode =
       companyInfo?.esiNo && companyInfo.esiNo !== '—'
         ? companyInfo.esiNo
         : companyInfo?.doc?.esicNo ||
           clientDoc?.compliance?.esicNo ||
-          '20001853160000999';
+          branding?.esiNo || '';
 
     // 2. Query Employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
 
     if (department && department !== 'All Departments') {
@@ -8691,7 +8817,7 @@ export const getEsiSummaryEmployeeReport = async (req, res) => {
 
     // 3. Query Saved PayrollRun for Requested Month
     const savedPayrollRun = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: requestedMonth,
     }).lean();
 
@@ -8704,7 +8830,7 @@ export const getEsiSummaryEmployeeReport = async (req, res) => {
 
     // 4. Query Attendance for Requested Month
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${requestedMonth}`) },
     }).lean();
 
@@ -8900,8 +9026,9 @@ export const getEsiSummaryEmployeeReport = async (req, res) => {
 
 export const getEsiSummaryLocationReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, fromMonth, toMonth, department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const startMonthStr = (fromMonth && fromMonth.trim()) || (month && month.trim()) || new Date().toISOString().slice(0, 7);
@@ -8923,12 +9050,12 @@ export const getEsiSummaryLocationReport = async (req, res) => {
     const monthName = monthNames[startMonthNum - 1] || 'SEPTEMBER';
 
     // 1. Resolve Company / Client Branding
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -8942,19 +9069,12 @@ export const getEsiSummaryLocationReport = async (req, res) => {
       ? clientDoc.name || clientDoc.clientName || clientDoc.companyName
       : companyInfo?.name && companyInfo.name !== '—'
       ? companyInfo.name
-      : 'RR SECURITY & FACILITIES';
+      : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     // 2. Query Employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
 
     if (department && department !== 'All Departments') {
@@ -8988,7 +9108,7 @@ export const getEsiSummaryLocationReport = async (req, res) => {
 
     // 3. Query Saved PayrollRun
     const savedPayrollRun = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: startMonthStr,
     }).lean();
 
@@ -9001,7 +9121,7 @@ export const getEsiSummaryLocationReport = async (req, res) => {
 
     // 4. Query Attendance
     const attendanceRecords = await Attendance.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       date: { $regex: new RegExp(`^${startMonthStr}`) },
     }).lean();
 
@@ -9228,8 +9348,9 @@ export const getEsiSummaryLocationReport = async (req, res) => {
 
 export const getEsicForm3Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const requestedMonth = month && month.trim() ? month.trim() : new Date().toISOString().slice(0, 7);
@@ -9238,12 +9359,12 @@ export const getEsicForm3Report = async (req, res) => {
     const monthNum = parseInt(monthStr, 10) || new Date().getMonth() + 1;
 
     // 1. Resolve Company / Client Branding
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -9257,32 +9378,25 @@ export const getEsicForm3Report = async (req, res) => {
       ? clientDoc.name || clientDoc.clientName || clientDoc.companyName
       : companyInfo?.name && companyInfo.name !== '—'
       ? companyInfo.name
-      : 'RR SECURITY & FACILITIES';
+      : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     const resolvedCompanyAddress = clientDoc
       ? clientDoc.address || clientDoc.siteAddress || ''
       : companyInfo?.address && companyInfo.address !== '—'
       ? companyInfo.address
-      : 'G-75/A, BLOCK-G M.B.EXTN., BADARPUR NEW DELHI-110044';
+      : branding?.address || primaryCompany?.address || '';
 
     const esicCode =
       companyInfo?.esiNo && companyInfo.esiNo !== '—'
         ? companyInfo.esiNo
         : companyInfo?.doc?.esicNo ||
           clientDoc?.compliance?.esicNo ||
-          '20001853160000999';
+          branding?.esiNo || '';
 
     // 2. Query Employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
 
     if (department && department !== 'All Departments') {
@@ -9422,8 +9536,9 @@ export const getEsicForm3Report = async (req, res) => {
  */
 export const getEsicForm5Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const requestedMonth = month && month.trim() ? month.trim() : new Date().toISOString().slice(0, 7);
@@ -9467,12 +9582,12 @@ export const getEsicForm5Report = async (req, res) => {
     }
 
     // 2. Resolve Company & Client / Principal Employer Branding
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -9486,7 +9601,7 @@ export const getEsicForm5Report = async (req, res) => {
       ? clientDoc.name || clientDoc.clientName || clientDoc.companyName
       : companyInfo?.name && companyInfo.name !== '—'
       ? companyInfo.name
-      : 'RR SECURITY & FACILITIES';
+      : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     const resolvedCompanyAddress = clientDoc
       ? clientDoc.address || clientDoc.siteAddress || ''
@@ -9499,7 +9614,7 @@ export const getEsicForm5Report = async (req, res) => {
         ? companyInfo.esiNo
         : companyInfo?.doc?.esicNo ||
           clientDoc?.compliance?.esicNo ||
-          '20001853160000999';
+          branding?.esiNo || '';
 
     const branchOffice =
       clientDoc?.branch ||
@@ -9539,15 +9654,8 @@ export const getEsicForm5Report = async (req, res) => {
 
     // 3. Filter Eligible Employees
     const andList = [];
-    if (companyId) {
-      andList.push({
-        $or: [
-          { companyId },
-          { companyId: { $exists: false } },
-          { companyId: '' },
-          { companyId: null },
-        ],
-      });
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) {
+      andList.push({ companyId: { $in: resolvedCompanyIds } });
     }
 
     if (department && department !== 'All Departments') {
@@ -9595,11 +9703,11 @@ export const getEsicForm5Report = async (req, res) => {
 
     const [attendanceRecords, savedPayrollRuns] = await Promise.all([
       Attendance.find({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         date: { $regex: new RegExp(`^(${monthStrings.join('|')})`) },
       }).lean().catch(() => []),
       PayrollRun.find({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         month: { $in: monthStrings },
       }).lean().catch(() => []),
     ]);
@@ -9906,8 +10014,9 @@ export const getEsicForm5Report = async (req, res) => {
  */
 export const getForm11AccidentBookReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     const requestedMonth = month && month.trim() ? month.trim() : new Date().toISOString().slice(0, 7);
@@ -9917,12 +10026,12 @@ export const getForm11AccidentBookReport = async (req, res) => {
     const monthLabel = getMonthLabel(requestedMonth);
 
     // Resolve Company Branding & Client
-    const companyInfo = await resolveCompanyBranding(companyId);
+    const companyInfo = await resolveCompanyBranding(primaryCompanyId, adminEmail);
 
     let clientDoc = null;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       clientDoc = await Client.findOne({
-        ...(companyId ? { companyId } : {}),
+        ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
         $or: [
           { name: selectedCompany },
           { clientName: selectedCompany },
@@ -9936,7 +10045,7 @@ export const getForm11AccidentBookReport = async (req, res) => {
       ? clientDoc.name || clientDoc.clientName || clientDoc.companyName
       : companyInfo?.name && companyInfo.name !== '—'
       ? companyInfo.name
-      : 'RR SECURITY & FACILITIES';
+      : (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     const resolvedCompanyAddress = clientDoc
       ? clientDoc.address || clientDoc.siteAddress || ''
@@ -10066,14 +10175,13 @@ export const getForm11AccidentBookReport = async (req, res) => {
  */
 export const getEpfForm11Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const primaryCompany =
       allCompanies.find((c) => c.companyId === companyId) ||
@@ -10085,7 +10193,7 @@ export const getEpfForm11Report = async (req, res) => {
     const companyPfCode = String(rawPfCode).trim();
 
     const defaultCompanyInfo = {
-      name: (primaryCompany?.name || 'RR SECURITY & FACILITIES').toUpperCase(),
+      name: (primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase(),
       code: primaryCompany?.code || 'RRS',
       address:
         primaryCompany?.address ||
@@ -10099,7 +10207,7 @@ export const getEpfForm11Report = async (req, res) => {
     };
 
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }];
@@ -10274,8 +10382,9 @@ export const getEpfForm11Report = async (req, res) => {
  */
 export const getPfChallanReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const requestedMonth =
       req.query.month ||
       (req.query.fromDate ? req.query.fromDate.slice(0, 7) : new Date().toISOString().slice(0, 7));
@@ -10290,25 +10399,21 @@ export const getPfChallanReport = async (req, res) => {
     const monthShortYear = `${(monthNamesShort[monthNum - 1] || 'oct').toLowerCase()}-${String(year).slice(-2)}`;
 
     // 1. Fetch Primary Admin Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = (primaryCompany?.name || 'RR SECURITY & FACILITIES').toUpperCase();
+    const adminCompanyName = (primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase();
     const adminCompanyAddress = (
       primaryCompany?.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI'
+      branding?.address || primaryCompany?.address || ''
     ).trim();
 
-    const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || 'DSNHP3718318000';
-    const establishmentCode = String(rawPfCode).trim() || 'DSNHP3718318000';
+    const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || branding?.pfNo || '';
+    const establishmentCode = String(rawPfCode).trim() || branding?.pfNo || '';
 
     // 2. Fetch Employees matching company/filters
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -10332,7 +10437,7 @@ export const getPfChallanReport = async (req, res) => {
 
     // 3. Fetch Saved PayrollRun if available
     const savedPayrollRun = await PayrollRun.findOne({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: requestedMonth,
     }).lean();
 
@@ -10564,8 +10669,9 @@ export const getPfChallanReport = async (req, res) => {
  */
 export const getPfForm3AReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
     let startYear = 2025;
@@ -10592,25 +10698,21 @@ export const getPfForm3AReport = async (req, res) => {
     const currencyPeriodLabel = `01 Apr ${startYear} to 31 Mar ${endYear}`;
 
     // 1. Fetch Primary Admin Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = (primaryCompany?.name || 'RR SECURITY & FACILITIES').toUpperCase();
+    const adminCompanyName = (primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase();
     const adminCompanyAddress = (
       primaryCompany?.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI'
+      branding?.address || primaryCompany?.address || ''
     ).trim();
 
-    const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || 'DSNHP3718318000';
-    const establishmentCode = String(rawPfCode).trim() || 'DSNHP3718318000';
+    const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || branding?.pfNo || '';
+    const establishmentCode = String(rawPfCode).trim() || branding?.pfNo || '';
 
     // 2. Fetch Employees
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -10650,7 +10752,7 @@ export const getPfForm3AReport = async (req, res) => {
 
     const monthKeys = fyMonths.map((m) => m.key);
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: { $in: monthKeys },
     }).lean();
 
@@ -10878,8 +10980,9 @@ export const getPfForm3AReport = async (req, res) => {
  */
 export const getPfForm5Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, company: selectedCompany, department, employee: selectedEmployee, search, qualifyScope } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -10891,25 +10994,21 @@ export const getPfForm5Report = async (req, res) => {
     const monthLabel = `${monthName} ${yearNum}`;
 
     // 1. Fetch Primary Admin Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
+    const adminCompanyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
     const adminCompanyAddress = (
       primaryCompany?.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044'
+      branding?.address || primaryCompany?.address || ''
     ).trim();
 
     const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || '';
-    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : 'PFNOTAVAILABLE';
+    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : branding?.pfNo || '';
 
     // 2. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -10986,7 +11085,7 @@ export const getPfForm5Report = async (req, res) => {
     const records = qualifyingEmployees.map((emp, idx) => {
       let accountNo = emp.pfNo || '';
       if (!accountNo) {
-        if (establishmentCode && establishmentCode !== 'PFNOTAVAILABLE') {
+        if (establishmentCode && establishmentCode !== branding?.pfNo || '') {
           accountNo = `${establishmentCode}/000/${emp.employeeCode || emp.employeeId}`;
         } else if (emp.uan) {
           accountNo = emp.uan;
@@ -11086,8 +11185,9 @@ export const getPfForm5Report = async (req, res) => {
  */
 export const getPfForm6AReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { financialYear, month, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     // 1. Resolve Currency Period (12 Months)
@@ -11122,25 +11222,21 @@ export const getPfForm6AReport = async (req, res) => {
     }
 
     // 2. Fetch Primary Admin Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
+    const adminCompanyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
     const adminCompanyAddress = (
       primaryCompany?.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044'
+      branding?.address || primaryCompany?.address || ''
     ).trim();
 
     const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || '';
-    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : 'PFNOTAVAILABLE';
+    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : branding?.pfNo || '';
 
     // 3. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -11188,7 +11284,7 @@ export const getPfForm6AReport = async (req, res) => {
 
     const monthKeys = currencyMonths.map((m) => m.key);
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: { $in: monthKeys },
     }).lean();
 
@@ -11487,8 +11583,9 @@ export const getPfForm6AReport = async (req, res) => {
  */
 export const getPfForm10Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, company: selectedCompany, department, employee: selectedEmployee, search, leavingScope } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -11500,25 +11597,21 @@ export const getPfForm10Report = async (req, res) => {
     const monthLabel = `${monthName} ${yearNum}`;
 
     // 1. Fetch Primary Admin Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
+    const adminCompanyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
     const adminCompanyAddress = (
       primaryCompany?.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044'
+      branding?.address || primaryCompany?.address || ''
     ).trim();
 
     const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || '';
-    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : 'PFNOTAVAILABLE';
+    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : branding?.pfNo || '';
 
     // 2. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -11617,7 +11710,7 @@ export const getPfForm10Report = async (req, res) => {
     const records = qualifyingEmployees.map((emp, idx) => {
       let accountNo = emp.pfNo || '';
       if (!accountNo) {
-        if (establishmentCode && establishmentCode !== 'PFNOTAVAILABLE') {
+        if (establishmentCode && establishmentCode !== branding?.pfNo || '') {
           accountNo = `${establishmentCode}/000/${emp.employeeCode || emp.employeeId}`;
         } else if (emp.uan) {
           accountNo = emp.uan;
@@ -11699,8 +11792,9 @@ export const getPfForm10Report = async (req, res) => {
  */
 export const getPfForm12AReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -11717,25 +11811,21 @@ export const getPfForm12AReport = async (req, res) => {
     const currencyPeriod = `01 April ${fyStartYear} to 31 March ${fyEndYear}`;
 
     // 1. Fetch Primary Admin Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
+    const adminCompanyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
     const adminCompanyAddress = (
       primaryCompany?.address ||
-      'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur, SOUTH DELHI - 110044'
+      branding?.address || primaryCompany?.address || ''
     ).trim();
 
     const rawPfCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || '';
-    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : 'PFNOTAVAILABLE';
+    const establishmentCode = rawPfCode && String(rawPfCode).trim() ? String(rawPfCode).trim() : branding?.pfNo || '';
 
     // 2. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -11759,7 +11849,7 @@ export const getPfForm12AReport = async (req, res) => {
 
     // 3. Fetch Payroll for target month
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
 
@@ -12016,8 +12106,9 @@ export const getPfForm12AReport = async (req, res) => {
  */
 export const getPfEcrReport = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -12028,19 +12119,15 @@ export const getPfEcrReport = async (req, res) => {
     const monthLabel = `${monthName} ${yearNum}`;
 
     // 1. Fetch Primary Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const adminCompanyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
-    const establishmentCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || 'PFNOTAVAILABLE';
+    const adminCompanyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
+    const establishmentCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || branding?.pfNo || '';
 
     // 2. Build Employee Query
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -12072,7 +12159,7 @@ export const getPfEcrReport = async (req, res) => {
 
     // 3. Fetch Saved Payroll for target month
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
 
@@ -12272,8 +12359,9 @@ export const getPfEcrReport = async (req, res) => {
  */
 export const getPfReportEmployeeWise = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -12285,22 +12373,18 @@ export const getPfReportEmployeeWise = async (req, res) => {
     const forMonthString = `${monthNum},${yearNum}`;
 
     // 1. Fetch Primary Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const companyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
-    const establishmentCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || 'PFNOTAVAILABLE';
+    const companyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
+    const establishmentCode = primaryCompany?.employerPfCode || primaryCompany?.pfCode || primaryCompany?.pfNo || branding?.pfNo || '';
     const locationName = selectedCompany && selectedCompany !== 'All Companies'
       ? selectedCompany
       : (primaryCompany?.site || primaryCompany?.clientName || 'Petal communication');
 
     // 2. Fetch Employees matching filter
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -12332,7 +12416,7 @@ export const getPfReportEmployeeWise = async (req, res) => {
 
     // 3. Fetch Saved Payroll for target month
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
 
@@ -12487,6 +12571,7 @@ export const getPfReportEmployeeWise = async (req, res) => {
     return res.status(200).json({
       success: true,
       reportType: 'pf-report-employee-wise',
+      companyInfo: branding,
       title: 'EMPLOYEE WISE MONTHLY PF REPORT',
       companyName,
       month: targetMonth,
@@ -12562,8 +12647,9 @@ export const getPfReportEmployeeWise = async (req, res) => {
  */
 export const getPfReportLocationWise = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { month, company: selectedCompany, department, employee: selectedEmployee, search } = req.query;
 
     const targetMonth = month || `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -12574,18 +12660,14 @@ export const getPfReportLocationWise = async (req, res) => {
     const headerSubtitle = `PF Summary Report Form month: ${monthName},${yearNum} To ${monthName},${yearNum}`;
 
     // 1. Fetch Primary Company details
-    const allCompanies = await Company.find({}).lean();
-    const primaryCompany =
-      allCompanies.find((c) => c.companyId === companyId) ||
-      allCompanies.find((c) => c.isDefault) ||
-      allCompanies[0] ||
-      null;
+    const allCompanies = compDoc ? [compDoc] : [];
+    const primaryCompany = compDoc || null;
 
-    const companyName = primaryCompany?.name || 'RR SECURITY & FACILITIES';
+    const companyName = primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase();
 
     // 2. Fetch Employees
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -12617,7 +12699,7 @@ export const getPfReportLocationWise = async (req, res) => {
 
     // 3. Fetch Saved Payroll for target month
     const payrollRuns = await PayrollRun.find({
-      ...(companyId ? { companyId } : {}),
+      ...(resolvedCompanyIds && resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}),
       month: targetMonth,
     }).lean();
 
@@ -12768,6 +12850,7 @@ export const getPfReportLocationWise = async (req, res) => {
     return res.status(200).json({
       success: true,
       reportType: 'pf-report-location-wise',
+      companyInfo: branding,
       title: 'PF Report Location Wise',
       companyName,
       headerSubtitle,
@@ -12822,14 +12905,13 @@ export const getPfReportLocationWise = async (req, res) => {
  */
 export const getPfForm2Report = async (req, res) => {
   try {
-    const user = req.user;
-    const companyId = req.headers['x-company-id'] || req.query.companyId || user?.companyId;
+    const { compDoc, resolvedCompanyIds, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+    const companyId = primaryCompanyId;
+    const branding = await resolveCompanyBranding(primaryCompanyId, adminEmail);
     const { department, employee: selectedEmployee, company: selectedCompany, search } = req.query;
 
-    const [allCompanies, allClients] = await Promise.all([
-      Company.find({}).lean(),
-      Client.find(companyId ? { companyId } : {}).lean(),
-    ]);
+    const allCompanies = compDoc ? [compDoc] : [];
+    const allClients = await Client.find(resolvedCompanyIds.length > 0 ? { companyId: { $in: resolvedCompanyIds } } : {}).lean();
 
     const primaryCompany =
       allCompanies.find((c) => c.companyId === companyId) ||
@@ -12841,11 +12923,11 @@ export const getPfForm2Report = async (req, res) => {
     const companyPfCode = String(rawPfCode).trim();
 
     const defaultCompanyInfo = {
-      name: (primaryCompany?.name || 'RR SECURITY & FACILITIES').toUpperCase(),
+      name: (primaryCompany?.name || (branding?.name || primaryCompany?.name || compDoc?.name || 'Company').toUpperCase()).toUpperCase(),
       code: primaryCompany?.code || 'RRS',
       address:
         primaryCompany?.address ||
-        'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044',
+        branding?.address || primaryCompany?.address || '',
       city: primaryCompany?.city || 'South Delhi',
       state: primaryCompany?.state || 'Delhi',
       pinCode: primaryCompany?.pinCode || '110044',
@@ -12853,7 +12935,7 @@ export const getPfForm2Report = async (req, res) => {
     };
 
     const empQuery = {};
-    if (companyId) empQuery.companyId = companyId;
+    if (resolvedCompanyIds && resolvedCompanyIds.length > 0) empQuery.companyId = { $in: resolvedCompanyIds };
     if (department && department !== 'All Departments') empQuery.department = department;
     if (selectedCompany && selectedCompany !== 'All Companies') {
       empQuery.$or = [{ companyName: selectedCompany }, { clientName: selectedCompany }, { site: selectedCompany }];
@@ -13068,6 +13150,102 @@ export const getPfForm2Report = async (req, res) => {
   } catch (error) {
     console.error('Error in getPfForm2Report:', error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * @desc    Get company report options for a specific report or all reports from MongoDB
+ * @route   GET /api/reports/options/:reportType?
+ * @access  Private (Admin)
+ */
+export const getReportOptions = async (req, res) => {
+  try {
+    const { reportType } = req.params;
+    const { compDoc, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+
+    let company = compDoc;
+    if (!company) {
+      if (primaryCompanyId) company = await Company.findById(primaryCompanyId);
+      if (!company && adminEmail) company = await Company.findOne({ adminEmail });
+      if (!company) company = (await Company.findOne({ isDefault: true })) || (await Company.findOne({}));
+    }
+
+    const reportOptionsMap = company?.preferences?.reportOptions || {};
+    const options = reportType ? (reportOptionsMap[reportType] || null) : reportOptionsMap;
+
+    return res.status(200).json({
+      success: true,
+      reportType,
+      options,
+      allReportOptions: reportOptionsMap,
+    });
+  } catch (error) {
+    console.error('getReportOptions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to retrieve report options',
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Save company report options to MongoDB
+ * @route   PUT /api/reports/options/:reportType
+ * @access  Private (Admin)
+ */
+export const saveReportOptions = async (req, res) => {
+  try {
+    const { reportType } = req.params;
+    const { options } = req.body;
+    const { compDoc, primaryCompanyId, adminEmail } = await resolveTenantContext(req);
+
+    let company = compDoc;
+    if (!company) {
+      if (primaryCompanyId) company = await Company.findById(primaryCompanyId);
+      if (!company && adminEmail) company = await Company.findOne({ adminEmail });
+      if (!company) company = (await Company.findOne({ isDefault: true })) || (await Company.findOne({}));
+    }
+
+    if (!company) {
+      return res.status(404).json({
+        success: false,
+        message: 'Company document not found to save report options',
+      });
+    }
+
+    if (!company.preferences) {
+      company.preferences = {};
+    }
+    if (!company.preferences.reportOptions) {
+      company.preferences.reportOptions = {};
+    }
+
+    if (reportType) {
+      company.preferences.reportOptions[reportType] = options;
+    } else if (options && typeof options === 'object') {
+      company.preferences.reportOptions = {
+        ...company.preferences.reportOptions,
+        ...options,
+      };
+    }
+
+    company.markModified('preferences');
+    await company.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Report options for ${reportType || 'reports'} saved successfully to company database`,
+      reportType,
+      options: company.preferences.reportOptions[reportType],
+    });
+  } catch (error) {
+    console.error('saveReportOptions error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to save report options',
+      error: error.message,
+    });
   }
 };
 

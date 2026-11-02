@@ -68,7 +68,7 @@ export function SingleIdCardItem({ record = {}, companyInfo = {} }) {
     companyInfo?.companyName ||
     savedSetup?.companyName ||
     localDefaultComp?.name ||
-    'RR SECURITY & FACILITIES'
+    ''
   ).toUpperCase();
 
   const companyAddress =
@@ -77,7 +77,7 @@ export function SingleIdCardItem({ record = {}, companyInfo = {} }) {
     (companyInfo?.address && companyInfo.address !== '—' ? companyInfo.address : null) ||
     savedSetup?.address ||
     localDefaultComp?.address ||
-    'G-75/A, New Delhi, Badarpur,Block-G, M.B.Extn,Badarpur,NEW DELHI,110044';
+    '';
 
   const companyContactPhone =
     recComp.phone ||
@@ -86,7 +86,7 @@ export function SingleIdCardItem({ record = {}, companyInfo = {} }) {
     savedSetup?.phone ||
     savedSetup?.contactNumber ||
     localDefaultComp?.phone ||
-    '9891325151';
+    '';
 
   const companyContactEmail =
     recComp.email ||
@@ -94,7 +94,7 @@ export function SingleIdCardItem({ record = {}, companyInfo = {} }) {
     (companyInfo?.email && companyInfo.email !== '—' ? companyInfo.email : null) ||
     savedSetup?.email ||
     localDefaultComp?.email ||
-    'office.rrsf@gmail.com';
+    '';
 
   const logo =
     recComp.logo ||
@@ -110,7 +110,7 @@ export function SingleIdCardItem({ record = {}, companyInfo = {} }) {
   const gender = record.gender || 'Female';
   const bloodGroup = record.bloodGroup || record.blood || 'B+ve';
   const designation = record.designation || 'Office Assistant';
-  const contactNo = record.contact || record.phone || record.mobile || '9891325151';
+  const contactNo = record.contact || record.phone || record.mobile || '';
   const email = record.email || (name && name !== '—' ? `${name.toLowerCase().replace(/[^a-z0-9]/g, '')}@gmail.com` : '—');
   const photo = record.photo || record.employeePhoto || '';
 

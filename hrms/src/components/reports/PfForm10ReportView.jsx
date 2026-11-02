@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Download,
   Printer,
@@ -38,9 +38,9 @@ export default function PfForm10ReportView({
     return allRecords;
   }, [allRecords, scope]);
 
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur, SOUTH DELHI - 110044';
-  const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
+  const estCode = comp.establishmentCode || comp.employerPfCode || comp.employerPfCode || comp.pfNo || '';
 
   const handleDownloadPdf = () => {
     downloadPfForm10Pdf({
@@ -58,60 +58,7 @@ export default function PfForm10ReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar (PDF ONLY format) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>EPFO Statutory Form 10</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <UserX size={15} />
-            <span>{displayedRecords.length} Leaving Member{displayedRecords.length === 1 ? '' : 's'}</span>
-          </span>
-
-          {allRecords.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Filter size={14} style={{ color: '#64748b' }} />
-              <select
-                className={styles.scopeSelect}
-                value={scope}
-                onChange={(e) => setScope(e.target.value)}
-                aria-label="Filter Scope"
-              >
-                <option value="auto">
-                  {hasMonthExited ? `Left in ${monthLabel} (${reportData.monthExitedCount || displayedRecords.length})` : 'All Exited Members'}
-                </option>
-                <option value="monthOnly">Only Exited in {monthLabel} ({reportData.monthExitedCount || 0})</option>
-                <option value="all">All Relieved &amp; Exited Staff ({reportData.allExitedCount || allRecords.length})</option>
-              </select>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.primaryBtn}`}
-            onClick={handleDownloadPdf}
-            title="Download Official Form 10 PDF"
-          >
-            <Download size={14} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handlePrint}
-            title="Print Official Form 10"
-          >
-            <Printer size={14} />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* Official Form 10 Printable Paper Container */}
       <div className={styles.paperWrap}>

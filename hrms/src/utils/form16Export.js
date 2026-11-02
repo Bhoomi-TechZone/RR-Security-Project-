@@ -55,7 +55,7 @@ export async function downloadForm16Pdf(
     // Dynamic Employer details resolution
     const comp = record.companyInfo || globalCompanyInfo || {};
     const employerName =
-      options.companyName || record.companyName || comp.name || 'RR SECURITY & FACILITIES';
+      comp.name || options.companyName || record.companyName || '';
     const employerAddress =
       options.companyAddress ||
       record.companyAddress ||

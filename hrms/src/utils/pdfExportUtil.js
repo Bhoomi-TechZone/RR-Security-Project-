@@ -43,10 +43,10 @@ export const generateReportPdf = async ({
     return;
   }
 
-  const companyName = companyInfo.name || 'RR Security & Facilities';
-  const companyAddress = companyInfo.address || 'G/75A Block-G M.B. Exten. Badarpur New Delhi-110044';
-  const pfNo = companyInfo.pfNo || 'DSNHP3718318000';
-  const esiNo = companyInfo.esiNo || companyInfo.esicNo || '20001853160000999';
+  const companyName = companyInfo.name || companyInfo.companyName || '';
+  const companyAddress = companyInfo.address || '';
+  const pfNo = companyInfo.pfNo || companyInfo.employerPfCode || '';
+  const esiNo = companyInfo.esiNo || companyInfo.employerEsiCode || '';
   const monthLabel = period.monthLabel || period.month || 'Current Month';
   const paymentDate = period.toDate || new Date().toISOString().slice(0, 10);
 

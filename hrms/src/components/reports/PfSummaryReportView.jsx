@@ -28,7 +28,7 @@ export default function PfSummaryReportView({
   const locations = safeData.locations || safeData.records || [];
   const grandTotal = safeData.grandTotal || {};
   const companyInfo = safeData.companyInfo || {};
-  const companyName = safeData.companyName || companyInfo.name || 'RR SECURITY & FACILITIES';
+  const companyName = companyInfo.name || safeData.companyName || '';
 
   const monthName = (safeData.monthName || 'SEPTEMBER').toUpperCase();
   const year = safeData.year || 2026;
@@ -70,101 +70,6 @@ export default function PfSummaryReportView({
 
   return (
     <div className={styles.container}>
-      {/* 1. Header Toolbar (Strictly PDF format only) */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <div className={styles.titleBadge}>
-            <FileText size={18} className={styles.iconRed} />
-            <div>
-              <h2 className={styles.reportTitle}>PF Summry Report</h2>
-              <span className={styles.reportSubtitle}>Consolidated Monthly PF Statutory Liability Summary</span>
-            </div>
-          </div>
-
-          <div className={styles.filterBadges}>
-            <span className={styles.metaBadge}>
-              <Calendar size={14} />
-              <span>{monthName}, {year}</span>
-            </span>
-            <span className={styles.metaBadge}>
-              <Building2 size={14} />
-              <span>{totalLocations} Locations</span>
-            </span>
-            <span className={styles.metaBadge}>
-              <Users size={14} />
-              <span>{totalEmployees} Employees</span>
-            </span>
-          </div>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnPrimary}`}
-            onClick={handleDownloadPdf}
-            title="Download Official PF Summary Report in PDF format"
-          >
-            <Download size={15} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.btn} ${styles.btnOutline}`}
-            onClick={handlePrintPdf}
-            title="Print Official PF Summary Report"
-          >
-            <Printer size={15} />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Top Summary KPI Cards */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#e0f2fe', color: '#0284c7' }}>
-            <Building2 size={20} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>Total Locations</div>
-            <div className={styles.kpiValue}>{totalLocations}</div>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#ecfdf5', color: '#059669' }}>
-            <Users size={20} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>Total PF Subscribers</div>
-            <div className={styles.kpiValue}>{totalEmployees}</div>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#fef3c7', color: '#d97706' }}>
-            <IndianRupee size={20} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>Total PF Wages</div>
-            <div className={styles.kpiValue}>₹{totalWages.toLocaleString('en-IN')}</div>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiIconBox} style={{ background: '#fee2e2', color: '#dc2626' }}>
-            <Layers size={20} />
-          </div>
-          <div>
-            <div className={styles.kpiLabel}>Total PF Remittance</div>
-            <div className={styles.kpiValue} style={{ color: '#dc2626' }}>
-              ₹{totalContribution.toLocaleString('en-IN')}
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 3. Search Bar */}
       <div className={styles.searchSection}>
         <div className={styles.searchBox}>

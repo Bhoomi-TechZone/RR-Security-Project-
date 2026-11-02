@@ -40,9 +40,9 @@ export default function PfForm6AReportView({
   // View switch: 'all' | 'statement' | 'remittance'
   const [activeView, setActiveView] = useState('all');
 
-  const estName = comp.name || 'RR Security & Facilities';
-  const estAddress = comp.address || 'G-75/a, Gali No. 04 Block G Molarband Extn. Badarpur SOUTH DELHI - 110044';
-  const estCode = comp.establishmentCode || comp.employerPfCode || 'PFNOTAVAILABLE';
+  const estName = comp.name || comp.companyName || '';
+  const estAddress = comp.address || '';
+  const estCode = comp.establishmentCode || comp.employerPfCode || comp.employerPfCode || comp.pfNo || '';
 
   const formatRupee = (val) => {
     const num = Number(val || 0);
@@ -67,91 +67,7 @@ export default function PfForm6AReportView({
 
   return (
     <div className={styles.container}>
-      {/* Top Action Toolbar */}
-      <div className={styles.toolbar}>
-        <div className={styles.toolbarLeft}>
-          <span className={styles.badge}>
-            <ShieldCheck size={16} />
-            <span>Form 6A REVISED</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgeSuccess}`}>
-            <Users size={15} />
-            <span>{members.length} Enclosed Cards</span>
-          </span>
-
-          <span className={`${styles.badge} ${styles.badgePurple}`}>
-            <CreditCard size={15} />
-            <span>Aggregate Costs: ₹{formatRupee(totals.aggregateCosts || 0)}</span>
-          </span>
-
-          <div className={styles.tabPills}>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeView === 'all' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveView('all')}
-            >
-              Full Return
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeView === 'statement' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveView('statement')}
-            >
-              Member Statement
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeView === 'remittance' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveView('remittance')}
-            >
-              Remittance Reconciliation
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.toolbarRight}>
-          <button
-            type="button"
-            className={`${styles.actionBtn} ${styles.primaryBtn}`}
-            onClick={handleDownloadPdf}
-            title="Download Official Statutory PDF"
-          >
-            <Download size={14} />
-            <span>Download PDF</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handleExportExcel}
-            title="Download Multi-Sheet Excel"
-          >
-            <FileSpreadsheet size={14} />
-            <span>Excel</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handleExportCsv}
-            title="Download CSV"
-          >
-            <FileText size={14} />
-            <span>CSV</span>
-          </button>
-
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={handlePrint}
-            title="Print Official Form 6A"
-          >
-            <Printer size={14} />
-            <span>Print</span>
-          </button>
-        </div>
-      </div>
+      
 
       {/* Official Form 6A Desk Backdrop */}
       <div className={styles.paperWrap}>
