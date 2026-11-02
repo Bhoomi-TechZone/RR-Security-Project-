@@ -1048,8 +1048,8 @@
 
 .pfGridContainer {
   display: grid;
-  grid-template-columns: 46% 51%;
-  gap: 28px;
+  grid-template-columns: 40% 58%;
+  gap: 20px;
   align-items: start;
   margin-top: 8px;
 }
