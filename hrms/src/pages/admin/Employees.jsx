@@ -356,22 +356,12 @@ function Employees() {
     } else if (actionType === 'payslip') {
       setPayslipEmployee(employee);
       setIsPayslipOpen(true);
-    } else if (actionType === 'delete') {
-      setConfirmModal({
-        isOpen: true,
-        title: 'Delete Employee?',
-        description: `Are you sure you want to permanently delete ${employee.name} (${employee.employeeId || employee.id})? This action will remove the record from the database and cannot be undone.`,
-        confirmLabel: 'Delete Employee',
-        variant: 'danger',
-        employee,
-        actionType: 'delete',
-      });
-    } else if (actionType === 'deactivate') {
+    } else if (actionType === 'delete' || actionType === 'deactivate') {
       setConfirmModal({
         isOpen: true,
         title: 'Deactivate Employee?',
-        description: `Are you sure you want to deactivate ${employee.name}? The employee will be marked as Inactive.`,
-        confirmLabel: 'Deactivate',
+        description: `Are you sure you want to deactivate ${employee.name} (${employee.employeeId || employee.id})? The employee will be marked as Inactive instead of being deleted, preserving statutory history.`,
+        confirmLabel: 'Deactivate Employee',
         variant: 'danger',
         employee,
         actionType: 'deactivate',
@@ -381,7 +371,7 @@ function Employees() {
         isOpen: true,
         title: 'Activate Employee?',
         description: `Are you sure you want to activate ${employee.name}? The employee will be restored to Active status.`,
-        confirmLabel: 'Activate',
+        confirmLabel: 'Activate Employee',
         variant: 'primary',
         employee,
         actionType: 'activate',
@@ -434,39 +424,30 @@ function Employees() {
 
     setIsProcessingAction(true);
     try {
-      if (actionType === 'delete') {
-        const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token || ''}`,
-            'x-company-id': currentCompanyId,
-          },
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to delete employee');
-        showToast(`✓ Employee "${employee.name}" deleted successfully.`, 'success');
-        await fetchEmployees();
-      } else {
-        const newStatus = actionType === 'deactivate' ? 'Inactive' : 'Active';
-        const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token || ''}`,
-            'x-company-id': currentCompanyId,
-          },
-          body: JSON.stringify({ status: newStatus }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to update employee status');
-        showToast(
-          actionType === 'deactivate'
-            ? '✓ Employee deactivated successfully.'
-            : '✓ Employee activated successfully.',
-          'success'
-        );
-        await fetchEmployees();
-      }
+      const isDeactivate = actionType === 'deactivate' || actionType === 'delete';
+      const newStatus = isDeactivate ? 'Inactive' : 'Active';
+      const res = await fetch(`${API_BASE_URL}/employees/${empId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': currentCompanyId,
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          employeeStatus: newStatus,
+          isActive: !isDeactivate,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || `Failed to ${isDeactivate ? 'deactivate' : 'activate'} employee`);
+      showToast(
+        isDeactivate
+          ? `✓ Employee "${employee.name}" deactivated successfully.`
+          : `✓ Employee "${employee.name}" activated successfully.`,
+        'success'
+      );
+      await fetchEmployees();
     } catch (err) {
       console.error('Error in employee action:', err);
       showToast(err.message || 'Failed to process request', 'error');

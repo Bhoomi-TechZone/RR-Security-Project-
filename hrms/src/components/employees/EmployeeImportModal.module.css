@@ -108,63 +108,53 @@
   max-height: calc(90vh - 150px);
 }
 
-/* Sample Template Section */
-.templateCard {
+/* Section Selector & Sample Download Toolbar */
+.sectionSelectorCard {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
   padding: 16px 20px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
 }
 
-.templateInfo {
+.sectionSelectWrapper {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  flex-direction: column;
+  gap: 6px;
   flex: 1;
   min-width: 260px;
 }
 
-.templateIcon {
-  color: #16a34a;
-  margin-top: 2px;
-  flex-shrink: 0;
+.sectionSelectLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.templateTitle {
-  font-size: 14px;
+.sectionSelect {
+  height: 40px;
+  padding: 0 14px;
+  font-size: 13.5px;
   font-weight: 600;
   color: #1e293b;
-  margin: 0 0 4px 0;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.15s ease;
 }
 
-.templateDesc {
-  font-size: 12px;
-  color: #64748b;
-  margin: 0;
-  line-height: 1.5;
-}
-
-.templateFields {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 6px;
-}
-
-.fieldChip {
-  display: inline-block;
-  padding: 2px 7px;
-  font-size: 11px;
-  font-weight: 600;
-  color: #0369a1;
-  background: #e0f2fe;
-  border-radius: 4px;
-  font-family: monospace;
+.sectionSelect:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 
 .templateActions {
@@ -177,7 +167,8 @@
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 14px;
+  height: 40px;
+  padding: 0 16px;
   font-size: 13px;
   font-weight: 600;
   background: #ffffff;
@@ -193,46 +184,6 @@
   background: #f1f5f9;
   border-color: #94a3b8;
   color: #2563eb;
-}
-
-/* Optional Defaults Grid */
-.defaultsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px;
-  background: #ffffff;
-  padding: 14px 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-}
-
-.fieldGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.label {
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
-}
-
-.select, .input {
-  height: 38px;
-  padding: 0 12px;
-  font-size: 13px;
-  color: #1e293b;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.select:focus, .input:focus {
-  border-color: #2563eb;
-  background: #ffffff;
 }
 
 /* Dropzone */
