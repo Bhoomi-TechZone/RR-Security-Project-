@@ -3,17 +3,23 @@
   border: 1px solid var(--border);
   border-top: none;
   min-height: 280px;
+  width: 100%;
+  overflow: hidden;
 }
 
 .tableWrapper {
   overflow-x: auto;
   overflow-y: visible;
   min-height: 280px;
-  padding-bottom: 60px;
+  padding-bottom: 70px;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  display: block;
 }
 
 .table {
   width: 100%;
+  min-width: 880px;
   border-collapse: collapse;
   text-align: left;
 }
@@ -27,6 +33,7 @@
   border-bottom: 1px solid var(--border);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .table td {
@@ -73,6 +80,7 @@
   font-weight: 600;
   color: var(--text-primary);
   font-size: var(--text-sm);
+  white-space: nowrap;
 }
 
 .employeeId {
@@ -80,12 +88,14 @@
   font-size: var(--text-sm);
   color: var(--text-secondary);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .companyName {
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-primary);
+  white-space: nowrap;
 }
 
 .departmentName,
@@ -93,12 +103,14 @@
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
 .contactPhone {
   color: var(--text-primary);
   font-family: monospace;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .textCenter {
@@ -178,105 +190,69 @@
   padding: 40px 24px;
 }
 
-/* Responsive mobile view */
+/* Mobile card layout disabled - Table view strictly preserved across all devices */
 .mobileList {
-  display: none;
-  flex-direction: column;
-  gap: 16px;
-  padding: 16px;
+  display: none !important;
 }
 
 .mobileCard {
-  background-color: #ffffff;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 16px;
-  box-shadow: var(--shadow-sm);
-}
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border-light);
-  padding-bottom: 12px;
-  margin-bottom: 12px;
-}
-
-.employeeInfo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.cardBody {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.cardSection {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cardGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-
-.cardFooter {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  border-top: 1px solid var(--border-light);
-  padding-top: 12px;
-  margin-top: 4px;
-}
-
-.cardLabel {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.cardValue {
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: var(--text-base);
-}
-
-.cardActions {
-  display: flex;
-  align-items: center;
+  display: none !important;
 }
 
 @media (max-width: 992px) {
-  /* Allow horizontal scroll on tablet */
   .tableWrapper {
-    display: block;
+    display: block !important;
   }
 }
 
 @media (max-width: 768px) {
   .tableWrapper {
-    display: none;
+    display: block !important;
+    padding-bottom: 70px;
   }
+
   .mobileList {
-    display: flex;
+    display: none !important;
   }
+
   .container {
-    border: none;
-    background: transparent;
+    border: 1px solid var(--border);
+    border-top: none;
+    background-color: var(--surface);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  }
+
+  .table th {
+    padding: 10px 14px;
+    font-size: 11px;
+    letter-spacing: 0.4px;
+  }
+
+  .table td {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .avatar,
+  .avatarImg {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+
+  .employeeCell {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .table th {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+
+  .table td {
+    padding: 8px 10px;
+    font-size: 12px;
   }
 }

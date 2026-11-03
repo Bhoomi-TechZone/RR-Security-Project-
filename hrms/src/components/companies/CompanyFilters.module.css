@@ -92,6 +92,7 @@
   color: var(--text-secondary);
   cursor: pointer;
   transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .resetBtn:hover {
@@ -104,11 +105,25 @@
   .filtersContainer {
     flex-direction: column;
     align-items: stretch;
+    padding: 14px 16px;
+    gap: 12px;
   }
+
   .searchWrapper {
     max-width: 100%;
+    width: 100%;
   }
+
   .actions {
-    justify-content: flex-end;
+    flex-direction: column;
+    width: 100%;
+    gap: 10px;
+  }
+
+  .selectWrapper,
+  .statusSelect,
+  .resetBtn {
+    width: 100%;
+    justify-content: center;
   }
 }

@@ -466,3 +466,54 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+
+/* ========================================================
+   Mobile & Small Screen Responsiveness Enhancements
+   ======================================================== */
+@media (max-width: 768px) {
+  .modal {
+    width: calc(100% - 16px) !important;
+    max-height: 94vh !important;
+    margin: 8px !important;
+    border-radius: 12px !important;
+  }
+
+  .header {
+    padding: 14px 16px !important;
+  }
+
+  .headerLeft {
+    gap: 10px !important;
+  }
+
+  .headerIcon {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .title {
+    font-size: 16px !important;
+  }
+
+  .subtitle {
+    font-size: 12px !important;
+  }
+
+  .body {
+    padding: 16px 14px !important;
+  }
+
+  .footer {
+    padding: 12px 14px !important;
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+  }
+
+  .cancelBtn,
+  .submitBtn {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
+  }
+}

@@ -70,6 +70,7 @@
 .importBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   height: 40px;
   padding: 0 16px;
@@ -96,6 +97,7 @@
 .addBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   height: 40px;
   padding: 0 18px;
@@ -160,15 +162,52 @@
   padding: 48px 24px;
 }
 
-@media (max-width: 576px) {
+@media (max-width: 768px) {
   .header {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
   }
+
+  .title {
+    font-size: 24px;
+  }
+
+  .description {
+    font-size: 13px;
+  }
+
+  .headerActions {
+    width: 100%;
+    gap: 8px;
+  }
+
+  .importBtn,
   .addBtn {
-    justify-content: center;
+    flex: 1;
+    height: 38px;
+    font-size: 13px;
+    padding: 0 12px;
   }
-  .container {
-    padding: 0;
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 20px;
+  }
+
+  /* .headerActions {
+    flex-direction: column;
+  } */
+
+  .importBtn,
+  .addBtn {
+    width: 100%;
+  }
+
+  .breadcrumb {
+    font-size: 12px;
+    margin-bottom: 12px;
   }
 }

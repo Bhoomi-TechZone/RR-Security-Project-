@@ -564,3 +564,89 @@
   gap: 12px;
   padding-top: 10px;
 }
+
+
+/* ========================================================
+   Responsive Breakpoints for Client Form (Add/Edit Client)
+   ======================================================== */
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal {
+    width: 96%;
+    max-width: 96%;
+    max-height: 92vh;
+    margin: 10px auto;
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 14px 16px;
+  }
+
+  .pageTitle {
+    font-size: 18px;
+  }
+
+  .pageHeaderActions {
+    width: 100%;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .pageBackBtn,
+  .pageSaveBtn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pageBody {
+    padding: 14px 12px;
+  }
+
+  .sectionHeader {
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .sectionTitle {
+    font-size: 15px;
+  }
+
+  .sectionBody {
+    padding: 14px 12px;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .fullWidth,
+  .span2 {
+    grid-column: span 1;
+  }
+
+  .sectionFooter {
+    flex-direction: column-reverse;
+    gap: 10px;
+    padding: 14px 16px;
+    width: 100%;
+  }
+
+  .cancelBtn,
+  .submitBtn {
+    width: 100%;
+    height: 38px;
+    justify-content: center;
+  }
+}

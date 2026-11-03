@@ -257,3 +257,37 @@
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+
+/* ========================================================
+   Mobile & Small Screen Responsiveness Enhancements
+   ======================================================== */
+@media (max-width: 576px) {
+  .modal {
+    width: calc(100% - 20px) !important;
+    max-height: 94vh !important;
+    margin: 10px !important;
+    border-radius: 12px !important;
+  }
+
+  .header {
+    padding: 14px 16px !important;
+  }
+
+  .form {
+    padding: 16px 14px !important;
+  }
+
+  .footer {
+    padding: 12px 14px !important;
+    flex-direction: column-reverse !important;
+    gap: 8px !important;
+  }
+
+  .cancelBtn,
+  .submitBtn {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
+  }
+}

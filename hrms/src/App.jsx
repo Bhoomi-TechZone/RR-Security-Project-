@@ -55,6 +55,12 @@ import Templates from './pages/admin/Templates'
 import DocumentCompliance from './pages/admin/DocumentCompliance'
 import Reimbursements from './pages/admin/Reimbursements'
 import LetterManagement from './pages/admin/LetterManagement'
+import Recruitment from './pages/admin/Recruitment'
+import AddCandidate from './pages/admin/AddCandidate'
+import CandidateDetails from './pages/admin/CandidateDetails'
+import Onboarding from './pages/admin/Onboarding'
+import AddOnboarding from './pages/admin/AddOnboarding'
+import OnboardingDetails from './pages/admin/OnboardingDetails'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
 import ModulePermissionRoute from './components/common/ModulePermissionRoute'
@@ -85,6 +91,17 @@ function App() {
 
       {/* Admin Dashboard / Modules Routes with strict AdminRoute guard */}
       <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
+
+      {/* Recruitment & Interview Walk-in Routes */}
+      <Route path="/admin/recruitment" element={<AdminRoute><Recruitment /></AdminRoute>} />
+      <Route path="/admin/recruitment/add" element={<AdminRoute><AddCandidate /></AdminRoute>} />
+      <Route path="/admin/recruitment/:id" element={<AdminRoute><CandidateDetails /></AdminRoute>} />
+      <Route path="/admin/recruitment/:id/edit" element={<AdminRoute><AddCandidate /></AdminRoute>} />
+
+      {/* Workforce Onboarding Pipeline Routes */}
+      <Route path="/admin/onboarding" element={<AdminRoute><Onboarding /></AdminRoute>} />
+      <Route path="/admin/onboarding/add" element={<AdminRoute><AddOnboarding /></AdminRoute>} />
+      <Route path="/admin/onboarding/:id" element={<AdminRoute><OnboardingDetails /></AdminRoute>} />
 
       <Route path="/admin/clients" element={<AdminRoute><Companies /></AdminRoute>} />
       <Route path="/admin/clients/add" element={<AdminRoute><AddClient /></AdminRoute>} />
@@ -138,7 +155,14 @@ function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<UserDashboard />} />
 
-        {/* Workforce Modules */}
+        {/* Talent Acquisition / Workforce Modules */}
+        <Route path="recruitment" element={<ModulePermissionRoute moduleKey="recruitment" moduleTitle="Recruitment"><Recruitment /></ModulePermissionRoute>} />
+        <Route path="recruitment/add" element={<ModulePermissionRoute moduleKey="recruitment" moduleTitle="Add New Candidate"><AddCandidate /></ModulePermissionRoute>} />
+        <Route path="recruitment/:id" element={<ModulePermissionRoute moduleKey="recruitment" moduleTitle="Candidate Details"><CandidateDetails /></ModulePermissionRoute>} />
+        <Route path="onboarding" element={<ModulePermissionRoute moduleKey="onboarding" moduleTitle="Onboarding Pipeline"><Onboarding /></ModulePermissionRoute>} />
+        <Route path="onboarding/add" element={<ModulePermissionRoute moduleKey="onboarding" moduleTitle="New Onboard"><AddOnboarding /></ModulePermissionRoute>} />
+        <Route path="onboarding/:id" element={<ModulePermissionRoute moduleKey="onboarding" moduleTitle="Onboarding Details"><OnboardingDetails /></ModulePermissionRoute>} />
+
         <Route path="clients" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Clients"><Companies /></ModulePermissionRoute>} />
         <Route path="clients/add" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Add Client"><AddClient /></ModulePermissionRoute>} />
         <Route path="clients/billing" element={<ModulePermissionRoute moduleKey="clients" moduleTitle="Client Billing"><ClientBillingAdmin /></ModulePermissionRoute>} />

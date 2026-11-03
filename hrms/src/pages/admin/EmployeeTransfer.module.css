@@ -665,3 +665,233 @@
   color: #94a3b8;
   margin-bottom: 12px;
 }
+
+
+/* ========================================================
+   Mobile & Small Screen Responsiveness Enhancements
+   ======================================================== */
+.tableResponsive {
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  width: 100% !important;
+}
+
+.table {
+  min-width: 880px !important;
+  width: 100% !important;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .title {
+    font-size: 22px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .titleBadge {
+    font-size: 11px;
+    padding: 3px 8px;
+  }
+
+  .description {
+    font-size: 13px;
+  }
+
+  .headerActions {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+  }
+
+  .refreshBtn,
+  .exportBtn {
+    flex: 1;
+    justify-content: center;
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+
+  .metricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .metricCard {
+    padding: 12px 14px;
+    gap: 12px;
+    border-radius: 10px;
+  }
+
+  .metricValue {
+    font-size: 20px;
+  }
+
+  .metricLabel {
+    font-size: 11px;
+  }
+
+  .metricIconWrap {
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+  }
+
+  .metricIconWrap svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .transferCard {
+    padding: 16px 14px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+  }
+
+  .transferCardHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  .transferCardTitle {
+    font-size: 16px;
+  }
+
+  .transferNotice {
+    font-size: 12px;
+  }
+
+  .comparisonGrid {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+    padding: 12px;
+  }
+
+  .transferIndicator {
+    transform: rotate(90deg);
+    margin: 4px 0;
+  }
+
+  .arrowCircle {
+    width: 36px;
+    height: 36px;
+  }
+
+  .boxCurrent,
+  .boxDestination {
+    padding: 12px;
+  }
+
+  .infoRow {
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 8px;
+  }
+
+  .infoLabel {
+    width: auto;
+    font-size: 11px;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .tabBar {
+    padding: 8px 12px;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  .tabBtn {
+    padding: 8px 12px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+
+  .searchWrap {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filterGroup {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .filterSelect {
+    width: 100%;
+    font-size: 13px;
+    height: 38px;
+  }
+
+  .table th {
+    padding: 10px 12px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 576px) {
+  .formActions {
+    flex-direction: column-reverse;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .cancelBtn,
+  .submitBtn {
+    width: 100%;
+    justify-content: center;
+    height: 40px;
+  }
+
+  .headerActions {
+    flex-direction: column;
+  }
+
+  .refreshBtn,
+  .exportBtn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .metricCard {
+    padding: 10px 12px;
+  }
+}

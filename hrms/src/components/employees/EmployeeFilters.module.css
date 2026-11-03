@@ -40,7 +40,7 @@
 
 .searchInput {
   width: 100%;
-  min-width: 230px;
+  min-width: 0;
   height: 40px;
   padding: 0 16px 0 42px;
   background-color: var(--surface-alt);
@@ -102,6 +102,7 @@
 .resetBtn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   height: 40px;
   padding: 0 16px;
@@ -123,16 +124,41 @@
 }
 
 @media (max-width: 768px) {
+  .filtersContainer {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
   .actions {
-    justify-content: stretch;
+    gap: 8px;
   }
 
   .selectWrapper {
-    min-width: 45%;
+    flex: 1 1 calc(50% - 6px);
+    min-width: 120px;
+  }
+
+  .searchInput,
+  .select,
+  .resetBtn {
+    height: 38px;
+    font-size: 13px;
   }
 
   .resetBtn {
     width: 100%;
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .filtersContainer {
+    padding: 10px 12px;
+  }
+
+  .selectWrapper {
+    flex: 1 1 100%;
+    width: 100%;
+    min-width: 0;
   }
 }
