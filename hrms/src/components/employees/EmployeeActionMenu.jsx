@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Edit2, Download, Trash2, MoreVertical, Key, FileText } from 'lucide-react';
+import { Eye, Edit2, Download, MoreVertical, Key, FileText, UserX, UserCheck } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './EmployeeActionMenu.module.css';
 import { usePermissions } from '../../context/PermissionContext';
@@ -14,6 +14,8 @@ function EmployeeActionMenu({ employee, onAction }) {
   const allowEdit = canEdit('employees');
   const allowDelete = canDelete('employees');
   const allowExport = canExport('employees');
+
+  const isInactive = String(employee?.status || employee?.employeeStatus || '').toLowerCase() === 'inactive';
 
   return (
     <Dropdown
@@ -61,15 +63,26 @@ function EmployeeActionMenu({ employee, onAction }) {
             </button>
           </li>
         )}
-        {allowDelete && (
+        {(allowDelete || allowEdit) && (
           <li>
-            <button 
-              className={`${styles.menuItem} ${styles.deleteItem}`}
-              onClick={() => onAction('delete', employee)}
-            >
-              <Trash2 size={14} />
-              <span>Delete Employee</span>
-            </button>
+            {isInactive ? (
+              <button 
+                className={`${styles.menuItem} ${styles.activateItem || ''}`}
+                onClick={() => onAction('activate', employee)}
+                style={{ color: '#16a34a' }}
+              >
+                <UserCheck size={14} color="#16a34a" />
+                <span>Activate Employee</span>
+              </button>
+            ) : (
+              <button 
+                className={`${styles.menuItem} ${styles.deleteItem}`}
+                onClick={() => onAction('deactivate', employee)}
+              >
+                <UserX size={14} />
+                <span>Deactivate Employee</span>
+              </button>
+            )}
           </li>
         )}
       </ul>

@@ -587,6 +587,13 @@ export const updateEmployee = async (req, res) => {
       delete req.body.password;
     }
 
+    if (req.body.status !== undefined || req.body.employeeStatus !== undefined) {
+      const incomingStatus = req.body.status || req.body.employeeStatus;
+      employee.status = incomingStatus;
+      employee.employeeStatus = incomingStatus;
+      employee.isActive = incomingStatus !== 'Inactive';
+    }
+
     Object.assign(employee, req.body);
     await employee.save();
 
@@ -725,7 +732,7 @@ export const deleteEmployee = async (req, res) => {
       query.employeeId = id;
     }
 
-    const employee = await Employee.findOneAndDelete(query);
+    const employee = await Employee.findOne(query);
 
     if (!employee) {
       return res.status(404).json({
@@ -734,9 +741,15 @@ export const deleteEmployee = async (req, res) => {
       });
     }
 
+    // Soft-deactivate instead of hard deletion to preserve statutory reports and historical records
+    employee.status = 'Inactive';
+    employee.employeeStatus = 'Inactive';
+    employee.isActive = false;
+    await employee.save();
+
     return res.status(200).json({
       success: true,
-      message: 'Employee deleted successfully.'
+      message: 'Employee deactivated successfully.'
     });
   } catch (error) {
     console.error('Error deleting employee:', error);
@@ -802,6 +815,24 @@ export const bulkImportEmployees = async (req, res) => {
     const padding = Number(companySeries?.padding) || 3;
     const startNumber = Number(companySeries?.startingNumber) || 1;
 
+    // Build client map for resolving clientId from clientName
+    const clientMap = {};
+    try {
+      const Client = mongoose.models.Client || mongoose.model('Client');
+      if (Client) {
+        const clientDocs = await Client.find({
+          $or: [
+            { companyId: { $in: companyIds } },
+            { adminEmail }
+          ]
+        }).lean();
+        clientDocs.forEach((c) => {
+          const nm = (c.clientName || c.name || '').trim().toLowerCase();
+          if (nm) clientMap[nm] = c.clientId || c._id?.toString();
+        });
+      }
+    } catch (_) {}
+
     // Calculate current sequence count
     let currentEmployeeCount = await Employee.countDocuments({
       companyId: { $in: companyIds },
@@ -819,7 +850,7 @@ export const bulkImportEmployees = async (req, res) => {
 
     for (let i = 0; i < records.length; i++) {
       const rec = records[i];
-      const rawName = (rec.name || rec.employeeName || rec['EMPLOYEE NAME'] || '').trim();
+      const rawName = (rec.name || rec.employeeName || rec['EMPLOYEE NAME'] || rec['NAME'] || '').trim();
 
       if (!rawName) {
         results.failed++;
@@ -827,40 +858,135 @@ export const bulkImportEmployees = async (req, res) => {
         continue;
       }
 
-      const inputEmpId = String(rec.employeeId || rec.empId || rec['EMPID'] || '').trim();
+      const inputEmpId = String(
+        rec.employeeId || rec.empId || rec['EMPID'] || rec['EMP CODE'] || rec['EMPLOYEE CODE'] || rec.code || ''
+      ).trim();
       let rawEmpId = '';
 
-      if (!inputEmpId || inputEmpId.toLowerCase() === 'auto-generate') {
-        currentEmployeeCount++;
-        const yearPart = companySeries?.yearFormat === 'YYYY' ? String(new Date().getFullYear()) : companySeries?.yearFormat === 'YY' ? String(new Date().getFullYear()).slice(-2) : '';
-        const monthPart = companySeries?.monthFormat === 'MM' ? String(new Date().getMonth() + 1).padStart(2, '0') : '';
-        const seqPart = String(startNumber + currentEmployeeCount).padStart(padding, '0');
-        const parts = [companyPrefix, yearPart, monthPart, seqPart].filter(Boolean);
-        rawEmpId = parts.join(separator);
-      } else {
+      let existing = null;
+
+      if (inputEmpId && inputEmpId.toLowerCase() !== 'auto-generate') {
         rawEmpId = formatEmployeeIdBySeries(inputEmpId, companySeries, companyPrefix);
+        const query = {
+          companyId: { $in: companyIds },
+          adminEmail,
+          $or: [
+            { employeeId: rawEmpId },
+            { employeeCode: rawEmpId },
+            { employeeId: inputEmpId },
+            { employeeCode: inputEmpId }
+          ]
+        };
+        existing = await Employee.findOne(query);
+      } else {
+        // Match existing employee in the company by exact name if EMPID is not provided
+        existing = await Employee.findOne({
+          companyId: { $in: companyIds },
+          adminEmail,
+          name: { $regex: new RegExp(`^${rawName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+        });
+
+        if (!existing) {
+          currentEmployeeCount++;
+          const yearPart =
+            companySeries?.yearFormat === 'YYYY'
+              ? String(new Date().getFullYear())
+              : companySeries?.yearFormat === 'YY'
+              ? String(new Date().getFullYear()).slice(-2)
+              : '';
+          const monthPart =
+            companySeries?.monthFormat === 'MM'
+              ? String(new Date().getMonth() + 1).padStart(2, '0')
+              : '';
+          const seqPart = String(startNumber + currentEmployeeCount).padStart(padding, '0');
+          const parts = [companyPrefix, yearPart, monthPart, seqPart].filter(Boolean);
+          rawEmpId = parts.join(separator);
+        }
       }
 
-      const gender = (rec.gender || rec['GENDER'] || 'Male').trim();
-      const dob = String(rec.dob || rec['DOB'] || '').trim();
-      const mobile = String(rec.mobile || rec.contact || rec['MOBILE'] || '').trim();
+      // Extract section fields
+      // 1. Basic Details
+      const fatherHusbandName = (rec.fatherHusbandName || rec['FATHER/HUSBAND NAME'] || rec.fatherName || rec['FATHER NAME'] || '').trim();
+      const gender = (rec.gender || rec['GENDER'] || '').trim();
+      const dob = String(rec.dob || rec['DOB'] || rec.dateOfBirth || '').trim();
+      const mobile = String(rec.mobile || rec.contact || rec['MOBILE'] || rec['PHONE'] || '').trim();
       const email = String(rec.email || rec['EMAIL'] || '').trim().toLowerCase();
+      const maritalStatus = (rec.maritalStatus || rec['MARITAL STATUS'] || '').trim();
+      const bloodGroup = (rec.bloodGroup || rec['BLOOD GROUP'] || '').trim();
+      const aadhaar = String(rec.aadhaar || rec['AADHAAR NO'] || rec['AADHAAR NUMBER'] || rec['AADHAAR'] || '').trim();
+      const pan = String(rec.pan || rec['PAN NO'] || rec['PAN NUMBER'] || rec['PAN'] || '').trim().toUpperCase();
 
-      // Upsert: check if employee exists by formatted ID or original input ID
-      const query = {
-        companyId: { $in: companyIds },
-        adminEmail,
-        $or: [
-          { employeeId: rawEmpId },
-          { employeeCode: rawEmpId },
-          ...(inputEmpId && inputEmpId !== rawEmpId ? [{ employeeId: inputEmpId }, { employeeCode: inputEmpId }] : [])
-        ]
+      // 2. Employment Details
+      const clientName = (rec.clientName || rec['CLIENT NAME'] || defaultClientName || '').trim();
+      let clientId = rec.clientId || defaultClientId || '';
+      if (!clientId && clientName && clientMap[clientName.toLowerCase()]) {
+        clientId = clientMap[clientName.toLowerCase()];
+      }
+      const siteLocation = (rec.siteLocation || rec['SITE / LOCATION'] || rec.site || rec['LOCATION'] || rec['SITE'] || '').trim();
+      const department = (rec.department || rec['DEPARTMENT'] || defaultDepartment || '').trim();
+      const designation = (rec.designation || rec['DESIGNATION'] || defaultDesignation || '').trim();
+      const employeeType = (rec.employeeType || rec['EMPLOYEE TYPE'] || '').trim();
+      const joiningDate = String(rec.joiningDate || rec['JOINING DATE'] || '').trim();
+      const dutyPost = (rec.dutyPost || rec['DUTY POST'] || '').trim();
+      const shift = (rec.shift || rec['SHIFT'] || '').trim();
+
+      // 3. Statutory Details & Salary
+      const salaryType = (rec.salaryType || rec['SALARY TYPE'] || '').trim();
+      const basicVal = rec.basic !== undefined ? rec.basic : rec['BASIC SALARY'];
+      const vdaVal = rec.vda !== undefined ? rec.vda : (rec.da !== undefined ? rec.da : rec['DA']);
+      const hraVal = rec.hra !== undefined ? rec.hra : rec['HRA'];
+      const convVal = rec.conveyance !== undefined ? rec.conveyance : rec['CONVEYANCE'];
+      const spAllVal = rec.specialAllowance !== undefined ? rec.specialAllowance : rec['SPECIAL ALLOWANCE'];
+      const othAllVal = rec.otherAllowance !== undefined ? rec.otherAllowance : rec['OTHER ALLOWANCE'];
+      const grossVal = rec.grossSalary !== undefined ? rec.grossSalary : rec['GROSS SALARY'];
+
+      const basic = basicVal !== undefined && basicVal !== '' ? Number(basicVal) : undefined;
+      const vda = vdaVal !== undefined && vdaVal !== '' ? Number(vdaVal) : undefined;
+      const hra = hraVal !== undefined && hraVal !== '' ? Number(hraVal) : undefined;
+      const conveyance = convVal !== undefined && convVal !== '' ? Number(convVal) : undefined;
+      const specialAllowance = spAllVal !== undefined && spAllVal !== '' ? Number(spAllVal) : undefined;
+      const otherAllowance = othAllVal !== undefined && othAllVal !== '' ? Number(othAllVal) : undefined;
+      const grossSalary = grossVal !== undefined && grossVal !== '' ? Number(grossVal) : undefined;
+
+      const uan = String(rec.uan || rec['UAN'] || rec['PF UAN'] || '').trim();
+      const pfNo = String(rec.pfNo || rec['PF NUMBER'] || rec['PF NO'] || '').trim();
+      const esicNo = String(rec.esicNo || rec['ESIC NUMBER'] || rec['ESIC NO'] || rec['ESI NO'] || '').trim();
+
+      const parseBoolFlag = (val) => {
+        if (val === undefined || val === null || val === '') return undefined;
+        if (typeof val === 'boolean') return val;
+        const str = String(val).trim().toLowerCase();
+        return str === 'yes' || str === 'true' || str === '1' || str === 'y';
       };
 
-      let existing = await Employee.findOne(query);
+      const pfApplicable = parseBoolFlag(rec.pfApplicable !== undefined ? rec.pfApplicable : rec['PF APPLICABLE']);
+      const esiApplicable = parseBoolFlag(rec.esiApplicable !== undefined ? rec.esiApplicable : rec['ESIC APPLICABLE']);
+      const ptApplicable = parseBoolFlag(rec.ptApplicable !== undefined ? rec.ptApplicable : rec['PT APPLICABLE']);
+      const lwfApplicable = parseBoolFlag(rec.lwfApplicable !== undefined ? rec.lwfApplicable : rec['LWF APPLICABLE']);
+
+      // 4. Bank Details
+      const bankName = (rec.bankName || rec['BANK NAME'] || '').trim();
+      const accountNumber = String(rec.accountNumber || rec['ACCOUNT NUMBER'] || rec['ACCOUNT NO'] || '').trim();
+      const ifsc = String(rec.ifsc || rec['IFSC CODE'] || rec['IFSC'] || '').trim().toUpperCase();
+      const branchName = (rec.branchName || rec['BRANCH NAME'] || '').trim();
+      const accountHolder = (rec.accountHolder || rec['ACCOUNT HOLDER NAME'] || '').trim();
+      const paymentMode = (rec.paymentMode || rec['PAYMENT MODE'] || '').trim();
+
+      // 5. Address & Family
+      const presentAddress = (rec.presentAddress || rec['PRESENT ADDRESS'] || '').trim();
+      const permanentAddress = (rec.permanentAddress || rec['PERMANENT ADDRESS'] || '').trim();
+      const city = (rec.city || rec['CITY'] || '').trim();
+      const state = (rec.state || rec['STATE'] || '').trim();
+      const pincode = String(rec.pincode || rec['PINCODE'] || '').trim();
+      const familyMemberName = (rec.familyMemberName || rec['FAMILY MEMBER NAME'] || '').trim();
+      const relation = (rec.relation || rec['RELATION'] || '').trim();
+      const emergencyMobile = String(rec.emergencyMobile || rec['EMERGENCY CONTACT'] || '').trim();
+      const nomineeName = (rec.nomineeName || rec['NOMINEE NAME'] || '').trim();
+      const nomineeRelation = (rec.nomineeRelation || rec['NOMINEE RELATION'] || '').trim();
 
       if (existing) {
         existing.name = rawName;
+        if (fatherHusbandName) existing.fatherHusbandName = fatherHusbandName;
         if (gender) existing.gender = gender;
         if (dob) existing.dob = dob;
         if (mobile) {
@@ -868,10 +994,53 @@ export const bulkImportEmployees = async (req, res) => {
           existing.contact = mobile;
         }
         if (email) existing.email = email;
-        if (rec.clientId || defaultClientId) existing.clientId = rec.clientId || defaultClientId;
-        if (rec.clientName || defaultClientName) existing.clientName = rec.clientName || defaultClientName;
-        if (rec.department) existing.department = rec.department;
-        if (rec.designation) existing.designation = rec.designation;
+        if (maritalStatus) existing.maritalStatus = maritalStatus;
+        if (bloodGroup) existing.bloodGroup = bloodGroup;
+        if (aadhaar) existing.aadhaar = aadhaar;
+        if (pan) existing.pan = pan;
+
+        if (clientName) existing.clientName = clientName;
+        if (clientId) existing.clientId = clientId;
+        if (siteLocation) {
+          existing.siteLocation = siteLocation;
+          existing.site = siteLocation;
+        }
+        if (department) existing.department = department;
+        if (designation) existing.designation = designation;
+        if (employeeType) existing.employeeType = employeeType;
+        if (joiningDate) existing.joiningDate = joiningDate;
+        if (dutyPost) existing.dutyPost = dutyPost;
+        if (shift) existing.shift = shift;
+
+        if (salaryType) existing.salaryType = salaryType;
+        if (basic !== undefined && !isNaN(basic)) existing.basic = basic;
+        if (vda !== undefined && !isNaN(vda)) existing.vda = vda;
+        if (hra !== undefined && !isNaN(hra)) existing.hra = hra;
+        if (conveyance !== undefined && !isNaN(conveyance)) existing.conveyance = conveyance;
+        if (specialAllowance !== undefined && !isNaN(specialAllowance)) existing.specialAllowance = specialAllowance;
+        if (otherAllowance !== undefined && !isNaN(otherAllowance)) existing.otherAllowance = otherAllowance;
+        if (grossSalary !== undefined && !isNaN(grossSalary)) existing.grossSalary = grossSalary;
+        if (uan) existing.uan = uan;
+        if (pfNo) existing.pfNo = pfNo;
+        if (esicNo) existing.esicNo = esicNo;
+        if (pfApplicable !== undefined) existing.pfApplicable = pfApplicable;
+        if (esiApplicable !== undefined) existing.esiApplicable = esiApplicable;
+        if (ptApplicable !== undefined) existing.ptApplicable = ptApplicable;
+        if (lwfApplicable !== undefined) existing.lwfApplicable = lwfApplicable;
+
+        if (bankName) existing.bankName = bankName;
+        if (accountNumber) existing.accountNumber = accountNumber;
+        if (ifsc) existing.ifsc = ifsc;
+        if (branchName) existing.branchName = branchName;
+        if (accountHolder) existing.accountHolder = accountHolder;
+        if (paymentMode) existing.paymentMode = paymentMode;
+
+        if (presentAddress) existing.presentAddress = presentAddress;
+        if (permanentAddress) existing.permanentAddress = permanentAddress;
+        if (familyMemberName) existing.familyMemberName = familyMemberName;
+        if (relation) existing.relation = relation;
+        if (emergencyMobile) existing.emergencyMobile = emergencyMobile;
+        if (nomineeName) existing.nomineeYesNo = 'Yes';
 
         await existing.save();
         results.updated++;
@@ -884,23 +1053,57 @@ export const bulkImportEmployees = async (req, res) => {
           employeeId: rawEmpId,
           employeeCode: rawEmpId,
           name: rawName,
+          fatherHusbandName: fatherHusbandName || '',
           gender: gender || 'Male',
           dob: dob || '',
           contact: mobile || '',
           mobile: mobile || '',
           email: email || '',
+          maritalStatus: maritalStatus || '',
+          bloodGroup: bloodGroup || '',
+          aadhaar: aadhaar || '',
+          pan: pan || '',
           status: 'Active',
           employeeStatus: 'Active',
-          employeeType: rec.employeeType || 'Permanent',
-          department: rec.department || defaultDepartment || 'Security',
-          designation: rec.designation || defaultDesignation || 'Security Guard',
-          clientId: rec.clientId || defaultClientId || '',
-          clientName: rec.clientName || defaultClientName || '',
-          siteLocation: rec.siteLocation || '',
-          site: rec.site || '',
-          dutyPost: rec.dutyPost || '',
-          shift: rec.shift || '',
-          joiningDate: rec.joiningDate || new Date().toISOString().split('T')[0]
+          enablePortalAccess: true,
+          role: 'employee',
+          employeeType: employeeType || 'Permanent',
+          department: department || defaultDepartment || 'Security',
+          designation: designation || defaultDesignation || 'Security Guard',
+          clientId: clientId || defaultClientId || '',
+          clientName: clientName || defaultClientName || '',
+          siteLocation: siteLocation || '',
+          site: siteLocation || '',
+          dutyPost: dutyPost || '',
+          shift: shift || '',
+          joiningDate: joiningDate || new Date().toISOString().split('T')[0],
+          salaryType: salaryType || 'Monthly',
+          basic: basic !== undefined && !isNaN(basic) ? basic : 0,
+          vda: vda !== undefined && !isNaN(vda) ? vda : 0,
+          hra: hra !== undefined && !isNaN(hra) ? hra : 0,
+          conveyance: conveyance !== undefined && !isNaN(conveyance) ? conveyance : 0,
+          specialAllowance: specialAllowance !== undefined && !isNaN(specialAllowance) ? specialAllowance : 0,
+          otherAllowance: otherAllowance !== undefined && !isNaN(otherAllowance) ? otherAllowance : 0,
+          grossSalary: grossSalary !== undefined && !isNaN(grossSalary) ? grossSalary : 0,
+          uan: uan || '',
+          pfNo: pfNo || '',
+          esicNo: esicNo || '',
+          pfApplicable: pfApplicable !== undefined ? pfApplicable : false,
+          esiApplicable: esiApplicable !== undefined ? esiApplicable : false,
+          ptApplicable: ptApplicable !== undefined ? ptApplicable : false,
+          lwfApplicable: lwfApplicable !== undefined ? lwfApplicable : false,
+          bankName: bankName || '',
+          accountNumber: accountNumber || '',
+          ifsc: ifsc || '',
+          branchName: branchName || '',
+          accountHolder: accountHolder || rawName,
+          paymentMode: paymentMode || 'Bank Transfer',
+          presentAddress: presentAddress || '',
+          permanentAddress: permanentAddress || '',
+          familyMemberName: familyMemberName || '',
+          relation: relation || '',
+          emergencyMobile: emergencyMobile || '',
+          nomineeYesNo: nomineeName ? 'Yes' : ''
         });
 
         await newEmp.save();

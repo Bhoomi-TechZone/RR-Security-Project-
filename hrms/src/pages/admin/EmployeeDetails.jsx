@@ -4,7 +4,7 @@ import {
   User, Briefcase, FileText, CreditCard, IndianRupee,
   Edit2, ArrowLeftRight, Download, Power, CheckCircle, Clock,
   Phone, MapPin, Building2, Layers, Hash, Landmark, Upload, X, Eye,
-  Shield, Award, MessageSquare, Calendar, Key, Trash2
+  Shield, Award, MessageSquare, Calendar, Key, Trash2, UserX, UserCheck
 } from 'lucide-react';
 import styles from './EmployeeDetails.module.css';
 
@@ -406,55 +406,41 @@ function EmployeeDetails() {
     }
   };
 
-  const handleDeleteEmployee = () => {
+  const isInactive = employee?.status === 'Inactive' || employee?.employeeStatus === 'Inactive';
+
+  const handleToggleEmployeeStatus = () => {
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Employee?',
-      description: `Are you sure you want to permanently delete ${employee.name} (${employee.employeeId || id})? This action will remove all data from the database and cannot be undone.`,
-      confirmLabel: 'Delete Employee',
-      variant: 'danger',
-      actionType: 'delete'
+      title: isInactive ? 'Activate Employee?' : 'Deactivate Employee?',
+      description: isInactive
+        ? `Are you sure you want to reactivate ${employee?.name || 'this employee'} (${employee?.employeeId || id})? They will be marked as Active across the system.`
+        : `Are you sure you want to deactivate ${employee?.name || 'this employee'} (${employee?.employeeId || id})? Their record and statutory reports will remain preserved.`,
+      confirmLabel: isInactive ? 'Activate Employee' : 'Deactivate Employee',
+      variant: isInactive ? 'primary' : 'danger',
+      actionType: isInactive ? 'activate' : 'deactivate'
     });
   };
 
   const handleConfirmAction = async () => {
     setIsProcessingAction(true);
-    if (confirmModal.actionType === 'delete') {
-      try {
-        const token = authService.getToken();
-        const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token || ''}`,
-            'x-company-id': currentCompanyId
-          }
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || 'Failed to delete employee');
-        showToast('✓ Employee deleted permanently.', 'success');
-        setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        setTimeout(() => navigate('/admin/employees'), 900);
-      } catch (err) {
-        showToast(err.message || 'Failed to delete employee.', 'error');
-      } finally {
-        setIsProcessingAction(false);
-      }
-    } else {
-      const newStatus = confirmModal.actionType === 'deactivate' ? 'Inactive' : 'Active';
-      try {
-        await updateEmployee({ status: newStatus });
-        setConfirmModal(prev => ({ ...prev, isOpen: false }));
-        showToast(
-          newStatus === 'Inactive'
-            ? '✓ Employee deactivated successfully.'
-            : '✓ Employee activated successfully.',
-          'success'
-        );
-      } catch (err) {
-        // handled
-      } finally {
-        setIsProcessingAction(false);
-      }
+    const newStatus = confirmModal.actionType === 'deactivate' ? 'Inactive' : 'Active';
+    try {
+      await updateEmployee({
+        status: newStatus,
+        employeeStatus: newStatus,
+        isActive: newStatus === 'Active'
+      });
+      setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      showToast(
+        newStatus === 'Inactive'
+          ? '✓ Employee deactivated successfully.'
+          : '✓ Employee activated successfully.',
+        'success'
+      );
+    } catch (err) {
+      // handled in updateEmployee
+    } finally {
+      setIsProcessingAction(false);
     }
   };
 
@@ -674,13 +660,17 @@ function EmployeeDetails() {
               <span>Download</span>
             </button>
             <button
-              className={`${styles.statusToggleBtn} ${styles.deactivateBtn}`}
-              onClick={handleDeleteEmployee}
-              aria-label="Delete employee"
-              style={{ color: '#ef4444', borderColor: '#fca5a5', backgroundColor: '#fef2f2' }}
+              className={`${styles.statusToggleBtn} ${isInactive ? styles.activateBtn : styles.deactivateBtn}`}
+              onClick={handleToggleEmployeeStatus}
+              aria-label={isInactive ? 'Activate employee' : 'Deactivate employee'}
+              style={
+                isInactive
+                  ? { color: '#16a34a', borderColor: '#86efac', backgroundColor: '#f0fdf4' }
+                  : { color: '#ef4444', borderColor: '#fca5a5', backgroundColor: '#fef2f2' }
+              }
             >
-              <Trash2 size={15} />
-              <span>Delete</span>
+              {isInactive ? <UserCheck size={15} /> : <UserX size={15} />}
+              <span>{isInactive ? 'Activate' : 'Deactivate'}</span>
             </button>
           </div>
         </div>
