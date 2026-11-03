@@ -797,3 +797,107 @@
   background: var(--surface-alt, #f8fafc);
   color: var(--text-primary, #0f172a);
 }
+
+
+/* ========================================================
+   Mobile & Small Screen Responsiveness Enhancements
+   ======================================================== */
+.tabsWrapper {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tabsWrapper::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .profileCard {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .profileLeft {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .profileMeta {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .profileAvatar,
+  .profileAvatarImg {
+    width: 68px;
+    height: 68px;
+    font-size: 20px;
+  }
+
+  .profileName {
+    font-size: 22px;
+    text-align: center;
+  }
+
+  .profileActions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .editBtn,
+  .transferBtn,
+  .downloadBtn,
+  .statusToggleBtn {
+    width: 100%;
+    justify-content: center;
+    height: 36px;
+    font-size: 12px;
+    padding: 0 8px;
+  }
+
+  .tabBtn {
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .twoColGrid {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+  }
+
+  .singleCard,
+  .infoCard {
+    padding: 16px 14px;
+  }
+
+  .documentsGridNew {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .previewCard {
+    max-width: 96vw;
+    max-height: 94vh;
+  }
+
+  .previewHeader {
+    padding: 12px 14px;
+  }
+
+  .previewBody {
+    padding: 12px;
+    min-height: 250px;
+  }
+}
+
+@media (max-width: 400px) {
+  .profileActions {
+    grid-template-columns: 1fr;
+  }
+}

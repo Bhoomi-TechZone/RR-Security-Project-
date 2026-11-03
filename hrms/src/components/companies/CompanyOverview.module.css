@@ -698,3 +698,13 @@
     box-shadow: none;
   }
 }
+
+
+@media (max-width: 640px) {
+  .infoCard {
+    padding: 16px 14px;
+  }
+  .infoRow {
+    gap: 10px;
+  }
+}

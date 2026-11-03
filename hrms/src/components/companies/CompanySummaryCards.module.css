@@ -48,10 +48,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .iconBox svg {
-  stroke-width: 3px;
+  stroke-width: 2.5px;
 }
 
 .blue {
@@ -74,8 +75,30 @@
   color: #9333ea;
 }
 
-@media (max-width: 576px) {
+@media (max-width: 768px) {
   .summaryGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .statCard {
+    padding: 12px 14px;
+  }
+
+  .value {
+    font-size: 20px;
+  }
+
+  .iconBox {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 }

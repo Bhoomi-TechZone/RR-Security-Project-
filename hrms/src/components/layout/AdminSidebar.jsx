@@ -3,7 +3,8 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
   WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
-  Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature
+  Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature,
+  UserPlus, UserCheck
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -33,6 +34,21 @@ const NAV_GROUPS = [
         name: 'Organization Setup',
         icon: Building2,
         moduleKey: 'company_setup'
+      },
+    ]
+  },
+  {
+    title: 'TALENT & RECRUITMENT',
+    items: [
+      {
+        path: '/admin/recruitment',
+        name: 'Recruitment',
+        icon: UserPlus,
+      },
+      {
+        path: '/admin/onboarding',
+        name: 'Onboarding',
+        icon: UserCheck,
       },
     ]
   },
@@ -210,8 +226,6 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/users', name: 'All Users' },
-
-
           { path: '/admin/roles-permissions', name: 'Roles & Access' },
         ]
       },
@@ -538,7 +552,9 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                             styles.link,
                             (isActive || 
                              (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup')) ||
-                             (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company')))
+                             (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company'))) ||
+                             (item.path === '/admin/recruitment' && location.pathname.startsWith('/admin/recruitment')) ||
+                             (item.path === '/admin/onboarding' && location.pathname.startsWith('/admin/onboarding'))
                             ) ? styles.active : '',
                             item.disabled ? styles.disabledLink : ''
                           ].filter(Boolean).join(' ')}

@@ -636,7 +636,7 @@
   }
 
   .quickNavList {
-    flex-direction: row;
+    flex-direction: column;
     overflow-x: auto;
     padding-bottom: 4px;
   }
@@ -654,5 +654,102 @@
   .footer {
     padding-left: 10px;
     padding-right: 10px;
+  }
+}
+
+
+/* ========================================================
+   Mobile & Small Screen Responsiveness Enhancements
+   ======================================================== */
+.quickNavList {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.quickNavList::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .stackedLayout {
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+    padding: 0 !important;
+  }
+
+  .quickNavWrapper {
+    position: static;
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .sectionCard {
+    padding: 16px 14px !important;
+    border-radius: 10px;
+    margin-bottom: 14px;
+  }
+
+  .sectionHeader {
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+
+  .sectionTitle {
+    font-size: 16px !important;
+  }
+
+  .sectionSubtitle {
+    font-size: 12px !important;
+  }
+
+  .modal {
+    width: calc(100% - 16px) !important;
+    max-height: 94vh !important;
+    margin: 8px !important;
+    border-radius: 10px !important;
+  }
+
+  .stepperWrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .pageContent {
+    padding: 14px !important;
+  }
+}
+
+@media (max-width: 576px) {
+  .footer {
+    flex-direction: column-reverse !important;
+    gap: 10px !important;
+    padding: 12px 14px !important;
+    align-items: stretch !important;
+  }
+
+  .cancelBtn {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
+  }
+
+  .navButtons {
+    width: 100% !important;
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .backBtn,
+  .nextBtn,
+  .submitBtn {
+    flex: 1 !important;
+    justify-content: center !important;
+    height: 38px !important;
+  }
+
+  .header {
+    padding: 12px 14px !important;
   }
 }

@@ -39,6 +39,7 @@
   justify-content: space-between;
   margin-bottom: 24px;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .titleArea {
@@ -48,7 +49,7 @@
 }
 
 .title {
-  font-size: var(--text-3xl);
+  font-size: var(--text-3xl, 26px);
   font-weight: 800;
   color: var(--text-primary);
   margin: 0;
@@ -56,7 +57,7 @@
 }
 
 .description {
-  font-size: var(--text-base);
+  font-size: var(--text-base, 14px);
   color: var(--text-secondary);
   margin: 0;
 }
@@ -76,6 +77,7 @@
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .addBtn:hover {
@@ -120,17 +122,33 @@
   background-color: var(--primary-dark);
 }
 
-@media (max-width: 576px) {
+/* ========================================================
+   Responsive Breakpoints for Clients Main Page
+   ======================================================== */
+@media (max-width: 768px) {
   .header {
     flex-direction: column;
     align-items: stretch;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .title {
+    font-size: 22px;
+  }
+
+  .description {
+    font-size: 13px;
   }
 
   .addBtn {
+    width: 100%;
     justify-content: center;
   }
+}
 
-  .container {
-    padding: 16px;
+@media (max-width: 480px) {
+  .title {
+    font-size: 20px;
   }
 }

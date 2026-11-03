@@ -25,7 +25,9 @@ import {
   UserCog,
   FileText,
   FileCheck,
-  ChevronDown
+  ChevronDown,
+  UserPlus,
+  UserCheck
 } from 'lucide-react';
 import styles from './UserSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -44,6 +46,23 @@ const USER_NAV_GROUPS = [
         icon: LayoutDashboard,
         isAlwaysVisible: true
       }
+    ]
+  },
+  {
+    title: 'TALENT & RECRUITMENT',
+    items: [
+      {
+        path: '/user/recruitment',
+        name: 'Recruitment',
+        icon: UserPlus,
+        moduleKey: 'recruitment',
+      },
+      {
+        path: '/user/onboarding',
+        name: 'Onboarding',
+        icon: UserCheck,
+        moduleKey: 'onboarding',
+      },
     ]
   },
   {
@@ -303,6 +322,8 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
 
   // Dropdown states for multi-item accordions
   const [openDropdowns, setOpenDropdowns] = useState(() => ({
+    '/user/recruitment': location.pathname.startsWith('/user/recruitment'),
+    '/user/onboarding': location.pathname.startsWith('/user/onboarding'),
     '/user/clients': location.pathname.startsWith('/user/clients'),
     '/user/employees': location.pathname.startsWith('/user/employees'),
     '/user/attendance': location.pathname.startsWith('/user/attendance') || location.pathname.startsWith('/user/biometric-attendance'),
@@ -499,7 +520,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                           end={item.path === '/user/dashboard'}
                           className={({ isActive }) => [
                             styles.link,
-                            isActive ? styles.active : ''
+                            (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding'))) ? styles.active : ''
                           ].filter(Boolean).join(' ')}
                           onClick={() => handleItemClick(false)}
                           title={isCollapsed ? item.name : undefined}

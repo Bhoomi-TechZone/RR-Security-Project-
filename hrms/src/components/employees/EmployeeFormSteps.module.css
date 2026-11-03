@@ -1218,3 +1218,59 @@
   font-size: 9.5px;
   color: #94a3b8;
 }
+
+
+/* ========================================================
+   Mobile & Small Screen Responsiveness Enhancements
+   ======================================================== */
+@media (max-width: 768px) {
+  .twoColumnGrid,
+  .threeColumnGrid,
+  .fourColumnGrid,
+  .salaryGrid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .colSpan2,
+  .colSpan3 {
+    grid-column: span 1 !important;
+  }
+
+  .documentsGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .stepContainer {
+    padding: 6px 0;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 576px) {
+  .stepTitle {
+    font-size: 18px !important;
+  }
+
+  .stepDesc {
+    font-size: 13px !important;
+  }
+
+  .fileUploadWrapper {
+    flex-direction: column !important;
+  }
+
+  .fileUploadButton {
+    border-left: none !important;
+    border-top: 1px solid var(--border) !important;
+    width: 100% !important;
+    justify-content: center !important;
+    height: 35px !important;
+  }
+
+  .uploadedInfo {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+}
