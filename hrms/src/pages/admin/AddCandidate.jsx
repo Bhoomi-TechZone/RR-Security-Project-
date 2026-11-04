@@ -1,27 +1,36 @@
-import React, { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   ChevronLeft,
   Check,
   Loader2,
-  FileText
+  FileText,
+  ChevronDown,
+  Search,
+  X
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import { useCompany } from '../../context/CompanyContext';
+import masterService from '../../services/masterService';
 import {
   generateNextCandidateId,
-  addCandidate
+  addCandidate,
+  updateCandidate,
+  getStoredCandidates
 } from '../../data/recruitmentData';
 import styles from './AddCandidate.module.css';
 
-// Exact Job Categories from user's table & specification
-const JOB_CATEGORIES = [
-  'Security',
-  'Housekeeping',
-  'Supervisor',
+// Default Job Categories (with fallback to Masters setup)
+const DEFAULT_JOB_CATEGORIES = [
+  'Security Guard',
+  'Armed Guard / Gunman',
+  'Field Supervisor',
+  'CCTV / Control Room Operator',
+  'Housekeeping Executive',
+  'Bouncer / VIP Security',
+  'Driver / Chauffeur',
   'Office Staff',
-  'Gunman / Armed Guard',
-  'Driver',
   'Other'
 ];
 
@@ -58,9 +67,29 @@ const INDIAN_STATES = [
   'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh', 'Other'
 ];
 
+const parseJobCategories = (val) => {
+  if (!val) return [];
+  if (Array.isArray(val)) return val;
+  if (typeof val === 'string') {
+    return val.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 export default function AddCandidate() {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEdit = Boolean(id);
   const autoCandidateId = useMemo(() => generateNextCandidateId(), []);
+
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'comp_rr_security';
+  const [availableCategories, setAvailableCategories] = useState(DEFAULT_JOB_CATEGORIES);
+
+  // Multi-select dropdown state for Job Category
+  const categoryDropdownRef = useRef(null);
+  const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
 
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -91,8 +120,8 @@ export default function AddCandidate() {
     city: 'Noida',
     state: 'Uttar Pradesh',
 
-    // 7. Job Category (Security / Housekeeping / Supervisor / Office Staff)
-    jobCategory: 'Security',
+    // 7. Job Category (Multi-Select Array)
+    jobCategory: ['Security Guard'],
 
     // 8. Applied For (Job Designation)
     appliedFor: 'Security Guard',
@@ -147,6 +176,115 @@ export default function AddCandidate() {
     remarks: ''
   });
 
+  // Dynamically load job categories from Masters setup
+  useEffect(() => {
+    let isMounted = true;
+    const loadCategories = async () => {
+      try {
+        if (currentCompanyId) {
+          const masters = await masterService.getMasters('job-categories', currentCompanyId, true);
+          if (isMounted && Array.isArray(masters) && masters.length > 0) {
+            const names = masters
+              .filter((m) => !m.status || m.status.toLowerCase() === 'active')
+              .map((m) => m.name || m);
+            if (names.length > 0) {
+              setAvailableCategories(names);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load job categories:', e);
+      }
+
+      if (isMounted) {
+        try {
+          const cached = localStorage.getItem(`novaspark_job_categories_${currentCompanyId}`);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              const names = parsed
+                .filter((m) => !m.status || m.status.toLowerCase() === 'active')
+                .map((m) => m.name || m);
+              if (names.length > 0) {
+                setAvailableCategories(names);
+                return;
+              }
+            }
+          }
+        } catch (e) {}
+        setAvailableCategories(DEFAULT_JOB_CATEGORIES);
+      }
+    };
+
+    loadCategories();
+
+    const handleUpdate = () => loadCategories();
+    window.addEventListener('masters-updated', handleUpdate);
+    window.addEventListener('job-categories-updated', handleUpdate);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('masters-updated', handleUpdate);
+      window.removeEventListener('job-categories-updated', handleUpdate);
+    };
+  }, [currentCompanyId]);
+
+  // Click outside to close job category dropdown
+  useEffect(() => {
+    if (!isCategoryDropdownOpen) return;
+    const handleClickOutside = (e) => {
+      if (categoryDropdownRef.current && !categoryDropdownRef.current.contains(e.target)) {
+        setIsCategoryDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isCategoryDropdownOpen]);
+
+  useEffect(() => {
+    if (isEdit) {
+      const candidates = getStoredCandidates();
+      const existing = candidates.find((c) => c.id === id);
+      if (existing) {
+        setFormData({
+          id: existing.id || id,
+          name: existing.name || '',
+          mobile: existing.mobile || '',
+          altMobile: existing.altMobile || '',
+          whatsapp: existing.whatsapp || '',
+          email: existing.email || '',
+          address: existing.address || '',
+          city: existing.city || 'Noida',
+          state: existing.state || 'Uttar Pradesh',
+          jobCategory: parseJobCategories(existing.jobCategory || existing.jobCategories),
+          appliedFor: existing.appliedFor || 'Security Guard',
+          experience: existing.experience || 'Experienced',
+          totalExperienceYears: existing.totalExperienceYears !== undefined ? existing.totalExperienceYears : 2,
+          lastCompany: existing.lastCompany || '',
+          lastSalary: existing.lastSalary !== undefined ? existing.lastSalary : '',
+          expectedSalary: existing.expectedSalary !== undefined ? existing.expectedSalary : '',
+          minExpectedSalary: existing.minExpectedSalary !== undefined ? existing.minExpectedSalary : '',
+          maxExpectedSalary: existing.maxExpectedSalary !== undefined ? existing.maxExpectedSalary : '',
+          preferredLocation: existing.preferredLocation || '',
+          photo: existing.photo || '',
+          photoName: existing.photoName || '',
+          resumeUrl: existing.resumeUrl || '',
+          resumeName: existing.resumeName || existing.resumeUrl || '',
+          resumeSize: existing.resumeSize || '',
+          skills: Array.isArray(existing.skills) ? existing.skills : [],
+          customSkill: '',
+          source: existing.source || 'Walk-in',
+          registrationDate: existing.registrationDate || new Date().toISOString().split('T')[0],
+          status: existing.status || 'applied',
+          remarks: existing.remarks || ''
+        });
+      } else {
+        showToast(`Candidate "${id}" not found`, 'error');
+        setTimeout(() => navigate('/admin/recruitment'), 1500);
+      }
+    }
+  }, [id, isEdit, navigate]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -160,6 +298,43 @@ export default function AddCandidate() {
       setFormData((prev) => ({ ...prev, whatsapp: prev.mobile }));
       showToast('Copied Mobile Number to WhatsApp', 'info');
     }
+  };
+
+  const handleCategoryToggle = (catName) => {
+    setFormData((prev) => {
+      const current = Array.isArray(prev.jobCategory)
+        ? prev.jobCategory
+        : (prev.jobCategory ? [prev.jobCategory] : []);
+      const exists = current.includes(catName);
+      const next = exists
+        ? current.filter((c) => c !== catName)
+        : [...current, catName];
+      return { ...prev, jobCategory: next };
+    });
+    if (errors.jobCategory) {
+      setErrors((prev) => ({ ...prev, jobCategory: '' }));
+    }
+  };
+
+  const handleSelectAllCategories = () => {
+    setFormData((prev) => ({ ...prev, jobCategory: [...availableCategories] }));
+    if (errors.jobCategory) {
+      setErrors((prev) => ({ ...prev, jobCategory: '' }));
+    }
+  };
+
+  const handleClearAllCategories = () => {
+    setFormData((prev) => ({ ...prev, jobCategory: [] }));
+  };
+
+  const handleRemoveSingleCategory = (e, catName) => {
+    e.stopPropagation();
+    handleCategoryToggle(catName);
+  };
+
+  const handleCategoryTriggerClear = (e) => {
+    e.stopPropagation();
+    handleClearAllCategories();
   };
 
   const handleToggleSkill = (skill) => {
@@ -249,6 +424,11 @@ export default function AddCandidate() {
 
     setIsSubmitting(true);
 
+    const categoryArray = Array.isArray(formData.jobCategory)
+      ? formData.jobCategory
+      : (formData.jobCategory ? [formData.jobCategory] : []);
+    const categoryStr = categoryArray.join(', ');
+
     const payload = {
       id: formData.id,
       name: formData.name.trim(),
@@ -260,7 +440,8 @@ export default function AddCandidate() {
       city: formData.city.trim(),
       state: formData.state,
 
-      jobCategory: formData.jobCategory,
+      jobCategory: categoryStr || (categoryArray[0] || ''),
+      jobCategories: categoryArray,
       appliedFor: formData.appliedFor.trim(),
       preferredLocation: formData.preferredLocation.trim(),
 
@@ -286,6 +467,14 @@ export default function AddCandidate() {
     };
 
     try {
+      if (isEdit) {
+        const updated = updateCandidate(id, payload);
+        showToast(`Candidate "${updated?.name || payload.name}" updated successfully!`, 'success');
+        setTimeout(() => {
+          navigate('/admin/recruitment');
+        }, 700);
+        return;
+      }
       const created = addCandidate(payload);
       showToast(`Candidate "${created.name}" (${created.id}) added successfully!`, 'success');
       setTimeout(() => {
@@ -296,6 +485,14 @@ export default function AddCandidate() {
       setIsSubmitting(false);
     }
   };
+
+  const selectedCategories = Array.isArray(formData.jobCategory)
+    ? formData.jobCategory
+    : (formData.jobCategory ? [formData.jobCategory] : []);
+
+  const filteredCategories = availableCategories.filter((cat) =>
+    (cat || '').toLowerCase().includes((categorySearchTerm || '').toLowerCase().trim())
+  );
 
   return (
     <AdminLayout>
@@ -321,16 +518,16 @@ export default function AddCandidate() {
             Recruitment
           </Link>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Add Candidate</span>
+          <span className={styles.crumbActive}>{isEdit ? 'Edit Candidate' : 'Add Candidate'}</span>
         </nav>
 
         {/* Full-Page Mode Card */}
         <div className={styles.pageContainer}>
           <div className={styles.pageCard}>
-            {/* Page Header (Only Title & Back Button - Subtitle removed as requested) */}
+            {/* Page Header */}
             <div className={styles.pageHeader}>
               <div>
-                <h1 className={styles.pageTitle}>Add New Candidate</h1>
+                <h1 className={styles.pageTitle}>{isEdit ? 'Edit Candidate Profile' : 'Add New Candidate'}</h1>
               </div>
               <div className={styles.pageHeaderActions}>
                 <button
@@ -416,24 +613,194 @@ export default function AddCandidate() {
                       />
                     </div>
 
-                    {/* Field: Job Category */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="jobCategory" className={styles.label}>
-                        Job Category
+                    {/* Field: Job Category (Multi-Select Dropdown) */}
+                    <div className={styles.formGroup} ref={categoryDropdownRef}>
+                      <label htmlFor="jobCategoryTrigger" className={styles.label}>
+                        <span>Job Category</span>
+                        {selectedCategories.length > 0 && (
+                          <span style={{ fontSize: '11px', color: 'var(--primary, #2563eb)', fontWeight: 600 }}>
+                            ({selectedCategories.length} selected)
+                          </span>
+                        )}
                       </label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          id="jobCategory"
-                          name="jobCategory"
-                          className={styles.select}
-                          value={formData.jobCategory}
-                          onChange={handleChange}
+
+                      <div className={styles.multiSelectContainer}>
+                        <div
+                          id="jobCategoryTrigger"
+                          tabIndex={0}
+                          role="combobox"
+                          aria-expanded={isCategoryDropdownOpen}
+                          aria-haspopup="listbox"
+                          className={`${styles.multiSelectTrigger} ${isCategoryDropdownOpen ? styles.multiSelectTriggerOpen : ''}`}
+                          onClick={() => setIsCategoryDropdownOpen((prev) => !prev)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setIsCategoryDropdownOpen((prev) => !prev);
+                            }
+                          }}
                         >
-                          {JOB_CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>{cat}</option>
-                          ))}
-                        </select>
+                          <div className={styles.multiSelectValuesWrap}>
+                            {selectedCategories.length === 0 ? (
+                              <span className={styles.multiSelectPlaceholder}>Select job categories...</span>
+                            ) : (
+                              <>
+                                {selectedCategories.slice(0, 2).map((cat) => (
+                                  <span key={cat} className={styles.multiSelectTag} title={cat}>
+                                    <span>{cat}</span>
+                                    <button
+                                      type="button"
+                                      className={styles.multiSelectTagRemove}
+                                      onClick={(e) => handleRemoveSingleCategory(e, cat)}
+                                      aria-label={`Remove ${cat}`}
+                                    >
+                                      <X size={10} />
+                                    </button>
+                                  </span>
+                                ))}
+                                {selectedCategories.length > 2 && (
+                                  <span className={styles.multiSelectMoreBadge}>
+                                    +{selectedCategories.length - 2} more
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          <div className={styles.multiSelectActionsRight}>
+                            {selectedCategories.length > 0 && (
+                              <button
+                                type="button"
+                                className={styles.multiSelectClearBtn}
+                                onClick={handleCategoryTriggerClear}
+                                title="Clear all selected"
+                                aria-label="Clear all categories"
+                              >
+                                <X size={13} />
+                              </button>
+                            )}
+                            <ChevronDown
+                              size={16}
+                              className={isCategoryDropdownOpen ? styles.chevronRotated : styles.chevron}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Dropdown Menu Popover */}
+                        {isCategoryDropdownOpen && (
+                          <div className={styles.multiSelectDropdownMenu}>
+                            {/* Filter Search Input */}
+                            <div className={styles.dropdownSearchWrap}>
+                              <Search size={14} color="#94a3b8" />
+                              <input
+                                type="text"
+                                className={styles.dropdownSearchInput}
+                                placeholder="Filter job categories..."
+                                value={categorySearchTerm}
+                                onChange={(e) => setCategorySearchTerm(e.target.value)}
+                                autoFocus
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              {categorySearchTerm && (
+                                <button
+                                  type="button"
+                                  className={styles.clearSearchBtn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setCategorySearchTerm('');
+                                  }}
+                                  title="Clear filter"
+                                >
+                                  <X size={12} />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Control Bar: Count + Select/Clear All */}
+                            <div className={styles.dropdownControlBar}>
+                              <span className={styles.dropdownSelectedCount}>
+                                {selectedCategories.length} of {availableCategories.length} selected
+                              </span>
+                              <div className={styles.dropdownControlActions}>
+                                <button
+                                  type="button"
+                                  className={styles.dropdownQuickBtn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSelectAllCategories();
+                                  }}
+                                >
+                                  Select All
+                                </button>
+                                <span style={{ color: '#cbd5e1' }}>•</span>
+                                <button
+                                  type="button"
+                                  className={styles.dropdownQuickBtn}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleClearAllCategories();
+                                  }}
+                                >
+                                  Clear All
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Scrollable Checkbox List */}
+                            <div className={styles.dropdownList}>
+                              {filteredCategories.length === 0 ? (
+                                <div className={styles.noItemsFound}>
+                                  No job categories matching "{categorySearchTerm}"
+                                </div>
+                              ) : (
+                                filteredCategories.map((cat) => {
+                                  const isChecked = selectedCategories.includes(cat);
+                                  return (
+                                    <div
+                                      key={cat}
+                                      className={`${styles.dropdownOption} ${isChecked ? styles.dropdownOptionSelected : ''}`}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCategoryToggle(cat);
+                                      }}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        className={styles.dropdownCheckbox}
+                                        checked={isChecked}
+                                        onChange={() => {}}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChangeCapture={() => handleCategoryToggle(cat)}
+                                      />
+                                      <span className={styles.dropdownOptionText}>{cat}</span>
+                                      {isChecked && (
+                                        <Check size={14} color="#2563eb" style={{ marginLeft: 'auto', flexShrink: 0 }} />
+                                      )}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            {/* Dropdown Footer with Done button */}
+                            <div className={styles.dropdownFooter}>
+                              <button
+                                type="button"
+                                className={styles.dropdownDoneBtn}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsCategoryDropdownOpen(false);
+                                }}
+                              >
+                                Done
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
+                      {errors.jobCategory && (
+                        <span className={styles.errorText}>{errors.jobCategory}</span>
+                      )}
                     </div>
 
                     {/* Field: Applied For (Job Designation) */}
@@ -973,7 +1340,7 @@ export default function AddCandidate() {
                         <span>Saving...</span>
                       </span>
                     ) : (
-                      'Add Candidate'
+                      isEdit ? 'Save Changes' : 'Add Candidate'
                     )}
                   </button>
                 </div>

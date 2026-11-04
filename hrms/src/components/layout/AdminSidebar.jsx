@@ -63,8 +63,8 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/clients', name: 'All Clients' },
-          { path: '/admin/clients/billing', name: 'Billing' },
-          { path: '/admin/masters?tab=client-services', name: 'Client Services' },
+          { path: '/admin/clients/billing', name: 'Billing' }
+
         ]
       },
       {
@@ -120,6 +120,7 @@ const NAV_GROUPS = [
           { path: '/admin/payroll?tab=arrears', name: 'Arrears' },
           { path: '/admin/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/admin/payroll?tab=statutory', name: 'Statutory Reports' },
+          { path: '/admin/payroll?tab=fnf', name: 'Full & Final (FnF)' },
         ]
       },
       {
@@ -310,7 +311,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
   // Automatically keep dropdown open when on matching route
   useEffect(() => {
-    if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients'))) {
+    if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/clients': true }));
     }
     if (location.pathname.startsWith('/admin/employees')) {
@@ -446,13 +447,13 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                     ? (
                         location.pathname.startsWith('/admin/company-setup') ||
                         location.pathname.startsWith('/admin/work-locations') ||
-                        (location.pathname === '/admin/masters' && (location.search.includes('tab=departments') || location.search.includes('tab=designations')))
+                        location.pathname.startsWith('/admin/masters')
                       )
                     : item.path === '/admin/clients'
                     ? (
                         location.pathname.startsWith('/admin/clients') ||
-                        location.pathname.startsWith('/admin/companies') ||
-                        (location.pathname === '/admin/masters' && location.search.includes('tab=clients'))
+                        location.pathname.startsWith('/admin/companies')
+
                       )
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 

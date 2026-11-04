@@ -208,6 +208,7 @@ function MasterFormModal({
     const action = isEdit ? 'Edit' : 'Add';
     switch (activeTab) {
       case 'banks': return `${action} Bank`;
+      case 'job-categories': return `${action} Job Category`;
       case 'client-services':
       case 'clients': return isEdit ? 'Edit Service' : 'Add Services';
       case 'departments': return `${action} Department`;
@@ -417,6 +418,39 @@ function MasterFormModal({
                     No branch names added yet. Type a branch name and click "+ Add Branch" or press Enter.
                   </span>
                 )}
+              </div>
+            </>
+          )}
+
+          {/* JOB CATEGORIES */}
+          {activeTab === 'job-categories' && (
+            <>
+              <div className={styles.field}>
+                <label className={styles.label}>
+                  Job Category Name <span className={styles.required}>*</span>
+                </label>
+                <input
+                  type="text"
+                  className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
+                  placeholder="e.g. Security Guard, Armed Guard, Field Supervisor"
+                  value={formData.name || ''}
+                  onChange={(e) => {
+                    setFormData({ ...formData, name: e.target.value });
+                    if (errors.name) setErrors({ ...errors, name: null });
+                  }}
+                />
+                {errors.name && <span className={styles.errorText}>{errors.name}</span>}
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Description</label>
+                <textarea
+                  className={styles.textarea || styles.input}
+                  rows={3}
+                  placeholder="Enter details about this job category..."
+                  value={formData.description || ''}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
               </div>
             </>
           )}

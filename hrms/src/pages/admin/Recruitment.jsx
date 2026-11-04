@@ -8,6 +8,7 @@ import {
   Search,
   RotateCcw,
   Eye,
+  Edit2,
   Trash2,
   Phone,
   MessageCircle,
@@ -134,7 +135,7 @@ export default function Recruitment() {
         return false;
       }
       // Category filter
-      if (selectedCategory !== 'all' && c.jobCategory !== selectedCategory) {
+      if (selectedCategory !== 'all' && !(Array.isArray(c.jobCategory) ? c.jobCategory : (c.jobCategory || '').split(',').map((x) => x.trim())).some((cat) => cat.toLowerCase() === selectedCategory.toLowerCase())) {
         return false;
       }
       // Experience filter
@@ -412,7 +413,7 @@ export default function Recruitment() {
                             {c.appliedFor || c.jobCategory}
                           </div>
                           <span className={styles.badgeCategory} style={{ marginTop: 2 }}>
-                            {c.jobCategory}
+                            {Array.isArray(c.jobCategory) ? c.jobCategory.join(', ') : c.jobCategory}
                           </span>
                         </td>
 
@@ -651,6 +652,14 @@ export default function Recruitment() {
                               title="View Full Candidate Profile"
                             >
                               <Eye size={13} />
+                            </Link>
+
+                            <Link
+                              to={`/admin/recruitment/${c.id}/edit`}
+                              className={styles.editBtn}
+                              title="Edit Candidate"
+                            >
+                              <Edit2 size={13} />
                             </Link>
 
                             <button

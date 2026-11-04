@@ -20,6 +20,8 @@ function MasterToolbar({
     switch (activeTab) {
       case 'banks':
         return { placeholder: 'Search bank name or code...', addLabel: 'Add Bank' };
+      case 'job-categories':
+        return { placeholder: 'Search job category name or description...', addLabel: 'Add Job Category' };
       case 'client-services':
       case 'clients':
         return { placeholder: 'Search service name or description...', addLabel: 'Add Services' };

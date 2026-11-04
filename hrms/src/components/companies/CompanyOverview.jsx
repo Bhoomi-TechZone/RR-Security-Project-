@@ -11,6 +11,8 @@ import styles from './CompanyOverview.module.css';
  */
 const formatServiceType = (type) => {
   if (!type) return 'Not Specified';
+  if (Array.isArray(type)) return type.length > 0 ? type.join(', ') : 'Not Specified';
+  if (typeof type === 'string' && type.includes(',')) return type;
   const mapping = {
     'SecurityGuard': 'Security Guard',
     'Housekeeping': 'Housekeeping',

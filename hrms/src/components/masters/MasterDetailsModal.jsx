@@ -39,6 +39,8 @@ function MasterDetailsModal({
   const getHeaderIcon = () => {
     switch (activeTab) {
       case 'banks': return <Landmark size={20} />;
+      case 'job-categories': return <UserCheck size={20} />;
+
       case 'client-services':
       case 'clients': return <Briefcase size={20} />;
       case 'departments': return <Layers size={20} />;
@@ -58,6 +60,8 @@ function MasterDetailsModal({
   const getTitle = () => {
     switch (activeTab) {
       case 'banks': return 'Bank Details';
+      case 'job-categories': return 'Job Category Details';
+
       case 'client-services':
       case 'clients': return 'Client Service Details';
       case 'departments': return 'Department Details';
@@ -144,6 +148,24 @@ function MasterDetailsModal({
                   </div>
                 </div>
               )}
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Status</span>
+                <StatusBadge status={item.status} />
+              </div>
+            </div>
+          )}
+
+          {/* JOB CATEGORIES */}
+          {activeTab === 'job-categories' && (
+            <div className={styles.detailsList}>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Job Category Name</span>
+                <span className={styles.value}>{item.name}</span>
+              </div>
+              <div className={styles.detailRow}>
+                <span className={styles.label}>Description</span>
+                <span className={styles.value}>{item.description || '—'}</span>
+              </div>
               <div className={styles.detailRow}>
                 <span className={styles.label}>Status</span>
                 <StatusBadge status={item.status} />

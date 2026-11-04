@@ -18,7 +18,14 @@ import {
   BadgeCheck,
   Clock,
   MapPin,
-  Check
+  Check,
+  Eye,
+  Copy,
+  MessageCircle,
+  ExternalLink,
+  X,
+  User,
+  CreditCard
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
@@ -43,6 +50,7 @@ export default function OnboardingDetails() {
   const navigate = useNavigate();
 
   const [candidate, setCandidate] = useState(null);
+  const [previewDoc, setPreviewDoc] = useState(null);
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -109,6 +117,25 @@ export default function OnboardingDetails() {
     );
   };
 
+  const handleCopyLink = () => {
+    const link = `${window.location.origin}/onboard/${candidate.id}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(link);
+      showToast('✓ Candidate self-onboarding link copied to clipboard!', 'success');
+    } else {
+      showToast(`Link: ${link}`, 'info');
+    }
+  };
+
+  const handleOpenWhatsApp = () => {
+    const link = `${window.location.origin}/onboard/${candidate.id}`;
+    const cleanMobile = (candidate.mobile || '').replace(/\D/g, '');
+    const text = encodeURIComponent(
+      `Hello ${candidate.candidateName},\n\nWelcome to RR Security & Facilities! Please complete your digital onboarding & document verification using your official self-onboarding link below:\n\n🔗 ${link}\n\nPlease keep your Aadhaar, bank passbook/cheque, and uniform size ready.\n\nThank you,\nHR Department`
+    );
+    window.open(`https://wa.me/91${cleanMobile}?text=${text}`, '_blank');
+  };
+
   const docEntries = Object.entries(candidate.documents || {});
   const verifiedCount = docEntries.filter(([_, doc]) => doc?.status === 'Verified').length;
   const isAllDocsVerified = docEntries.length > 0 && verifiedCount === docEntries.length;
@@ -133,7 +160,7 @@ export default function OnboardingDetails() {
                 <img src={candidate.photo} alt={candidate.candidateName} className={styles.avatar} />
               ) : (
                 <div className={styles.avatarFallback}>
-                  {candidate.candidateName.charAt(0).toUpperCase()}
+                  {(candidate.candidateName || 'C').charAt(0).toUpperCase()}
                 </div>
               )}
 
@@ -170,7 +197,12 @@ export default function OnboardingDetails() {
             {/* Actions */}
             <div className={styles.heroActions}>
               {!candidate.isConvertedToEmployee ? (
-                <button className={styles.convertBtn} onClick={handleConvertEmployee}>
+                <button
+                  type="button"
+                  className={styles.convertBtn}
+                  onClick={handleConvertEmployee}
+                  title="Convert candidate to permanent Employee record"
+                >
                   <Sparkles size={16} />
                   Complete Onboarding & Create Employee
                 </button>
@@ -187,6 +219,55 @@ export default function OnboardingDetails() {
                 <ArrowLeft size={16} />
                 Pipeline
               </Link>
+            </div>
+          </div>
+
+          {/* Candidate Self-Onboarding Share Strip */}
+          <div className={styles.shareStrip}>
+            <div className={styles.shareStripLeft}>
+              {candidate.selfSubmitted ? (
+                <span className={styles.selfSubmittedBadge}>
+                  <CheckCircle2 size={15} /> Candidate Self-Onboarding Completed ({candidate.selfSubmittedAt ? new Date(candidate.selfSubmittedAt).toLocaleDateString('en-IN') : 'Submitted'})
+                </span>
+              ) : (
+                <span className={styles.pendingSubmitBadge}>
+                  <Clock size={15} /> Self-Onboarding Link Active (Awaiting Candidate Submission)
+                </span>
+              )}
+              <span className={styles.shareStripUrl}>{`${window.location.origin}/onboard/${candidate.id}`}</span>
+            </div>
+
+            <div className={styles.shareStripActions}>
+              <button
+                type="button"
+                className={styles.shareWhatsAppBtn}
+                onClick={handleOpenWhatsApp}
+                title="Send self-onboarding link via WhatsApp"
+              >
+                <MessageCircle size={15} />
+                <span>WhatsApp Link</span>
+              </button>
+
+              <button
+                type="button"
+                className={styles.copyLinkBtn}
+                onClick={handleCopyLink}
+                title="Copy link to clipboard"
+              >
+                <Copy size={15} />
+                <span>Copy Link</span>
+              </button>
+
+              <a
+                href={`/onboard/${candidate.id}`}
+                target="_blank"
+                rel="noreferrer"
+                className={styles.previewLinkBtn}
+                title="Preview candidate form in new tab"
+              >
+                <ExternalLink size={15} />
+                <span>Candidate Portal</span>
+              </a>
             </div>
           </div>
 
@@ -265,6 +346,8 @@ export default function OnboardingDetails() {
                     statusBg = '#fffbeb';
                   }
 
+                  const hasProof = Boolean(doc.photo || doc.photoFront || doc.photoBack);
+
                   return (
                     <div key={key} className={styles.docRow}>
                       <div className={styles.docInfo}>
@@ -276,13 +359,32 @@ export default function OnboardingDetails() {
                           <div className={styles.docMeta}>
                             {doc.number && `Number: ${doc.number} • `}
                             {doc.refNo && `Ref: ${doc.refNo} • `}
-                            {doc.bankName && `Bank: ${doc.bankName} • `}
+                            {doc.bankName && `Bank: ${doc.bankName} (A/C: ${doc.accountNumber || '—'}, IFSC: ${doc.ifsc || '—'}) • `}
                             Status: <strong style={{ color: statusColor }}>{doc.status}</strong>
                           </div>
                         </div>
                       </div>
 
                       <div className={styles.docStatusControls}>
+                        {hasProof ? (
+                          <button
+                            type="button"
+                            className={styles.previewDocBtn}
+                            onClick={() => setPreviewDoc({
+                              key,
+                              name: doc.documentName || key,
+                              doc,
+                              status: doc.status
+                            })}
+                            title="Inspect candidate uploaded proof"
+                          >
+                            <Eye size={13} />
+                            <span>View Uploaded Proof</span>
+                          </button>
+                        ) : (
+                          <span className={styles.noDocBadge}>No Upload</span>
+                        )}
+
                         <select
                           className={styles.docStatusSelect}
                           value={doc.status}
@@ -307,8 +409,8 @@ export default function OnboardingDetails() {
                   <Shirt size={18} style={{ color: '#2563eb' }} />
                   <span>Uniform Sizing & Security Equipment Kit</span>
                 </div>
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {candidate.uniformKit?.badgeIssued ? 'Kit Issued' : 'Kit Pending'}
+                <span style={{ fontSize: 12, color: candidate.uniformKit?.badgeIssued ? '#059669' : '#d97706', fontWeight: 600 }}>
+                  {candidate.uniformKit?.badgeIssued ? '✓ Kit Issued' : '⏳ Kit Pending'}
                 </span>
               </div>
 
@@ -408,8 +510,121 @@ export default function OnboardingDetails() {
             </div>
           </div>
 
-          {/* Right Column: Deployment & Offer Terms */}
+          {/* Right Column: Candidate Personal Profile & Deployment */}
           <div>
+            {/* Candidate Personal & Self-Declared Info */}
+            <div className={styles.sectionCard}>
+              <div className={styles.sectionTitle}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <User size={18} style={{ color: '#2563eb' }} />
+                  <span>Personal & Compliance Profile</span>
+                </div>
+                <span style={{ fontSize: 11, color: '#059669', fontWeight: 700 }}>
+                  {candidate.selfSubmitted ? '✓ Self-Declared' : 'Awaiting Details'}
+                </span>
+              </div>
+
+              <div className={styles.personalGrid}>
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Father / Husband</span>
+                  <span className={styles.personalValue}>
+                    {candidate.fatherHusbandName || candidate.fatherName || '—'} {candidate.fatherHusbandRelation ? `(${candidate.fatherHusbandRelation})` : ''}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Date of Birth</span>
+                  <span className={styles.personalValue}>{candidate.dob || '—'}</span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Gender & Blood Group</span>
+                  <span className={styles.personalValue}>
+                    {candidate.gender || 'Male'} • <strong style={{ color: '#dc2626' }}>{candidate.bloodGroup || '—'}</strong>
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Marital Status</span>
+                  <span className={styles.personalValue}>
+                    {candidate.maritalStatus || 'Single'} {candidate.spouseName ? `(Spouse: ${candidate.spouseName})` : ''}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Religion & Nationality</span>
+                  <span className={styles.personalValue}>
+                    {candidate.religion || 'Hindu'} • {candidate.nationality || 'Indian'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Emergency Contact</span>
+                  <span className={styles.personalValue} style={{ color: '#2563eb' }}>
+                    {candidate.emergencyMobile || '—'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Highest Qualification</span>
+                  <span className={styles.personalValue}>
+                    {candidate.qualification || '10th Pass'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Technical Skill / Drill</span>
+                  <span className={styles.personalValue}>
+                    {candidate.technicalQualification || 'Standard Staff'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Prior Experience & Lang</span>
+                  <span className={styles.personalValue}>
+                    {candidate.previousExperience || 'Fresher'} • {candidate.language || 'Hindi'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField}>
+                  <span className={styles.personalLabel}>Statutory UAN & ESIC</span>
+                  <span className={styles.personalValue} style={{ fontSize: 12 }}>
+                    UAN: {candidate.uan || '—'} • ESIC: {candidate.esicNo || '—'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField} style={{ gridColumn: 'span 2' }}>
+                  <span className={styles.personalLabel}>EPF / Insurance Nominee</span>
+                  <span className={styles.personalValue} style={{ color: '#059669' }}>
+                    {candidate.familyMemberName ? `${candidate.familyMemberName} (${candidate.relation || 'Nominee'}, ${candidate.dobAge || ''}) - 100% Share` : '—'}
+                  </span>
+                </div>
+
+                {candidate.licenseType && candidate.licenseType !== 'None' && (
+                  <div className={styles.personalField} style={{ gridColumn: 'span 2' }}>
+                    <span className={styles.personalLabel}>Special License Held</span>
+                    <span className={styles.personalValue} style={{ color: '#d97706' }}>
+                      {candidate.licenseType} (No: {candidate.drivingLicenseNo || '—'})
+                    </span>
+                  </div>
+                )}
+
+                <div className={styles.personalField} style={{ gridColumn: 'span 2' }}>
+                  <span className={styles.personalLabel}>Present Address</span>
+                  <span className={styles.personalValue} style={{ fontSize: 12 }}>
+                    {candidate.presentAddress || candidate.address || '—'}
+                  </span>
+                </div>
+
+                <div className={styles.personalField} style={{ gridColumn: 'span 2' }}>
+                  <span className={styles.personalLabel}>Permanent Address</span>
+                  <span className={styles.personalValue} style={{ fontSize: 12 }}>
+                    {candidate.permanentAddress || candidate.address || '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Deployment Assignment */}
             <div className={styles.sectionCard}>
               <div className={styles.sectionTitle}>
@@ -511,6 +726,110 @@ export default function OnboardingDetails() {
           </div>
         </div>
 
+        {/* Document Preview Modal */}
+        {previewDoc && (
+          <div className={styles.modalBackdrop} onClick={() => setPreviewDoc(null)}>
+            <div className={styles.modalContent} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileCheck2 size={20} color="#2563eb" />
+                  <h3 className={styles.modalTitle}>{previewDoc.name} — Candidate Uploaded Proof</h3>
+                </div>
+                <button
+                  type="button"
+                  className={styles.modalCloseBtn}
+                  onClick={() => setPreviewDoc(null)}
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className={styles.modalBody}>
+                {/* Document metadata box */}
+                <div className={styles.modalMetaBox}>
+                  <div><strong>Candidate Name:</strong> {candidate.candidateName}</div>
+                  {previewDoc.doc?.number && <div><strong>Document Number:</strong> {previewDoc.doc.number}</div>}
+                  {previewDoc.doc?.bankName && (
+                    <div>
+                      <strong>Bank:</strong> {previewDoc.doc.bankName} | <strong>A/C:</strong> {previewDoc.doc.accountNumber} | <strong>IFSC:</strong> {previewDoc.doc.ifsc}
+                    </div>
+                  )}
+                  {previewDoc.doc?.refNo && <div><strong>Challan / Ref No:</strong> {previewDoc.doc.refNo}</div>}
+                  {previewDoc.doc?.clearanceDate && <div><strong>Clearance Date:</strong> {previewDoc.doc.clearanceDate}</div>}
+                  <div style={{ marginTop: 4 }}>
+                    <strong>Verification Status:</strong>{' '}
+                    <span style={{ fontWeight: 700, color: previewDoc.doc?.status === 'Verified' ? '#059669' : '#2563eb' }}>
+                      {previewDoc.doc?.status}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Photos */}
+                {previewDoc.doc?.photo && (
+                  <div className={styles.docImageWrap}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>
+                      Uploaded Proof / Slip
+                    </div>
+                    <img src={previewDoc.doc.photo} alt="Document Proof" className={styles.docImage} />
+                  </div>
+                )}
+
+                {previewDoc.doc?.photoFront && (
+                  <div className={styles.docImageWrap}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>
+                      Front Side
+                    </div>
+                    <img src={previewDoc.doc.photoFront} alt="Front Side" className={styles.docImage} />
+                  </div>
+                )}
+
+                {previewDoc.doc?.photoBack && (
+                  <div className={styles.docImageWrap}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>
+                      Back Side (Address Proof)
+                    </div>
+                    <img src={previewDoc.doc.photoBack} alt="Back Side" className={styles.docImage} />
+                  </div>
+                )}
+              </div>
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  className={styles.modalRejectBtn}
+                  onClick={() => {
+                    handleDocStatusChange(previewDoc.key, 'Rejected');
+                    setPreviewDoc(null);
+                  }}
+                >
+                  ✕ Mark as Rejected
+                </button>
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button
+                    type="button"
+                    className={styles.backBtn}
+                    style={{ height: 36 }}
+                    onClick={() => setPreviewDoc(null)}
+                  >
+                    Close
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.modalVerifyBtn}
+                    onClick={() => {
+                      handleDocStatusChange(previewDoc.key, 'Verified');
+                      setPreviewDoc(null);
+                    }}
+                  >
+                    <Check size={16} /> Mark as Verified
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Toast */}
         {toast.message && (
           <Toast
@@ -523,4 +842,3 @@ export default function OnboardingDetails() {
     </AdminLayout>
   );
 }
-

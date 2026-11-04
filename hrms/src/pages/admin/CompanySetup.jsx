@@ -5,7 +5,7 @@ import {
   Calendar, UserCheck, Sparkles, Hash, SlidersHorizontal, ShieldCheck,
   Search, ArrowRight, ArrowLeft, Layers, DollarSign, Clock, CalendarDays, Calculator,
   Landmark, Shield, Gift, HeartHandshake, FileCheck, Award,
-  CalendarOff, CalendarHeart
+  CalendarOff, CalendarHeart, Briefcase
 } from 'lucide-react';
 import styles from './CompanySetup.module.css';
 
@@ -205,6 +205,30 @@ const SETUP_MODULES = [
     iconBg: '#f8fafc',
     iconColor: '#0f172a',
     route: '/admin/masters?tab=document-types',
+    isExternal: true
+  },
+  {
+    id: 'client-services',
+    title: 'Client Services',
+    desc: 'Configure operational service types provided to clients (Security Guard, Housekeeping, Facility Management, etc.).',
+    category: 'all-masters-setup',
+    icon: Briefcase,
+    badge: 'Services',
+    iconBg: '#eff6ff',
+    iconColor: '#2563eb',
+    route: '/admin/masters?tab=client-services',
+    isExternal: true
+  },
+  {
+    id: 'job-categories',
+    title: 'Job Category',
+    desc: 'Configure security guard, supervisor, facility management and workforce job classifications.',
+    category: 'all-masters-setup',
+    icon: UserCheck,
+    badge: 'Staffing',
+    iconBg: '#f0fdf4',
+    iconColor: '#16a34a',
+    route: '/admin/masters?tab=job-categories',
     isExternal: true
   },
 

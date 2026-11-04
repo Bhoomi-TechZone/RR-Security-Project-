@@ -10,21 +10,21 @@ import {
   CheckCircle2,
   Clock,
   Search,
-  Filter,
   Eye,
   Sparkles,
-  ArrowRight,
   ShieldCheck,
-  Building2,
   Phone,
-  AlertCircle,
-  BadgeCheck
+  MessageCircle,
+  Edit2,
+  Trash2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import ConfirmModal from '../../components/common/ConfirmModal';
 import {
   getStoredOnboarding,
   convertToEmployee,
+  deleteOnboardingCandidate,
   ONBOARDING_STAGES
 } from '../../data/onboardingData';
 import { JOB_CATEGORIES } from '../../data/recruitmentData';
@@ -44,6 +44,9 @@ export default function Onboarding() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStage, setSelectedStage] = useState(() => searchParams.get('stage') || 'all');
   const [toast, setToast] = useState({ message: '', type: 'success' });
+
+  // Delete modal state
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, candidate: null });
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
@@ -88,34 +91,58 @@ export default function Onboarding() {
     loadData();
   };
 
-  // Metrics
+  const handleConfirmDelete = () => {
+    if (!deleteModal.candidate) return;
+    deleteOnboardingCandidate(deleteModal.candidate.id);
+    showToast(`Candidate ${deleteModal.candidate.candidateName} removed from onboarding pipeline.`, 'success');
+    setDeleteModal({ isOpen: false, candidate: null });
+    loadData();
+  };
+
+  // KPI Metrics Calculation
   const metrics = useMemo(() => {
-    const total = onboardingList.length;
-    const docsPending = onboardingList.filter((i) => i.stage === 'document_verification').length;
-    const uniformPending = onboardingList.filter((i) => i.stage === 'uniform_allocation').length;
-    const readyToDeploy = onboardingList.filter((i) => i.stage === 'ready_to_deploy').length;
-    const completed = onboardingList.filter((i) => i.stage === 'completed').length;
-    return { total, docsPending, uniformPending, readyToDeploy, completed };
+    const inPipeline = onboardingList.filter((item) => item.stage !== 'completed').length;
+    const docVerification = onboardingList.filter((item) => item.stage === 'document_verification').length;
+    const readyToDeploy = onboardingList.filter((item) => item.stage === 'ready_to_deploy').length;
+    const completed = onboardingList.filter((item) => item.stage === 'completed').length;
+    return { inPipeline, docVerification, readyToDeploy, completed };
   }, [onboardingList]);
 
-  // Filtered List
+  // Filtered Candidates
   const filteredList = useMemo(() => {
     return onboardingList.filter((item) => {
+      // Stage filter
       if (selectedStage !== 'all' && item.stage !== selectedStage) {
         return false;
       }
-      if (selectedCategory !== 'all' && item.jobCategory !== selectedCategory) {
-        return false;
+      // Category filter
+      if (selectedCategory !== 'all') {
+        const catStr = Array.isArray(item.jobCategory) ? item.jobCategory.join(', ') : (item.jobCategory || '');
+        if (!catStr.toLowerCase().includes(selectedCategory.toLowerCase())) {
+          return false;
+        }
       }
+      // Search Term
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         const matchName = (item.candidateName || '').toLowerCase().includes(q);
         const matchId = (item.id || '').toLowerCase().includes(q);
         const matchCandidateId = (item.candidateId || '').toLowerCase().includes(q);
+        const matchMobile = (item.mobile || '').includes(q);
         const matchRole = (item.appliedFor || '').toLowerCase().includes(q);
-        const matchSite = (item.assignedSite || '').toLowerCase().includes(q);
         const matchClient = (item.assignedClient || '').toLowerCase().includes(q);
-        if (!matchName && !matchId && !matchCandidateId && !matchRole && !matchSite && !matchClient) {
+        const matchSite = (item.assignedSite || '').toLowerCase().includes(q);
+        const matchEmpCode = (item.createdEmployeeCode || '').toLowerCase().includes(q);
+        if (
+          !matchName &&
+          !matchId &&
+          !matchCandidateId &&
+          !matchMobile &&
+          !matchRole &&
+          !matchClient &&
+          !matchSite &&
+          !matchEmpCode
+        ) {
           return false;
         }
       }
@@ -124,45 +151,62 @@ export default function Onboarding() {
   }, [onboardingList, selectedStage, selectedCategory, searchTerm]);
 
   const getStageBadge = (stage) => {
-    const found = ONBOARDING_STAGES.find((s) => s.id === stage);
-    let bg = '#eff6ff';
-    let color = '#2563eb';
-    if (stage === 'ready_to_deploy') {
-      bg = '#ecfdf5';
-      color = '#059669';
-    } else if (stage === 'completed') {
-      bg = '#ecfeff';
-      color = '#0891b2';
-    } else if (stage === 'uniform_allocation') {
-      bg = '#fffbeb';
-      color = '#d97706';
-    } else if (stage === 'document_verification') {
-      bg = '#f5f3ff';
-      color = '#7c3aed';
+    switch (stage) {
+      case 'offer_accepted':
+        return (
+          <span className={styles.stageBadge} style={{ background: '#eff6ff', color: '#1d4ed8' }}>
+            <Clock size={12} /> Offer Accepted
+          </span>
+        );
+      case 'document_verification':
+        return (
+          <span className={styles.stageBadge} style={{ background: '#f5f3ff', color: '#6d28d9' }}>
+            <FileCheck2 size={12} /> Doc Verification
+          </span>
+        );
+      case 'uniform_allocation':
+        return (
+          <span className={styles.stageBadge} style={{ background: '#fffbeb', color: '#b45309' }}>
+            <Shirt size={12} /> Uniform Allocation
+          </span>
+        );
+      case 'ready_to_deploy':
+        return (
+          <span className={styles.stageBadge} style={{ background: '#ecfdf5', color: '#047857' }}>
+            <ShieldCheck size={12} /> Ready for Deploy
+          </span>
+        );
+      case 'completed':
+        return (
+          <span className={styles.stageBadge} style={{ background: '#ecfeff', color: '#0e7490' }}>
+            <CheckCircle2 size={12} /> Converted to Staff
+          </span>
+        );
+      default:
+        return (
+          <span className={styles.stageBadge} style={{ background: '#f1f5f9', color: '#475569' }}>
+            {stage}
+          </span>
+        );
     }
-
-    return (
-      <span className={styles.stageBadge} style={{ backgroundColor: bg, color }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: color }} />
-        {found?.label || stage}
-      </span>
-    );
   };
 
   return (
     <AdminLayout>
       <div className={styles.container}>
-        {/* Breadcrumb */}
-        <div className={styles.breadcrumb}>
-          <Link to="/admin/dashboard" className={styles.crumbLink}>Home</Link>
+        {/* Breadcrumb Navigation */}
+        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+          <Link to="/admin/dashboard" className={styles.crumbLink}>
+            Home
+          </Link>
           <span className={styles.separator}>/</span>
-          <span className={styles.separator}>Talent Acquisition</span>
+          <span className={styles.crumbLink}>Talent Acquisition</span>
           <span className={styles.separator}>/</span>
           <span className={styles.crumbActive}>Onboarding</span>
-        </div>
+        </nav>
 
-        {/* Page Header */}
-        <div className={styles.header}>
+        {/* Header */}
+        <header className={styles.header}>
           <div className={styles.titleArea}>
             <h1 className={styles.title}>
               <UserCheck className={styles.titleIcon} size={28} />
@@ -172,39 +216,40 @@ export default function Onboarding() {
               Document verification, uniform kit allocation, and site deployment pipeline.
             </p>
           </div>
+
           <div className={styles.headerActions}>
             <Link to="/admin/employees/add" className={styles.secondaryBtn}>
               <Sparkles size={16} />
-              Direct Add Employee
+              <span>Direct Add Employee</span>
             </Link>
             <Link to="/admin/onboarding/add" className={styles.primaryBtn}>
               <UserPlus size={16} />
               <span>New Onboard</span>
             </Link>
           </div>
-        </div>
+        </header>
 
-        {/* KPI Metrics */}
+        {/* Metrics Grid */}
         <div className={styles.metricsGrid}>
           <div className={styles.metricCard}>
             <div className={styles.metricInfo}>
               <span className={styles.metricLabel}>In Onboarding</span>
-              <span className={styles.metricValue}>{metrics.total}</span>
-              <span className={styles.metricSubtext}>Active in pipeline</span>
+              <span className={styles.metricValue}>{metrics.inPipeline}</span>
+              <span className={styles.metricDesc}>Active in pipeline</span>
             </div>
             <div className={styles.metricIconWrap} style={{ background: '#eff6ff', color: '#2563eb' }}>
-              <Users size={24} />
+              <Users size={22} />
             </div>
           </div>
 
           <div className={styles.metricCard}>
             <div className={styles.metricInfo}>
               <span className={styles.metricLabel}>Document Verification</span>
-              <span className={styles.metricValue}>{metrics.docsPending}</span>
-              <span className={styles.metricSubtext}>Aadhaar/Police checks</span>
+              <span className={styles.metricValue}>{metrics.docVerification}</span>
+              <span className={styles.metricDesc}>Aadhaar/Police checks</span>
             </div>
             <div className={styles.metricIconWrap} style={{ background: '#f5f3ff', color: '#7c3aed' }}>
-              <FileCheck2 size={24} />
+              <FileCheck2 size={22} />
             </div>
           </div>
 
@@ -212,10 +257,10 @@ export default function Onboarding() {
             <div className={styles.metricInfo}>
               <span className={styles.metricLabel}>Ready for Deploy</span>
               <span className={styles.metricValue}>{metrics.readyToDeploy}</span>
-              <span className={styles.metricSubtext}>Uniform & site assigned</span>
+              <span className={styles.metricDesc}>Uniform & site assigned</span>
             </div>
             <div className={styles.metricIconWrap} style={{ background: '#ecfdf5', color: '#059669' }}>
-              <ShieldCheck size={24} />
+              <ShieldCheck size={22} />
             </div>
           </div>
 
@@ -223,29 +268,29 @@ export default function Onboarding() {
             <div className={styles.metricInfo}>
               <span className={styles.metricLabel}>Converted to Staff</span>
               <span className={styles.metricValue}>{metrics.completed}</span>
-              <span className={styles.metricSubtext}>Officially joined</span>
+              <span className={styles.metricDesc}>Officially joined</span>
             </div>
             <div className={styles.metricIconWrap} style={{ background: '#ecfeff', color: '#0891b2' }}>
-              <BadgeCheck size={24} />
+              <CheckCircle2 size={22} />
             </div>
           </div>
         </div>
 
-        {/* Toolbar & Filters (Stage Tabs converted to Dropdown Select) */}
+        {/* Toolbar: Search & Filter Controls */}
         <div className={styles.toolbarCard}>
           <div className={styles.filterControls}>
             <div className={styles.searchBox}>
-              <Search className={styles.searchIcon} size={16} />
+              <Search size={16} className={styles.searchIcon} />
               <input
                 type="text"
-                className={styles.searchInput}
                 placeholder="Search candidate name, ID, client, role, or site..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className={styles.searchInput}
               />
             </div>
 
-            {/* 1. All Job Categories (Shown first matching Recruitment) */}
+            {/* Job Category Filter */}
             <select
               className={styles.filterSelect}
               value={selectedCategory}
@@ -259,46 +304,44 @@ export default function Onboarding() {
               ))}
             </select>
 
-            {/* 2. Onboarding Stage Filter (Converted from Tabs to Select) */}
+            {/* Stage Filter */}
             <select
               className={styles.filterSelect}
               value={selectedStage}
               onChange={(e) => handleStageChange(e.target.value)}
             >
-              <option value="all">All Stages ({metrics.total})</option>
-              {ONBOARDING_STAGES.filter((s) => s.id !== 'all').map((stg) => {
-                const count = onboardingList.filter((i) => i.stage === stg.id).length;
-                return (
-                  <option key={stg.id} value={stg.id}>
-                    {stg.label} ({count})
-                  </option>
-                );
-              })}
+              <option value="all">All Stages ({onboardingList.length})</option>
+              {ONBOARDING_STAGES.filter((s) => s.id !== 'all').map((st) => (
+                <option key={st.id} value={st.id}>
+                  {st.label}
+                </option>
+              ))}
             </select>
 
-            {(searchTerm || selectedStage !== 'all' || selectedCategory !== 'all') && (
+            {(searchTerm || selectedCategory !== 'all' || selectedStage !== 'all') && (
               <button
                 type="button"
                 className={styles.resetBtn}
                 onClick={() => {
                   setSearchTerm('');
                   setSelectedCategory('all');
-                  handleStageChange('all');
+                  setSelectedStage('all');
+                  navigate('/admin/onboarding');
                 }}
               >
-                Reset Filters
+                Reset
               </button>
             )}
           </div>
         </div>
 
-        {/* Onboarding Table */}
+        {/* Table View */}
         <div className={styles.tableCard}>
           <div className={styles.tableWrap}>
             <table className={styles.onboardingTable}>
               <thead>
                 <tr>
-                  <th>Candidate / Onboarding ID</th>
+                  <th>Candidate & ID</th>
                   <th>Contact Details</th>
                   <th>Assigned Role & Client</th>
                   <th>Joining Date</th>
@@ -311,19 +354,29 @@ export default function Onboarding() {
               <tbody>
                 {filteredList.length === 0 ? (
                   <tr>
-                    <td colSpan={8} style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
-                      No candidates currently found in this onboarding stage.
+                    <td colSpan={8}>
+                      <div className={styles.emptyState}>
+                        <div className={styles.emptyIcon}>
+                          <Users size={28} />
+                        </div>
+                        <h3 style={{ margin: 0, fontWeight: 700 }}>No candidates in onboarding</h3>
+                        <p style={{ margin: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+                          No records match your selected filter criteria.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (
                   filteredList.map((item) => {
                     const docKeys = Object.keys(item.documents || {});
-                    const verifiedCount = docKeys.filter((k) => item.documents[k]?.status === 'Verified').length;
-                    const isAllDocsVerified = verifiedCount === docKeys.length;
+                    const verifiedCount = docKeys.filter(
+                      (k) => item.documents[k]?.status === 'Verified'
+                    ).length;
+                    const isAllDocsVerified = docKeys.length > 0 && verifiedCount === docKeys.length;
 
                     return (
                       <tr key={item.id} className={styles.tableRow}>
-                        {/* Candidate Cell */}
+                        {/* Candidate & ID */}
                         <td>
                           <div className={styles.candidateCell}>
                             {item.photo ? (
@@ -337,22 +390,37 @@ export default function Onboarding() {
                               <Link to={`/admin/onboarding/${item.id}`} className={styles.candidateLink}>
                                 {item.candidateName}
                               </Link>
-                              <span className={styles.badgeId}>{item.id}</span>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                Ref: {item.candidateId}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span className={styles.badgeId}>{item.id}</span>
+                                {item.candidateId && (
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                                    ({item.candidateId})
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
                         </td>
 
-                        {/* Contact */}
+                        {/* Contact Details */}
                         <td>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                            <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
                               <Phone size={13} style={{ color: 'var(--text-muted)' }} />
-                              {item.mobile || '—'}
-                            </span>
-                            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                              <span>{item.mobile || '—'}</span>
+                              {item.mobile && (
+                                <a
+                                  href={`https://wa.me/91${item.mobile.replace(/[^0-9]/g, '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  style={{ color: '#16a34a', display: 'inline-flex' }}
+                                  title="WhatsApp Candidate"
+                                >
+                                  <MessageCircle size={14} />
+                                </a>
+                              )}
+                            </div>
+                            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
                               {item.email || '—'}
                             </span>
                           </div>
@@ -420,12 +488,15 @@ export default function Onboarding() {
                                 title="Convert to permanent Employee record"
                               >
                                 <Sparkles size={13} />
-                                Convert to Employee
+                                <span>Convert to Employee</span>
                               </button>
                             ) : (
-                              <span className={styles.convertedTag}>
+                              <span
+                                className={styles.convertedTag}
+                                title={`Permanent Employee Code: ${item.createdEmployeeCode}`}
+                              >
                                 <CheckCircle2 size={13} />
-                                {item.createdEmployeeCode}
+                                <span>{item.createdEmployeeCode}</span>
                               </span>
                             )}
 
@@ -435,8 +506,41 @@ export default function Onboarding() {
                               title="Open Full Onboarding Dossier"
                             >
                               <Eye size={13} />
-                              Dossier
+                              <span>Dossier</span>
                             </Link>
+
+                            {/* Edit Action Button (Dedicated Edit Page) */}
+                            <Link
+                              to={`/admin/onboarding/${item.id}/edit`}
+                              className={styles.editBtn}
+                              title="Edit Onboarding Details"
+                              aria-label="Edit onboarding details"
+                            >
+                              <Edit2 size={13} />
+                            </Link>
+
+                            {/* Delete Action Button (Protected if already converted) */}
+                            {item.stage !== 'completed' ? (
+                              <button
+                                type="button"
+                                className={styles.deleteBtn}
+                                onClick={() => setDeleteModal({ isOpen: true, candidate: item })}
+                                title="Remove from Onboarding Pipeline"
+                                aria-label="Delete candidate from onboarding"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={styles.deleteBtnDisabled}
+                                disabled
+                                title="Converted to Employee (Cannot be deleted)"
+                                aria-label="Delete disabled for converted employee"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -447,6 +551,21 @@ export default function Onboarding() {
             </table>
           </div>
         </div>
+
+        {/* Confirm Delete Modal */}
+        <ConfirmModal
+          isOpen={deleteModal.isOpen}
+          title="Remove from Onboarding?"
+          description={
+            deleteModal.candidate
+              ? `Are you sure you want to remove ${deleteModal.candidate.candidateName} (${deleteModal.candidate.id}) from the onboarding pipeline? This will cancel their onboarding.`
+              : ''
+          }
+          confirmLabel="Delete Record"
+          variant="danger"
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteModal({ isOpen: false, candidate: null })}
+        />
 
         {/* Toast */}
         {toast.message && (
@@ -460,4 +579,3 @@ export default function Onboarding() {
     </AdminLayout>
   );
 }
-
