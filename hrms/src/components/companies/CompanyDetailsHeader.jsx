@@ -16,7 +16,15 @@ function CompanyDetailsHeader({ company, onEdit, onToggleStatus, onOpenCredentia
     <div className={styles.card}>
       <div className={styles.profileSection}>
         <div className={styles.avatar}>
-          {company.initials || company.name.substring(0, 2).toUpperCase()}
+          {company.logo ? (
+            <img
+              src={company.logo}
+              alt={company.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
+            />
+          ) : (
+            company.initials || company.name.substring(0, 2).toUpperCase()
+          )}
         </div>
         <div className={styles.info}>
           <div className={styles.titleRow}>

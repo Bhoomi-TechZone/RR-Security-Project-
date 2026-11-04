@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   WalletCards, Play, History, Download, Plus, FileSpreadsheet,
   ChevronRight, RefreshCw, Printer, AlertCircle, FileText, Loader2
@@ -56,6 +56,18 @@ import {
   calculateArrearsMetrics
 } from '../../data/rateRevisionData';
 
+// Full & Final (FnF) Components & Data
+import FnFSummaryCards from '../../components/payroll/FnFSummaryCards';
+import FnFFilters from '../../components/payroll/FnFFilters';
+import FnFTable from '../../components/payroll/FnFTable';
+import FnFDetailsDrawer from '../../components/payroll/FnFDetailsDrawer';
+import FnFInitiateModal from '../../components/payroll/FnFInitiateModal';
+import {
+  getStoredFnF,
+  saveStoredFnF,
+  calculateFnFMetrics
+} from '../../data/fnfData';
+
 import styles from './PayrollManagement.module.css';
 
 const PAGE_SIZE = 8;
@@ -63,6 +75,9 @@ const PAGE_SIZE = 8;
 export default function PayrollManagement() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isUserPanel = location.pathname.startsWith('/user');
+  const basePath = isUserPanel ? '/user/payroll' : '/admin/payroll';
   const { canAdd, canEdit, canDelete, canApprove, canExport } = usePermissions();
   const { activeCompanyId, companies } = useCompany();
 
@@ -152,6 +167,15 @@ export default function PayrollManagement() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const [issueRecord, setIssueRecord] = useState(null);
+
+  // FnF State
+  const [fnfRecords, setFnfRecords] = useState(() => getStoredFnF());
+  const [fnfSearch, setFnfSearch] = useState('');
+  const [fnfClientFilter, setFnfClientFilter] = useState('');
+  const [fnfStatusFilter, setFnfStatusFilter] = useState('');
+  const [selectedFnF, setSelectedFnF] = useState(null);
+  const [isFnFDrawerOpen, setIsFnFDrawerOpen] = useState(false);
+  const [isFnFInitiateOpen, setIsFnFInitiateOpen] = useState(false);
 
   // Toast State
   const [toast, setToast] = useState(null);
@@ -434,6 +458,25 @@ export default function PayrollManagement() {
     });
   }, [slips, slipSearch, slipClientFilter, slipDeptFilter, slipStatusFilter]);
 
+  // Filtered FnF Records for Tab 7
+  const filteredFnF = useMemo(() => {
+    return fnfRecords.filter((item) => {
+      const q = fnfSearch.toLowerCase().trim();
+      if (q) {
+        const matchCode = (item.employeeCode || '').toLowerCase().includes(q);
+        const matchName = (item.employeeName || '').toLowerCase().includes(q);
+        const matchId = (item.settlementId || '').toLowerCase().includes(q);
+        const matchClient = (item.client || '').toLowerCase().includes(q);
+        if (!matchCode && !matchName && !matchId && !matchClient) return false;
+      }
+      if (fnfClientFilter && item.client !== fnfClientFilter) return false;
+      if (fnfStatusFilter && item.settlementStatus !== fnfStatusFilter) return false;
+      return true;
+    });
+  }, [fnfRecords, fnfSearch, fnfClientFilter, fnfStatusFilter]);
+
+  const fnfMetrics = useMemo(() => calculateFnFMetrics(fnfRecords), [fnfRecords]);
+
   // Active paginated rows
   const activeRows = activeTab === 'processing'
     ? filteredPayroll
@@ -443,7 +486,9 @@ export default function PayrollManagement() {
         ? filteredRevisions
         : activeTab === 'arrears'
           ? filteredArrears
-          : filteredSlips;
+          : activeTab === 'slips'
+            ? filteredSlips
+            : filteredFnF;
 
   const paginatedRows = activeRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
@@ -464,8 +509,49 @@ export default function PayrollManagement() {
     setSlipClientFilter('');
     setSlipDeptFilter('');
     setSlipStatusFilter('');
+    setFnfSearch('');
+    setFnfClientFilter('');
+    setFnfStatusFilter('');
     setPage(1);
     notify('Filters reset.', 'info');
+  };
+
+  // Actions: FnF Handlers
+  const handleInitiateFnF = (newRecord) => {
+    const updated = [newRecord, ...fnfRecords];
+    setFnfRecords(updated);
+    saveStoredFnF(updated);
+    setIsFnFInitiateOpen(false);
+    notify(`✓ FnF settlement initiated for ${newRecord.employeeName} (${newRecord.settlementId}).`, 'success');
+  };
+
+  const handleApproveFnF = (fnf) => {
+    const updated = fnfRecords.map((item) =>
+      item.id === fnf.id ? { ...item, settlementStatus: 'Approved', financeClearanceStatus: 'Approved' } : item
+    );
+    setFnfRecords(updated);
+    saveStoredFnF(updated);
+    if (selectedFnF && selectedFnF.id === fnf.id) {
+      setSelectedFnF({ ...selectedFnF, settlementStatus: 'Approved', financeClearanceStatus: 'Approved' });
+    }
+    notify(`✓ Settlement approved for ${fnf.employeeName}. Ready for payout.`, 'success');
+  };
+
+  const handleMarkSettledFnF = (fnf) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const updated = fnfRecords.map((item) =>
+      item.id === fnf.id ? { ...item, settlementStatus: 'Settled', settlementDate: today } : item
+    );
+    setFnfRecords(updated);
+    saveStoredFnF(updated);
+    if (selectedFnF && selectedFnF.id === fnf.id) {
+      setSelectedFnF({ ...selectedFnF, settlementStatus: 'Settled', settlementDate: today });
+    }
+    notify(`✓ Net settlement of ₹${Number(fnf.netSettlementAmount).toLocaleString('en-IN')} disbursed for ${fnf.employeeName}.`, 'success');
+  };
+
+  const handleGenerateFnFLetter = (fnf) => {
+    navigate(`/admin/letter-management?type=full-final-letter&empCode=${fnf.employeeCode || ''}`);
   };
 
   // Actions: Rate Revision Handlers
@@ -731,7 +817,7 @@ export default function PayrollManagement() {
           <ChevronRight size={14} />
           <span
             style={{ cursor: activeTab !== 'processing' ? 'pointer' : 'default', color: activeTab !== 'processing' ? 'var(--primary, #2563eb)' : 'inherit' }}
-            onClick={() => activeTab !== 'processing' && navigate('/admin/payroll')}
+            onClick={() => activeTab !== 'processing' && navigate(basePath)}
           >
             Payroll
           </span>
@@ -744,6 +830,7 @@ export default function PayrollManagement() {
                 {activeTab === 'arrears' && 'Arrears'}
                 {activeTab === 'slips' && 'Salary Slips'}
                 {activeTab === 'statutory' && 'Statutory Reports'}
+                {activeTab === 'fnf' && 'Full & Final (FnF)'}
               </strong>
             </>
           )}
@@ -765,6 +852,7 @@ export default function PayrollManagement() {
               {activeTab === 'arrears' && 'Arrears Calculation & Processing'}
               {activeTab === 'slips' && 'Salary Slips'}
               {activeTab === 'statutory' && 'Statutory Reports'}
+              {activeTab === 'fnf' && 'Full & Final (FnF) Settlement'}
             </h1>
             <p className={styles.subtitle}>
               {activeTab === 'processing' && 'Process live monthly salaries, manage dynamic salary slips and statutory payroll reports.'}
@@ -773,6 +861,7 @@ export default function PayrollManagement() {
               {activeTab === 'arrears' && 'Review retroactive salary adjustments calculated from approved rate revisions and include them in payroll.'}
               {activeTab === 'slips' && 'Generate, preview and download monthly salary slips for workforce employees.'}
               {activeTab === 'statutory' && 'Generate payroll compliance reports and monthly contribution returns for PF and ESI.'}
+              {activeTab === 'fnf' && 'Calculate employee separation dues, leave encashment, asset recoveries, and net settlement statements.'}
             </p>
           </div>
 
@@ -909,6 +998,31 @@ export default function PayrollManagement() {
               </>
             )}
 
+            {activeTab === 'fnf' && (
+              <>
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => {
+                    setFnfRecords(getStoredFnF());
+                    notify('✓ FnF records refreshed.', 'info');
+                  }}
+                  title="Refresh FnF Records"
+                >
+                  <RefreshCw size={16} />
+                  <span>Refresh</span>
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaryBtn}
+                  onClick={() => setIsFnFInitiateOpen(true)}
+                >
+                  <Plus size={16} />
+                  <span>Initiate Settlement</span>
+                </button>
+              </>
+            )}
+
             {activeTab === 'statutory' && (
               <button
                 type="button"
@@ -923,6 +1037,9 @@ export default function PayrollManagement() {
             )}
           </div>
         </header>
+
+
+
 
         {/* Payroll Processing specific: Period Selector, Summary Cards, Status Banner */}
         {activeTab === 'processing' && (
@@ -1267,6 +1384,47 @@ export default function PayrollManagement() {
           </section>
         )}
 
+        {/* TAB 7: FULL & FINAL SETTLEMENT (FnF) */}
+        {activeTab === 'fnf' && (
+          <section className={styles.tabSection}>
+            <FnFSummaryCards metrics={fnfMetrics} />
+            <FnFFilters
+              search={fnfSearch}
+              onSearchChange={(v) => { setFnfSearch(v); setPage(1); }}
+              client={fnfClientFilter}
+              onClientChange={(v) => { setFnfClientFilter(v); setPage(1); }}
+              status={fnfStatusFilter}
+              onStatusChange={(v) => { setFnfStatusFilter(v); setPage(1); }}
+              companies={clientsList.length > 0 ? clientsList : companies}
+              onReset={() => {
+                setFnfSearch('');
+                setFnfClientFilter('');
+                setFnfStatusFilter('');
+                setPage(1);
+              }}
+            />
+            <FnFTable
+              records={paginatedRows}
+              onView={(fnf) => {
+                setSelectedFnF(fnf);
+                setIsFnFDrawerOpen(true);
+              }}
+              onApprove={handleApproveFnF}
+              onMarkSettled={handleMarkSettledFnF}
+              onGenerateLetter={handleGenerateFnFLetter}
+            />
+            {filteredFnF.length > 0 && (
+              <Pagination
+                currentPage={page}
+                totalItems={filteredFnF.length}
+                itemsPerPage={PAGE_SIZE}
+                onPageChange={setPage}
+                label="settlement records"
+              />
+            )}
+          </section>
+        )}
+
         {/* Bottom Analytics Section - only for Payroll Processing */}
         {activeTab === 'processing' && (
           <PayrollAnalytics
@@ -1599,6 +1757,25 @@ export default function PayrollManagement() {
           </div>
         )}
       </div>
+        {/* FnF Details & Statement Drawer */}
+        <FnFDetailsDrawer
+          isOpen={isFnFDrawerOpen}
+          onClose={() => {
+            setIsFnFDrawerOpen(false);
+            setSelectedFnF(null);
+          }}
+          record={selectedFnF}
+          onApprove={handleApproveFnF}
+          onMarkSettled={handleMarkSettledFnF}
+        />
+
+        {/* FnF Initiate Settlement Modal */}
+        <FnFInitiateModal
+          isOpen={isFnFInitiateOpen}
+          onClose={() => setIsFnFInitiateOpen(false)}
+          employees={employees}
+          onSave={handleInitiateFnF}
+        />
     </AdminLayout>
   );
 }

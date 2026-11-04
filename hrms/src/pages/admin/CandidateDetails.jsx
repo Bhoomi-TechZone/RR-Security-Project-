@@ -16,7 +16,8 @@ import {
   MessageCircle,
   Award,
   Sparkles,
-  UserCheck
+  UserCheck,
+  Edit2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
@@ -178,7 +179,7 @@ export default function CandidateDetails() {
                 <div className={styles.heroRole}>
                   <span>{candidate.appliedFor || candidate.jobCategory}</span>
                   <span>•</span>
-                  <span>{candidate.jobCategory}</span>
+                  <span>{Array.isArray(candidate.jobCategory) ? candidate.jobCategory.join(', ') : candidate.jobCategory}</span>
                   <span>•</span>
                   <span style={{ color: 'var(--text-muted)' }}>Source: {candidate.source || 'Walk-in'}</span>
                 </div>
@@ -230,6 +231,11 @@ export default function CandidateDetails() {
                   View in Onboarding Pipeline
                 </Link>
               )}
+
+              <Link to={`/admin/recruitment/${candidate.id}/edit`} className={styles.secondaryActionBtn}>
+                <Edit2 size={16} />
+                Edit Profile
+              </Link>
 
               <Link to="/admin/recruitment" className={styles.secondaryActionBtn}>
                 <ArrowLeft size={16} />

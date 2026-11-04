@@ -24,10 +24,21 @@ import { getInitialClients } from '../../data/masters/clientData';
 import { mockShiftMaster } from '../../data/masters/shiftMasterData';
 import { mockWorkLocations } from '../../data/workLocationsData';
 import { mockSalaryComponents } from '../../data/masters/salaryComponentData';
+const getInitialJobCategories = () => [
+  { id: 'jc_1', name: 'Security Guard', description: 'Physical patrolling, perimeter security, access control and gate vigilance', status: 'active' },
+  { id: 'jc_2', name: 'Armed Guard / Gunman', description: 'Licensed armed protection, bank security and cash-in-transit escort', status: 'active' },
+  { id: 'jc_3', name: 'Field Supervisor', description: 'On-site post inspection, guard turn-out audit, and client coordination', status: 'active' },
+  { id: 'jc_4', name: 'CCTV / Control Room Operator', description: 'Surveillance hub monitoring, electronic fire/intrusion alarm response', status: 'active' },
+  { id: 'jc_5', name: 'Housekeeping Executive', description: 'Facility cleanliness, hygiene maintenance and waste management', status: 'active' },
+  { id: 'jc_6', name: 'Bouncer / VIP Security', description: 'Crowd management, entry frisking and event security enforcement', status: 'active' },
+  { id: 'jc_7', name: 'Driver / Chauffeur', description: 'Heavy and light motor vehicle operations, logistics and shuttle service', status: 'active' },
+];
+
 const ITEMS_PER_PAGE = 8;
 const TAB_LABELS = {
   'banks': 'Banks',
   'client-services': 'Client Services',
+  'job-categories': 'Job Category',
   'clients': 'Client Services',
   'departments': 'Departments',
   'designations': 'Designations',
@@ -43,6 +54,7 @@ const TAB_LABELS = {
 const DYNAMIC_TABS = [
   'banks',
   'client-services',
+  'job-categories',
   'clients',
   'departments',
   'designations',
@@ -78,6 +90,16 @@ const ALL_MASTERS_CATALOG = [
     badge: 'Services',
     iconBg: '#eff6ff',
     iconColor: '#2563eb'
+  },
+  {
+    id: 'job-categories',
+    tab: 'job-categories',
+    title: 'Job Category',
+    desc: 'Configure security guard and facility job categories, staff designations, and duty classifications.',
+    icon: UserCheck,
+    badge: 'Staffing',
+    iconBg: '#f0fdf4',
+    iconColor: '#16a34a'
   },
   {
     id: 'employee-types',
@@ -201,6 +223,16 @@ function Masters() {
   const [documentTypes, setDocumentTypes] = useState([]);
   // Client Services Master Data State (Dynamic from MongoDB)
   const [clientServices, setClientServices] = useState([]);
+  const [jobCategories, setJobCategories] = useState(() => {
+    const saved = localStorage.getItem(`novaspark_job_categories_${companyId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return getInitialJobCategories();
+  });
   // Clients & Work Locations for Masters Lookups (Loaded dynamically from API)
   const [clients, setClients] = useState(() => {
     const saved = localStorage.getItem(`novaspark_clients_${companyId}`);
@@ -241,6 +273,11 @@ function Masters() {
   const [toast, setToast] = useState({ message: '', type: 'success' });
   // Persistence for lookups caching
   useEffect(() => {
+    if (jobCategories.length > 0) {
+      localStorage.setItem(`novaspark_job_categories_${companyId}`, JSON.stringify(jobCategories));
+    }
+  }, [jobCategories, companyId]);
+  useEffect(() => {
     if (clientServices.length > 0) {
       localStorage.setItem(`novaspark_client_services_${companyId}`, JSON.stringify(clientServices));
     }
@@ -262,6 +299,12 @@ function Masters() {
       if (saved && (saved.includes('srv_1') || saved.includes('srv_2') || saved.includes('srv_'))) {
         localStorage.removeItem(`novaspark_client_services_${companyId}`);
       }
+      const savedJc = localStorage.getItem(`novaspark_job_categories_${companyId}`);
+      if (savedJc && savedJc.includes('SEC-GD')) {
+        const cleaned = JSON.parse(savedJc).map(({ code, ...rest }) => rest);
+        setJobCategories(cleaned);
+        localStorage.setItem(`novaspark_job_categories_${companyId}`, JSON.stringify(cleaned));
+      }
     } catch {}
   }, [companyId]);
   const showToast = (message, type = 'success') => {
@@ -271,8 +314,13 @@ function Masters() {
   const setTabData = useCallback((tab, data) => {
     switch (tab) {
       case 'banks': setBanks(data); break;
+      case 'job-categories': setJobCategories(data); break;
+
+
       case 'client-services':
+
       case 'clients': setClientServices(data); break;
+
       case 'departments': setDepartments(data); break;
       case 'designations': setDesignations(data); break;
       case 'employee-types': setEmployeeTypes(data); break;
@@ -292,7 +340,32 @@ function Masters() {
     if (!silent) setLoading(true);
     setError(null);
     try {
-      if (tab === 'client-services' || tab === 'clients') {
+      if (tab === 'job-categories') {
+        try {
+          const data = await masterService.getMasters('job-categories', companyId, true);
+          if (Array.isArray(data) && data.length > 0) {
+            setJobCategories(data);
+          } else {
+            const saved = localStorage.getItem(`novaspark_job_categories_${companyId}`);
+            if (saved) {
+              setJobCategories(JSON.parse(saved));
+            } else {
+              const initial = getInitialJobCategories();
+              setJobCategories(initial);
+              localStorage.setItem(`novaspark_job_categories_${companyId}`, JSON.stringify(initial));
+            }
+          }
+        } catch {
+          const saved = localStorage.getItem(`novaspark_job_categories_${companyId}`);
+          if (saved) {
+            setJobCategories(JSON.parse(saved));
+          } else {
+            const initial = getInitialJobCategories();
+            setJobCategories(initial);
+            localStorage.setItem(`novaspark_job_categories_${companyId}`, JSON.stringify(initial));
+          }
+        }
+      } else if (tab === 'client-services' || tab === 'clients') {
         const data = await masterService.getMasters('client-services', companyId, true);
         const list = Array.isArray(data) ? data : [];
         setClientServices(list);
@@ -377,6 +450,7 @@ function Masters() {
             });
             if (grouped['banks']?.length) setBanks(grouped['banks']);
             if (grouped['client-services']?.length) setClientServices(grouped['client-services']);
+            if (grouped['job-categories']?.length) setJobCategories(grouped['job-categories']);
             if (grouped['departments']?.length) setDepartments(grouped['departments']);
             if (grouped['designations']?.length) setDesignations(grouped['designations']);
             if (grouped['employee-types']?.length) setEmployeeTypes(grouped['employee-types']);
@@ -405,12 +479,14 @@ function Masters() {
     window.addEventListener('shifts-updated', handleSync);
     window.addEventListener('clients-updated', handleSync);
     window.addEventListener('client-services-updated', handleSync);
+    window.addEventListener('job-categories-updated', handleSync);
     window.addEventListener('leaves-updated', handleSync);
     return () => {
       window.removeEventListener('masters-updated', handleSync);
       window.removeEventListener('shifts-updated', handleSync);
       window.removeEventListener('clients-updated', handleSync);
       window.removeEventListener('client-services-updated', handleSync);
+      window.removeEventListener('job-categories-updated', handleSync);
       window.removeEventListener('leaves-updated', handleSync);
     };
   }, [fetchMasterData, activeTab]);
@@ -422,7 +498,11 @@ function Masters() {
   const getCurrentDataset = () => {
     switch (activeTab) {
       case 'banks': return banks;
+      case 'job-categories': return jobCategories;
+
+
       case 'client-services':
+
       case 'clients': return clientServices;
       case 'departments': return departments;
       case 'designations': return designations;
@@ -445,7 +525,11 @@ function Masters() {
   const getMasterCount = (tabId) => {
     switch (tabId) {
       case 'banks': return banks.length;
+      case 'job-categories': return jobCategories.length;
+
+
       case 'client-services':
+
       case 'clients': return clientServices.length;
       case 'departments': return departments.length;
       case 'designations': return designations.length;
@@ -491,8 +575,12 @@ function Masters() {
           b.name?.toLowerCase().includes(term) ||
           (b.code && b.code.toLowerCase().includes(term))
         );
+
+
       case 'client-services':
+
       case 'clients':
+      case 'job-categories':
         return dataset.filter(srv =>
           srv.name?.toLowerCase().includes(term) ||
           (srv.code && srv.code.toLowerCase().includes(term)) ||
@@ -590,8 +678,12 @@ function Masters() {
   const getEntityName = () => {
     switch (activeTab) {
       case 'banks': return 'Bank';
+
+
       case 'client-services':
+
       case 'clients': return 'Client Service';
+      case 'job-categories': return 'Job Category';
       case 'departments': return 'Department';
       case 'designations': return 'Designation';
       case 'employee-types': return 'Employee Type';
@@ -628,6 +720,10 @@ function Masters() {
           const updated = await masterService.updateMaster(companyId, itemId, payloadToSend);
           const merged = { ...editingItem, ...(updated || {}), ...formData, id: itemId, _id: itemId };
           const updateList = (list) => list.map(item => ((item.id || item._id) === itemId) ? merged : item);
+          if (activeTab === 'job-categories') {
+            setJobCategories(updateList);
+            window.dispatchEvent(new CustomEvent('job-categories-updated'));
+          }
           if (activeTab === 'banks') setBanks(updateList);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(updateList);
@@ -670,6 +766,10 @@ function Masters() {
           const created = await masterService.createMaster(companyId, payloadToSend);
           const createdItem = { ...formData, ...(created || {}), id: created?.id || created?._id, _id: created?._id || created?.id };
           const updateCreated = (prev) => [createdItem, ...prev.filter(p => (p.id || p._id) !== (createdItem.id || createdItem._id))];
+          if (activeTab === 'job-categories') {
+            setJobCategories(updateCreated);
+            window.dispatchEvent(new CustomEvent('job-categories-updated'));
+          }
           if (activeTab === 'banks') setBanks(updateCreated);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(updateCreated);
@@ -770,6 +870,10 @@ function Masters() {
         if (actionType === 'delete') {
           await masterService.deleteMaster(companyId, itemId);
           const filterList = (list) => list.filter(i => (i.id || i._id) !== itemId);
+          if (activeTab === 'job-categories') {
+            setJobCategories(filterList);
+            window.dispatchEvent(new CustomEvent('job-categories-updated'));
+          }
           if (activeTab === 'banks') setBanks(filterList);
           else if (activeTab === 'client-services' || activeTab === 'clients') {
             setClientServices(filterList);
@@ -796,6 +900,10 @@ function Masters() {
         const newStatus = actionType === 'deactivate' ? 'inactive' : 'active';
         await masterService.toggleMasterStatus(companyId, itemId, newStatus);
         const updateList = (list) => list.map(i => (i.id || i._id) === itemId ? { ...i, status: newStatus } : i);
+        if (activeTab === 'job-categories') {
+          setJobCategories(updateList);
+          window.dispatchEvent(new CustomEvent('job-categories-updated'));
+        }
         if (activeTab === 'banks') setBanks(updateList);
         else if (activeTab === 'client-services' || activeTab === 'clients') {
           setClientServices(updateList);
@@ -841,7 +949,10 @@ function Masters() {
   const getPaginationLabel = () => {
     switch (activeTab) {
       case 'banks': return 'banks';
-      case 'clients': return 'clients';
+
+      case 'job-categories': return 'job categories';
+      case 'client-services':
+      case 'clients': return 'client services';
       case 'departments': return 'departments';
       case 'designations': return 'designations';
       case 'employee-types': return 'employee types';
@@ -1062,10 +1173,10 @@ function Masters() {
                 <>
                   <span
                     className={styles.crumbLink}
-                    onClick={() => navigate('/admin/clients')}
+                    onClick={handleBackToMasters}
                     style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
                   >
-                    Clients
+                    All Masters Setup
                   </span>
                   <span className={styles.separator}>/</span>
                 </>
@@ -1091,6 +1202,8 @@ function Masters() {
                     ? 'Department Management'
                     : activeTab === 'designations'
                     ? 'Designation Management'
+                    : activeTab === 'job-categories'
+                    ? 'Job Category'
                     : (activeTab === 'client-services' || activeTab === 'clients')
                     ? 'Client Services'
                     : activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Deductions Management' : 'Earnings Components Management') : `${TAB_LABELS[activeTab] || 'Master'} Management`}
@@ -1100,6 +1213,8 @@ function Masters() {
                     ? 'Configure and manage company departments, divisions, and operational units.'
                     : activeTab === 'designations'
                     ? 'Configure employee designations, job titles, and organizational roles.'
+                    : activeTab === 'job-categories'
+                    ? 'Configure security guard, supervisor, facility management and workforce job classifications.'
                     : (activeTab === 'client-services' || activeTab === 'clients')
                     ? 'Configure operational client service categories and offerings available during client onboarding.'
                     : activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.' : 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.') : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
@@ -1163,7 +1278,7 @@ function Masters() {
                 ) : (activeTab === 'client-services' || activeTab === 'clients') ? (
                   <button
                     type="button"
-                    onClick={() => navigate('/admin/clients')}
+                    onClick={handleBackToMasters}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1185,7 +1300,7 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to Clients
+                    <ArrowLeft size={15} color="#fff" /> Back to All Masters Setup
                   </button>
                 ) : (
                   <button

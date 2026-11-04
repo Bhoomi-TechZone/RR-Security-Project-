@@ -133,6 +133,7 @@ const USER_NAV_GROUPS = [
           { path: '/user/payroll?tab=arrears', name: 'Arrears' },
           { path: '/user/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/user/payroll?tab=statutory', name: 'Statutory Reports' },
+          { path: '/user/payroll?tab=fnf', name: 'Full & Final (FnF)' },
         ]
       },
       { 

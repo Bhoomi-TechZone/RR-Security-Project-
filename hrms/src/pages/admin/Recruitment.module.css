@@ -866,3 +866,44 @@
 }
 
 
+
+
+/* ========================================================
+   Action Column Edit Button
+   ======================================================== */
+.editBtn {
+  padding: 6px 10px;
+  background: var(--surface-alt, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-sm, 6px);
+  color: var(--text-primary, #0f172a);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+  height: 29px;
+  min-width: 30px;
+}
+
+.editBtn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #2563eb !important;
+  text-decoration: none !important;
+}
+
+.editBtn:hover svg {
+  color: #2563eb !important;
+}
+
+
+.viewBtn {
+  padding: 6px 10px !important;
+  height: 29px !important;
+  min-width: 30px !important;
+  justify-content: center !important;
+}

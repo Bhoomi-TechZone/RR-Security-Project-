@@ -21,6 +21,7 @@ function MasterTable({
   const getTabLabelPlural = () => {
     switch (activeTab) {
       case 'banks': return 'banks';
+      case 'job-categories': return 'job categories';
       case 'client-services':
       case 'clients': return 'client services';
       case 'departments': return 'departments';
@@ -110,6 +111,14 @@ function MasterTable({
                   <th>Bank Name</th>
                   <th>Short Code</th>
                   <th>Branches</th>
+                </>
+              )}
+
+              {activeTab === 'job-categories' && (
+                <>
+                  <th style={{ width: '70px', textAlign: 'center' }}>S.No.</th>
+                  <th>Job Category Name</th>
+                  <th>Description</th>
                 </>
               )}
 
@@ -229,7 +238,21 @@ function MasterTable({
                 )}
 
                 {/* 2. CLIENT SERVICES */}
-                {(activeTab === 'client-services' || activeTab === 'clients') && (
+                {/* JOB CATEGORIES */}
+                {activeTab === 'job-categories' && (
+                  <>
+                    <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>
+                      {(currentPage - 1) * itemsPerPage + idx + 1}
+                    </td>
+                    <td>
+                      <span className={styles.primaryText}>{item.name}</span>
+                    </td>
+                    <td><span style={{ fontSize: '13px', color: 'var(--text-secondary, #64748b)' }}>{item.description || '—'}</span></td>
+                  </>
+                )}
+
+
+              {(activeTab === 'client-services' || activeTab === 'clients') && (
                   <>
                     <td style={{ textAlign: 'center', fontWeight: 600, color: 'var(--text-secondary, #64748b)' }}>
                       {(currentPage - 1) * itemsPerPage + idx + 1}

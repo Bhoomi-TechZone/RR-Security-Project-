@@ -61,6 +61,8 @@ import CandidateDetails from './pages/admin/CandidateDetails'
 import Onboarding from './pages/admin/Onboarding'
 import AddOnboarding from './pages/admin/AddOnboarding'
 import OnboardingDetails from './pages/admin/OnboardingDetails'
+import EditOnboarding from './pages/admin/EditOnboarding'
+import CandidateSelfOnboard from './pages/public/CandidateSelfOnboard'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
 import ModulePermissionRoute from './components/common/ModulePermissionRoute'
@@ -83,6 +85,9 @@ function App() {
       {/* Default redirect */}
       <Route path="/" element={<Navigate to="/login" replace />} />
 
+      {/* Candidate Digital Self-Onboarding Public Route */}
+      <Route path="/onboard/:id" element={<CandidateSelfOnboard />} />
+
       {/* Auth Routes */}
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -102,6 +107,7 @@ function App() {
       <Route path="/admin/onboarding" element={<AdminRoute><Onboarding /></AdminRoute>} />
       <Route path="/admin/onboarding/add" element={<AdminRoute><AddOnboarding /></AdminRoute>} />
       <Route path="/admin/onboarding/:id" element={<AdminRoute><OnboardingDetails /></AdminRoute>} />
+      <Route path="/admin/onboarding/:id/edit" element={<AdminRoute><EditOnboarding /></AdminRoute>} />
 
       <Route path="/admin/clients" element={<AdminRoute><Companies /></AdminRoute>} />
       <Route path="/admin/clients/add" element={<AdminRoute><AddClient /></AdminRoute>} />

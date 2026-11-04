@@ -122,7 +122,15 @@ function CompanyTable({
                   <td>
                     <div className={styles.companyCell}>
                       <div className={styles.avatar}>
-                        {company.initials || (company.name ? company.name.substring(0, 2).toUpperCase() : 'CL')}
+                        {company.logo ? (
+                          <img
+                            src={company.logo}
+                            alt={company.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
+                          />
+                        ) : (
+                          company.initials || (company.name ? company.name.substring(0, 2).toUpperCase() : 'CL')
+                        )}
                       </div>
                       <div className={styles.info}>
                         <span 
