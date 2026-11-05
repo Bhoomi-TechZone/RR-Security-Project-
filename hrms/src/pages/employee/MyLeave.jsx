@@ -1,4 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import EmployeeLeaveEncashmentSection from '../../components/employee/EmployeeLeaveEncashmentSection';
 import {
   CalendarDays,
   CalendarCheck,
@@ -399,6 +401,7 @@ function ApplyLeaveModal({
               {initialData ? 'Edit & Resubmit Leave Request' : 'Apply For Leave'}
             </h2>
           </div>
+
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             <X size={18} />
           </button>
@@ -444,7 +447,8 @@ function ApplyLeaveModal({
             <label className={styles.label}>Leave Duration Type <span className={styles.req}>*</span></label>
             <div className={styles.durationSelector}>
               {['Full Day', 'Half Day', 'Short Leave', 'Multiple Days'].map((dt) => (
-                <button
+      
+          <button
                   key={dt}
                   type="button"
                   className={`${styles.dtBtn} ${durationType === dt ? styles.dtBtnActive : ''}`}
@@ -623,7 +627,8 @@ function ApplyLeaveModal({
                   <span className={styles.fileName}>{attachedFile.name}</span>
                   <span className={styles.fileSize}>({attachedFile.size})</span>
                 </div>
-                <button type="button" className={styles.removeFileBtn} onClick={handleRemoveFile}>
+      
+          <button type="button" className={styles.removeFileBtn} onClick={handleRemoveFile}>
                   <Trash2 size={14} />
                   <span>Remove</span>
                 </button>
@@ -654,6 +659,7 @@ function ApplyLeaveModal({
 
         {/* Fixed Footer */}
         <div className={styles.modalFooter}>
+
           <button
             type="button"
             className={styles.secondaryButton}
@@ -663,6 +669,7 @@ function ApplyLeaveModal({
           >
             Cancel
           </button>
+
           <button
             type="submit"
             form="applyLeaveForm"
@@ -716,9 +723,11 @@ function CancelConfirmModal({ request, isOpen, onClose, onConfirm }) {
         </div>
 
         <div className={styles.confirmFooter}>
+
           <button type="button" className={styles.secondaryButton} onClick={onClose}>
             Keep Request
           </button>
+
           <button type="button" className={styles.cancelActionBtn} onClick={() => onConfirm(request)}>
             Yes, Cancel Leave
           </button>
@@ -755,6 +764,7 @@ function EmployeeLeaveDetailsDrawer({
             </div>
             <h3 className={styles.drawerTitle}>Leave Application & Workflow Status</h3>
           </div>
+
           <button type="button" className={styles.closeBtn} onClick={onClose}>
             <X size={18} />
           </button>
@@ -986,12 +996,14 @@ function EmployeeLeaveDetailsDrawer({
 
         {/* Footer */}
         <div className={styles.drawerFooter}>
+
           <button type="button" className={styles.secondaryButton} onClick={onClose}>
             Close
           </button>
 
           {isCancellable && (
-            <button
+  
+          <button
               type="button"
               className={styles.cancelBtn}
               onClick={() => onCancelClick(selectedLeave)}
@@ -1002,7 +1014,8 @@ function EmployeeLeaveDetailsDrawer({
           )}
 
           {isSentBack && (
-            <button
+  
+          <button
               type="button"
               className={styles.resubmitBtn}
               onClick={() => onEditResubmitClick(selectedLeave)}
@@ -1072,6 +1085,8 @@ function MyLeave() {
   const currentUser = authService.getCurrentUser() || authService.getUser() || {};
   const companyId = currentUser.companyId;
   const employeeId = currentUser.employeeId || currentUser.employeeCode || currentUser.id || 'EMP001';
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'requests';
 
   const [requests, setRequests] = useState([]);
   const [balances, setBalances] = useState([]);
@@ -1182,17 +1197,19 @@ function MyLeave() {
         <header className={styles.pageHeader}>
           <div className={styles.headerLeft}>
             <div className={styles.breadcrumb}>
-              <span>Employee Portal</span> / <strong>My Leave</strong>
+              <span>Employee Portal</span> / <strong>{activeTab === 'encashment' ? 'Leave Encashment' : 'My Leave'}</strong>
             </div>
-            <h1 className={styles.pageTitle}>My Leave & Attendance Portal</h1>
+            <h1 className={styles.pageTitle}>{activeTab === 'encashment' ? 'My Leave Encashment Portal' : 'My Leave & Attendance Portal'}</h1>
             <p className={styles.pageSubtitle}>
-              View your leave entitlement, submit leave requests, monitor 2-level supervisor/HR sign-offs, and track attendance synchronization.
+              {activeTab === 'encashment' ? 'Encash accumulated Earned Leave (EL) balance as per statutory guidelines.' : 'View your leave entitlement, submit leave requests, monitor 2-level supervisor/HR sign-offs, and track attendance synchronization.'}
             </p>
           </div>
+
 
           <button
             type="button"
             className={styles.primaryAddBtn}
+            style={{ display: activeTab === 'encashment' ? 'none' : 'inline-flex' }}
             onClick={() => {
               setEditingRequest(null);
               setIsApplyModalOpen(true);
@@ -1203,6 +1220,10 @@ function MyLeave() {
           </button>
         </header>
 
+        {activeTab === 'encashment' ? (
+          <EmployeeLeaveEncashmentSection employee={currentUser} onNotify={showToast} />
+        ) : (
+          <>
         {/* KPI Summary Cards */}
         <MyLeaveSummaryCards requests={requests} balances={balances} />
 
@@ -1266,7 +1287,8 @@ function MyLeave() {
               </select>
             </div>
 
-            <button
+  
+          <button
               type="button"
               className={styles.resetBtn}
               onClick={() => {
@@ -1284,9 +1306,11 @@ function MyLeave() {
             <div className={styles.emptyWrap}>
               <p className={styles.emptyTitle}>No leave records found</p>
               <p className={styles.emptySub}>Try clearing your filters or apply for a new leave.</p>
-              <button
+    
+          <button
                 type="button"
                 className={styles.primaryAddBtn}
+            style={{ display: activeTab === 'encashment' ? 'none' : 'inline-flex' }}
                 style={{ marginTop: '12px' }}
                 onClick={() => {
                   setEditingRequest(null);
@@ -1355,7 +1379,8 @@ function MyLeave() {
                           </td>
                           <td>
                             <div className={styles.tableActions}>
-                              <button
+                    
+          <button
                                 type="button"
                                 className={styles.viewActionBtn}
                                 onClick={() => setSelectedRequest(request)}
@@ -1366,7 +1391,8 @@ function MyLeave() {
                               </button>
 
                               {isSentBack && (
-                                <button
+                      
+          <button
                                   type="button"
                                   className={styles.resubmitActionBtn}
                                   onClick={() => handleEditResubmit(request)}
@@ -1378,7 +1404,8 @@ function MyLeave() {
                               )}
 
                               {isPending && (
-                                <button
+                      
+          <button
                                   type="button"
                                   className={styles.cancelActionSmallBtn}
                                   onClick={() => setCancelModalState({ isOpen: true, request })}
@@ -1398,6 +1425,8 @@ function MyLeave() {
             </div>
           )}
         </section>
+          </>
+        )}
       </div>
 
       {/* Apply / Edit Resubmit Leave Modal */}

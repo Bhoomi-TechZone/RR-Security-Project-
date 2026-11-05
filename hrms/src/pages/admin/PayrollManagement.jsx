@@ -68,6 +68,8 @@ import {
   calculateFnFMetrics
 } from '../../data/fnfData';
 
+import GratuityManagementTab from '../../components/payroll/GratuityManagementTab';
+import BonusManagementTab from '../../components/payroll/BonusManagementTab';
 import styles from './PayrollManagement.module.css';
 
 const PAGE_SIZE = 8;
@@ -516,7 +518,7 @@ export default function PayrollManagement() {
     notify('Filters reset.', 'info');
   };
 
-  // Actions: FnF Handlers
+  // Actions: FnF Handlers (Enterprise 11-Step Workflow)
   const handleInitiateFnF = (newRecord) => {
     const updated = [newRecord, ...fnfRecords];
     setFnfRecords(updated);
@@ -525,7 +527,93 @@ export default function PayrollManagement() {
     notify(`✓ FnF settlement initiated for ${newRecord.employeeName} (${newRecord.settlementId}).`, 'success');
   };
 
-  const handleApproveFnF = (fnf) => {
+  const handleApproveStageFnF = (fnf) => {
+    const stageOrder = ['hr_review', 'ops_review', 'accounts_review', 'final_approval'];
+    const currentStage = fnf.approvalWorkflow?.currentStage || 'hr_review';
+    const currentIdx = stageOrder.indexOf(currentStage);
+
+    const now = new Date().toISOString().slice(0, 10);
+    const updatedWorkflow = {
+      ...fnf.approvalWorkflow,
+      stages: {
+        ...(fnf.approvalWorkflow?.stages || {}),
+        [currentStage]: {
+          status: 'Approved',
+          approver: 'Admin Approver',
+          date: now
+        }
+      }
+    };
+
+    let nextStatus = 'Pending Approval';
+    if (currentIdx < stageOrder.length - 1) {
+      updatedWorkflow.currentStage = stageOrder[currentIdx + 1];
+    } else {
+      updatedWorkflow.isFullyApproved = true;
+      nextStatus = 'Approved for Payout';
+    }
+
+    const updatedRecord = {
+      ...fnf,
+      approvalWorkflow: updatedWorkflow,
+      settlementStatus: nextStatus
+    };
+
+    const updatedList = fnfRecords.map((item) =>
+      item.id === fnf.id ? updatedRecord : item
+    );
+
+    setFnfRecords(updatedList);
+    saveStoredFnF(updatedList);
+
+    if (selectedFnF && selectedFnF.id === fnf.id) {
+      setSelectedFnF(updatedRecord);
+    }
+
+    if (updatedWorkflow.isFullyApproved) {
+      notify(`✓ Final Management Approval complete for ${fnf.employeeName}. Ready for payout disbursement.`, 'success');
+    } else {
+      notify(`✓ Stage ${currentStage.replace('_', ' ').toUpperCase()} approved. Transferred to ${updatedWorkflow.currentStage.replace('_', ' ').toUpperCase()}.`, 'info');
+    }
+  };
+
+  const handleApproveFnF = handleApproveStageFnF;
+
+  const handleDisburseFnF = (fnf, payoutDetails = {}) => {
+    const today = payoutDetails.paymentDate || new Date().toISOString().slice(0, 10);
+    const utr = payoutDetails.utrNo || `CMS${Date.now().toString().slice(-8)}`;
+    const mode = payoutDetails.mode || 'Bank Transfer (NEFT)';
+
+    const updatedRecord = {
+      ...fnf,
+      settlementStatus: 'Settled / Disbursed',
+      settlementDate: today,
+      payment: {
+        ...(fnf.payment || {}),
+        mode,
+        paymentDate: today,
+        utrNo: utr,
+        status: 'Disbursed'
+      }
+    };
+
+    const updatedList = fnfRecords.map((item) =>
+      item.id === fnf.id ? updatedRecord : item
+    );
+
+    setFnfRecords(updatedList);
+    saveStoredFnF(updatedList);
+
+    if (selectedFnF && selectedFnF.id === fnf.id) {
+      setSelectedFnF(updatedRecord);
+    }
+
+    const netAmount = Number(fnf.finalSettlement?.netPayable ?? fnf.netSettlementAmount ?? 0);
+    notify(`✓ Settlement of ₹${netAmount.toLocaleString('en-IN')} disbursed via ${mode} (UTR: ${utr}) for ${fnf.employeeName}.`, 'success');
+  };
+
+
+  const _legacyApproveFnF = (fnf) => {
     const updated = fnfRecords.map((item) =>
       item.id === fnf.id ? { ...item, settlementStatus: 'Approved', financeClearanceStatus: 'Approved' } : item
     );
@@ -538,6 +626,10 @@ export default function PayrollManagement() {
   };
 
   const handleMarkSettledFnF = (fnf) => {
+    handleDisburseFnF(fnf);
+  };
+
+  const _unusedLegacyMark = (fnf) => {
     const today = new Date().toISOString().slice(0, 10);
     const updated = fnfRecords.map((item) =>
       item.id === fnf.id ? { ...item, settlementStatus: 'Settled', settlementDate: today } : item
@@ -831,6 +923,9 @@ export default function PayrollManagement() {
                 {activeTab === 'slips' && 'Salary Slips'}
                 {activeTab === 'statutory' && 'Statutory Reports'}
                 {activeTab === 'fnf' && 'Full & Final (FnF)'}
+                {activeTab === 'gratuity' && 'Gratuity Management'}
+              {activeTab === 'bonus' && 'Bonus Management'}
+
               </strong>
             </>
           )}
@@ -853,6 +948,8 @@ export default function PayrollManagement() {
               {activeTab === 'slips' && 'Salary Slips'}
               {activeTab === 'statutory' && 'Statutory Reports'}
               {activeTab === 'fnf' && 'Full & Final (FnF) Settlement'}
+              {activeTab === 'gratuity' && 'Gratuity Management'}
+              {activeTab === 'bonus' && 'Bonus Management'}
             </h1>
             <p className={styles.subtitle}>
               {activeTab === 'processing' && 'Process live monthly salaries, manage dynamic salary slips and statutory payroll reports.'}
@@ -862,6 +959,8 @@ export default function PayrollManagement() {
               {activeTab === 'slips' && 'Generate, preview and download monthly salary slips for workforce employees.'}
               {activeTab === 'statutory' && 'Generate payroll compliance reports and monthly contribution returns for PF and ESI.'}
               {activeTab === 'fnf' && 'Calculate employee separation dues, leave encashment, asset recoveries, and net settlement statements.'}
+              {activeTab === 'gratuity' && 'Manage employee gratuity calculations, eligibility criteria, and disbursement vouchers.'}
+              {activeTab === 'bonus' && 'Manage statutory annual bonus calculations, Form C registers, and festive disbursements.'}
             </p>
           </div>
 
@@ -1015,7 +1114,7 @@ export default function PayrollManagement() {
                 <button
                   type="button"
                   className={styles.primaryBtn}
-                  onClick={() => setIsFnFInitiateOpen(true)}
+                  onClick={() => navigate(`${basePath}/fnf-initiate`)}
                 >
                   <Plus size={16} />
                   <span>Initiate Settlement</span>
@@ -1409,8 +1508,8 @@ export default function PayrollManagement() {
                 setSelectedFnF(fnf);
                 setIsFnFDrawerOpen(true);
               }}
-              onApprove={handleApproveFnF}
-              onMarkSettled={handleMarkSettledFnF}
+              onApproveStage={handleApproveStageFnF}
+              onDisburse={handleDisburseFnF}
               onGenerateLetter={handleGenerateFnFLetter}
             />
             {filteredFnF.length > 0 && (
@@ -1422,6 +1521,26 @@ export default function PayrollManagement() {
                 label="settlement records"
               />
             )}
+          </section>
+        )}
+
+        {/* TAB 8: GRATUITY MANAGEMENT */}
+        {activeTab === 'gratuity' && (
+          <section className={styles.tabSection}>
+            <GratuityManagementTab
+              employees={employees}
+              onNotify={(msg, type) => notify(msg, type || 'success')}
+            />
+          </section>
+        )}
+
+        {/* TAB 9: BONUS MANAGEMENT */}
+        {activeTab === 'bonus' && (
+          <section className={styles.tabSection}>
+            <BonusManagementTab
+              employees={employees}
+              onNotify={(msg, type) => notify(msg, type || 'success')}
+            />
           </section>
         )}
 
@@ -1765,8 +1884,9 @@ export default function PayrollManagement() {
             setSelectedFnF(null);
           }}
           record={selectedFnF}
-          onApprove={handleApproveFnF}
-          onMarkSettled={handleMarkSettledFnF}
+          onApproveStage={handleApproveStageFnF}
+          onDisburse={handleDisburseFnF}
+          onGenerateLetter={handleGenerateFnFLetter}
         />
 
         {/* FnF Initiate Settlement Modal */}

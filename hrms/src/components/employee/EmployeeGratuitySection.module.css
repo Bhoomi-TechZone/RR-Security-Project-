@@ -1,0 +1,220 @@
+/* NovaSpark HRMS — Employee Gratuity Section Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.kpiCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.cardLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.cardVal {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 4px;
+}
+
+.cardSub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.policyBanner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.policyText {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+
+.tenureProgressCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.progressHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progressBarBg {
+  width: 100%;
+  height: 12px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #2563eb, #16a34a);
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+
+.statementCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.statementHeader {
+  padding: 18px 22px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #f8fafc;
+}
+
+.statementTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.statementBody {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.voucherPrintBox {
+  background: #ffffff;
+  border: 2px solid #0f172a;
+  border-radius: 8px;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+}
+
+.voucherHeader {
+  text-align: center;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.voucherTitle {
+  font-size: 15px;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.voucherGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.voucherRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  padding: 5px 0;
+  border-bottom: 1px dotted #e2e8f0;
+}
+
+.voucherTotalRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 800;
+  padding: 8px 0;
+  border-top: 2px solid #0f172a;
+  margin-top: 8px;
+}
+
+.btnPrint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .kpiGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .policyBanner,
+  .statementHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .voucherGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .btnPrint {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+}
+

@@ -1,0 +1,469 @@
+/* NovaSpark HRMS — Employee IT Declaration (Form 12BB) Styles */
+
+.page {
+  width: 100%;
+  min-height: 100%;
+  padding: 24px 20px 48px;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* Page Header */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.breadcrumb {
+  font-size: 12.5px;
+  color: #64748b;
+  margin-bottom: 6px;
+}
+
+.breadcrumb strong {
+  color: #0f172a;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.pageSubtitle {
+  font-size: 13px;
+  color: #64748b;
+  margin: 4px 0 0 0;
+  line-height: 1.5;
+}
+
+.fyPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #bfdbfe;
+}
+
+/* Status Banner */
+.statusBanner {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.statusLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.statusIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statusIconSuccess {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.statusIconPending {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.statusTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.statusSub {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Regime Selection Card */
+.regimeCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.sectionSub {
+  font-size: 12px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+.regimeGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.regimeOption {
+  border: 2px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  position: relative;
+  background: #f8fafc;
+}
+
+.regimeOption:hover {
+  border-color: #93c5fd;
+  background: #ffffff;
+}
+
+.regimeOptionSelected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+.regimeTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.regimeName {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.regimeBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.regimeDesc {
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* Deduction Sections */
+.formCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.formGrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.formGrid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.labelLimit {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.input {
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.currencyInput {
+  position: relative;
+}
+
+.currencySymbol {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.currencyInput input {
+  padding-left: 28px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Summary Bar */
+.deductionSummary {
+  background: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.summaryTotalLabel {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.summaryTotalVal {
+  font-size: 20px;
+  font-weight: 800;
+  color: #16a34a;
+}
+
+/* Proof Upload Card */
+.uploadZone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  padding: 24px;
+  text-align: center;
+  background: #f8fafc;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.uploadZone:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.uploadedList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.uploadedFileItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f1f5f9;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #1e293b;
+}
+
+/* Action Footer */
+.actionBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+}
+
+.declarationCheck {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.5;
+  max-width: 700px;
+}
+
+.declarationCheck input {
+  margin-top: 3px;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 24px;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  white-space: nowrap;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+}
+
+.btnPrimary:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background: #f8fafc;
+}
+
+/* =======================================================
+   RESPONSIVE MEDIA QUERIES FOR SMALL SCREENS
+======================================================= */
+@media (max-width: 1024px) {
+  .regimeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: 16px 14px 36px;
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .statusBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .formGrid2,
+  .formGrid3 {
+    grid-template-columns: 1fr;
+  }
+
+  .actionBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actionBar > div {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .btnPrimary,
+  .btnSecondary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .regimeCard,
+  .formCard,
+  .statusBanner {
+    padding: 14px;
+  }
+}
+

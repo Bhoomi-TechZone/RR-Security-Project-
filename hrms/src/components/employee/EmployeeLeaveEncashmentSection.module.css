@@ -1,0 +1,292 @@
+/* NovaSpark HRMS — Employee Leave Encashment Section Styles */
+
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+/* Encashment Policy Summary Cards */
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.summaryCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.cardLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cardVal {
+  font-size: 24px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 4px;
+}
+
+.cardSub {
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Statutory Banner */
+.policyBanner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.policyText {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}
+
+.policyText code {
+  background: #dcfce7;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  font-family: monospace;
+}
+
+.policyTag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: #ffffff;
+  color: #166534;
+  border: 1px solid #86efac;
+  white-space: nowrap;
+}
+
+/* History Card */
+.historyCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.historyHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.historyTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.historySub {
+  font-size: 12px;
+  color: #64748b;
+  margin: 2px 0 0 0;
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.btnPrimary:hover {
+  background: #1d4ed8;
+}
+
+.tableWrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  text-align: left;
+}
+
+.table th {
+  background: #f8fafc;
+  padding: 12px 16px;
+  font-weight: 700;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.table tr:hover {
+  background: #f8fafc;
+}
+
+/* Modal Styles */
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modalCard {
+  background: #ffffff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 550px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15);
+}
+
+.modalHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modalTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.modalCloseBtn {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.modalBody {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.calcPreview {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.previewRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #475569;
+}
+
+.previewTotal {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 800;
+  color: #16a34a;
+  border-top: 1px dashed #cbd5e1;
+  padding-top: 6px;
+  margin-top: 4px;
+}
+
+.modalFooter {
+  padding: 14px 20px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: #f8fafc;
+}
+
+/* Responsive Media Queries */
+@media (max-width: 1024px) {
+  .summaryGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .policyBanner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .historyHeader {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btnPrimary {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .summaryGrid {
+    grid-template-columns: 1fr;
+  }
+}
+

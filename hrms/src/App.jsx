@@ -10,6 +10,7 @@ import EmployeeDashboard from './pages/dashboards/EmployeeDashboard'
 import MyAttendance from './pages/employee/MyAttendance'
 import MyLeave from './pages/employee/MyLeave'
 import MySalarySlips from './pages/employee/MySalarySlips'
+import EmployeeTaxDeclaration from './pages/employee/EmployeeTaxDeclaration'
 import MyAdvancesLoans from './pages/employee/MyAdvancesLoans'
 import EmployeeNotifications from './pages/employee/EmployeeNotifications'
 import MyAssetsUniform from './pages/employee/MyAssetsUniform'
@@ -62,6 +63,8 @@ import Onboarding from './pages/admin/Onboarding'
 import AddOnboarding from './pages/admin/AddOnboarding'
 import OnboardingDetails from './pages/admin/OnboardingDetails'
 import EditOnboarding from './pages/admin/EditOnboarding'
+import FnFInitiatePage from './pages/admin/FnFInitiatePage'
+import IncomeTaxManagement from './pages/admin/IncomeTaxManagement'
 import CandidateSelfOnboard from './pages/public/CandidateSelfOnboard'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
@@ -138,6 +141,9 @@ function App() {
       <Route path="/admin/advances-loans" element={<AdminRoute><AdvanceLoanManagement /></AdminRoute>} />
       <Route path="/admin/reimbursements" element={<AdminRoute><Reimbursements /></AdminRoute>} />
       <Route path="/admin/payroll" element={<AdminRoute><PayrollManagement /></AdminRoute>} />
+      <Route path="/admin/payroll/fnf-initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
+      <Route path="/admin/payroll/fnf/initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
+      <Route path="/admin/income-tax" element={<AdminRoute><IncomeTaxManagement /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><Reports /></AdminRoute>} />
       <Route path="/admin/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
       <Route path="/admin/roles-permissions" element={<AdminRoute><RolePermissions /></AdminRoute>} />
@@ -190,6 +196,9 @@ function App() {
 
         {/* Payroll Modules */}
         <Route path="payroll" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Payroll"><PayrollManagement /></ModulePermissionRoute>} />
+        <Route path="payroll/fnf-initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate FnF Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
+        <Route path="payroll/fnf/initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate FnF Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
+        <Route path="income-tax" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Income Tax Management"><IncomeTaxManagement /></ModulePermissionRoute>} />
         <Route path="payroll-setup" element={<ModulePermissionRoute moduleKey="payroll_setup" moduleTitle="Payroll Setup"><PayrollSetup /></ModulePermissionRoute>} />
         <Route path="statutory-setup" element={<ModulePermissionRoute moduleKey="statutory_setup" moduleTitle="Statutory Setup"><StatutorySetup /></ModulePermissionRoute>} />
         <Route path="advances-loans" element={<ModulePermissionRoute moduleKey="advances_loans" moduleTitle="Advances & Loans"><AdvanceLoanManagement /></ModulePermissionRoute>} />
@@ -222,6 +231,7 @@ function App() {
         <Route path="attendance" element={<MyAttendance />} />
         <Route path="leave" element={<MyLeave />} />
         <Route path="salary-slips" element={<MySalarySlips />} />
+        <Route path="tax-declaration" element={<EmployeeTaxDeclaration />} />
         <Route path="advances-loans" element={<MyAdvancesLoans />} />
         <Route path="assets" element={<MyAssetsUniform />} />
         <Route path="uniforms" element={<MyAssetsUniform />} />

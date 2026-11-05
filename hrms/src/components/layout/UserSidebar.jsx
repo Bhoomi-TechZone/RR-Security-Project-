@@ -27,7 +27,8 @@ import {
   FileCheck,
   ChevronDown,
   UserPlus,
-  UserCheck
+  UserCheck,
+  Calculator
 } from 'lucide-react';
 import styles from './UserSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -134,6 +135,8 @@ const USER_NAV_GROUPS = [
           { path: '/user/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/user/payroll?tab=statutory', name: 'Statutory Reports' },
           { path: '/user/payroll?tab=fnf', name: 'Full & Final (FnF)' },
+          { path: '/user/payroll?tab=gratuity', name: 'Gratuity Management' },
+          { path: '/user/payroll?tab=bonus', name: 'Bonus Management' },
         ]
       },
       { 
@@ -207,6 +210,19 @@ const USER_NAV_GROUPS = [
           { path: '/user/overtime?tab=history', name: 'Overtime History' },
           { path: '/user/overtime?tab=analytics', name: 'Client & Dept Analytics' },
         ]
+      },
+      {
+        path: '/user/income-tax',
+        name: 'Income Tax',
+        icon: Calculator,
+        moduleKey: 'payroll',
+        hasDropdown: true,
+        subItems: [
+          { path: '/user/income-tax', name: 'IT Declaration' },
+          { path: '/user/income-tax?tab=exemptions', name: 'IT Exemptions' },
+          { path: '/user/income-tax?tab=challan', name: 'IT Challan' },
+          { path: '/user/income-tax?tab=tds-return', name: 'TDS Return' },
+        ]
       }
     ]
   },
@@ -224,6 +240,7 @@ const USER_NAV_GROUPS = [
           { path: '/user/leave?tab=balances', name: 'Employee Balances' },
           { path: '/user/leave?tab=master', name: 'Leave Master' },
           { path: '/user/leave?tab=calendar', name: 'Roster & Calendar' },
+          { path: '/user/leave?tab=encashment', name: 'Leave Encashment' },
         ]
       },
       { 
@@ -335,6 +352,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     '/user/advances-loans': location.pathname.startsWith('/user/advances-loans'),
     '/user/reimbursements': location.pathname.startsWith('/user/reimbursements'),
     '/user/overtime': location.pathname.startsWith('/user/overtime'),
+    '/user/income-tax': location.pathname.startsWith('/user/income-tax'),
     '/user/leave': location.pathname.startsWith('/user/leave'),
     '/user/inventory': location.pathname.startsWith('/user/inventory'),
     '/user/reports': location.pathname.startsWith('/user/reports'),
@@ -490,8 +508,9 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                                       isSubActive = currentFullUrl === subItem.path ||
                                         (subItem.path.includes('tab=banks') && location.pathname === '/user/masters' && !location.search) ||
                                         (subItem.path.includes('section=company-profile') && location.pathname === '/user/company-setup' && !location.search);
+                                    } else {
                                       isSubActive = (location.pathname === subItem.path) &&
-                                        (!location.search || subItem.path !== '/user/attendance' || !location.search.includes('tab=corrections'));
+                                        (!location.search || (subItem.path === '/user/income-tax' && location.search === '?tab=declaration') || subItem.path !== '/user/attendance' || !location.search.includes('tab=corrections'));
                                     }
 
                                     return (
@@ -547,23 +566,6 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
 
         {/* Sidebar Footer (Profile / Logout) */}
         <div className={styles.sidebarFooter}>
-          {/* <div className={styles.profileRow}>
-            <Avatar
-              initials={currentUser?.initials || (currentUser?.name ? currentUser.name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2) : 'US')}
-              size={isCollapsed ? 'sm' : 'md'}
-              name={currentUser?.name || 'User'}
-            />
-            {!isCollapsed && (
-              <div className={styles.profileInfo}>
-                <span className={styles.profileName}>{currentUser?.name || 'User'}</span>
-                <span className={styles.profileRole}>
-                  <Shield size={10} style={{ display: 'inline', marginRight: 3 }} />
-                  {userRole || currentUser?.roleName || currentUser?.role || 'Custom Role'}
-                </span>
-              </div>
-            )}
-          </div> */}
-
           <button
             type="button"
             className={styles.logoutBtn}

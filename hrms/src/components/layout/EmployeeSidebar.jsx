@@ -10,7 +10,8 @@ import {
   Shirt,
   Zap,
   ChevronDown,
-  HandCoins
+  HandCoins,
+  Calculator
 } from 'lucide-react';
 import styles from './EmployeeSidebar.module.css';
 import { useCompany } from '../../context/CompanyContext';
@@ -31,8 +32,30 @@ const ALL_NAV_ITEMS = [
       { path: '/employee/attendance?tab=corrections', name: 'Correction Requests' },
     ]
   },
-  { path: '/employee/leave', name: 'My Leave', icon: CalendarDays, key: 'allowLeaves' },
-  { path: '/employee/salary-slips', name: 'My Salary Slips', icon: FileText, key: 'allowSalarySlips' },
+  {
+    path: '/employee/leave',
+    name: 'My Leave',
+    icon: CalendarDays,
+    key: 'allowLeaves',
+    hasDropdown: true,
+    subItems: [
+      { path: '/employee/leave', name: 'Leave Requests' },
+      { path: '/employee/leave?tab=encashment', name: 'Leave Encashment' },
+    ]
+  },
+  {
+    path: '/employee/salary-slips',
+    name: 'Payroll & Slips',
+    icon: FileText,
+    key: 'allowSalarySlips',
+    hasDropdown: true,
+    subItems: [
+      { path: '/employee/salary-slips', name: 'Salary Slips' },
+      { path: '/employee/salary-slips?tab=bonus', name: 'Bonus (Form C)' },
+      { path: '/employee/salary-slips?tab=gratuity', name: 'Gratuity & Form F' },
+    ]
+  },
+  { path: '/employee/tax-declaration', name: 'IT Declaration (12BB)', icon: Calculator, key: 'allowSalarySlips' },
   {
     path: '/employee/advances-loans',
     name: 'Advances & Loans',
@@ -71,26 +94,24 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
   // Track open dropdowns
   const [openDropdowns, setOpenDropdowns] = useState(() => ({
     '/employee/attendance': location.pathname.startsWith('/employee/attendance'),
+    '/employee/leave': location.pathname.startsWith('/employee/leave'),
+    '/employee/salary-slips': location.pathname.startsWith('/employee/salary-slips'),
     '/employee/advances-loans': location.pathname.startsWith('/employee/advances-loans'),
   }));
 
   const currentUser = authService.getCurrentUser();
   const companyId = activeCompany?.companyId || activeCompany?.id || currentUser?.companyId || 'RRS8392014SEC';
 
-  // Automatically expand dropdown if user navigates to attendance or advances-loans
+  // Automatically expand dropdown if user navigates to an active section
   useEffect(() => {
-    if (location.pathname.startsWith('/employee/attendance')) {
-      setOpenDropdowns((prev) => ({
-        ...prev,
-        '/employee/attendance': true,
-      }));
-    }
-    if (location.pathname.startsWith('/employee/advances-loans')) {
-      setOpenDropdowns((prev) => ({
-        ...prev,
-        '/employee/advances-loans': true,
-      }));
-    }
+    ['/employee/attendance', '/employee/leave', '/employee/salary-slips', '/employee/advances-loans'].forEach((path) => {
+      if (location.pathname.startsWith(path)) {
+        setOpenDropdowns((prev) => ({
+          ...prev,
+          [path]: true,
+        }));
+      }
+    });
   }, [location.pathname]);
 
   const toggleDropdown = (path) => {
