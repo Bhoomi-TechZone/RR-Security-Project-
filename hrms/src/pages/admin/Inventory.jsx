@@ -10,6 +10,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
+import StatusBadge from '../../components/common/StatusBadge';
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_SIZES,

@@ -11,9 +11,9 @@ function StatusBadge({ status, children }) {
 
   let statusClass = styles.pending;
 
-  if (['approved', 'success', 'active', 'present'].includes(normalizedStatus)) {
+  if (['approved', 'success', 'active', 'present', 'assigned', 'issued', 'cleared', 'completed', 'instock'].includes(normalizedStatus)) {
     statusClass = styles.approved;
-  } else if (['rejected', 'danger', 'error', 'inactive', 'absent'].includes(normalizedStatus)) {
+  } else if (['rejected', 'danger', 'error', 'inactive', 'absent', 'cancelled', 'lost', 'damaged', 'outofstock'].includes(normalizedStatus)) {
     statusClass = styles.rejected;
   } else if (normalizedStatus === 'halfday') {
     statusClass = styles.halfDay;
