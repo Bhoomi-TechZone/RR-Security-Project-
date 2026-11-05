@@ -32,6 +32,7 @@ import LeavePolicyAssignModal from '../../components/leave/LeavePolicyAssignModa
 import LeaveApprovalDrawer from '../../components/leave/LeaveApprovalDrawer';
 import LeaveReasonModal from '../../components/leave/LeaveReasonModal';
 import LeaveApplicationModal from '../../components/leave/LeaveApplicationModal';
+import LeaveEncashmentTab from '../../components/leave/LeaveEncashmentTab';
 
 import {
   INITIAL_LEAVE_POLICIES,
@@ -453,7 +454,7 @@ export default function Leave() {
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && ['requests', 'balances', 'master', 'calendar'].includes(tabParam)) {
+    if (tabParam && ['requests', 'balances', 'master', 'calendar', 'encashment'].includes(tabParam)) {
       setActiveTab(tabParam);
     } else {
       setActiveTab('requests');
@@ -840,7 +841,7 @@ export default function Leave() {
           </button>
           <span className={styles.separator}>/</span>
           <span className={styles.crumbActive}>
-            {activeTab === 'balances' ? 'Employee Balances' : activeTab === 'master' ? 'Leave Master' : activeTab === 'calendar' ? 'Roster & Calendar' : 'Leave Requests'}
+            {activeTab === 'balances' ? 'Employee Balances' : activeTab === 'master' ? 'Leave Master' : activeTab === 'calendar' ? 'Roster & Calendar' : activeTab === 'encashment' ? 'Leave Encashment' : 'Leave Requests'}
           </span>
         </div>
 
@@ -848,10 +849,10 @@ export default function Leave() {
         <header className={styles.header}>
           <div className={styles.titleBlock}>
             <h1 className={styles.title}>
-              {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : 'Leave Management'}
+              {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : activeTab === 'encashment' ? 'Leave Encashment Management' : 'Leave Management'}
             </h1>
             <p className={styles.subtitle}>
-              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : 'Manage employee leave requests, approvals, and attendance balance synchronization.'}
+              {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : activeTab === 'encashment' ? 'Manage employee leave encashment requests and payout policies.' : 'Manage employee leave requests, approvals, and attendance balance synchronization.'}
             </p>
           </div>
 
@@ -880,7 +881,7 @@ export default function Leave() {
         </header>
 
         {/* KPI Cards */}
-        {loading ? (
+        {activeTab !== 'encashment' && (loading ? (
           <div className={styles.summaryGrid5}>
             {[1, 2, 3, 4, 5].map((item) => (
               <div key={item} className={styles.summaryCard} style={{ opacity: 0.55 }}>
@@ -893,7 +894,7 @@ export default function Leave() {
             ))}
           </div>
         ) : (
-          <LeaveSummaryCards requests={leaveRequests} />
+          <LeaveSummaryCards requests={leaveRequests} />)
         )}
 
         {/* TAB 1: Leave Requests & Approvals */}
@@ -1149,6 +1150,13 @@ export default function Leave() {
         {/* TAB 4: Calendar */}
         {activeTab === 'calendar' && (
           <LeaveCalendar requests={leaveRequests} />
+        )}
+
+        {/* TAB 5: Leave Encashment */}
+        {activeTab === 'encashment' && (
+          <div className={styles.tabContent}>
+            <LeaveEncashmentTab employees={employeesList.length > 0 ? employeesList : employeeBalances} onNotify={showToast} />
+          </div>
         )}
 
         {/* Leave Approval Drawer */}

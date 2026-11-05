@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
   WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
   Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature,
-  UserPlus, UserCheck
+  UserPlus, UserCheck, Calculator
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -121,6 +121,8 @@ const NAV_GROUPS = [
           { path: '/admin/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/admin/payroll?tab=statutory', name: 'Statutory Reports' },
           { path: '/admin/payroll?tab=fnf', name: 'Full & Final (FnF)' },
+          { path: '/admin/payroll?tab=gratuity', name: 'Gratuity Management' },
+          { path: '/admin/payroll?tab=bonus', name: 'Bonus Management' },
         ]
       },
       {
@@ -163,6 +165,19 @@ const NAV_GROUPS = [
           { path: '/admin/overtime?tab=analytics', name: 'Client & Dept Analytics' },
         ]
       },
+      {
+        path: '/admin/income-tax',
+        name: 'Income Tax',
+        icon: Calculator,
+        moduleKey: 'payroll',
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/income-tax', name: 'IT Declaration' },
+          { path: '/admin/income-tax?tab=exemptions', name: 'IT Exemptions' },
+          { path: '/admin/income-tax?tab=challan', name: 'IT Challan' },
+          { path: '/admin/income-tax?tab=tds-return', name: 'TDS Return' },
+        ]
+      },
     ]
   },
   {
@@ -179,6 +194,7 @@ const NAV_GROUPS = [
           { path: '/admin/leave?tab=balances', name: 'Employee Balances' },
           { path: '/admin/leave?tab=master', name: 'Leave Master' },
           { path: '/admin/leave?tab=calendar', name: 'Roster & Calendar' },
+          { path: '/admin/leave?tab=encashment', name: 'Leave Encashment' },
         ]
       },
       {
@@ -298,6 +314,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/'),
       '/admin/reimbursements': location.pathname === '/admin/reimbursements' || location.pathname.startsWith('/admin/reimbursements/'),
       '/admin/overtime': location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/'),
+      '/admin/income-tax': location.pathname === '/admin/income-tax' || location.pathname.startsWith('/admin/income-tax/'),
       '/admin/leave': location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/'),
       '/admin/inventory': location.pathname === '/admin/inventory' || location.pathname.startsWith('/admin/inventory/'),
       '/admin/roles-permissions': location.pathname === '/admin/roles-permissions' || location.pathname.startsWith('/admin/roles-permissions/'),
@@ -334,6 +351,9 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/overtime': true }));
+    }
+    if (location.pathname === '/admin/income-tax' || location.pathname.startsWith('/admin/income-tax/')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/income-tax': true }));
     }
     if (location.pathname === '/admin/leave' || location.pathname.startsWith('/admin/leave/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/leave': true }));
@@ -521,7 +541,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                         (subItem.path.includes('tab=announcements') && location.pathname === '/admin/notifications' && (!location.search || location.search === '?tab=announcements'));
                                     } else {
                                       isSubActive = (location.pathname === subItem.path) &&
-                                        (!location.search || (subItem.path === '/admin/payroll' && location.search === '?tab=processing') || (subItem.path !== '/admin/attendance' && !location.search.startsWith('?tab=')));
+                                        (!location.search || (subItem.path === '/admin/payroll' && location.search === '?tab=processing') || (subItem.path === '/admin/income-tax' && (!location.search || location.search === '?tab=declaration')) || (subItem.path !== '/admin/attendance' && !location.search.startsWith('?tab=')));
                                     }
 
                                     return (

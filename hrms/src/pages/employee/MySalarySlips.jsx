@@ -17,6 +17,9 @@ import { formatRupee, formatDate } from '../../utils/payrollUtils';
 import { generateSalarySlipPdf } from '../../utils/salarySlipPdfUtil';
 import authService from '../../services/authService';
 import payrollService from '../../services/payrollService';
+import { useSearchParams } from 'react-router-dom';
+import EmployeeBonusSection from '../../components/employee/EmployeeBonusSection';
+import EmployeeGratuitySection from '../../components/employee/EmployeeGratuitySection';
 import { useCompany } from '../../context/CompanyContext';
 import styles from './MySalarySlips.module.css';
 
@@ -25,6 +28,8 @@ import styles from './MySalarySlips.module.css';
    ───────────────────────────────────────── */
 function MySalarySlips() {
   const { activeCompany } = useCompany();
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') || 'slips';
   const currentUser = authService.getCurrentUser() || authService.getUser() || {};
   const companyName = activeCompany?.name || currentUser.companyName || 'RR Security & Facilities';
 
@@ -223,8 +228,11 @@ function MySalarySlips() {
         {/* ── Page Header ── */}
         <header className={styles.pageHeader}>
           <div>
-            <h1>My Salary Slips</h1>
-            <p>View and download your dynamic salary slips.</p>
+            <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '4px' }}>
+              <span>Employee Portal</span> / <strong>{activeTab === 'bonus' ? 'Bonus (Form C)' : activeTab === 'gratuity' ? 'Gratuity & Form F' : 'Salary Slips'}</strong>
+            </div>
+            <h1>{activeTab === 'bonus' ? 'My Annual Bonus Statement' : activeTab === 'gratuity' ? 'My Gratuity & Form F Record' : 'My Salary Slips'}</h1>
+            <p>{activeTab === 'bonus' ? 'View annual statutory bonus computation and Form C register statement under the Payment of Bonus Act, 1965.' : activeTab === 'gratuity' ? 'View your continuous service tenure, 5-year eligibility status, and Form F nomination details.' : 'View and download your dynamic salary slips.'}</p>
           </div>
           <button
             type="button"
@@ -232,7 +240,7 @@ function MySalarySlips() {
             onClick={loadSalarySlips}
             disabled={loading}
             title="Refresh verified salary slips"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            style={{ display: activeTab === 'slips' ? 'inline-flex' : 'none', alignItems: 'center', gap: '6px' }}
           >
             <RefreshCw size={13} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
             <span>Refresh</span>
@@ -263,393 +271,401 @@ function MySalarySlips() {
           </div>
         </section>
 
-        {/* ── Salary Summary Cards ── */}
-        {loading ? (
-          <section className={styles.summaryGrid} aria-label="Loading salary data">
-            <div className={styles.summaryCard} style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px', gap: '10px' }}>
-              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading verified salary slips from database...</span>
-            </div>
-          </section>
-        ) : latestSlip ? (
-          <section
-            className={styles.summaryGrid}
-            aria-label="Latest salary summary"
-          >
-            {/* Net / Latest Salary */}
-            <div className={styles.summaryCard}>
-              <div className={styles.summaryCardLabel}>
-                <span className={`${styles.summaryCardIcon} ${styles.net}`}>
-                  <Wallet size={14} />
-                </span>
-                Latest Net Salary
+        {activeTab === 'bonus' ? (
+          <EmployeeBonusSection employee={currentUser} />
+        ) : activeTab === 'gratuity' ? (
+          <EmployeeGratuitySection employee={currentUser} />
+        ) : (
+          <>
+            {/* ── Salary Summary Cards ── */}
+            {loading ? (
+              <section className={styles.summaryGrid} aria-label="Loading salary data">
+                <div className={styles.summaryCard} style={{ gridColumn: '1/-1', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '28px', gap: '10px' }}>
+                  <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                  <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading verified salary slips from database...</span>
+                </div>
+              </section>
+            ) : latestSlip ? (
+              <section
+                className={styles.summaryGrid}
+                aria-label="Latest salary summary"
+              >
+                {/* Net / Latest Salary */}
+                <div className={styles.summaryCard}>
+                  <div className={styles.summaryCardLabel}>
+                    <span className={`${styles.summaryCardIcon} ${styles.net}`}>
+                      <Wallet size={14} />
+                    </span>
+                    Latest Net Salary
+                  </div>
+                  <div className={`${styles.summaryCardValue} ${styles.net}`}>
+                    {formatRupee(latestSlip.netSalary)}
+                  </div>
+                  <div className={styles.summaryCardSub}>
+                    {latestSlip.salaryMonth}
+                  </div>
+                </div>
+
+                {/* Gross */}
+                <div className={styles.summaryCard}>
+                  <div className={styles.summaryCardLabel}>
+                    <span className={`${styles.summaryCardIcon} ${styles.gross}`}>
+                      <TrendingUp size={14} />
+                    </span>
+                    Gross Salary
+                  </div>
+                  <div className={styles.summaryCardValue}>
+                    {formatRupee(latestSlip.grossSalary || latestSlip.earnings?.grossSalary || latestSlip.earnings?.totalGross)}
+                  </div>
+                  <div className={styles.summaryCardSub}>
+                    {latestSlip.salaryMonth}
+                  </div>
+                </div>
+
+                {/* Deductions */}
+                <div className={styles.summaryCard}>
+                  <div className={styles.summaryCardLabel}>
+                    <span className={`${styles.summaryCardIcon} ${styles.deduct}`}>
+                      <TrendingDown size={14} />
+                    </span>
+                    Deductions
+                  </div>
+                  <div className={`${styles.summaryCardValue} ${styles.deduct}`}>
+                    {formatRupee(latestSlip.totalDeductions || latestSlip.deductions?.totalDeductions)}
+                  </div>
+                  <div className={styles.summaryCardSub}>
+                    {latestSlip.salaryMonth}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className={styles.summaryCard}>
+                  <div className={styles.summaryCardLabel}>
+                    <span className={`${styles.summaryCardIcon} ${styles.status}`}>
+                      <Banknote size={14} />
+                    </span>
+                    Status
+                  </div>
+                  <div className={styles.summaryCardValue}>
+                    {latestSlip.status?.toLowerCase() === 'generated' || latestSlip.status?.toLowerCase() === 'processed' ? (
+                      <span className={styles.statusBadgeProcessed}>
+                        Processed
+                      </span>
+                    ) : (
+                      <span className={styles.statusBadgePending}>{latestSlip.status || 'Pending'}</span>
+                    )}
+                  </div>
+                  <div className={styles.summaryCardSub}>
+                    {latestSlip.salaryMonth}
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <section className={styles.summaryGrid} aria-label="No salary data">
+                <div className={styles.summaryCard} style={{ gridColumn: '1/-1', padding: '20px' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
+                    No salary slips generated yet. Once your salary slip is processed and generated by HR / Administration, your verified earnings and deductions will appear here dynamically.
+                  </p>
+                </div>
+              </section>
+            )}
+
+            {/* ── Salary Slip History Section ── */}
+            <section>
+              <div className={styles.sectionHeading}>
+                <div>
+                  <h2>View your previous salary slips.</h2>
+                </div>
               </div>
-              <div className={`${styles.summaryCardValue} ${styles.net}`}>
-                {formatRupee(latestSlip.netSalary)}
+            </section>
+
+            {/* ── Filter Bar ── */}
+            <div className={styles.filterBar} role="search" aria-label="Filter salary slips">
+              <div className={styles.filterField}>
+                <label htmlFor="filter-month">Month</label>
+                <select
+                  id="filter-month"
+                  value={draftMonth}
+                  onChange={(e) => setDraftMonth(e.target.value)}
+                >
+                  {monthOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <div className={styles.summaryCardSub}>
-                {latestSlip.salaryMonth}
+
+              <div className={styles.filterField}>
+                <label htmlFor="filter-status">Status</label>
+                <select
+                  id="filter-status"
+                  value={draftStatus}
+                  onChange={(e) => setDraftStatus(e.target.value)}
+                >
+                  <option value="all">All Status</option>
+                  <option value="generated">Processed</option>
+                  <option value="pending">Pending</option>
+                </select>
+              </div>
+
+              <div className={styles.filterActions}>
+                <button
+                  type="button"
+                  className={styles.applyBtn}
+                  onClick={handleApply}
+                  id="salary-filter-apply"
+                >
+                  Apply
+                </button>
+                <button
+                  type="button"
+                  className={styles.resetBtn}
+                  onClick={handleReset}
+                  id="salary-filter-reset"
+                >
+                  Reset
+                </button>
               </div>
             </div>
 
-            {/* Gross */}
-            <div className={styles.summaryCard}>
-              <div className={styles.summaryCardLabel}>
-                <span className={`${styles.summaryCardIcon} ${styles.gross}`}>
-                  <TrendingUp size={14} />
-                </span>
-                Gross Salary
-              </div>
-              <div className={styles.summaryCardValue}>
-                {formatRupee(latestSlip.grossSalary || latestSlip.earnings?.grossSalary || latestSlip.earnings?.totalGross)}
-              </div>
-              <div className={styles.summaryCardSub}>
-                {latestSlip.salaryMonth}
-              </div>
-            </div>
-
-            {/* Deductions */}
-            <div className={styles.summaryCard}>
-              <div className={styles.summaryCardLabel}>
-                <span className={`${styles.summaryCardIcon} ${styles.deduct}`}>
-                  <TrendingDown size={14} />
-                </span>
-                Deductions
-              </div>
-              <div className={`${styles.summaryCardValue} ${styles.deduct}`}>
-                {formatRupee(latestSlip.totalDeductions || latestSlip.deductions?.totalDeductions)}
-              </div>
-              <div className={styles.summaryCardSub}>
-                {latestSlip.salaryMonth}
-              </div>
-            </div>
-
-            {/* Status */}
-            <div className={styles.summaryCard}>
-              <div className={styles.summaryCardLabel}>
-                <span className={`${styles.summaryCardIcon} ${styles.status}`}>
-                  <Banknote size={14} />
-                </span>
-                Status
-              </div>
-              <div className={styles.summaryCardValue}>
-                {latestSlip.status?.toLowerCase() === 'generated' || latestSlip.status?.toLowerCase() === 'processed' ? (
-                  <span className={styles.statusBadgeProcessed}>
-                    Processed
-                  </span>
+            {/* ── Desktop Table ── */}
+            <div className={styles.tableSection}>
+              <div className={styles.tableResponsive}>
+                {loading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', gap: '10px' }}>
+                    <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                    <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Fetching verified salary slips...</span>
+                  </div>
+                ) : filteredSlips.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <div className={styles.emptyIconWrap}>
+                      <FileText size={28} />
+                    </div>
+                    <h3>No salary slips available</h3>
+                    <p>
+                      Your verified salary slips will appear here once payroll is processed by HR / Admin.
+                    </p>
+                  </div>
                 ) : (
-                  <span className={styles.statusBadgePending}>{latestSlip.status || 'Pending'}</span>
+                  <table className={styles.table} aria-label="Salary slip history">
+                    <thead>
+                      <tr>
+                        <th>Month</th>
+                        <th>Gross Salary</th>
+                        <th>Deductions</th>
+                        <th>Net Salary</th>
+                        <th>Status</th>
+                        <th>Processed Date</th>
+                        <th className={styles.thActions}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSlips.map((slip) => {
+                        const isGenerated = slip.status?.toLowerCase() === 'generated' || slip.status?.toLowerCase() === 'processed';
+                        return (
+                          <tr key={slip.id} className={styles.tableRow}>
+                            <td>{slip.salaryMonth}</td>
+                            <td>
+                              {isGenerated
+                                ? formatRupee(slip.grossSalary || slip.earnings?.grossSalary || slip.earnings?.totalGross)
+                                : '—'}
+                            </td>
+                            <td className={styles.deductCell}>
+                              {isGenerated
+                                ? `-${formatRupee(slip.totalDeductions || slip.deductions?.totalDeductions)}`
+                                : '—'}
+                            </td>
+                            <td>
+                              <strong className={styles.netSalaryCell}>
+                                {isGenerated ? formatRupee(slip.netSalary) : '—'}
+                              </strong>
+                            </td>
+                            <td>
+                              {isGenerated ? (
+                                <span className={styles.badgeGenerated}>
+                                  Processed
+                                </span>
+                              ) : (
+                                <span className={styles.badgePending}>{slip.status || 'Pending'}</span>
+                              )}
+                            </td>
+                            <td className={styles.dateCell}>
+                              {slip.generatedDate
+                                ? formatDate(slip.generatedDate)
+                                : '—'}
+                            </td>
+                            <td className={styles.tdActions}>
+                              <div className={styles.actionBtns}>
+                                {isGenerated ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className={styles.viewBtn}
+                                      onClick={() => handleViewSlip(slip)}
+                                      title="View Salary Slip"
+                                      id={`view-slip-${slip.id}`}
+                                    >
+                                      <Eye size={14} />
+                                      <span>View</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={styles.iconBtn}
+                                      onClick={() => handleDownloadSlip(slip)}
+                                      title="Download PDF"
+                                      aria-label="Download salary slip"
+                                    >
+                                      <Download size={14} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className={styles.iconBtn}
+                                      onClick={() => handlePrintSlip(slip)}
+                                      title="Print Slip"
+                                      aria-label="Print salary slip"
+                                    >
+                                      <Printer size={14} />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span
+                                    className={styles.viewUnavailable}
+                                    title="Salary slip not yet processed"
+                                  >
+                                    View unavailable
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </div>
-              <div className={styles.summaryCardSub}>
-                {latestSlip.salaryMonth}
-              </div>
-            </div>
-          </section>
-        ) : (
-          <section className={styles.summaryGrid} aria-label="No salary data">
-            <div className={styles.summaryCard} style={{ gridColumn: '1/-1', padding: '20px' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13, margin: 0 }}>
-                No salary slips generated yet. Once your salary slip is processed and generated by HR / Administration, your verified earnings and deductions will appear here dynamically.
-              </p>
-            </div>
-          </section>
-        )}
 
-        {/* ── Salary Slip History Section ── */}
-        <section>
-          <div className={styles.sectionHeading}>
-            <div>
-              <h2>View your previous salary slips.</h2>
-            </div>
-          </div>
-        </section>
-
-        {/* ── Filter Bar ── */}
-        <div className={styles.filterBar} role="search" aria-label="Filter salary slips">
-          <div className={styles.filterField}>
-            <label htmlFor="filter-month">Month</label>
-            <select
-              id="filter-month"
-              value={draftMonth}
-              onChange={(e) => setDraftMonth(e.target.value)}
-            >
-              {monthOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className={styles.filterField}>
-            <label htmlFor="filter-status">Status</label>
-            <select
-              id="filter-status"
-              value={draftStatus}
-              onChange={(e) => setDraftStatus(e.target.value)}
-            >
-              <option value="all">All Status</option>
-              <option value="generated">Processed</option>
-              <option value="pending">Pending</option>
-            </select>
-          </div>
-
-          <div className={styles.filterActions}>
-            <button
-              type="button"
-              className={styles.applyBtn}
-              onClick={handleApply}
-              id="salary-filter-apply"
-            >
-              Apply
-            </button>
-            <button
-              type="button"
-              className={styles.resetBtn}
-              onClick={handleReset}
-              id="salary-filter-reset"
-            >
-              Reset
-            </button>
-          </div>
-        </div>
-
-        {/* ── Desktop Table ── */}
-        <div className={styles.tableSection}>
-          <div className={styles.tableResponsive}>
-            {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px', gap: '10px' }}>
-                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-                <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>Fetching verified salary slips...</span>
-              </div>
-            ) : filteredSlips.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIconWrap}>
-                  <FileText size={28} />
-                </div>
-                <h3>No salary slips available</h3>
-                <p>
-                  Your verified salary slips will appear here once payroll is processed by HR / Admin.
-                </p>
-              </div>
-            ) : (
-              <table className={styles.table} aria-label="Salary slip history">
-                <thead>
-                  <tr>
-                    <th>Month</th>
-                    <th>Gross Salary</th>
-                    <th>Deductions</th>
-                    <th>Net Salary</th>
-                    <th>Status</th>
-                    <th>Processed Date</th>
-                    <th className={styles.thActions}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSlips.map((slip) => {
+              {/* ── Mobile Cards ── */}
+              <div className={styles.mobileList} aria-label="Salary slip history (mobile)">
+                {loading ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '10px' }}>
+                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading slips...</span>
+                  </div>
+                ) : filteredSlips.length === 0 ? (
+                  <div className={styles.emptyState}>
+                    <div className={styles.emptyIconWrap}>
+                      <FileText size={28} />
+                    </div>
+                    <h3>No salary slips available</h3>
+                    <p>
+                      Your verified salary slips will appear here once payroll is processed by HR / Admin.
+                    </p>
+                  </div>
+                ) : (
+                  filteredSlips.map((slip) => {
                     const isGenerated = slip.status?.toLowerCase() === 'generated' || slip.status?.toLowerCase() === 'processed';
                     return (
-                      <tr key={slip.id} className={styles.tableRow}>
-                        <td>{slip.salaryMonth}</td>
-                        <td>
-                          {isGenerated
-                            ? formatRupee(slip.grossSalary || slip.earnings?.grossSalary || slip.earnings?.totalGross)
-                            : '—'}
-                        </td>
-                        <td className={styles.deductCell}>
-                          {isGenerated
-                            ? `-${formatRupee(slip.totalDeductions || slip.deductions?.totalDeductions)}`
-                            : '—'}
-                        </td>
-                        <td>
-                          <strong className={styles.netSalaryCell}>
-                            {isGenerated ? formatRupee(slip.netSalary) : '—'}
-                          </strong>
-                        </td>
-                        <td>
+                      <div key={slip.id} className={styles.mobileCard}>
+                        <div className={styles.mobileCardHeader}>
+                          <span className={styles.mobileMonthLabel}>
+                            {slip.salaryMonth}
+                          </span>
                           {isGenerated ? (
-                            <span className={styles.badgeGenerated}>
-                              Processed
-                            </span>
+                            <span className={styles.badgeGenerated}>Processed</span>
                           ) : (
                             <span className={styles.badgePending}>{slip.status || 'Pending'}</span>
                           )}
-                        </td>
-                        <td className={styles.dateCell}>
-                          {slip.generatedDate
-                            ? formatDate(slip.generatedDate)
-                            : '—'}
-                        </td>
-                        <td className={styles.tdActions}>
-                          <div className={styles.actionBtns}>
-                            {isGenerated ? (
-                              <>
-                                <button
-                                  type="button"
-                                  className={styles.viewBtn}
-                                  onClick={() => handleViewSlip(slip)}
-                                  title="View Salary Slip"
-                                  id={`view-slip-${slip.id}`}
-                                >
-                                  <Eye size={14} />
-                                  <span>View</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.iconBtn}
-                                  onClick={() => handleDownloadSlip(slip)}
-                                  title="Download PDF"
-                                  aria-label="Download salary slip"
-                                >
-                                  <Download size={14} />
-                                </button>
-                                <button
-                                  type="button"
-                                  className={styles.iconBtn}
-                                  onClick={() => handlePrintSlip(slip)}
-                                  title="Print Slip"
-                                  aria-label="Print salary slip"
-                                >
-                                  <Printer size={14} />
-                                </button>
-                              </>
-                            ) : (
-                              <span
-                                className={styles.viewUnavailable}
-                                title="Salary slip not yet processed"
-                              >
-                                View unavailable
+                        </div>
+
+                        {isGenerated && (
+                          <div className={styles.mobileGrid}>
+                            <div className={styles.mobileRow}>
+                              <span>Gross Salary</span>
+                              <span>
+                                {formatRupee(slip.grossSalary || slip.earnings?.grossSalary || slip.earnings?.totalGross)}
                               </span>
+                            </div>
+                            <div className={styles.mobileRow}>
+                              <span>Deductions</span>
+                              <span className={styles.deductCell}>
+                                -{formatRupee(slip.totalDeductions || slip.deductions?.totalDeductions)}
+                              </span>
+                            </div>
+                            <div
+                              className={`${styles.mobileRow} ${styles.mobileNetRow}`}
+                            >
+                              <span>Net Salary</span>
+                              <strong>{formatRupee(slip.netSalary)}</strong>
+                            </div>
+                            {slip.generatedDate && (
+                              <div className={styles.mobileRow}>
+                                <span>Processed Date</span>
+                                <span>{formatDate(slip.generatedDate)}</span>
+                              </div>
                             )}
                           </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                        )}
 
-          {/* ── Mobile Cards ── */}
-          <div className={styles.mobileList} aria-label="Salary slip history (mobile)">
-            {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '10px' }}>
-                <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', color: 'var(--primary)' }} />
-                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading slips...</span>
-              </div>
-            ) : filteredSlips.length === 0 ? (
-              <div className={styles.emptyState}>
-                <div className={styles.emptyIconWrap}>
-                  <FileText size={28} />
-                </div>
-                <h3>No salary slips available</h3>
-                <p>
-                  Your verified salary slips will appear here once payroll is processed by HR / Admin.
-                </p>
-              </div>
-            ) : (
-              filteredSlips.map((slip) => {
-                const isGenerated = slip.status?.toLowerCase() === 'generated' || slip.status?.toLowerCase() === 'processed';
-                return (
-                  <div key={slip.id} className={styles.mobileCard}>
-                    <div className={styles.mobileCardHeader}>
-                      <span className={styles.mobileMonthLabel}>
-                        {slip.salaryMonth}
-                      </span>
-                      {isGenerated ? (
-                        <span className={styles.badgeGenerated}>Processed</span>
-                      ) : (
-                        <span className={styles.badgePending}>{slip.status || 'Pending'}</span>
-                      )}
-                    </div>
-
-                    {isGenerated && (
-                      <div className={styles.mobileGrid}>
-                        <div className={styles.mobileRow}>
-                          <span>Gross Salary</span>
-                          <span>
-                            {formatRupee(slip.grossSalary || slip.earnings?.grossSalary || slip.earnings?.totalGross)}
-                          </span>
-                        </div>
-                        <div className={styles.mobileRow}>
-                          <span>Deductions</span>
-                          <span className={styles.deductCell}>
-                            -{formatRupee(slip.totalDeductions || slip.deductions?.totalDeductions)}
-                          </span>
-                        </div>
-                        <div
-                          className={`${styles.mobileRow} ${styles.mobileNetRow}`}
-                        >
-                          <span>Net Salary</span>
-                          <strong>{formatRupee(slip.netSalary)}</strong>
-                        </div>
-                        {slip.generatedDate && (
-                          <div className={styles.mobileRow}>
-                            <span>Processed Date</span>
-                            <span>{formatDate(slip.generatedDate)}</span>
+                        {!isGenerated && (
+                          <div className={styles.mobileGrid}>
+                            <p
+                              style={{
+                                fontSize: 12,
+                                color: 'var(--text-muted)',
+                                margin: 0,
+                              }}
+                            >
+                              Your salary slip is not available yet.
+                            </p>
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    {!isGenerated && (
-                      <div className={styles.mobileGrid}>
-                        <p
-                          style={{
-                            fontSize: 12,
-                            color: 'var(--text-muted)',
-                            margin: 0,
-                          }}
-                        >
-                          Your salary slip is not available yet.
-                        </p>
+                        <div className={styles.mobileActions}>
+                          {isGenerated ? (
+                            <>
+                              <button
+                                type="button"
+                                className={styles.mobilePrimaryBtn}
+                                onClick={() => handleViewSlip(slip)}
+                              >
+                                <Eye size={14} />
+                                <span>View Slip</span>
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.mobileOutlineBtn}
+                                onClick={() => handleDownloadSlip(slip)}
+                                title="Download"
+                                aria-label="Download"
+                              >
+                                <Download size={14} />
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.mobileOutlineBtn}
+                                onClick={() => handlePrintSlip(slip)}
+                                title="Print"
+                                aria-label="Print"
+                              >
+                                <Printer size={14} />
+                              </button>
+                            </>
+                          ) : (
+                            <span className={styles.mobileUnavailableBtn}>
+                              View unavailable
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    )}
-
-                    <div className={styles.mobileActions}>
-                      {isGenerated ? (
-                        <>
-                          <button
-                            type="button"
-                            className={styles.mobilePrimaryBtn}
-                            onClick={() => handleViewSlip(slip)}
-                          >
-                            <Eye size={14} />
-                            <span>View Slip</span>
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.mobileOutlineBtn}
-                            onClick={() => handleDownloadSlip(slip)}
-                            title="Download"
-                            aria-label="Download"
-                          >
-                            <Download size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            className={styles.mobileOutlineBtn}
-                            onClick={() => handlePrintSlip(slip)}
-                            title="Print"
-                            aria-label="Print"
-                          >
-                            <Printer size={14} />
-                          </button>
-                        </>
-                      ) : (
-                        <span className={styles.mobileUnavailableBtn}>
-                          View unavailable
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* ── SalarySlipPreview Modal ── */}
