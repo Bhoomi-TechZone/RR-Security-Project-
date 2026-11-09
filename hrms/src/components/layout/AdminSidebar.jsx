@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
   WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
   Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature,
-  UserPlus, UserCheck, Calculator
+  UserPlus, UserCheck, Calculator, PartyPopper
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -278,6 +278,12 @@ const NAV_GROUPS = [
           { path: '/admin/document-compliance?tab=expiry-alert', name: 'Expiry Alert' },
           { path: '/admin/document-compliance?tab=police-verification', name: 'Police Verification' },
         ]
+      },
+      {
+        path: '/admin/greetings',
+        name: 'Greetings',
+        icon: PartyPopper,
+        moduleKey: 'greetings'
       },
       {
         path: '/admin/notifications',

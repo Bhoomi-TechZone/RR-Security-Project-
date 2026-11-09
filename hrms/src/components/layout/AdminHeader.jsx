@@ -262,6 +262,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/admin/roles-permissions')) return 'System / Role & Permissions';
     if (path.startsWith('/admin/users')) return 'System / User Management';
     if (path.startsWith('/admin/masters')) return 'System / Masters';
+    if (path.startsWith('/admin/greetings')) return 'Settings / Greetings';
     if (path.startsWith('/admin/notifications')) {
       return location.search.includes('tab=notifications') ? 'System / Notifications' : 'System / Announcements';
     }
@@ -271,11 +272,20 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       if (location.search.includes('tab=arrears')) return 'Payroll / Arrears';
       if (location.search.includes('tab=slips')) return 'Payroll / Salary Slips';
       if (location.search.includes('tab=statutory')) return 'Payroll / Statutory Reports';
+      if (location.search.includes('tab=fnf')) return 'Payroll / Full & Final (FnF)';
+      if (location.search.includes('tab=gratuity')) return 'Payroll / Gratuity Management';
+      if (location.search.includes('tab=bonus')) return 'Payroll / Bonus Management';
       return 'Payroll / Payroll Processing';
     }
     if (path.startsWith('/admin/advances-loans')) return 'Payroll / Advances & Loans';
     if (path.startsWith('/admin/overtime')) return 'Payroll / Overtime';
-    if (path.startsWith('/admin/leave')) return 'Management / Leave';
+    if (path.startsWith('/admin/leave')) {
+      if (location.search.includes('tab=encashment')) return 'Management / Leave / Leave Encashment';
+      if (location.search.includes('tab=balances')) return 'Management / Leave / Employee Balances';
+      if (location.search.includes('tab=master')) return 'Management / Leave / Leave Master';
+      if (location.search.includes('tab=calendar')) return 'Management / Leave / Roster & Calendar';
+      return 'Management / Leave';
+    }
     if (path.startsWith('/admin/inventory')) return 'Management / Inventory';
     if (path.startsWith('/admin/reports')) return 'Management / Reports';
     if (path.startsWith('/admin/biometric-attendance')) return 'Workforce / Biometric Attendance';
