@@ -36,6 +36,7 @@ import LeaveEncashmentTab from '../../components/leave/LeaveEncashmentTab';
 
 import {
   INITIAL_LEAVE_POLICIES,
+  INITIAL_LEAVE_TYPES
 } from '../../data/leaveMasterData';
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
@@ -598,6 +599,17 @@ export default function Leave() {
     return Array.from(list);
   }, [employeesList, employeeBalances]);
 
+  const designations = useMemo(() => {
+    const list = new Set(['Security Guard', 'Security Supervisor', 'Head Armoured Guard', 'Facility Supervisor', 'Operations Supervisor']);
+    employeesList.forEach((e) => {
+      if (e.designation) list.add(e.designation);
+    });
+    employeeBalances.forEach((b) => {
+      if (b.designation) list.add(b.designation);
+    });
+    return Array.from(list);
+  }, [employeesList, employeeBalances]);
+
   // Filter requests
   const filteredRequests = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
@@ -1155,7 +1167,15 @@ export default function Leave() {
         {/* TAB 5: Leave Encashment */}
         {activeTab === 'encashment' && (
           <div className={styles.tabContent}>
-            <LeaveEncashmentTab employees={employeesList.length > 0 ? employeesList : employeeBalances} onNotify={showToast} />
+            <LeaveEncashmentTab
+              employees={employeesList.length > 0 ? employeesList : employeeBalances}
+              leaveTypes={leaveTypes.length > 0 ? leaveTypes : INITIAL_LEAVE_TYPES}
+              clients={clients}
+              departments={departments}
+              designations={designations}
+              employeeBalances={employeeBalances}
+              onNotify={showToast}
+            />
           </div>
         )}
 

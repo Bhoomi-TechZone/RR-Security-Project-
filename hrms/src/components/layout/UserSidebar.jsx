@@ -28,7 +28,8 @@ import {
   ChevronDown,
   UserPlus,
   UserCheck,
-  Calculator
+  Calculator,
+  PartyPopper
 } from 'lucide-react';
 import styles from './UserSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -327,6 +328,7 @@ const USER_NAV_GROUPS = [
       { path: '/user/preferences', name: 'Preferences', icon: SlidersHorizontal, moduleKey: 'preferences' },
       { path: '/user/templates', name: 'Templates', icon: FileText, moduleKey: 'templates' },
       { path: '/user/document-compliance', name: 'Docs & Compliance', icon: FileCheck, moduleKey: 'docs_compliance' },
+      { path: '/user/greetings', name: 'Greetings', icon: PartyPopper, moduleKey: 'greetings' },
       { path: '/user/notifications', name: 'Notifications', icon: Bell, moduleKey: 'notifications' }
     ]
   }

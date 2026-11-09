@@ -65,6 +65,7 @@ import OnboardingDetails from './pages/admin/OnboardingDetails'
 import EditOnboarding from './pages/admin/EditOnboarding'
 import FnFInitiatePage from './pages/admin/FnFInitiatePage'
 import IncomeTaxManagement from './pages/admin/IncomeTaxManagement'
+import Greetings from './pages/admin/Greetings'
 import CandidateSelfOnboard from './pages/public/CandidateSelfOnboard'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
@@ -145,6 +146,7 @@ function App() {
       <Route path="/admin/payroll/fnf/initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
       <Route path="/admin/income-tax" element={<AdminRoute><IncomeTaxManagement /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+      <Route path="/admin/greetings" element={<AdminRoute><Greetings /></AdminRoute>} />
       <Route path="/admin/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
       <Route path="/admin/roles-permissions" element={<AdminRoute><RolePermissions /></AdminRoute>} />
       <Route path="/admin/users" element={<AdminRoute><AdminUserManagement /></AdminRoute>} />
@@ -221,6 +223,7 @@ function App() {
         <Route path="preferences" element={<ModulePermissionRoute moduleKey="preferences" moduleTitle="Preferences"><Preferences /></ModulePermissionRoute>} />
         <Route path="templates" element={<ModulePermissionRoute moduleKey="templates" moduleTitle="Templates"><Templates /></ModulePermissionRoute>} />
         <Route path="document-compliance" element={<ModulePermissionRoute moduleKey="docs_compliance" moduleTitle="Docs & Compliance"><DocumentCompliance /></ModulePermissionRoute>} />
+        <Route path="greetings" element={<Greetings />} />
         <Route path="notifications" element={<ModulePermissionRoute moduleKey="notifications" moduleTitle="Notifications"><Notifications /></ModulePermissionRoute>} />
       </Route>
 

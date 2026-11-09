@@ -959,8 +959,8 @@ export default function PayrollManagement() {
               {activeTab === 'slips' && 'Generate, preview and download monthly salary slips for workforce employees.'}
               {activeTab === 'statutory' && 'Generate payroll compliance reports and monthly contribution returns for PF and ESI.'}
               {activeTab === 'fnf' && 'Calculate employee separation dues, leave encashment, asset recoveries, and net settlement statements.'}
-              {activeTab === 'gratuity' && 'Manage employee gratuity calculations, eligibility criteria, and disbursement vouchers.'}
-              {activeTab === 'bonus' && 'Manage statutory annual bonus calculations, Form C registers, and festive disbursements.'}
+              {activeTab === 'gratuity' && 'Calculate and process employee gratuity settlements, service years rounding, and statutory payouts.'}
+              {activeTab === 'bonus' && 'Calculate and process employee bonus summaries, manage statutory parameters, and download reports.'}
             </p>
           </div>
 
@@ -1529,6 +1529,10 @@ export default function PayrollManagement() {
           <section className={styles.tabSection}>
             <GratuityManagementTab
               employees={employees}
+              clients={clientsList}
+              departments={deptList}
+              designations={desigList}
+              selectedMonth={selectedMonth}
               onNotify={(msg, type) => notify(msg, type || 'success')}
             />
           </section>
@@ -1539,6 +1543,10 @@ export default function PayrollManagement() {
           <section className={styles.tabSection}>
             <BonusManagementTab
               employees={employees}
+              clients={clientsList}
+              departments={deptList}
+              designations={desigList}
+              selectedMonth={selectedMonth}
               onNotify={(msg, type) => notify(msg, type || 'success')}
             />
           </section>

@@ -1,868 +1,1047 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Search,
-  Plus,
-  Download,
-  Eye,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
-  Clock,
-  Printer,
-  FileText,
-  AlertTriangle,
-  X,
-  CreditCard,
-  Building,
+  Trash2,
   Check,
-  ShieldCheck,
-  Coins,
-  Sparkles,
-  HelpCircle,
-  FileCheck2
+  Download,
+  History,
+  Clock,
+  X,
+  FileSpreadsheet
 } from 'lucide-react';
 import styles from './LeaveEncashmentTab.module.css';
-import {
-  ENCASHMENT_STATUSES,
-  FINANCIAL_YEARS,
-  ENCASHMENT_POLICY_DEFAULTS,
-  getStoredEncashments,
-  saveStoredEncashments,
-  calculateEncashmentAmount
-} from '../../data/leaveEncashmentData';
 
-const formatINR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
+const MONTH_NAMES = [
+  'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN',
+  'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'
+];
+
+const STORAGE_HISTORY_KEY = 'novaspark_leave_encashment_history';
+
+// Default reference employees for mock data & testing
+const DEFAULT_EMPLOYEES = [
+  {
+    id: 'emp_001',
+    employeeCode: 'RRS001',
+    name: 'Bandna Rana',
+    clientName: 'DLF CyberCity Tech Park',
+    client: 'DLF CyberCity Tech Park',
+    location: 'Head Office',
+    department: 'Security',
+    designation: 'Security Supervisor',
+    basic: 15000,
+    da: 0,
+    hra: 3000,
+    conveyance: 1000,
+    specialAllowance: 1000,
+    otherAllowance: 0,
+    leaveBalances: {
+      EL: 24,
+      CL: 6,
+      SL: 8,
+      PL: 15
+    }
+  },
+  {
+    id: 'emp_002',
+    employeeCode: 'RRS002',
+    name: 'Mahesh Chandra Sharma',
+    clientName: 'HDFC Bank Cash Vault',
+    client: 'HDFC Bank Cash Vault',
+    location: 'Head Office',
+    department: 'Security',
+    designation: 'Head Armoured Guard',
+    basic: 20000,
+    da: 0,
+    hra: 4000,
+    conveyance: 1000,
+    specialAllowance: 1500,
+    otherAllowance: 0,
+    leaveBalances: {
+      EL: 30,
+      CL: 8,
+      SL: 10,
+      PL: 18
+    }
+  },
+  {
+    id: 'emp_003',
+    employeeCode: 'RRS003',
+    name: 'Harish Babulal Patel',
+    clientName: 'Max Super Speciality Hospital',
+    client: 'Max Super Speciality Hospital',
+    location: 'Bareilly HQ',
+    department: 'Facility Management',
+    designation: 'Facility Supervisor',
+    basic: 18000,
+    da: 1000,
+    hra: 3500,
+    conveyance: 800,
+    specialAllowance: 1000,
+    otherAllowance: 0,
+    leaveBalances: {
+      EL: 18,
+      CL: 4,
+      SL: 6,
+      PL: 12
+    }
+  },
+  {
+    id: 'emp_004',
+    employeeCode: 'RRS004',
+    name: 'Surender Kumar Verma',
+    clientName: 'Tata Consultancy Services Campus',
+    client: 'Tata Consultancy Services Campus',
+    location: 'Noida Branch',
+    department: 'Security',
+    designation: 'Patrol Guard Grade 1',
+    basic: 16500,
+    da: 500,
+    hra: 3000,
+    conveyance: 800,
+    specialAllowance: 1000,
+    otherAllowance: 0,
+    leaveBalances: {
+      EL: 22,
+      CL: 5,
+      SL: 7,
+      PL: 14
+    }
+  },
+  {
+    id: 'emp_005',
+    employeeCode: 'EMP001',
+    name: 'Rahul Kumar',
+    clientName: 'ABC Security Services',
+    client: 'ABC Security Services',
+    location: 'Site Gate 1',
+    department: 'Security',
+    designation: 'Security Guard',
+    basic: 16000,
+    da: 1000,
+    hra: 4000,
+    conveyance: 1000,
+    specialAllowance: 1500,
+    otherAllowance: 0,
+    leaveBalances: {
+      EL: 16,
+      CL: 3,
+      SL: 5,
+      PL: 10
+    }
+  },
+  {
+    id: 'emp_006',
+    employeeCode: 'EMP002',
+    name: 'Amit Sharma',
+    clientName: 'HDFC Bank Cash Vault',
+    client: 'HDFC Bank Cash Vault',
+    location: 'Noida Branch',
+    department: 'Operations',
+    designation: 'Operations Supervisor',
+    basic: 18500,
+    da: 1500,
+    hra: 5000,
+    conveyance: 1200,
+    specialAllowance: 2000,
+    otherAllowance: 500,
+    leaveBalances: {
+      EL: 20,
+      CL: 7,
+      SL: 9,
+      PL: 15
+    }
+  }
+];
 
 export default function LeaveEncashmentTab({
   employees = [],
+  leaveTypes = [],
+  clients = [],
+  departments = [],
+  designations = [],
+  employeeBalances = [],
   onNotify
 }) {
-  const [encashments, setEncashments] = useState(() => getStoredEncashments());
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [fyFilter, setFyFilter] = useState(FINANCIAL_YEARS[0]);
+  // Current Period Navigator State default: OCT-2026
+  const [currentYear, setCurrentYear] = useState(2026);
+  const [currentMonthIdx, setCurrentMonthIdx] = useState(9); // 0-indexed: 9 = OCT
 
-  // Modal & Drawer State
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Balance As On Navigator State default: OCT-2026
+  const [balanceYear, setBalanceYear] = useState(2026);
+  const [balanceMonthIdx, setBalanceMonthIdx] = useState(9);
 
-  // New Encashment Form State
-  const [formState, setFormState] = useState({
-    selectedEmpId: '',
-    employeeName: '',
-    employeeCode: '',
-    designation: '',
-    department: '',
-    clientName: '',
-    leaveType: 'EL (Earned Leave)',
-    balanceBefore: 24,
-    encashDays: 10,
-    basicSalary: 15000,
-    grossSalary: 24000,
-    calculationBase: 'basic_only', // 'basic_only' | 'gross'
-    payoutMonth: 'November 2026',
-    remarks: 'Annual leave encashment'
+  // Form Filter State (NovaSpark HRMS filters: Client, Location, Department, Designation)
+  const [selectedClient, setSelectedClient] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedDesignation, setSelectedDesignation] = useState('');
+  const [selectedLeave, setSelectedLeave] = useState(''); // Default to empty ('- Select -')
+  const [selectedEmployee, setSelectedEmployee] = useState('');
+
+  // Balance Above State (empty string handling to prevent stuck '0')
+  const [balanceAbove, setBalanceAbove] = useState(0);
+
+  // Select Components Toggles State
+  const [components, setComponents] = useState({
+    basic: true,
+    da: false,
+    hra: false,
+    conveyance: false,
+    specialAllowance: false,
+    otherAllowance: false
   });
 
-  // Calculate live preview for modal
-  const livePreview = calculateEncashmentAmount({
-    basicSalary: formState.basicSalary,
-    grossSalary: formState.grossSalary,
-    encashDays: formState.encashDays,
-    calculationBase: formState.calculationBase,
-    monthDivisor: ENCASHMENT_POLICY_DEFAULTS.monthDivisor
-  });
+  // Generated Summary State
+  const [isGenerated, setIsGenerated] = useState(false);
+  const [summaryRows, setSummaryRows] = useState([]);
 
-  const remainingBalance = Math.max(0, formState.balanceBefore - formState.encashDays);
-  const isBalanceViolation = remainingBalance < ENCASHMENT_POLICY_DEFAULTS.minBalanceToMaintain;
-  const isQuotaViolation = formState.encashDays > ENCASHMENT_POLICY_DEFAULTS.maxDaysPerYear;
-
-  // Filtered rows
-  const filtered = encashments.filter((r) => {
-    const q = search.toLowerCase().trim();
-    if (q) {
-      const matchName = (r.employeeName || '').toLowerCase().includes(q);
-      const matchCode = (r.employeeCode || '').toLowerCase().includes(q);
-      const matchId = (r.encashmentId || '').toLowerCase().includes(q);
-      const matchClient = (r.clientName || '').toLowerCase().includes(q);
-      if (!matchName && !matchCode && !matchId && !matchClient) return false;
+  // History Modal State
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyList, setHistoryList] = useState(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_HISTORY_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.warn('Failed to parse encashment history:', e);
     }
-    if (statusFilter !== 'All' && r.status !== statusFilter) return false;
-    return true;
+    return [
+      {
+        id: 'hist-001',
+        period: 'SEP-2026',
+        leaveType: 'EL - Earned / Privilege Leave',
+        processedDate: '2026-09-30',
+        eligibleCount: 1,
+        totalAmount: 14994,
+        status: 'Processed'
+      }
+    ];
   });
 
-  // KPI Calculations
-  const totalRequests = encashments.length;
-  const pendingCount = encashments.filter((r) => r.status.includes('Pending')).length;
-  const totalDaysEncashed = encashments
-    .filter((r) => r.status !== 'Rejected')
-    .reduce((sum, r) => sum + (Number(r.encashDays) || 0), 0);
-  const totalDisbursedAmount = encashments
-    .filter((r) => r.status === 'Disbursed in Payroll' || r.status.includes('Approved'))
-    .reduce((sum, r) => sum + (Number(r.netPayableAmount) || 0), 0);
+  // Helper: Format formatted month string e.g. OCT-2026
+  const periodString = `${MONTH_NAMES[currentMonthIdx]}-${currentYear}`;
+  const balanceAsOnString = `${MONTH_NAMES[balanceMonthIdx]}-${balanceYear}`;
 
-  // Employee Selection in Modal
-  const handleEmployeeSelect = (empId) => {
-    const emp = employees.find((e) => (e.id || e.employeeId || e._id) === empId);
-    if (!emp) return;
+  // Period Navigation handlers
+  const handlePrevMonth = () => {
+    if (currentMonthIdx === 0) {
+      setCurrentMonthIdx(11);
+      setCurrentYear((y) => y - 1);
+    } else {
+      setCurrentMonthIdx((m) => m - 1);
+    }
+  };
 
-    const basic = Number(emp.basicSalary || emp.basic || 15000);
-    const gross = Number(emp.grossSalary || emp.salary || 24000);
-    const elBal = 24; // Mock balance default
+  const handleNextMonth = () => {
+    if (currentMonthIdx === 11) {
+      setCurrentMonthIdx(0);
+      setCurrentYear((y) => y + 1);
+    } else {
+      setCurrentMonthIdx((m) => m + 1);
+    }
+  };
 
-    setFormState((prev) => ({
+  const handlePrevBalanceMonth = () => {
+    if (balanceMonthIdx === 0) {
+      setBalanceMonthIdx(11);
+      setBalanceYear((y) => y - 1);
+    } else {
+      setBalanceMonthIdx((m) => m - 1);
+    }
+  };
+
+  const handleNextBalanceMonth = () => {
+    if (balanceMonthIdx === 11) {
+      setBalanceMonthIdx(0);
+      setBalanceYear((y) => y + 1);
+    } else {
+      setBalanceMonthIdx((m) => m + 1);
+    }
+  };
+
+  // Toggle Component checkbox
+  const handleToggleComponent = (compKey) => {
+    setComponents((prev) => ({
       ...prev,
-      selectedEmpId: empId,
-      employeeName: emp.name || emp.employeeName || 'Employee',
-      employeeCode: emp.employeeCode || emp.code || 'RR-000',
-      designation: emp.designation || 'Staff',
-      department: emp.department || 'Security Operations',
-      clientName: emp.clientName || 'Assigned Site',
-      basicSalary: basic,
-      grossSalary: gross,
-      balanceBefore: elBal,
-      encashDays: 10
+      [compKey]: !prev[compKey]
     }));
   };
 
-  // Submit New Encashment Request
-  const handleSubmitEncashment = (e) => {
-    e.preventDefault();
-    if (!formState.selectedEmpId && !formState.employeeName) {
-      alert('Please select an employee.');
+  // Merge dynamic employees with reference pool
+  const employeePool = useMemo(() => {
+    if (Array.isArray(employees) && employees.length > 0) {
+      const hasRRS = employees.some((e) => (e.employeeCode || e.code) === 'RRS001');
+      if (!hasRRS) {
+        return [...DEFAULT_EMPLOYEES, ...employees];
+      }
+      return employees;
+    }
+    return DEFAULT_EMPLOYEES;
+  }, [employees]);
+
+  // Derived filter options matching NovaSpark HRMS
+  const clientOptions = useMemo(() => {
+    const set = new Set();
+    if (Array.isArray(clients)) {
+      clients.forEach((c) => {
+        if (c?.name) set.add(c.name);
+        if (c?.clientName) set.add(c.clientName);
+      });
+    }
+    employeePool.forEach((e) => {
+      if (e.clientName) set.add(e.clientName);
+      if (e.client) set.add(e.client);
+      if (e.companyName) set.add(e.companyName);
+    });
+    return Array.from(set).filter(Boolean);
+  }, [clients, employeePool]);
+
+  const locationOptions = useMemo(() => {
+    const set = new Set();
+    employeePool.forEach((e) => {
+      if (e.location) set.add(e.location);
+      if (e.siteLocation) set.add(e.siteLocation);
+      if (e.site) set.add(e.site);
+      if (e.branch) set.add(e.branch);
+    });
+    if (set.size === 0) {
+      ['Head Office', 'Site Gate 1', 'Noida Branch', 'Bareilly HQ'].forEach((l) => set.add(l));
+    }
+    return Array.from(set).filter(Boolean);
+  }, [employeePool]);
+
+  const departmentOptions = useMemo(() => {
+    const set = new Set();
+    if (Array.isArray(departments)) {
+      departments.forEach((d) => {
+        if (d) set.add(typeof d === 'string' ? d : d.name);
+      });
+    }
+    employeePool.forEach((e) => {
+      if (e.department) set.add(e.department);
+    });
+    if (set.size === 0) {
+      ['Security', 'Operations', 'Facility Management', 'Housekeeping', 'Administration'].forEach((d) => set.add(d));
+    }
+    return Array.from(set).filter(Boolean);
+  }, [departments, employeePool]);
+
+  const designationOptions = useMemo(() => {
+    const set = new Set();
+    if (Array.isArray(designations)) {
+      designations.forEach((desig) => {
+        if (desig) set.add(typeof desig === 'string' ? desig : desig.name);
+      });
+    }
+    employeePool.forEach((e) => {
+      if (e.designation) set.add(e.designation);
+    });
+    if (set.size === 0) {
+      ['Security Supervisor', 'Head Armoured Guard', 'Security Guard', 'Facility Supervisor', 'Operations Supervisor'].forEach((d) => set.add(d));
+    }
+    return Array.from(set).filter(Boolean);
+  }, [designations, employeePool]);
+
+  // Dynamically filtered employee list based on selected Client, Location, Department, Designation
+  const filteredEmployees = useMemo(() => {
+    return employeePool.filter((emp) => {
+      if (selectedClient) {
+        const empClient = emp.clientName || emp.client || emp.companyName || '';
+        if (empClient !== selectedClient) return false;
+      }
+      if (selectedLocation) {
+        const empLoc = emp.location || emp.siteLocation || emp.site || emp.branch || '';
+        if (empLoc !== selectedLocation) return false;
+      }
+      if (selectedDepartment && emp.department !== selectedDepartment) {
+        return false;
+      }
+      if (selectedDesignation && emp.designation !== selectedDesignation) {
+        return false;
+      }
+      return true;
+    });
+  }, [employeePool, selectedClient, selectedLocation, selectedDepartment, selectedDesignation]);
+
+  // Reset employee dropdown if current selected employee is filtered out
+  useEffect(() => {
+    if (selectedEmployee) {
+      const exists = filteredEmployees.some(
+        (e) => (e.employeeCode || e.code || e.employeeId || e.id) === selectedEmployee
+      );
+      if (!exists) {
+        setSelectedEmployee('');
+      }
+    }
+  }, [filteredEmployees, selectedEmployee]);
+
+  // Available leave types from Leave Master
+  const availableLeaveTypes = useMemo(() => {
+    if (Array.isArray(leaveTypes) && leaveTypes.length > 0) {
+      return leaveTypes;
+    }
+    return [
+      { code: 'EL', name: 'Earned / Privilege Leave' },
+      { code: 'CL', name: 'Casual Leave' },
+      { code: 'SL', name: 'Sick Leave' },
+      { code: 'PL', name: 'Privilege Leave' }
+    ];
+  }, [leaveTypes]);
+
+  // Generate Encashment Summary calculation
+  const handleGenerateSummary = () => {
+    if (!selectedLeave) {
+      if (onNotify) onNotify('Please select a leave type from the "Select Leave" dropdown.', 'warning');
       return;
     }
+    const minBalThreshold = Number(balanceAbove) || 0;
 
-    if (isBalanceViolation) {
-      alert(`Policy constraint: Employee must maintain at least ${ENCASHMENT_POLICY_DEFAULTS.minBalanceToMaintain} days balance after encashment.`);
+    const filtered = employeePool.filter((emp) => {
+      if (selectedClient) {
+        const empClient = emp.clientName || emp.client || emp.companyName || '';
+        if (empClient !== selectedClient) return false;
+      }
+      if (selectedLocation) {
+        const empLoc = emp.location || emp.siteLocation || emp.site || emp.branch || '';
+        if (empLoc !== selectedLocation) return false;
+      }
+      if (selectedDepartment && emp.department !== selectedDepartment) {
+        return false;
+      }
+      if (selectedDesignation && emp.designation !== selectedDesignation) {
+        return false;
+      }
+      if (selectedEmployee) {
+        const empId = emp.id || emp.employeeId || emp._id;
+        const empCode = emp.employeeCode || emp.code;
+        if (empId !== selectedEmployee && empCode !== selectedEmployee) return false;
+      }
+      return true;
+    });
+
+    const rows = filtered.map((emp, index) => {
+      // Determine leave balance for the selected leave type
+      const leaveCode = (selectedLeave || 'EL').toUpperCase();
+      let leaveBal = 24; // Default fallback
+      if (emp.leaveBalances && typeof emp.leaveBalances[leaveCode] === 'number') {
+        leaveBal = emp.leaveBalances[leaveCode];
+      } else if (emp.balance && typeof emp.balance === 'number') {
+        leaveBal = emp.balance;
+      } else if (leaveCode === 'EL') {
+        leaveBal = 24 - (index * 2);
+      } else if (leaveCode === 'CL') {
+        leaveBal = 6;
+      } else if (leaveCode === 'SL') {
+        leaveBal = 8;
+      }
+
+      // Check if employee satisfies Balance Above threshold
+      if (leaveBal <= minBalThreshold) return null;
+
+      // Base salary computation based on active components
+      let baseSalary = 0;
+      if (components.basic) baseSalary += Number(emp.basic || 15000);
+      if (components.da) baseSalary += Number(emp.da || 0);
+      if (components.hra) baseSalary += Number(emp.hra || 0);
+      if (components.conveyance) baseSalary += Number(emp.conveyance || 0);
+      if (components.specialAllowance) baseSalary += Number(emp.specialAllowance || 0);
+      if (components.otherAllowance) baseSalary += Number(emp.otherAllowance || 0);
+
+      // Standard Indian Labour Law divisor = 26 working days
+      const dailySalary = Math.round((baseSalary / 26) * 100) / 100;
+
+      // Default encashment days: min of 15 days or total available balance
+      const encashDays = Math.min(15, Math.max(1, leaveBal));
+      const encashAmount = Math.round(dailySalary * encashDays);
+
+      return {
+        sn: index + 1,
+        id: emp.id || emp.employeeId || `emp-${index}`,
+        employeeCode: emp.employeeCode || emp.code || `RRS${String(index + 1).padStart(3, '0')}`,
+        name: emp.name || emp.employeeName || 'Employee',
+        leaveBalance: leaveBal,
+        dailySalary,
+        encashDays,
+        encashAmount,
+        baseSalary
+      };
+    }).filter(Boolean);
+
+    // Re-index SN
+    const indexedRows = rows.map((r, i) => ({ ...r, sn: i + 1 }));
+
+    setSummaryRows(indexedRows);
+    setIsGenerated(true);
+
+    if (onNotify) {
+      if (indexedRows.length > 0) {
+        onNotify(`✓ Summary generated successfully: ${indexedRows.length} eligible employee(s) found.`, 'success');
+      } else {
+        onNotify('No eligible employees found for the chosen criteria.', 'info');
+      }
+    }
+  };
+
+  // Handle live edit of Encashment Days for a row
+  const handleDaysChange = (id, newDaysValue) => {
+    const val = newDaysValue === '' ? '' : Math.max(0, Number(newDaysValue));
+
+    setSummaryRows((prev) =>
+      prev.map((r) => {
+        if (r.id === id) {
+          const daysNum = Number(val) || 0;
+          const encashAmount = Math.round(r.dailySalary * daysNum);
+          return {
+            ...r,
+            encashDays: val,
+            encashAmount
+          };
+        }
+        return r;
+      })
+    );
+  };
+
+  // Summary Totals
+  const totalEligible = summaryRows.length;
+  const totalPayable = useMemo(() => {
+    return summaryRows.reduce((sum, r) => sum + (Number(r.encashAmount) || 0), 0);
+  }, [summaryRows]);
+
+  // Process Encashment Action
+  const handleProcess = () => {
+    if (summaryRows.length === 0) {
+      if (onNotify) onNotify('Cannot process: No eligible employees in summary.', 'warning');
       return;
     }
 
     const newRecord = {
-      id: `enc-${Date.now()}`,
-      encashmentId: `ENC-2026-${String(encashments.length + 1).padStart(3, '0')}`,
-      employeeId: formState.selectedEmpId,
-      employeeCode: formState.employeeCode,
-      employeeName: formState.employeeName,
-      designation: formState.designation,
-      department: formState.department,
-      clientName: formState.clientName,
-      financialYear: fyFilter,
-      applyDate: new Date().toISOString().slice(0, 10),
-      leaveType: formState.leaveType,
-      balanceBefore: formState.balanceBefore,
-      encashDays: formState.encashDays,
-      balanceAfter: remainingBalance,
-      basicSalary: formState.basicSalary,
-      grossSalary: formState.grossSalary,
-      dailyWageRate: livePreview.dailyWageRate,
-      grossEncashmentAmount: livePreview.grossEncashment,
-      tdsDeducted: livePreview.tdsDeducted,
-      netPayableAmount: livePreview.netPayable,
-      taxExemptSection10: true,
-      status: 'Pending HR Approval',
-      payoutPayrollMonth: formState.payoutMonth,
-      remarks: formState.remarks,
-      approvedBy: '—',
-      approvalDate: ''
+      id: `hist-${Date.now()}`,
+      period: periodString,
+      leaveType: selectedLeave,
+      processedDate: new Date().toISOString().slice(0, 10),
+      eligibleCount: totalEligible,
+      totalAmount: totalPayable,
+      status: 'Processed'
     };
 
-    const nextList = [newRecord, ...encashments];
-    setEncashments(nextList);
-    saveStoredEncashments(nextList);
-    setIsApplyModalOpen(false);
+    const nextHistory = [newRecord, ...historyList];
+    setHistoryList(nextHistory);
+    try {
+      localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(nextHistory));
+    } catch (e) {
+      console.warn('Failed to store encashment history:', e);
+    }
 
-    if (onNotify) onNotify(`✓ Leave encashment request (${newRecord.encashmentId}) for ${newRecord.employeeName} submitted successfully.`, 'success');
+    if (onNotify) {
+      onNotify(
+        `✓ Leave Encashment for ${periodString} (${selectedLeave}) processed successfully for ${totalEligible} employee(s). Total: ₹${totalPayable.toLocaleString('en-IN')}`,
+        'success'
+      );
+    }
   };
 
-  // Quick Approve Handler
-  const handleApprove = (record) => {
-    const updated = {
-      ...record,
-      status: 'Approved & Ready for Payout',
-      approvedBy: 'HR Head (Sanctioned)',
-      approvalDate: new Date().toISOString().slice(0, 10)
-    };
-    const nextList = encashments.map((r) => (r.id === record.id ? updated : r));
-    setEncashments(nextList);
-    saveStoredEncashments(nextList);
-    if (selectedRecord && selectedRecord.id === record.id) {
-      setSelectedRecord(updated);
+  // Download Action (CSV export)
+  const handleDownload = () => {
+    if (summaryRows.length === 0) {
+      if (onNotify) onNotify('No records available to download.', 'warning');
+      return;
     }
-    if (onNotify) onNotify(`✓ Encashment ${record.encashmentId} approved for payment disbursement.`, 'success');
+
+    const headers = ['SN', 'E-CODE', 'EMPLOYEE NAME', 'LEAVE BALANCE', 'DAILY SALARY', 'ENCASHMENT DAYS', 'ENCASHMENT AMOUNT'];
+    const rows = summaryRows.map((r) => [
+      r.sn,
+      r.employeeCode,
+      `"${r.name}"`,
+      r.leaveBalance,
+      r.dailySalary.toFixed(2),
+      r.encashDays,
+      r.encashAmount.toFixed(2)
+    ]);
+
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Leave_Encashment_Summary_${periodString}_${selectedLeave}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    if (onNotify) onNotify('✓ Summary download started.', 'success');
   };
 
-  // Reject Handler
-  const handleReject = (record) => {
-    const reason = prompt('Specify rejection / revision reason:', 'Leave balance audit mismatch');
-    if (!reason) return;
-
-    const updated = {
-      ...record,
-      status: 'Rejected',
-      remarks: reason,
-      approvedBy: 'HR Desk (Rejected)',
-      approvalDate: new Date().toISOString().slice(0, 10)
-    };
-    const nextList = encashments.map((r) => (r.id === record.id ? updated : r));
-    setEncashments(nextList);
-    saveStoredEncashments(nextList);
-    if (selectedRecord && selectedRecord.id === record.id) {
-      setSelectedRecord(updated);
-    }
-    if (onNotify) onNotify(`Encashment ${record.encashmentId} marked Rejected.`, 'info');
+  // Delete Action
+  const handleDelete = () => {
+    setSummaryRows([]);
+    setIsGenerated(false);
+    if (onNotify) onNotify('Encashment summary cleared.', 'info');
   };
 
   return (
     <div className={styles.container}>
-      {/* KPI Metrics Grid */}
-      <div className={styles.kpiGrid}>
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiLabel}>Total Encashment Requests</div>
-          <div className={styles.kpiValue}>{totalRequests}</div>
-          <div className={styles.kpiSubtext}>FY 2026-2027 Applications</div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiLabelWarning}>Pending Approvals</div>
-          <div className={styles.kpiValueWarning}>{pendingCount}</div>
-          <div className={styles.kpiSubtextWarning}>Awaiting HR / Supervisor review</div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiLabelPrimary}>Total Days Encashed</div>
-          <div className={styles.kpiValuePrimary}>{totalDaysEncashed} Days</div>
-          <div className={styles.kpiSubtextPrimary}>Earned Leave (EL) quota utilized</div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={styles.kpiLabelSuccess}>Total Encashment Payout</div>
-          <div className={styles.kpiValueSuccess}>{formatINR(totalDisbursedAmount)}</div>
-          <div className={styles.kpiSubtextSuccess}>Section 10(10AA) non-taxable dues</div>
-        </div>
-      </div>
-
-      {/* Statutory Policy Notice Banner */}
-      <div className={styles.policyBanner}>
-        <div className={styles.policyBannerText}>
-          <ShieldCheck size={18} color="#16a34a" style={{ flexShrink: 0 }} />
-          <div>
-            <strong>Company Leave Encashment Policy:</strong> Employees must retain a minimum of <strong>12 EL days</strong> after encashment. Maximum allowable encashment is <strong>15 days per year</strong> (Formula: <code>Basic Salary / 26 days</code>). Tax-free up to ₹25,00,000 u/s 10(10AA).
-          </div>
-        </div>
-        <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: 10, background: '#ffffff', color: '#166534', border: '1px solid #bbf7d0' }}>
-          Statutory Compliant
-        </span>
-      </div>
-
-      {/* Filter & Action Bar */}
-      <div className={styles.filterBar}>
-        <div className={styles.filterLeft}>
-          <div className={styles.searchBox}>
-            <Search size={15} className={styles.searchIcon} />
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Search by employee, code, ID or site..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+      {/* Filters Form Section */}
+      <div className={styles.formSection}>
+        {/* Row 1: NovaSpark HRMS Filters (Client, Location, Department, Designation) */}
+        <div className={styles.gridRow4}>
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Client</label>
+            <select
+              className={styles.selectInput}
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+            >
+              <option value="">All Clients</option>
+              {clientOptions.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
 
-          <select
-            className={styles.selectField}
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            {ENCASHMENT_STATUSES.map((st) => (
-              <option key={st} value={st}>{st}</option>
-            ))}
-          </select>
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Location</label>
+            <select
+              className={styles.selectInput}
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+            >
+              <option value="">All Locations</option>
+              {locationOptions.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            className={styles.selectField}
-            value={fyFilter}
-            onChange={(e) => setFyFilter(e.target.value)}
-          >
-            {FINANCIAL_YEARS.map((fy) => (
-              <option key={fy} value={fy}>{fy}</option>
-            ))}
-          </select>
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Department</label>
+            <select
+              className={styles.selectInput}
+              value={selectedDepartment}
+              onChange={(e) => setSelectedDepartment(e.target.value)}
+            >
+              <option value="">All Departments</option>
+              {departmentOptions.map((dept) => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Designation</label>
+            <select
+              className={styles.selectInput}
+              value={selectedDesignation}
+              onChange={(e) => setSelectedDesignation(e.target.value)}
+            >
+              <option value="">All Designations</option>
+              {designationOptions.map((desig) => (
+                <option key={desig} value={desig}>{desig}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 10 }}>
+        {/* Row 2: Payment Period, Select Leave, Employee */}
+        <div className={styles.gridRowPeriodLeaveEmp}>
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Payment Period</label>
+            <div className={styles.monthNav}>
+              <button
+                type="button"
+                className={styles.monthNavBtn}
+                onClick={handlePrevMonth}
+                title="Previous Month"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className={styles.monthNavDisplay}>{periodString}</span>
+              <button
+                type="button"
+                className={styles.monthNavBtn}
+                onClick={handleNextMonth}
+                title="Next Month"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Select Leave</label>
+            <select
+              className={styles.selectInput}
+              value={selectedLeave}
+              onChange={(e) => setSelectedLeave(e.target.value)}
+            >
+              <option value="">- Select -</option>
+              {availableLeaveTypes.map((t) => (
+                <option key={t.code || t.id || t._id} value={t.code || t.name}>
+                  {t.code ? `${t.code} - ` : ''}{t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Employee</label>
+            <select
+              className={styles.selectInput}
+              value={selectedEmployee}
+              onChange={(e) => setSelectedEmployee(e.target.value)}
+            >
+              <option value="">All Employees</option>
+              {filteredEmployees.map((emp) => {
+                const empCode = emp.employeeCode || emp.code || emp.employeeId || emp.id;
+                const empName = emp.name || emp.employeeName || 'Employee';
+                return (
+                  <option key={emp.id || empCode} value={empCode}>
+                    {empCode} - {empName}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
+        </div>
+
+        {/* Row 3: Select Components (Left) + Balance As On & Balance Above (Right) */}
+        <div className={styles.gridRowComponentsAndBalance}>
+          {/* Left: Select Components */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>
+              Select Components
+              <span className={styles.infoIcon} title="Select components included in encashment wage calculation">i</span>
+            </label>
+            <div className={styles.componentsScrollBox}>
+              <label className={styles.componentRow}>
+                <span className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={components.basic}
+                    onChange={() => handleToggleComponent('basic')}
+                  />
+                  <span className={styles.slider}></span>
+                </span>
+                <span className={styles.componentLabel}>Basic Salary</span>
+              </label>
+
+              <label className={styles.componentRow}>
+                <span className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={components.da}
+                    onChange={() => handleToggleComponent('da')}
+                  />
+                  <span className={styles.slider}></span>
+                </span>
+                <span className={styles.componentLabel}>Dearness Allowance</span>
+              </label>
+
+              <label className={styles.componentRow}>
+                <span className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={components.hra}
+                    onChange={() => handleToggleComponent('hra')}
+                  />
+                  <span className={styles.slider}></span>
+                </span>
+                <span className={styles.componentLabel}>House Rent Allowance</span>
+              </label>
+
+              <label className={styles.componentRow}>
+                <span className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={components.conveyance}
+                    onChange={() => handleToggleComponent('conveyance')}
+                  />
+                  <span className={styles.slider}></span>
+                </span>
+                <span className={styles.componentLabel}>Conveyance Allowance</span>
+              </label>
+
+              <label className={styles.componentRow}>
+                <span className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={components.specialAllowance}
+                    onChange={() => handleToggleComponent('specialAllowance')}
+                  />
+                  <span className={styles.slider}></span>
+                </span>
+                <span className={styles.componentLabel}>Special Allowance</span>
+              </label>
+
+              <label className={styles.componentRow}>
+                <span className={styles.switch}>
+                  <input
+                    type="checkbox"
+                    checked={components.otherAllowance}
+                    onChange={() => handleToggleComponent('otherAllowance')}
+                  />
+                  <span className={styles.slider}></span>
+                </span>
+                <span className={styles.componentLabel}>Other Allowance</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Right: Balance As On & Balance Above */}
+          <div className={styles.balanceFieldsRow}>
+            <div className={`${styles.fieldGroup} ${styles.balanceNavCol}`}>
+              <label className={styles.fieldLabel}>
+                Balance As On
+                <span className={styles.infoIcon} title="Cut-off period for calculating available leave balance">i</span>
+              </label>
+              <div className={styles.monthNav}>
+                <button
+                  type="button"
+                  className={styles.monthNavBtn}
+                  onClick={handlePrevBalanceMonth}
+                  title="Previous Cut-off Month"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className={styles.monthNavDisplay}>{balanceAsOnString}</span>
+                <button
+                  type="button"
+                  className={styles.monthNavBtn}
+                  onClick={handleNextBalanceMonth}
+                  title="Next Cut-off Month"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className={`${styles.fieldGroup} ${styles.balanceAboveCol}`}>
+              <label className={styles.fieldLabel}>
+                Balance Above
+                <span className={styles.infoIcon} title="Minimum accumulated leave balance to qualify for encashment">i</span>
+              </label>
+              <input
+                type="number"
+                min={0}
+                className={styles.balanceAboveInput}
+                value={balanceAbove}
+                onChange={(e) => setBalanceAbove(e.target.value === '' ? '' : Number(e.target.value))}
+                onBlur={() => {
+                  if (balanceAbove === '') setBalanceAbove(0);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Buttons Row: Generate Summary (Left) & History / Delete (Right) */}
+        <div className={styles.actionRow}>
           <button
             type="button"
-            className={styles.btnApplyEncashment}
-            onClick={() => setIsApplyModalOpen(true)}
+            className={styles.btnGenerate}
+            onClick={handleGenerateSummary}
           >
-            <Plus size={15} /> Apply Leave Encashment
+            <CheckCircle2 size={16} />
+            <span>Generate Summary</span>
           </button>
+
+          <div className={styles.rightBtnGroup}>
+            <button
+              type="button"
+              className={styles.btnHistory}
+              onClick={() => setIsHistoryModalOpen(true)}
+            >
+              <History size={15} />
+              <span>History</span>
+            </button>
+
+            <button
+              type="button"
+              className={styles.btnDelete}
+              onClick={handleDelete}
+              title="Clear generated summary"
+            >
+              <Trash2 size={15} />
+              <span>Delete</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Encashment Requests Ledger Table */}
-      <div className={styles.tableCard}>
-        <div className={styles.tableScroll}>
+      {/* Encashment Summary Card */}
+      <div className={styles.summaryCard}>
+        <div className={styles.summaryHeader}>
+          <h3 className={styles.summaryTitle}>Encashment Summary</h3>
+          <div className={styles.summaryBadges}>
+            <span>Eligible Employees: <strong className={styles.badgePill}>{totalEligible}</strong></span>
+            <span>Total Payable: <strong className={styles.badgePill}>{totalPayable.toFixed(2)}</strong></span>
+          </div>
+        </div>
+
+        {/* Summary Table */}
+        <div className={styles.tableWrapper}>
           <table className={styles.table}>
-            <thead className={styles.tableHead}>
+            <thead>
               <tr>
-                <th className={styles.th}>Encashment ID</th>
-                <th className={styles.th}>Employee</th>
-                <th className={styles.th}>Leave Type</th>
-                <th className={styles.thRight}>Opening Balance</th>
-                <th className={styles.thRight}>Days Encashed</th>
-                <th className={styles.thRight}>Balance After</th>
-                <th className={styles.thRight}>Daily Wage Rate</th>
-                <th className={styles.thRight}>Gross Amount</th>
-                <th className={styles.th}>Sec 10(10AA)</th>
-                <th className={styles.th}>Payout Status</th>
-                <th className={styles.thRight}>Actions</th>
+                <th className={styles.th}>SN</th>
+                <th className={styles.th}>E-CODE</th>
+                <th className={styles.th}>EMPLOYEE NAME</th>
+                <th className={styles.thRight}>LEAVE BALANCE</th>
+                <th className={styles.thRight}>DAILY SALARY</th>
+                <th className={styles.thRight}>ENCASHMENT DAYS</th>
+                <th className={styles.thRight}>ENCASHMENT AMOUNT</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {!isGenerated || summaryRows.length === 0 ? (
                 <tr>
-                  <td colSpan={11} style={{ textAlign: 'center', padding: '40px', color: '#94a3b8' }}>
-                    No leave encashment requests match the selected filters.
+                  <td colSpan={7} className={styles.emptyRow}>
+                    No eligible employees found
                   </td>
                 </tr>
               ) : (
-                filtered.map((r) => {
-                  const isApproved = r.status.includes('Approved') || r.status.includes('Disbursed');
-                  const isPending = r.status.includes('Pending');
-
-                  return (
-                    <tr key={r.id} className={styles.tr}>
-                      <td className={styles.td}>
-                        <button
-                          type="button"
-                          onClick={() => { setSelectedRecord(r); setIsDrawerOpen(true); }}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            color: '#2563eb',
-                            fontWeight: 700,
-                            fontFamily: 'monospace',
-                            cursor: 'pointer',
-                            textDecoration: 'underline'
-                          }}
-                        >
-                          {r.encashmentId}
-                        </button>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>{r.applyDate}</div>
-                      </td>
-
-                      <td className={styles.td}>
-                        <div style={{ fontWeight: 600, color: '#0f172a' }}>{r.employeeName}</div>
-                        <div style={{ fontSize: '11px', color: '#64748b' }}>
-                          {r.employeeCode} • {r.designation}
-                        </div>
-                      </td>
-
-                      <td className={styles.td}>
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
-                          {r.leaveType}
-                        </span>
-                      </td>
-
-                      <td className={styles.tdRight} style={{ fontWeight: 600 }}>
-                        {r.balanceBefore} Days
-                      </td>
-
-                      <td className={styles.tdRight}>
-                        <span style={{ fontWeight: 800, color: '#2563eb', background: '#eff6ff', padding: '2px 8px', borderRadius: 8 }}>
-                          {r.encashDays} Days
-                        </span>
-                      </td>
-
-                      <td className={styles.tdRight} style={{ color: r.balanceAfter < 12 ? '#dc2626' : '#166534', fontWeight: 600 }}>
-                        {r.balanceAfter} Days
-                      </td>
-
-                      <td className={styles.tdRight} style={{ color: '#475569' }}>
-                        {formatINR(r.dailyWageRate)}/day
-                      </td>
-
-                      <td className={styles.tdRight} style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>
-                        {formatINR(r.netPayableAmount)}
-                      </td>
-
-                      <td className={styles.td}>
-                        <span style={{
-                          display: 'inline-block',
-                          padding: '2px 8px',
-                          borderRadius: 10,
-                          fontSize: '11px',
-                          fontWeight: 700,
-                          background: '#ecfdf5',
-                          color: '#059669',
-                          border: '1px solid #a7f3d0'
-                        }}>
-                          100% Tax Free
-                        </span>
-                      </td>
-
-                      <td className={styles.td}>
-                        <span className={
-                          r.status === 'Disbursed in Payroll'
-                            ? styles.badgeDisbursed
-                            : isApproved
-                            ? styles.badgeApproved
-                            : r.status === 'Rejected'
-                            ? styles.badgeRejected
-                            : styles.badgePending
-                        }>
-                          {isApproved ? <CheckCircle2 size={12} /> : isPending ? <Clock size={12} /> : <AlertTriangle size={12} />}
-                          {r.status}
-                        </span>
-                      </td>
-
-                      <td className={styles.tdRight}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                          <button
-                            type="button"
-                            onClick={() => { setSelectedRecord(r); setIsDrawerOpen(true); }}
-                            title="View statement & voucher"
-                            style={{
-                              padding: '5px 8px',
-                              borderRadius: 5,
-                              border: '1px solid #cbd5e1',
-                              background: '#f8fafc',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 4,
-                              fontSize: '11px',
-                              fontWeight: 600
-                            }}
-                          >
-                            <Eye size={12} /> Voucher
-                          </button>
-
-                          {isPending && (
-                            <button
-                              type="button"
-                              onClick={() => handleApprove(r)}
-                              title="Approve encashment"
-                              style={{
-                                padding: '5px 8px',
-                                borderRadius: 5,
-                                border: 'none',
-                                background: '#16a34a',
-                                color: '#ffffff',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                                fontSize: '11px',
-                                fontWeight: 600
-                              }}
-                            >
-                              <Check size={12} /> Approve
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                summaryRows.map((row) => (
+                  <tr key={row.id}>
+                    <td className={styles.td}>{row.sn}</td>
+                    <td className={styles.td}>
+                      <strong>{row.employeeCode}</strong>
+                    </td>
+                    <td className={styles.td}>{row.name}</td>
+                    <td className={styles.tdRight}>
+                      {row.leaveBalance}
+                    </td>
+                    <td className={styles.tdRight}>
+                      {row.dailySalary.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className={styles.tdRight}>
+                      <input
+                        type="number"
+                        min={0}
+                        max={row.leaveBalance}
+                        className={styles.daysInput}
+                        value={row.encashDays}
+                        onChange={(e) => handleDaysChange(row.id, e.target.value)}
+                      />
+                    </td>
+                    <td className={styles.tdRight}>
+                      <strong>
+                        {row.encashAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </strong>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
+
+        {/* Bottom Process & Download Actions */}
+        <div className={styles.bottomActionsRow}>
+          <button
+            type="button"
+            className={styles.btnProcess}
+            onClick={handleProcess}
+          >
+            <Check size={16} />
+            <span>Process</span>
+          </button>
+
+          <button
+            type="button"
+            className={styles.btnDownload}
+            onClick={handleDownload}
+          >
+            <Download size={15} />
+            <span>Download</span>
+          </button>
+        </div>
       </div>
 
-      {/* Apply Leave Encashment Modal */}
-      {isApplyModalOpen && (
-        <div className={styles.modalOverlay} onClick={() => setIsApplyModalOpen(false)}>
+      {/* History Modal */}
+      {isHistoryModalOpen && (
+        <div className={styles.modalOverlay} onClick={() => setIsHistoryModalOpen(false)}>
           <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHeader}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Coins size={18} style={{ color: '#2563eb' }} />
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
-                  Apply / Initiate Leave Encashment
-                </h3>
-              </div>
+              <h3 className={styles.modalTitle}>
+                <Clock size={18} color="#0d9488" />
+                <span>Leave Encashment Run History</span>
+              </h3>
               <button
                 type="button"
-                onClick={() => setIsApplyModalOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+                className={styles.modalCloseBtn}
+                onClick={() => setIsHistoryModalOpen(false)}
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmitEncashment}>
-              <div className={styles.modalBody}>
-                {/* Employee Selection */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Select Employee <span style={{ color: '#dc2626' }}>*</span>
-                  </label>
-                  <select
-                    className={styles.select}
-                    value={formState.selectedEmpId}
-                    onChange={(e) => handleEmployeeSelect(e.target.value)}
-                    required
-                  >
-                    <option value="">-- Choose employee from workforce --</option>
-                    {employees.length > 0 ? (
-                      employees.map((emp) => (
-                        <option key={emp.id || emp.employeeId || emp._id} value={emp.id || emp.employeeId || emp._id}>
-                          {emp.employeeCode || emp.code || 'EMP'} - {emp.name || emp.employeeName} ({emp.designation || 'Staff'})
-                        </option>
-                      ))
-                    ) : (
-                      <>
-                        <option value="e101">RR-101 - Rajesh Kumar Verma (Armed Guard)</option>
-                        <option value="e102">RR-102 - Priya Nandini Sharma (HR Exec)</option>
-                        <option value="e103">RR-103 - Sanjay Pratap Singh (Field Ops)</option>
-                        <option value="e104">RR-104 - Mohammad Farooq (Field Supervisor)</option>
-                      </>
-                    )}
-                  </select>
+            <div className={styles.modalBody}>
+              {historyList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  No previous encashment runs recorded.
                 </div>
-
-                {/* Salary & Balance Overview */}
-                <div style={{
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 8,
-                  padding: 12,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 10,
-                  fontSize: '12px'
-                }}>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Monthly Basic Salary:</span>
-                    <strong>{formatINR(formState.basicSalary)}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Current EL Balance:</span>
-                    <strong style={{ color: '#2563eb' }}>{formState.balanceBefore} Days</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b', display: 'block', fontSize: '11px' }}>Computed Daily Wage:</span>
-                    <strong>{formatINR(livePreview.dailyWageRate)}/day</strong>
-                  </div>
+              ) : (
+                <div className={styles.tableWrapper}>
+                  <table className={styles.table} style={{ minWidth: 600 }}>
+                    <thead>
+                      <tr>
+                        <th className={styles.th}>Batch ID</th>
+                        <th className={styles.th}>Payment Period</th>
+                        <th className={styles.th}>Leave Type</th>
+                        <th className={styles.th}>Processed Date</th>
+                        <th className={styles.thRight}>Eligible</th>
+                        <th className={styles.thRight}>Total Payout</th>
+                        <th className={styles.th}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyList.map((item) => (
+                        <tr key={item.id}>
+                          <td className={styles.td}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#2563eb' }}>
+                              {item.id}
+                            </span>
+                          </td>
+                          <td className={styles.td}>{item.period}</td>
+                          <td className={styles.td}>{item.leaveType}</td>
+                          <td className={styles.td}>{item.processedDate}</td>
+                          <td className={styles.tdRight}>{item.eligibleCount}</td>
+                          <td className={styles.tdRight}>
+                            <strong>₹{Number(item.totalAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong>
+                          </td>
+                          <td className={styles.td}>
+                            <span style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: '2px 8px',
+                              borderRadius: 10,
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              background: '#ecfdf5',
+                              color: '#059669',
+                              border: '1px solid #a7f3d0'
+                            }}>
+                              {item.status || 'Processed'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-
-                {/* Encashment Parameters */}
-                <div className={styles.formGrid2}>
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>
-                      Days to Encash (Max: {ENCASHMENT_POLICY_DEFAULTS.maxDaysPerYear} Days) <span style={{ color: '#dc2626' }}>*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={formState.balanceBefore}
-                      className={styles.input}
-                      value={formState.encashDays}
-                      onChange={(e) => setFormState({ ...formState, encashDays: Number(e.target.value) })}
-                      required
-                    />
-                  </div>
-
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Calculation Basis</label>
-                    <select
-                      className={styles.select}
-                      value={formState.calculationBase}
-                      onChange={(e) => setFormState({ ...formState, calculationBase: e.target.value })}
-                    >
-                      <option value="basic_only">Basic Salary Only (Standard Labour Law)</option>
-                      <option value="gross">Gross Monthly Salary</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Real-time Calculation Summary Box */}
-                <div style={{
-                  background: isBalanceViolation ? '#fef2f2' : '#f0fdf4',
-                  border: `1.5px solid ${isBalanceViolation ? '#fca5a5' : '#86efac'}`,
-                  borderRadius: 8,
-                  padding: '14px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 10
-                }}>
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: isBalanceViolation ? '#dc2626' : '#166534' }}>
-                      {isBalanceViolation ? '⚠ Balance Policy Violation' : '✓ Computed Encashment Value'}
-                    </div>
-                    <div style={{ fontSize: '20px', fontWeight: 900, color: isBalanceViolation ? '#b91c1c' : '#15803d', marginTop: 2 }}>
-                      {formatINR(livePreview.netPayable)}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#475569', marginTop: 2 }}>
-                      Formula: ({formatINR(livePreview.baseSalary)} / 26 days) × {formState.encashDays} days
-                    </div>
-                  </div>
-
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: remainingBalance < 12 ? '#dc2626' : '#166534' }}>
-                      Balance After: {remainingBalance} Days
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#64748b' }}>
-                      Min 12 days required to retain
-                    </div>
-                  </div>
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Remarks / Payout Reason</label>
-                  <input
-                    type="text"
-                    className={styles.input}
-                    value={formState.remarks}
-                    onChange={(e) => setFormState({ ...formState, remarks: e.target.value })}
-                    placeholder="e.g. Festival leave encashment request"
-                  />
-                </div>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  onClick={() => setIsApplyModalOpen(false)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 6,
-                    border: '1px solid #cbd5e1',
-                    background: '#ffffff',
-                    color: '#475569',
-                    fontSize: '12.5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isBalanceViolation}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 6,
-                    border: 'none',
-                    background: isBalanceViolation ? '#94a3b8' : '#2563eb',
-                    color: '#ffffff',
-                    fontSize: '12.5px',
-                    fontWeight: 600,
-                    cursor: isBalanceViolation ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Submit Encashment Request
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Review Drawer & Encashment Voucher Statement */}
-      {isDrawerOpen && selectedRecord && (
-        <div className={styles.drawerOverlay} onClick={() => setIsDrawerOpen(false)}>
-          <div className={styles.drawerCard} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.drawerHeader}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0f172a' }}>
-                    {selectedRecord.encashmentId}
-                  </h3>
-                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: '#eff6ff', color: '#1d4ed8' }}>
-                    {selectedRecord.financialYear}
-                  </span>
-                </div>
-                <div style={{ fontSize: '12px', color: '#64748b', marginTop: 2 }}>
-                  {selectedRecord.employeeName} ({selectedRecord.employeeCode}) • {selectedRecord.designation}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDrawerOpen(false)}
-                style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
-              >
-                <X size={20} />
-              </button>
+              )}
             </div>
 
-            <div className={styles.drawerBody}>
-              {/* Voucher Top Details */}
-              <div style={{
-                background: '#f8fafc',
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                padding: 16,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 10
-              }}>
-                <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: '#475569' }}>
-                  Leave Encashment Statement &amp; Computation
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, fontSize: '12px' }}>
-                  <div>
-                    <span style={{ color: '#64748b' }}>Assigned Client / Site:</span>
-                    <strong style={{ display: 'block', color: '#0f172a' }}>{selectedRecord.clientName}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b' }}>Leave Quota Type:</span>
-                    <strong style={{ display: 'block', color: '#0f172a' }}>{selectedRecord.leaveType}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b' }}>Application Date:</span>
-                    <strong style={{ display: 'block', color: '#0f172a' }}>{selectedRecord.applyDate}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: '#64748b' }}>Target Payroll Month:</span>
-                    <strong style={{ display: 'block', color: '#0f172a' }}>{selectedRecord.payoutPayrollMonth}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Balance Audit */}
-              <div style={{
-                border: '1px solid #e2e8f0',
-                borderRadius: 8,
-                overflow: 'hidden'
-              }}>
-                <div style={{ padding: '10px 14px', background: '#f1f5f9', fontWeight: 700, fontSize: '12.5px', color: '#0f172a' }}>
-                  Leave Balance Audit &amp; Deduction
-                </div>
-                <div style={{ padding: '12px 14px', fontSize: '12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Earned Leave Opening Balance:</span>
-                    <strong>{selectedRecord.balanceBefore} Days</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Encashed Days Authorized:</span>
-                    <strong style={{ color: '#dc2626' }}>-{selectedRecord.encashDays} Days</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #cbd5e1', paddingTop: 6 }}>
-                    <span style={{ fontWeight: 700 }}>Closing Leave Balance Retained:</span>
-                    <strong style={{ color: '#166534', fontWeight: 800 }}>{selectedRecord.balanceAfter} Days</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Financial Computation Breakdown */}
-              <div style={{
-                background: '#ecfdf5',
-                border: '2px solid #059669',
-                borderRadius: 8,
-                padding: '14px 16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 8
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: '#047857' }}>
-                    Net Encashment Disbursable
-                  </span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, background: '#ffffff', color: '#059669', padding: '2px 8px', borderRadius: 10, border: '1px solid #a7f3d0' }}>
-                    Sec 10(10AA) Exempt
-                  </span>
-                </div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: '#065f46' }}>
-                  {formatINR(selectedRecord.netPayableAmount)}
-                </div>
-                <div style={{ fontSize: '11.5px', color: '#047857' }}>
-                  Computed at daily wage of <strong>{formatINR(selectedRecord.dailyWageRate)}/day</strong> ({selectedRecord.encashDays} days).
-                </div>
-              </div>
-
-              {/* Approval Info */}
-              <div style={{ background: '#f8fafc', padding: 12, borderRadius: 6, border: '1px solid #e2e8f0', fontSize: '12px' }}>
-                <span style={{ color: '#64748b', display: 'block' }}>Approval Status &amp; Sign-off:</span>
-                <strong style={{ color: '#0f172a' }}>{selectedRecord.approvedBy}</strong>
-                {selectedRecord.approvalDate && (
-                  <span style={{ fontSize: '11px', color: '#64748b', marginLeft: 8 }}>
-                    on {selectedRecord.approvalDate}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className={styles.drawerFooter}>
+            <div className={styles.modalFooter}>
               <button
                 type="button"
-                onClick={() => window.print()}
-                style={{
-                  padding: '7px 14px',
-                  borderRadius: 6,
-                  border: '1px solid #cbd5e1',
-                  background: '#ffffff',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
+                className={styles.btnCloseModal}
+                onClick={() => setIsHistoryModalOpen(false)}
               >
-                <Printer size={14} /> Print Voucher
+                Close
               </button>
-
-              <div style={{ display: 'flex', gap: 10 }}>
-                {selectedRecord.status.includes('Pending') && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => handleReject(selectedRecord)}
-                      style={{
-                        padding: '7px 14px',
-                        borderRadius: 6,
-                        border: '1px solid #fca5a5',
-                        background: '#fef2f2',
-                        color: '#dc2626',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Reject
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleApprove(selectedRecord)}
-                      style={{
-                        padding: '7px 18px',
-                        borderRadius: 6,
-                        border: 'none',
-                        background: '#16a34a',
-                        color: '#ffffff',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6
-                      }}
-                    >
-                      <Check size={14} /> Approve Encashment
-                    </button>
-                  </>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setIsDrawerOpen(false)}
-                  style={{
-                    padding: '7px 14px',
-                    borderRadius: 6,
-                    border: '1px solid #cbd5e1',
-                    background: '#ffffff',
-                    color: '#64748b',
-                    fontSize: '12.5px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Close
-                </button>
-              </div>
             </div>
           </div>
         </div>
@@ -870,4 +1049,3 @@ export default function LeaveEncashmentTab({
     </div>
   );
 }
-

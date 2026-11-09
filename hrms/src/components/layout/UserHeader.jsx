@@ -63,6 +63,9 @@ function UserHeader({ onToggleSidebar, onLogout }) {
       if (location.search.includes('tab=arrears')) return 'Payroll Management / Arrears';
       if (location.search.includes('tab=slips')) return 'Payroll Management / Salary Slips';
       if (location.search.includes('tab=statutory')) return 'Payroll Management / Statutory Reports';
+      if (location.search.includes('tab=fnf')) return 'Payroll Management / Full & Final (FnF)';
+      if (location.search.includes('tab=gratuity')) return 'Payroll Management / Gratuity Management';
+      if (location.search.includes('tab=bonus')) return 'Payroll Management / Bonus Management';
       return 'Payroll Management / Payroll Processing';
     }
     if (path.startsWith('/user/leave')) return 'Management / Leave';
@@ -76,6 +79,7 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/preferences')) return 'System / Preferences';
     if (path.startsWith('/user/templates')) return 'System / Templates';
     if (path.startsWith('/user/document-compliance')) return 'System / Docs & Compliance';
+    if (path.startsWith('/user/greetings')) return 'Settings / Greetings';
     if (path.startsWith('/user/notifications')) return 'System / Notifications';
     return 'User Portal';
   };
