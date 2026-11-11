@@ -252,7 +252,7 @@ function AllCompanies() {
               </span>
             </div>
             <p className={styles.description}>
-              Central multi-company directory. RR Security is the master company that creates another company and provisions its admin credentials. Added companies log in independently to access their isolated workspace.
+              Central multi-company directory. RR Security is the master company that creates another company.
             </p>
           </div>
 

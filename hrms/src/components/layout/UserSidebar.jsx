@@ -542,7 +542,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                           end={item.path === '/user/dashboard'}
                           className={({ isActive }) => [
                             styles.link,
-                            (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding'))) ? styles.active : ''
+                            (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding')) || (item.path === '/user/masters' && location.pathname.startsWith('/user/masters'))) ? styles.active : ''
                           ].filter(Boolean).join(' ')}
                           onClick={() => handleItemClick(false)}
                           title={isCollapsed ? item.name : undefined}

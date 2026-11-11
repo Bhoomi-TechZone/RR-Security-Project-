@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { 
   ArrowLeft, ArrowRight, Search, X, Settings2, Landmark, UserCheck, 
-  MapPin, Shield, CalendarDays, CalendarOff, CalendarHeart, FileCheck, Briefcase 
+  MapPin, Shield, CalendarDays, CalendarOff, CalendarHeart, FileCheck, Briefcase, Layers 
 } from 'lucide-react';
 import styles from './Masters.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -175,6 +175,8 @@ const ALL_MASTERS_CATALOG = [
 function Masters() {
   const navigate = useNavigate();
   const location = useLocation();
+  const isUserPanel = location.pathname.startsWith('/user');
+  const basePath = isUserPanel ? '/user' : '/admin';
   const [searchParams, setSearchParams] = useSearchParams();
   const isFromOrgSettings = location.state?.fromOrganisationSettings === true;
   const { canAdd, canEdit, canDelete } = usePermissions();
@@ -196,15 +198,24 @@ function Masters() {
   const handleOpenMaster = (tabId) => {
     setSearchParams({ tab: tabId }, { state: location.state });
   };
-  // If navigating to /admin/masters root without a tab, redirect to Central Organization Setup
+  // If navigating to /admin/masters root without a tab in Admin Panel, redirect to Central Organization Setup
   useEffect(() => {
-    if (!rawTab) {
+    if (!rawTab && !isUserPanel) {
       navigate('/admin/company-setup?category=all-masters-setup', { replace: true });
     }
-  }, [rawTab, navigate]);
+  }, [rawTab, isUserPanel, navigate]);
 
-  useEffect(() => { const sub = searchParams.get('subTab') || searchParams.get('type'); if (sub) setSalaryComponentSubTab(sub.toLowerCase().includes('deduct') ? 'deductions' : 'earnings'); }, [searchParams]); const handleBackToMasters = () => {
-    navigate('/admin/company-setup?category=all-masters-setup');
+  useEffect(() => { 
+    const sub = searchParams.get('subTab') || searchParams.get('type'); 
+    if (sub) setSalaryComponentSubTab(sub.toLowerCase().includes('deduct') ? 'deductions' : 'earnings'); 
+  }, [searchParams]); 
+  
+  const handleBackToMasters = () => {
+    if (isUserPanel) {
+      setSearchParams({});
+    } else {
+      navigate('/admin/company-setup?category=all-masters-setup');
+    }
   };
   const handleTabChange = (tabId) => {
     setSearchParams({ tab: tabId }, { state: location.state });
@@ -1016,7 +1027,7 @@ function Masters() {
           <>
             {/* Explorer Breadcrumb */}
             <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+              <span className={styles.crumbLink} onClick={() => navigate(isUserPanel ? '/user/dashboard' : '/admin/dashboard')}>
                 Dashboard
               </span>
               <span className={styles.separator}>/</span>
@@ -1143,7 +1154,7 @@ function Masters() {
           <>
             {/* Active Master Management View */}
             <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-              <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+              <span className={styles.crumbLink} onClick={() => navigate(isUserPanel ? '/user/dashboard' : '/admin/dashboard')}>
                 Dashboard
               </span>
               <span className={styles.separator}>/</span>
@@ -1151,10 +1162,10 @@ function Masters() {
                 <>
                   <span
                     className={styles.crumbLink}
-                    onClick={() => navigate('/admin/company-setup')}
+                    onClick={() => navigate(isUserPanel ? '/user/masters' : '/admin/company-setup')}
                     style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
                   >
-                    Organization Setup
+                    {isUserPanel ? 'Masters' : 'Organization Setup'}
                   </span>
                   <span className={styles.separator}>/</span>
                 </>
@@ -1162,10 +1173,10 @@ function Masters() {
                 <>
                   <span
                     className={styles.crumbLink}
-                    onClick={() => navigate('/admin/company-setup?category=payroll-setup')}
+                    onClick={() => navigate(isUserPanel ? '/user/masters' : '/admin/company-setup?category=payroll-setup')}
                     style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
                   >
-                    Payroll Setup
+                    {isUserPanel ? 'Masters' : 'Payroll Setup'}
                   </span>
                   <span className={styles.separator}>/</span>
                 </>
@@ -1176,7 +1187,7 @@ function Masters() {
                     onClick={handleBackToMasters}
                     style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
                   >
-                    All Masters Setup
+                    {isUserPanel ? 'Masters' : 'All Masters Setup'}
                   </span>
                   <span className={styles.separator}>/</span>
                 </>
@@ -1187,7 +1198,7 @@ function Masters() {
                     onClick={handleBackToMasters}
                     style={{ color: 'var(--primary, #2563eb)', cursor: 'pointer' }}
                   >
-                    All Masters Setup
+                    {isUserPanel ? 'Masters' : 'All Masters Setup'}
                   </span>
                   <span className={styles.separator}>/</span>
                 </>
@@ -1224,7 +1235,7 @@ function Masters() {
                 {activeTab === 'departments' || activeTab === 'designations' ? (
                   <button
                     type="button"
-                    onClick={() => navigate('/admin/company-setup')}
+                    onClick={() => navigate(isUserPanel ? '/user/masters' : '/admin/company-setup')}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1246,12 +1257,12 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to Company Setup
+                    <ArrowLeft size={15} color="#fff" /> {isUserPanel ? 'Back to Masters' : 'Back to Company Setup'}
                   </button>
                 ) : activeTab === 'salary-components' ? (
                   <button
                     type="button"
-                    onClick={() => navigate('/admin/company-setup?category=payroll-setup')}
+                    onClick={() => navigate(isUserPanel ? '/user/masters' : '/admin/company-setup?category=payroll-setup')}
                     style={{
                       display: 'inline-flex',
                       alignItems: 'center',
@@ -1273,7 +1284,7 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to Payroll Setup
+                    <ArrowLeft size={15} color="#fff" /> {isUserPanel ? 'Back to Masters' : 'Back to Payroll Setup'}
                   </button>
                 ) : (activeTab === 'client-services' || activeTab === 'clients') ? (
                   <button
@@ -1300,7 +1311,7 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to All Masters Setup
+                    <ArrowLeft size={15} color="#fff" /> {isUserPanel ? 'Back to Masters' : 'Back to All Masters Setup'}
                   </button>
                 ) : (
                   <button
@@ -1327,7 +1338,7 @@ function Masters() {
                       e.currentTarget.style.background = 'rgb(215 119 5)';
                     }}
                   >
-                    <ArrowLeft size={15} color="#fff" /> Back to All Masters Setup
+                    <ArrowLeft size={15} color="#fff" /> {isUserPanel ? 'Back to Masters' : 'Back to All Masters Setup'}
                   </button>
                 )}
               </div>
