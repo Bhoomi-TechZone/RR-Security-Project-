@@ -145,6 +145,43 @@ export const getMasters = async (req, res) => {
       }
     }
 
+    // If fetching job categories and none exist for primary company, seed them into MongoDB
+    if (type === 'job-categories' || !type) {
+      try {
+        const isPrimaryComp =
+          companyId === 'RRS8392014SEC' ||
+          companyId === 'comp_rr_security' ||
+          companyId.toLowerCase().includes('rr');
+        if (isPrimaryComp) {
+          const existingJobCats = await Master.countDocuments({
+            companyId: { $in: companyIds },
+            type: 'job-categories'
+          });
+          if (existingJobCats === 0) {
+            const seedJobCats = [
+              { name: 'Security Guard', description: 'Physical patrolling, perimeter security, access control and gate vigilance', status: 'active' },
+              { name: 'Armed Guard / Gunman', description: 'Licensed armed protection, bank security and cash-in-transit escort', status: 'active' },
+              { name: 'Field Supervisor', description: 'On-site post inspection, guard turn-out audit, and client coordination', status: 'active' },
+              { name: 'CCTV / Control Room Operator', description: 'Surveillance hub monitoring, electronic fire/intrusion alarm response', status: 'active' },
+              { name: 'Housekeeping Executive', description: 'Facility cleanliness, hygiene maintenance and waste management', status: 'active' },
+              { name: 'Bouncer / VIP Security', description: 'Crowd management, entry frisking and event security enforcement', status: 'active' },
+              { name: 'Driver / Chauffeur', description: 'Heavy and light motor vehicle operations, logistics and shuttle service', status: 'active' }
+            ].map(jc => ({
+              companyId,
+              adminEmail: adminEmail || 'rrsecurity@gmail.com',
+              type: 'job-categories',
+              name: jc.name,
+              description: jc.description,
+              status: jc.status
+            }));
+            await Master.insertMany(seedJobCats);
+          }
+        }
+      } catch (jcErr) {
+        console.warn('Seed job categories to Master error:', jcErr.message);
+      }
+    }
+
     // Query purely from database, no auto-seeding
     const items = await Master.find(query).sort({ createdAt: 1 });
     const formatted = items.map(formatMaster);

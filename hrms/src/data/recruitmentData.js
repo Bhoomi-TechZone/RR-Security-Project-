@@ -203,46 +203,121 @@ export const INITIAL_CANDIDATES = [
   }
 ];
 
-const LOCAL_STORAGE_KEY = 'novaspark_recruitment_candidates_v3';
+import candidateService from '../services/candidateService';
 
-export const getStoredCandidates = () => {
+export const PRIMARY_COMPANY_ID = 'RRS8392014SEC';
+
+/**
+ * Resolve active company identifier for multi-tenant candidate isolation
+ */
+export const getActiveCompanyId = (passedCompanyId) => {
+  if (passedCompanyId && typeof passedCompanyId === 'string' && passedCompanyId.trim()) {
+    return passedCompanyId.trim();
+  }
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('novaspark_active_company_id') || PRIMARY_COMPANY_ID;
+  }
+  return PRIMARY_COMPANY_ID;
+};
+
+export const getCompanyCandidatesKey = (companyId) => {
+  const cId = getActiveCompanyId(companyId);
+  return `novaspark_recruitment_candidates_${cId}`;
+};
+
+/**
+ * Get stored candidates strictly isolated per company profile
+ */
+export const getStoredCandidates = (companyId) => {
   try {
-    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const activeId = getActiveCompanyId(companyId);
+    const key = getCompanyCandidatesKey(activeId);
+    const raw = localStorage.getItem(key);
+
     if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_CANDIDATES));
-      return INITIAL_CANDIDATES;
+      // If primary company, seed initial sample candidates tagged with its company ID
+      if (activeId === PRIMARY_COMPANY_ID || activeId === 'comp_rr_security' || activeId.toLowerCase().includes('rr')) {
+        const seeded = INITIAL_CANDIDATES.map((c) => ({
+          ...c,
+          companyId: activeId
+        }));
+        localStorage.setItem(key, JSON.stringify(seeded));
+        return seeded;
+      }
+      // Any other company starts completely clean with 0 candidates
+      localStorage.setItem(key, JSON.stringify([]));
+      return [];
     }
+
     const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
     let migrated = false;
     const cleanList = parsed.map((c) => {
-      // Migrate old interview round statuses
+      let candidate = { ...c, companyId: c.companyId || activeId };
       if (c.status === 'interview_inprogress' || c.status === 'interview_scheduled') {
         migrated = true;
-        return { ...c, status: c.id === 'CAN-2026-003' ? 'selected' : 'applied' };
+        candidate.status = c.id === 'CAN-2026-003' ? 'selected' : 'applied';
       }
-      return c;
+      return candidate;
     });
+
     if (migrated) {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleanList));
+      localStorage.setItem(key, JSON.stringify(cleanList));
     }
     return cleanList;
   } catch (e) {
     console.error('Error loading candidates from storage:', e);
-    return INITIAL_CANDIDATES;
+    return [];
   }
 };
 
-export const saveStoredCandidates = (candidates) => {
+/**
+ * Save candidates isolated to the active company profile
+ */
+export const saveStoredCandidates = (candidates, companyId, broadcast = true) => {
   try {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(candidates));
-    window.dispatchEvent(new CustomEvent('recruitment-data-updated'));
+    const activeId = getActiveCompanyId(companyId);
+    const key = getCompanyCandidatesKey(activeId);
+    const listWithCompany = (candidates || []).map((c) => ({
+      ...c,
+      companyId: c.companyId || activeId
+    }));
+    localStorage.setItem(key, JSON.stringify(listWithCompany));
+    if (broadcast) {
+      window.dispatchEvent(
+        new CustomEvent('recruitment-data-updated', { detail: { companyId: activeId } })
+      );
+    }
   } catch (e) {
     console.error('Error saving candidates to storage:', e);
   }
 };
 
-export const generateNextCandidateId = () => {
-  const currentList = getStoredCandidates();
+/**
+ * Fetch candidates from Backend MongoDB and update local company cache
+ */
+export const fetchCompanyCandidates = async (companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+  try {
+    const candidates = await candidateService.getCandidates(activeId);
+    if (Array.isArray(candidates)) {
+      // Do NOT broadcast on fetch to prevent infinite event loop
+      saveStoredCandidates(candidates, activeId, false);
+      return candidates;
+    }
+  } catch (err) {
+    console.warn(`[Recruitment] Backend fetch error for company ${activeId}:`, err);
+  }
+  return getStoredCandidates(activeId);
+};
+
+/**
+ * Generate sequential candidate ID per company (CAN-YYYY-001, etc.)
+ */
+export const generateNextCandidateId = (companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+  const currentList = getStoredCandidates(activeId);
   const year = new Date().getFullYear();
   const prefix = `CAN-${year}-`;
   const existingNums = currentList
@@ -260,42 +335,102 @@ export const generateNextCandidateId = () => {
   return `${prefix}${nextNum}`;
 };
 
-export const addCandidate = (candidateData) => {
-  const currentList = getStoredCandidates();
-  const newCandidate = {
+/**
+ * Add a new candidate isolated to the company (Dynamically saved to MongoDB)
+ */
+export const addCandidate = async (candidateData, companyId) => {
+  const activeId = getActiveCompanyId(companyId || candidateData?.companyId);
+  const currentList = getStoredCandidates(activeId);
+
+  const payload = {
     ...candidateData,
-    id: candidateData.id || generateNextCandidateId(),
+    companyId: activeId,
+    id: candidateData.id || generateNextCandidateId(activeId),
     registrationDate: candidateData.registrationDate || new Date().toISOString().split('T')[0],
     status: candidateData.status || 'applied',
-    createdAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   };
 
-  const updated = [newCandidate, ...currentList];
-  saveStoredCandidates(updated);
-  return newCandidate;
+  try {
+    const liveCandidate = await candidateService.createCandidate(payload, activeId);
+    if (liveCandidate) {
+      const updated = [liveCandidate, ...currentList.filter((c) => c.id !== liveCandidate.id)];
+      saveStoredCandidates(updated, activeId);
+      return liveCandidate;
+    }
+  } catch (err) {
+    console.warn('[Recruitment] Backend save failed, caching locally:', err.message);
+  }
+
+  const updated = [payload, ...currentList];
+  saveStoredCandidates(updated, activeId);
+  return payload;
 };
 
-export const updateCandidateStatus = (candidateId, newStatus) => {
-  const currentList = getStoredCandidates();
+/**
+ * Update candidate status isolated to the company (Dynamically saved to MongoDB)
+ */
+export const updateCandidateStatus = async (candidateId, newStatus, companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+  const currentList = getStoredCandidates(activeId);
+
+  try {
+    const liveCandidate = await candidateService.updateCandidateStatus(candidateId, newStatus, activeId);
+    if (liveCandidate) {
+      const updated = currentList.map((c) => (c.id === candidateId ? liveCandidate : c));
+      saveStoredCandidates(updated, activeId);
+      return liveCandidate;
+    }
+  } catch (err) {
+    console.warn('[Recruitment] Backend status update failed:', err.message);
+  }
+
   const updated = currentList.map((c) =>
     c.id === candidateId ? { ...c, status: newStatus } : c
   );
-  saveStoredCandidates(updated);
+  saveStoredCandidates(updated, activeId);
   return updated.find((c) => c.id === candidateId);
 };
 
-export const updateCandidate = (candidateId, updatedData) => {
-  const currentList = getStoredCandidates();
+/**
+ * Update candidate details isolated to the company (Dynamically saved to MongoDB)
+ */
+export const updateCandidate = async (candidateId, updatedData, companyId) => {
+  const activeId = getActiveCompanyId(companyId || updatedData?.companyId);
+  const currentList = getStoredCandidates(activeId);
+
+  try {
+    const liveCandidate = await candidateService.updateCandidate(candidateId, updatedData, activeId);
+    if (liveCandidate) {
+      const updated = currentList.map((c) => (c.id === candidateId ? liveCandidate : c));
+      saveStoredCandidates(updated, activeId);
+      return liveCandidate;
+    }
+  } catch (err) {
+    console.warn('[Recruitment] Backend update failed:', err.message);
+  }
+
   const updated = currentList.map((c) =>
-    c.id === candidateId ? { ...c, ...updatedData } : c
+    c.id === candidateId ? { ...c, ...updatedData, companyId: activeId } : c
   );
-  saveStoredCandidates(updated);
+  saveStoredCandidates(updated, activeId);
   return updated.find((c) => c.id === candidateId);
 };
 
-export const deleteCandidate = (candidateId) => {
-  const currentList = getStoredCandidates();
+/**
+ * Delete candidate isolated to the company (Dynamically deleted from MongoDB)
+ */
+export const deleteCandidate = async (candidateId, companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+  const currentList = getStoredCandidates(activeId);
+
+  try {
+    await candidateService.deleteCandidate(candidateId, activeId);
+  } catch (err) {
+    console.warn('[Recruitment] Backend delete failed:', err.message);
+  }
+
   const updated = currentList.filter((c) => c.id !== candidateId);
-  saveStoredCandidates(updated);
+  saveStoredCandidates(updated, activeId);
   return true;
 };

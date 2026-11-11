@@ -28,6 +28,13 @@ export const INITIAL_ONBOARDING_CANDIDATES = [
     appliedFor: 'Control Room Surveillance Executive',
     offeredSalary: 22500,
     offeredDesignation: 'Control Room Surveillance Executive',
+    presentAddress: 'Plot 45, Govindpuram, Ghaziabad, Uttar Pradesh - 201013',
+    address: 'Plot 45, Govindpuram',
+    city: 'Ghaziabad',
+    state: 'Uttar Pradesh',
+    pincode: '201013',
+    dob: '1994-08-20',
+    gender: 'Male',
     proposedJoiningDate: '2026-11-08',
     assignedClient: 'DLF CyberCity Tech Park',
     assignedSite: 'Tower 4 Central Surveillance Hub',
@@ -67,6 +74,13 @@ export const INITIAL_ONBOARDING_CANDIDATES = [
     appliedFor: 'Security Guard',
     offeredSalary: 19500,
     offeredDesignation: 'Security Guard',
+    presentAddress: 'H.No 142, Gali No 4, Mamura Village, Sector 66, Noida, Uttar Pradesh - 201301',
+    address: 'H.No 142, Gali No 4, Mamura Village, Sector 66',
+    city: 'Noida',
+    state: 'Uttar Pradesh',
+    pincode: '201301',
+    dob: '1996-05-14',
+    gender: 'Male',
     proposedJoiningDate: '2026-11-10',
     assignedClient: 'Advant Navis Business Park',
     assignedSite: 'Gate 1 Pedestrian Turnstile',
@@ -98,33 +112,91 @@ export const INITIAL_ONBOARDING_CANDIDATES = [
   }
 ];
 
-const ONBOARDING_STORAGE_KEY = 'novaspark_onboarding_candidates_v1';
+import onboardingService from '../services/onboardingService';
+import { getStoredCandidates } from './recruitmentData';
 
-export const getStoredOnboarding = () => {
+const PRIMARY_COMPANY_ID = 'RRS8392014SEC';
+
+export const getActiveCompanyId = (passedCompanyId) => {
+  if (passedCompanyId && typeof passedCompanyId === 'string' && passedCompanyId.trim()) {
+    return passedCompanyId.trim();
+  }
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('novaspark_active_company_id') || PRIMARY_COMPANY_ID;
+  }
+  return PRIMARY_COMPANY_ID;
+};
+
+export const getCompanyOnboardingKey = (companyId) => {
+  const cId = getActiveCompanyId(companyId);
+  return `novaspark_onboarding_candidates_${cId}`;
+};
+
+/**
+ * Fetch onboarding records from Backend MongoDB and update local cache
+ */
+export const fetchCompanyOnboarding = async (companyId) => {
+  const activeId = getActiveCompanyId(companyId);
   try {
-    const raw = localStorage.getItem(ONBOARDING_STORAGE_KEY);
-    if (!raw) {
-      localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(INITIAL_ONBOARDING_CANDIDATES));
-      return INITIAL_ONBOARDING_CANDIDATES;
+    const list = await onboardingService.getOnboardingList(activeId);
+    if (Array.isArray(list)) {
+      // Do NOT broadcast on fetch to prevent infinite event loop
+      saveStoredOnboarding(list, activeId, false);
+      return list;
     }
-    return JSON.parse(raw);
+  } catch (err) {
+    console.warn(`[Onboarding] Backend fetch error for company ${activeId}:`, err);
+  }
+  return getStoredOnboarding(activeId);
+};
+
+export const getStoredOnboarding = (companyId) => {
+  try {
+    const activeId = getActiveCompanyId(companyId);
+    const key = getCompanyOnboardingKey(activeId);
+    const raw = localStorage.getItem(key);
+
+    if (!raw) {
+      if (activeId === PRIMARY_COMPANY_ID || activeId === 'comp_rr_security' || activeId.toLowerCase().includes('rr')) {
+        const seeded = INITIAL_ONBOARDING_CANDIDATES.map((c) => ({
+          ...c,
+          companyId: activeId
+        }));
+        localStorage.setItem(key, JSON.stringify(seeded));
+        return seeded;
+      }
+      localStorage.setItem(key, JSON.stringify([]));
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
   } catch (err) {
     console.error('Error reading onboarding from localStorage:', err);
-    return INITIAL_ONBOARDING_CANDIDATES;
+    return [];
   }
 };
 
-export const saveStoredOnboarding = (list) => {
+export const saveStoredOnboarding = (list, companyId, broadcast = true) => {
   try {
-    localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify(list));
-    window.dispatchEvent(new CustomEvent('onboarding-data-updated'));
+    const activeId = getActiveCompanyId(companyId);
+    const key = getCompanyOnboardingKey(activeId);
+    const listWithCompany = (list || []).map((c) => ({
+      ...c,
+      companyId: c.companyId || activeId
+    }));
+    localStorage.setItem(key, JSON.stringify(listWithCompany));
+    if (broadcast) {
+      window.dispatchEvent(
+        new CustomEvent('onboarding-data-updated', { detail: { companyId: activeId } })
+      );
+    }
   } catch (err) {
     console.error('Error saving onboarding to localStorage:', err);
   }
 };
 
-export const generateNextOnboardingId = () => {
-  const list = getStoredOnboarding();
+export const generateNextOnboardingId = (companyId) => {
+  const list = getStoredOnboarding(companyId);
   const currentYear = new Date().getFullYear();
   let maxSeq = 0;
   list.forEach((item) => {
@@ -138,16 +210,16 @@ export const generateNextOnboardingId = () => {
   return `ONB-${currentYear}-${nextSeq}`;
 };
 
-export const transferCandidateToOnboarding = (candidate, offerDetails = {}) => {
-  const list = getStoredOnboarding();
-  const existing = list.find((item) => item.candidateId === candidate.id);
-  if (existing) {
-    return existing;
-  }
+export const transferCandidateToOnboarding = async (candidate, offerDetails = {}, companyId) => {
+  const activeId = getActiveCompanyId(companyId || candidate?.companyId);
+  const list = getStoredOnboarding(activeId);
+  const candIdentifier = candidate.candidateId || candidate.id;
+  const existing = list.find((item) => item.candidateId === candIdentifier || item.candidateId === candidate.id);
 
   const newOnboarding = {
-    id: generateNextOnboardingId(),
-    candidateId: candidate.id,
+    id: existing?.id || generateNextOnboardingId(activeId),
+    companyId: activeId,
+    candidateId: candIdentifier,
     candidateName: candidate.name,
     mobile: candidate.mobile || '',
     email: candidate.email || '',
@@ -159,9 +231,17 @@ export const transferCandidateToOnboarding = (candidate, offerDetails = {}) => {
     assignedClient: offerDetails.assignedClient || 'Corporate Office / Main Site',
     assignedSite: offerDetails.assignedSite || 'Main Gate Security Post',
     assignedShift: offerDetails.assignedShift || 'Day Shift (08:00 AM - 08:00 PM)',
-    stage: 'offer_accepted',
+    stage: offerDetails.stage || 'document_verification',
     photo: candidate.photo || '',
-    documents: {
+    presentAddress: candidate.presentAddress || [candidate.address, candidate.city, candidate.state ? `${candidate.state}${candidate.pincode ? ` - ${candidate.pincode}` : ''}` : ''].filter(Boolean).join(', ') || candidate.address || '',
+    address: candidate.address || '',
+    city: candidate.city || '',
+    state: candidate.state || '',
+    pincode: candidate.pincode || '',
+    dob: candidate.dob || '',
+    gender: candidate.gender || 'Male',
+    fatherHusbandName: candidate.fatherHusbandName || candidate.fatherName || '',
+    documents: existing?.documents || {
       aadhaar: { status: 'Uploaded', number: '', documentName: 'Aadhaar Card' },
       pan: { status: 'Uploaded', number: '', documentName: 'PAN Card' },
       bankProof: { status: 'Pending', bankName: '', ifsc: '', accountNumber: '', documentName: 'Bank Passbook / Cheque' },
@@ -169,7 +249,7 @@ export const transferCandidateToOnboarding = (candidate, offerDetails = {}) => {
       educationCertificate: { status: 'Uploaded', documentName: 'Educational Certificate' },
       experienceRelieving: { status: candidate.experience === 'Experienced' ? 'Uploaded' : 'N/A', documentName: 'Previous Relieving Letter' }
     },
-    uniformKit: {
+    uniformKit: existing?.uniformKit || {
       shirtSize: 'M (40)',
       trouserSize: '32',
       bootSize: '8',
@@ -178,32 +258,58 @@ export const transferCandidateToOnboarding = (candidate, offerDetails = {}) => {
       whistleIssued: false,
       batonIssued: false,
       torchIssued: false,
-      idCardGenerated: false,
+      idCardGenerated: false
     },
     isConvertedToEmployee: false,
     createdEmployeeCode: '',
-    notes: `Transferred from Recruitment. Candidate selected in interview.`
+    notes: `Candidate transferred from Recruitment pipeline for ${activeId}.`
   };
 
-  const updated = [newOnboarding, ...list];
-  saveStoredOnboarding(updated);
+  try {
+    const live = await onboardingService.createOnboarding(newOnboarding, activeId);
+    if (live) {
+      const updated = [live, ...list.filter((c) => c.id !== live.id && c.candidateId !== candIdentifier)];
+      saveStoredOnboarding(updated, activeId);
+      return live;
+    }
+  } catch (err) {
+    console.warn('[Onboarding] Backend transfer save failed, using local cache:', err.message);
+  }
+
+  const updated = [newOnboarding, ...list.filter((c) => c.id !== newOnboarding.id && c.candidateId !== candIdentifier)];
+  saveStoredOnboarding(updated, activeId);
   return newOnboarding;
 };
 
-export const updateOnboardingCandidate = (onboardingId, updatedFields) => {
-  const list = getStoredOnboarding();
+export const updateOnboardingCandidate = async (onboardingId, updatedFields, companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+  const list = getStoredOnboarding(activeId);
   const index = list.findIndex((item) => item.id === onboardingId);
+
+  try {
+    const live = await onboardingService.updateOnboarding(onboardingId, updatedFields, activeId);
+    if (live) {
+      const updated = list.map((c) => (c.id === onboardingId ? live : c));
+      saveStoredOnboarding(updated, activeId);
+      return live;
+    }
+  } catch (err) {
+    console.warn('[Onboarding] Backend update failed, using local cache:', err.message);
+  }
+
   if (index === -1) return null;
-  const updatedItem = { ...list[index], ...updatedFields };
+  const updatedItem = { ...list[index], ...updatedFields, companyId: activeId };
   list[index] = updatedItem;
-  saveStoredOnboarding(list);
+  saveStoredOnboarding(list, activeId);
   return updatedItem;
 };
 
-export const addOnboardingCandidate = (data) => {
-  const list = getStoredOnboarding();
+export const addOnboardingCandidate = async (data, companyId) => {
+  const activeId = getActiveCompanyId(companyId || data?.companyId);
+  const list = getStoredOnboarding(activeId);
   const newOnboarding = {
-    id: data.id || generateNextOnboardingId(),
+    id: data.id || generateNextOnboardingId(activeId),
+    companyId: activeId,
     candidateId: data.candidateId || 'DIRECT-WALKIN',
     candidateName: data.candidateName || data.name || '',
     mobile: data.mobile || '',
@@ -242,13 +348,50 @@ export const addOnboardingCandidate = (data) => {
     notes: data.notes || 'Direct Onboarding'
   };
 
+  try {
+    const live = await onboardingService.createOnboarding(newOnboarding, activeId);
+    if (live) {
+      const updated = [live, ...list.filter((c) => c.id !== live.id)];
+      saveStoredOnboarding(updated, activeId);
+      return live;
+    }
+  } catch (err) {
+    console.warn('[Onboarding] Backend create failed, using local cache:', err.message);
+  }
+
   const updated = [newOnboarding, ...list];
-  saveStoredOnboarding(updated);
+  saveStoredOnboarding(updated, activeId);
   return newOnboarding;
 };
 
-export const convertToEmployee = (onboardingId, generatedEmpCode) => {
-  const list = getStoredOnboarding();
+export const convertToEmployee = async (onboardingId, generatedEmpCode, companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+
+  try {
+    const res = await onboardingService.convertToEmployee(onboardingId, activeId);
+    if (res?.onboarding) {
+      const list = getStoredOnboarding(activeId);
+      const updated = list.map((c) => (c.id === onboardingId ? res.onboarding : c));
+      saveStoredOnboarding(updated, activeId);
+
+      if (res?.employee) {
+        try {
+          const compKey = `novaspark_employees_${activeId}`;
+          const compCache = JSON.parse(localStorage.getItem(compKey) || '[]');
+          const compFiltered = compCache.filter(e => e.employeeCode !== res.employee.employeeCode && e.id !== res.employee.id);
+          localStorage.setItem(compKey, JSON.stringify([res.employee, ...compFiltered]));
+          localStorage.setItem('hrms_employees_cache', JSON.stringify([res.employee, ...compFiltered]));
+          window.dispatchEvent(new CustomEvent('employees-updated', { detail: { companyId: activeId } }));
+        } catch (_) {}
+      }
+
+      return res;
+    }
+  } catch (backendErr) {
+    console.warn('[Onboarding] Backend convertToEmployee error, updating local cache:', backendErr.message);
+  }
+
+  const list = getStoredOnboarding(activeId);
   const index = list.findIndex((item) => item.id === onboardingId);
   if (index === -1) return null;
   const empCode = generatedEmpCode || `RR-${Math.floor(100 + Math.random() * 900)}`;
@@ -259,6 +402,8 @@ export const convertToEmployee = (onboardingId, generatedEmpCode) => {
     id: `emp_${item.id || Date.now()}`,
     employeeCode: empCode,
     employeeId: empCode,
+    companyId: activeId,
+    companyName: item.assignedClient || 'Company Profile',
     joiningDate: item.proposedJoiningDate || new Date().toISOString().split('T')[0],
     name: item.candidateName || item.name || '',
     fatherHusbandName: item.fatherHusbandName || item.fatherName || '',
@@ -278,8 +423,6 @@ export const convertToEmployee = (onboardingId, generatedEmpCode) => {
     employeeType: 'Permanent',
     clientId: '',
     clientName: item.assignedClient || '',
-    companyId: '',
-    companyName: item.assignedClient || 'RR Security & Facilities',
     department: item.jobCategory || 'Security',
     designation: item.offeredDesignation || item.appliedFor || 'Security Guard',
     clientAddress: item.assignedSite || '',
@@ -383,8 +526,14 @@ export const convertToEmployee = (onboardingId, generatedEmpCode) => {
     const existingCache = JSON.parse(localStorage.getItem('hrms_employees_cache') || '[]');
     const filtered = existingCache.filter(e => e.employeeCode !== empCode);
     localStorage.setItem('hrms_employees_cache', JSON.stringify([newEmployeeRecord, ...filtered]));
-    window.dispatchEvent(new CustomEvent('employees-updated'));
-  } catch (_) {}
+
+    const compKey = `novaspark_employees_${activeId}`;
+    const compCache = JSON.parse(localStorage.getItem(compKey) || '[]');
+    const compFiltered = compCache.filter(e => e.employeeCode !== empCode && e.id !== newEmployeeRecord.id);
+    localStorage.setItem(compKey, JSON.stringify([newEmployeeRecord, ...compFiltered]));
+
+    window.dispatchEvent(new CustomEvent('employees-updated', { detail: { companyId: activeId } }));
+  } catch (_) { }
 
   const updatedItem = {
     ...item,
@@ -400,7 +549,33 @@ export const convertToEmployee = (onboardingId, generatedEmpCode) => {
 
 export const getOnboardingCandidateById = (id) => {
   const list = getStoredOnboarding();
-  return list.find((item) => item.id === id || item.candidateId === id) || null;
+  let found = list.find((item) => item.id === id || item.candidateId === id) || null;
+  if (found) {
+    // If presentAddress or candidate demographics are missing, look up corresponding candidate from recruitment
+    if (!found.presentAddress || !found.address) {
+      try {
+        const candidates = getStoredCandidates();
+        const cand = candidates.find((c) => c.id === found.candidateId || c.name === found.candidateName);
+        if (cand) {
+          const formattedAddress = cand.presentAddress || [cand.address, cand.city, cand.state ? `${cand.state}${cand.pincode ? ` - ${cand.pincode}` : ''}` : ''].filter(Boolean).join(', ');
+          found = {
+            ...found,
+            presentAddress: found.presentAddress || formattedAddress || cand.address || '',
+            address: found.address || cand.address || '',
+            city: found.city || cand.city || '',
+            state: found.state || cand.state || '',
+            pincode: found.pincode || cand.pincode || '',
+            dob: found.dob || cand.dob || '',
+            gender: found.gender || cand.gender || 'Male',
+            fatherHusbandName: found.fatherHusbandName || cand.fatherHusbandName || cand.fatherName || ''
+          };
+        }
+      } catch (e) {
+        // ignore fallback errors
+      }
+    }
+  }
+  return found;
 };
 
 export const saveCandidateSelfOnboarding = (onboardingId, submission) => {
@@ -526,9 +701,15 @@ export const saveCandidateSelfOnboarding = (onboardingId, submission) => {
 };
 
 
-export const deleteOnboardingCandidate = (onboardingId) => {
-  const list = getStoredOnboarding();
+export const deleteOnboardingCandidate = async (onboardingId, companyId) => {
+  const activeId = getActiveCompanyId(companyId);
+  try {
+    await onboardingService.deleteOnboarding(onboardingId, activeId);
+  } catch (err) {
+    console.warn('[Onboarding] Backend delete error:', err.message);
+  }
+  const list = getStoredOnboarding(activeId);
   const filtered = list.filter((item) => item.id !== onboardingId);
-  saveStoredOnboarding(filtered);
+  saveStoredOnboarding(filtered, activeId);
   return true;
 };

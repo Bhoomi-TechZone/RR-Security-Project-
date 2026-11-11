@@ -20,6 +20,7 @@ const masterSchema = new mongoose.Schema(
         'banks',
         'client-services',
         'clients',
+        'job-categories',
         'departments',
         'designations',
         'employee-types',

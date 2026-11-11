@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   UserPlus,
@@ -15,13 +15,17 @@ import {
   Mail,
   FileText,
   Sparkles,
-  UserCheck
+  UserCheck,
+  Loader2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import { useCompany } from '../../context/CompanyContext';
+import masterService from '../../services/masterService';
 import {
   getStoredCandidates,
+  fetchCompanyCandidates,
   updateCandidateStatus,
   deleteCandidate,
   CANDIDATE_STATUSES,
@@ -39,28 +43,89 @@ export default function Recruitment() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+
   const [candidates, setCandidates] = useState([]);
+  const [categoriesList, setCategoriesList] = useState(JOB_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedExp, setSelectedExp] = useState('all');
   const [statusTab, setStatusTab] = useState(() => searchParams.get('status') || 'all');
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, candidate: null });
+  const [movingCandidateId, setMovingCandidateId] = useState(null);
+  const [movingCandidate, setMovingCandidate] = useState(null);
 
+  const [isLoading, setIsLoading] = useState(false);
+  const isFetchingRef = useRef(false);
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  const loadCandidates = useCallback(() => {
-    const list = getStoredCandidates();
-    setCandidates(list);
-  }, []);
+  const loadCandidates = useCallback(async () => {
+    if (!currentCompanyId || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    const cached = getStoredCandidates(currentCompanyId);
+    setCandidates(cached);
+    setIsLoading(true);
+    try {
+      const live = await fetchCompanyCandidates(currentCompanyId);
+      if (Array.isArray(live)) {
+        setCandidates(live);
+      }
+    } catch (_) {}
+    finally {
+      setIsLoading(false);
+      isFetchingRef.current = false;
+    }
+  }, [currentCompanyId]);
 
   useEffect(() => {
     loadCandidates();
 
-    const handleUpdate = () => loadCandidates();
+    const handleUpdate = (e) => {
+      if (!e.detail?.companyId || e.detail.companyId === currentCompanyId) {
+        loadCandidates();
+      }
+    };
     window.addEventListener('recruitment-data-updated', handleUpdate);
     return () => window.removeEventListener('recruitment-data-updated', handleUpdate);
-  }, [loadCandidates]);
+  }, [loadCandidates, currentCompanyId]);
+
+  // Dynamically load company job categories from MongoDB
+  useEffect(() => {
+    let isMounted = true;
+    masterService.getMasters('job-categories', currentCompanyId, true)
+      .then((masters) => {
+        if (isMounted && Array.isArray(masters) && masters.length > 0) {
+          const names = masters
+            .filter((m) => !m.status || m.status.toLowerCase() === 'active')
+            .map((m) => m.name || m);
+          if (names.length > 0) setCategoriesList(names);
+        }
+      })
+      .catch(() => {});
+
+    const handleCatsUpdated = () => {
+      masterService.getMasters('job-categories', currentCompanyId, true)
+        .then((masters) => {
+          if (isMounted && Array.isArray(masters) && masters.length > 0) {
+            const names = masters
+              .filter((m) => !m.status || m.status.toLowerCase() === 'active')
+              .map((m) => m.name || m);
+            if (names.length > 0) setCategoriesList(names);
+          }
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener('job-categories-updated', handleCatsUpdated);
+    window.addEventListener('masters-updated', handleCatsUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('job-categories-updated', handleCatsUpdated);
+      window.removeEventListener('masters-updated', handleCatsUpdated);
+    };
+  }, [currentCompanyId]);
 
   // Sync tab with URL
   useEffect(() => {
@@ -80,11 +145,22 @@ export default function Recruitment() {
     }
   };
 
-  const handleStatusChange = (candidateId, newStatus) => {
-    updateCandidateStatus(candidateId, newStatus);
-    const label = CANDIDATE_STATUSES.find((s) => s.id === newStatus)?.label || newStatus;
-    showToast(`Status updated to "${label}"`, 'success');
-    loadCandidates();
+  const handleStatusChange = async (candidateId, newStatus) => {
+    try {
+      if (newStatus === 'moved_to_onboarding') {
+        const candidate = candidates.find((c) => c.id === candidateId || c.candidateId === candidateId);
+        if (candidate) {
+          await handleMoveToOnboard(candidate);
+          return;
+        }
+      }
+      await updateCandidateStatus(candidateId, newStatus, currentCompanyId);
+      const label = CANDIDATE_STATUSES.find((s) => s.id === newStatus)?.label || newStatus;
+      showToast(`Status updated to "${label}"`, 'success');
+      await loadCandidates();
+    } catch (err) {
+      showToast(err.message || 'Failed to update status', 'error');
+    }
   };
 
   const handleResetFilters = () => {
@@ -95,41 +171,74 @@ export default function Recruitment() {
     navigate('/admin/recruitment');
   };
 
-  const handleMoveToOnboard = (candidate, e) => {
-    e.stopPropagation();
+  const handleMoveToOnboard = async (candidate, e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
     try {
-      transferCandidateToOnboarding(candidate, {
-        offeredSalary: candidate.expectedSalary,
-        offeredDesignation: candidate.appliedFor
-      });
-      updateCandidateStatus(candidate.id, 'moved_to_onboarding');
-      showToast(`${candidate.name} has been processed for Onboarding!`, 'success');
-      loadCandidates();
+      setMovingCandidateId(candidate.id);
+      setMovingCandidate(candidate);
+
+      const liveOnboarding = await transferCandidateToOnboarding(
+        candidate,
+        {
+          offeredSalary: candidate.expectedSalary,
+          offeredDesignation: candidate.appliedFor
+        },
+        currentCompanyId
+      );
+      await updateCandidateStatus(candidate.id, 'moved_to_onboarding', currentCompanyId);
+
+      const meta = liveOnboarding?._meta;
+      const candidateEmail = (candidate.email || liveOnboarding?.email || '').trim();
+
+      if (meta?.emailSent) {
+        showToast(`✓ ${candidate.name} moved to Onboarding! Document verification email sent to ${candidateEmail}.`, 'success');
+      } else if (!candidateEmail) {
+        showToast(`${candidate.name} moved to Onboarding. (Notice: No email address specified on candidate profile)`, 'info');
+      } else {
+        showToast(`${candidate.name} moved to Onboarding. (Email notice: ${meta?.emailError || 'Configure SMTP in Company Preferences'})`, 'warning');
+      }
+
+      await loadCandidates();
+      setTimeout(() => {
+        navigate('/admin/onboarding');
+      }, 750);
     } catch (err) {
-      showToast('Failed to transfer candidate to onboarding', 'error');
+      showToast(err.message || 'Failed to transfer candidate to onboarding', 'error');
+      setMovingCandidateId(null);
+      setMovingCandidate(null);
     }
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (!deleteModal.candidate) return;
-    deleteCandidate(deleteModal.candidate.id);
-    showToast(`Candidate ${deleteModal.candidate.name} removed.`, 'success');
-    setDeleteModal({ isOpen: false, candidate: null });
-    loadCandidates();
+    try {
+      await deleteCandidate(deleteModal.candidate.id, currentCompanyId);
+      showToast(`Candidate ${deleteModal.candidate.name} removed.`, 'success');
+      setDeleteModal({ isOpen: false, candidate: null });
+      await loadCandidates();
+    } catch (err) {
+      showToast(err.message || 'Failed to delete candidate', 'error');
+    }
   };
 
-  // Metrics calculation (No interview round metrics)
+  // Metrics calculation (Active talent pool excludes candidates already moved to Onboarding)
   const metrics = useMemo(() => {
-    const total = candidates.length;
+    const total = candidates.filter((c) => c.status !== 'moved_to_onboarding').length;
     const applied = candidates.filter((c) => c.status === 'applied').length;
     const selected = candidates.filter((c) => c.status === 'selected').length;
     const moved = candidates.filter((c) => c.status === 'moved_to_onboarding').length;
     return { total, applied, selected, moved };
   }, [candidates]);
 
-  // Filtered Candidates
+  // Filtered Candidates - Candidates moved to onboarding are tracked in Onboarding tab, not Recruitment
   const filteredCandidates = useMemo(() => {
     return candidates.filter((c) => {
+      // Exclude candidates already moved to onboarding from the Recruitment directory
+      // unless specifically selected in the status filter dropdown
+      if (statusTab !== 'moved_to_onboarding' && c.status === 'moved_to_onboarding') {
+        return false;
+      }
+
       // Status Tab filter
       if (statusTab !== 'all' && c.status !== statusTab) {
         return false;
@@ -229,11 +338,16 @@ export default function Recruitment() {
             </div>
           </div>
 
-          <div className={styles.metricCard}>
+          <div
+            className={styles.metricCard}
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/admin/onboarding')}
+            title="Click to view Onboarding Pipeline"
+          >
             <div className={styles.metricInfo}>
               <span className={styles.metricLabel}>In Onboarding</span>
               <span className={styles.metricValue}>{metrics.moved}</span>
-              <span className={styles.metricSubtext}>Deploying to Clients</span>
+              <span className={styles.metricSubtext}>View in Onboarding &rarr;</span>
             </div>
             <div className={styles.metricIconWrap} style={{ background: '#ecfeff', color: '#0891b2' }}>
               <UserCheck size={22} />
@@ -262,7 +376,7 @@ export default function Recruitment() {
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
               <option value="all">All Job Categories</option>
-              {JOB_CATEGORIES.map((cat) => (
+              {categoriesList.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>
@@ -628,10 +742,20 @@ export default function Recruitment() {
                               <button
                                 className={styles.onboardBtn}
                                 onClick={(e) => handleMoveToOnboard(c, e)}
+                                disabled={movingCandidateId === c.id || Boolean(movingCandidateId)}
                                 title="Move Selected Candidate to Onboarding"
                               >
-                                <Sparkles size={13} />
-                                Move to Onboard
+                                {movingCandidateId === c.id ? (
+                                  <>
+                                    <Loader2 size={13} className={styles.spinner} />
+                                    <span>Moving...</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles size={13} />
+                                    <span>Move to Onboard</span>
+                                  </>
+                                )}
                               </button>
                             )}
 
@@ -699,6 +823,26 @@ export default function Recruitment() {
             type={toast.type}
             onClose={() => setToast({ message: '', type: 'success' })}
           />
+        )}
+
+        {/* Professional Moving-to-Onboarding Overlay */}
+        {movingCandidate && (
+          <div className={styles.movingOverlay}>
+            <div className={styles.movingCard}>
+              <div className={styles.spinnerWrapper}>
+                <div className={styles.pulseRing}></div>
+                <Loader2 className={styles.largeSpinner} size={36} />
+              </div>
+              <h3 className={styles.movingTitle}>Transferring to Onboarding</h3>
+              <p className={styles.movingSubtitle}>
+                Generating onboarding dossier for <strong>{movingCandidate.name}</strong> ({movingCandidate.id})
+              </p>
+              <div className={styles.movingProgressText}>
+                <span className={styles.progressDot}></span>
+                <span>Preparing digital verification link & dispatching email...</span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>

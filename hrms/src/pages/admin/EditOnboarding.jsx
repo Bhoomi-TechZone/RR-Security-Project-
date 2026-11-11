@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import { useCompany } from '../../context/CompanyContext';
 import {
   getStoredOnboarding,
   updateOnboardingCandidate,
@@ -24,6 +25,7 @@ import {
   UNIFORM_TROUSER_SIZES,
   BOOT_SIZES
 } from '../../data/onboardingData';
+import onboardingService from '../../services/onboardingService';
 import { JOB_CATEGORIES } from '../../data/recruitmentData';
 import styles from './AddOnboarding.module.css';
 
@@ -37,6 +39,9 @@ const SHIFT_OPTIONS = [
 export default function EditOnboarding() {
   const { id } = useParams();
   const navigate = useNavigate();
+
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -71,9 +76,9 @@ export default function EditOnboarding() {
   });
 
   useEffect(() => {
-    const list = getStoredOnboarding();
-    const found = list.find((item) => item.id === id);
-    if (found) {
+    let isMounted = true;
+    const populate = (found) => {
+      if (!isMounted || !found) return;
       setCandidate(found);
       setFormData({
         id: found.id || id,
@@ -99,10 +104,22 @@ export default function EditOnboarding() {
         notes: found.notes || ''
       });
       setLoading(false);
-    } else {
-      setLoading(false);
-    }
-  }, [id]);
+    };
+
+    const list = getStoredOnboarding(currentCompanyId);
+    const cached = list.find((item) => item.id === id);
+    if (cached) populate(cached);
+
+    onboardingService.getOnboardingById(id, currentCompanyId)
+      .then((live) => {
+        if (live) populate(live);
+      })
+      .catch(() => {
+        if (!cached && isMounted) setLoading(false);
+      });
+
+    return () => { isMounted = false; };
+  }, [id, currentCompanyId]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -125,7 +142,7 @@ export default function EditOnboarding() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       showToast('Please fix highlighted errors before submitting.', 'error');
@@ -160,7 +177,7 @@ export default function EditOnboarding() {
         }
       };
 
-      updateOnboardingCandidate(id, updatedFields);
+      await updateOnboardingCandidate(id, updatedFields, currentCompanyId);
       showToast(`Onboarding record for "${formData.candidateName}" updated successfully!`, 'success');
       setTimeout(() => {
         navigate('/admin/onboarding');

@@ -264,6 +264,19 @@
   background-color: var(--danger-bg, #fef2f2);
 }
 
+.readOnlyInput {
+  background-color: var(--surface-alt, #f8fafc) !important;
+  color: var(--text-secondary, #64748b) !important;
+  cursor: not-allowed !important;
+  user-select: none;
+}
+
+.readOnlyInput::-webkit-calendar-picker-indicator {
+  cursor: not-allowed !important;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .errorText {
   font-size: var(--text-sm, 12px);
   color: var(--danger, #ef4444);

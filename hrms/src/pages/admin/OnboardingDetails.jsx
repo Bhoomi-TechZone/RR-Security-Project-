@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import { useCompany } from '../../context/CompanyContext';
 import {
   getStoredOnboarding,
   updateOnboardingCandidate,
@@ -38,6 +39,7 @@ import {
   BOOT_SIZES,
   ONBOARDING_STAGES
 } from '../../data/onboardingData';
+import onboardingService from '../../services/onboardingService';
 import styles from './OnboardingDetails.module.css';
 
 const formatINR = (val) => {
@@ -49,18 +51,28 @@ export default function OnboardingDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+
   const [candidate, setCandidate] = useState(null);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  const loadData = useCallback(() => {
-    const list = getStoredOnboarding();
+  const loadData = useCallback(async () => {
+    const list = getStoredOnboarding(currentCompanyId);
     const found = list.find((item) => item.id === id);
     if (found) {
       setCandidate(found);
     }
-  }, [id]);
+    try {
+      const live = await onboardingService.getOnboardingById(id, currentCompanyId);
+      if (live) {
+        setCandidate(live);
+      }
+    } catch (_) {}
+  }, [id, currentCompanyId]);
 
   useEffect(() => {
     loadData();
@@ -83,7 +95,7 @@ export default function OnboardingDetails() {
   }
 
   // Update a single document's status
-  const handleDocStatusChange = (docKey, newStatus) => {
+  const handleDocStatusChange = async (docKey, newStatus) => {
     const updatedDocs = {
       ...candidate.documents,
       [docKey]: {
@@ -91,30 +103,46 @@ export default function OnboardingDetails() {
         status: newStatus
       }
     };
-    updateOnboardingCandidate(candidate.id, { documents: updatedDocs });
-    setCandidate((prev) => ({ ...prev, documents: updatedDocs }));
-    showToast(`Updated ${docKey} verification status to ${newStatus}.`, 'success');
+    try {
+      await updateOnboardingCandidate(candidate.id, { documents: updatedDocs }, currentCompanyId);
+      setCandidate((prev) => ({ ...prev, documents: updatedDocs }));
+      showToast(`Updated ${docKey} verification status to ${newStatus}.`, 'success');
+    } catch (err) {
+      showToast('Failed to update document status', 'error');
+    }
   };
 
   // Update uniform sizing
-  const handleUniformChange = (field, value) => {
+  const handleUniformChange = async (field, value) => {
     const updatedKit = {
       ...candidate.uniformKit,
       [field]: value
     };
-    updateOnboardingCandidate(candidate.id, { uniformKit: updatedKit });
-    setCandidate((prev) => ({ ...prev, uniformKit: updatedKit }));
+    try {
+      await updateOnboardingCandidate(candidate.id, { uniformKit: updatedKit }, currentCompanyId);
+      setCandidate((prev) => ({ ...prev, uniformKit: updatedKit }));
+    } catch (err) {
+      showToast('Failed to update uniform kit', 'error');
+    }
   };
 
   // Convert to permanent Employee
-  const handleConvertEmployee = () => {
-    const generatedEmpCode = `RR-${Math.floor(100 + Math.random() * 900)}`;
-    const converted = convertToEmployee(candidate.id, generatedEmpCode);
-    setCandidate(converted);
-    showToast(
-      `Candidate successfully converted to permanent Employee record (${generatedEmpCode})!`,
-      'success'
-    );
+  const handleConvertEmployee = async () => {
+    try {
+      const res = await convertToEmployee(candidate.id, null, currentCompanyId);
+      const code = res?.employee?.employeeId || res?.employeeCode || 'RR-XXX';
+      if (res?.onboarding) {
+        setCandidate(res.onboarding);
+      } else {
+        await loadData();
+      }
+      showToast(
+        `Candidate successfully converted to permanent Employee record (${code})!`,
+        'success'
+      );
+    } catch (err) {
+      showToast(err.message || 'Failed to convert to employee', 'error');
+    }
   };
 
   const handleCopyLink = () => {
@@ -124,6 +152,22 @@ export default function OnboardingDetails() {
       showToast('✓ Candidate self-onboarding link copied to clipboard!', 'success');
     } else {
       showToast(`Link: ${link}`, 'info');
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!candidate.email) {
+      showToast('Candidate does not have an email address specified.', 'error');
+      return;
+    }
+    setIsSendingEmail(true);
+    try {
+      await onboardingService.sendOnboardingInvite(candidate.id, candidate.email, currentCompanyId);
+      showToast(`✓ Onboarding invitation email sent successfully to ${candidate.email}!`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to send invitation email', 'error');
+    } finally {
+      setIsSendingEmail(false);
     }
   };
 
@@ -238,6 +282,18 @@ export default function OnboardingDetails() {
             </div>
 
             <div className={styles.shareStripActions}>
+              <button
+                type="button"
+                className={styles.shareWhatsAppBtn}
+                onClick={handleSendEmail}
+                disabled={isSendingEmail}
+                title="Send official onboarding invitation email with link"
+                style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+              >
+                <Mail size={15} />
+                <span>{isSendingEmail ? 'Sending...' : 'Email Link'}</span>
+              </button>
+
               <button
                 type="button"
                 className={styles.shareWhatsAppBtn}
@@ -643,7 +699,7 @@ export default function OnboardingDetails() {
                     value={candidate.assignedClient || ''}
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { assignedClient: val });
+                      updateOnboardingCandidate(candidate.id, { assignedClient: val }, currentCompanyId);
                       setCandidate((p) => ({ ...p, assignedClient: val }));
                     }}
                   />
@@ -657,7 +713,7 @@ export default function OnboardingDetails() {
                     value={candidate.assignedSite || ''}
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { assignedSite: val });
+                      updateOnboardingCandidate(candidate.id, { assignedSite: val }, currentCompanyId);
                       setCandidate((p) => ({ ...p, assignedSite: val }));
                     }}
                   />
@@ -671,7 +727,7 @@ export default function OnboardingDetails() {
                     value={candidate.assignedShift || ''}
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { assignedShift: val });
+                      updateOnboardingCandidate(candidate.id, { assignedShift: val }, currentCompanyId);
                       setCandidate((p) => ({ ...p, assignedShift: val }));
                     }}
                   />
@@ -685,7 +741,7 @@ export default function OnboardingDetails() {
                     value={candidate.proposedJoiningDate || ''}
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { proposedJoiningDate: val });
+                      updateOnboardingCandidate(candidate.id, { proposedJoiningDate: val }, currentCompanyId);
                       setCandidate((p) => ({ ...p, proposedJoiningDate: val }));
                     }}
                   />

@@ -7,21 +7,22 @@ dotenv.config();
 /**
  * Dynamically resolves active SMTP configuration from MongoDB:
  * Checks in sequence:
- * 1. Explicit customConfig passed by caller
- * 2. Targeted company preferences (if configured with valid username & password)
- * 3. Master / Default Company preferences (isDefault: true or companyId: 'RRS8392014SEC' or code: 'RRS')
- * 4. Any company in the database that has configured email settings
- * 5. Fallback to process.env credentials
+ * Dynamically resolves active SMTP configuration from MongoDB strictly isolated to the specified company:
+ * 1. Explicit customConfig passed by caller (if valid for this company)
+ * 2. Targeted company preferences from MongoDB (Company.preferences.emailConfig)
+ * 
+ * Strict Company Isolation: Does NOT fallback to any hardcoded environment credentials or other companies.
  */
 export const getDynamicEmailConfig = async (companyId = null, customConfig = null) => {
   let config = null;
+  let targetCompanyName = '';
 
-  // 1. Explicit customConfig
+  // 1. Explicit customConfig passed for this company
   if (customConfig && customConfig.smtpUsername && customConfig.smtpPassword && !customConfig.smtpPassword.includes('•')) {
     config = { ...customConfig };
   }
 
-  // 2. Specific requested companyId
+  // 2. Query strictly for the requested isolated company
   if (!config && companyId) {
     try {
       const isObjectId = mongoose.isValidObjectId(companyId);
@@ -32,65 +33,34 @@ export const getDynamicEmailConfig = async (companyId = null, customConfig = nul
         ]
       }).lean();
 
-      const ec = company?.preferences?.emailConfig;
-      if (ec && ec.smtpUsername && ec.smtpPassword && !ec.smtpPassword.includes('•')) {
-        config = { ...ec };
+      if (company) {
+        targetCompanyName = company.name || company.companyName || '';
+        const ec = company?.preferences?.emailConfig;
+        if (ec && ec.smtpUsername && ec.smtpPassword && !ec.smtpPassword.includes('•')) {
+          config = { ...ec };
+        }
       }
     } catch (err) {
       console.warn('[EmailService] Could not fetch DB preferences for companyId:', err.message);
     }
   }
 
-  // 3. Fallback: Master Default Company (RR Security - isDefault: true / RRS8392014SEC / RRS)
-  if (!config) {
-    try {
-      const masterCompany = await Company.findOne({
-        $or: [
-          { isDefault: true },
-          { companyId: 'RRS8392014SEC' },
-          { code: 'RRS' }
-        ]
-      }).lean();
-
-      const ec = masterCompany?.preferences?.emailConfig;
-      if (ec && ec.smtpUsername && ec.smtpPassword && !ec.smtpPassword.includes('•')) {
-        config = { ...ec };
-      }
-    } catch (err) {
-      console.warn('[EmailService] Could not fetch DB preferences from master company:', err.message);
-    }
-  }
-
-  // 4. Fallback: Any configured company in MongoDB
-  if (!config) {
-    try {
-      const anyCompany = await Company.findOne({
-        'preferences.emailConfig.smtpUsername': { $exists: true, $ne: '' },
-        'preferences.emailConfig.smtpPassword': { $exists: true, $ne: '' }
-      }).lean();
-
-      const ec = anyCompany?.preferences?.emailConfig;
-      if (ec && ec.smtpUsername && ec.smtpPassword && !ec.smtpPassword.includes('•')) {
-        config = { ...ec };
-      }
-    } catch (err) {
-      console.warn('[EmailService] Could not query any configured company in DB:', err.message);
-    }
-  }
-
-  const host = (config?.smtpHost || process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-  const port = Number(config?.smtpPort || process.env.SMTP_PORT || 587);
+  const host = (config?.smtpHost || 'smtp.gmail.com').trim();
+  const port = Number(config?.smtpPort || 587);
   const encryption = (config?.encryption || 'TLS').toUpperCase();
-  // SSL uses secure: true (port 465); TLS / 587 uses secure: false
   const secure = port === 465 || (encryption === 'SSL' && port !== 587);
 
-  const user = (config?.smtpUsername || process.env.EMAIL || '').trim();
-  const pass = (config?.smtpPassword || process.env.PASSWORD || '').replace(/\s+/g, '');
-  const fromEmail = (config?.fromEmail || user || process.env.EMAIL || 'office.rrsf@gmail.com').trim();
-  const fromName = config?.fromName || 'RR Security & Facilities HRMS';
+  const user = (config?.smtpUsername || '').trim();
+  const pass = (config?.smtpPassword || '').replace(/\s+/g, '');
+  const fromEmail = (config?.fromEmail || user || '').trim();
+  const fromName = config?.fromName || targetCompanyName || 'Workforce Management HRMS';
   const replyTo = config?.replyToEmail || fromEmail;
 
+  const isConfigured = Boolean(user && pass && !pass.includes('•'));
+
   return {
+    companyId,
+    companyName: targetCompanyName,
     host,
     port,
     secure,
@@ -99,18 +69,19 @@ export const getDynamicEmailConfig = async (companyId = null, customConfig = nul
     fromEmail,
     fromName,
     replyTo,
-    isConfigured: Boolean(user && pass && !pass.includes('•'))
+    isConfigured
   };
 };
 
 /**
- * Configure Nodemailer Transporter dynamically from database configuration
+ * Configure Nodemailer Transporter dynamically from database configuration strictly per company
  */
 export const createTransporter = async (companyId = null, customConfig = null) => {
   const dynamicConfig = await getDynamicEmailConfig(companyId, customConfig);
 
   if (!dynamicConfig.isConfigured) {
-    throw new Error('SMTP credentials not configured in database Email Preferences (or .env).');
+    const compLabel = dynamicConfig.companyName ? `company "${dynamicConfig.companyName}" (${companyId})` : `company ID "${companyId || 'current'}"`;
+    throw new Error(`SMTP email credentials are not configured for ${compLabel}. Please configure Email Preferences for this company in Admin Settings.`);
   }
 
   const isGmail = dynamicConfig.host.toLowerCase().includes('gmail');
@@ -151,7 +122,7 @@ export const generateLicenseExpiryEmailTemplate = ({
   daysRemaining = 0,
   status = 'Expiring Soon',
   thresholdDays = 30,
-  clientUrl = process.env.CLIENT_URL || 'http://localhost:5173',
+  clientUrl = process.env.CLIENT_URL,
   companyName = 'RR Security & Facilities'
 }) => {
   const isExpired = Number(daysRemaining) < 0 || status === 'Expired';
@@ -159,16 +130,16 @@ export const generateLicenseExpiryEmailTemplate = ({
 
   const theme = isExpired
     ? {
-        primaryColor: '#dc2626',
-        badgeBg: '#fef2f2',
-        badgeColor: '#991b1b',
-        bannerGradient: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
-        statusHeading: '🚨 EXPIRED WORKFORCE CREDENTIAL',
-        statusSubtext: `Expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'} ago (${expiryDate})`,
-        actionNotice: 'IMMEDIATE ACTION REQUIRED: Duty replacement or immediate statutory renewal is mandated to maintain site compliance.'
-      }
+      primaryColor: '#dc2626',
+      badgeBg: '#fef2f2',
+      badgeColor: '#991b1b',
+      bannerGradient: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
+      statusHeading: '🚨 EXPIRED WORKFORCE CREDENTIAL',
+      statusSubtext: `Expired ${Math.abs(daysRemaining)} day${Math.abs(daysRemaining) === 1 ? '' : 's'} ago (${expiryDate})`,
+      actionNotice: 'IMMEDIATE ACTION REQUIRED: Duty replacement or immediate statutory renewal is mandated to maintain site compliance.'
+    }
     : isCritical
-    ? {
+      ? {
         primaryColor: '#ea580c',
         badgeBg: '#fff7ed',
         badgeColor: '#9a3412',
@@ -177,7 +148,7 @@ export const generateLicenseExpiryEmailTemplate = ({
         statusSubtext: `Expires in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} on ${expiryDate}`,
         actionNotice: 'URGENT: Initiate renewal documentation immediately to prevent guard de-allocation or deployment stoppage.'
       }
-    : {
+      : {
         primaryColor: '#2563eb',
         badgeBg: '#eff6ff',
         badgeColor: '#1e40af',
@@ -498,9 +469,9 @@ ASSOCIATED PERSONNEL:
 - Site / Deployment: ${siteLocation}
 
 ACTION MANDATE:
-${isExpired 
-  ? 'Immediate duty replacement or statutory renewal is mandated to prevent site compliance violation.' 
-  : 'Please initiate renewal documentation before the expiry date.'}
+${isExpired
+      ? 'Immediate duty replacement or statutory renewal is mandated to prevent site compliance violation.'
+      : 'Please initiate renewal documentation before the expiry date.'}
 
 Online Compliance Portal:
 ${clientUrl}/admin/document-compliance?tab=expiry-alert
@@ -529,7 +500,7 @@ export const sendLicenseExpiryEmailAlert = async ({
           $or: [{ companyId }, { _id: companyId.match(/^[0-9a-fA-F]{24}$/) ? companyId : null }]
         }).lean();
         senderEmail = comp?.preferences?.emailConfig?.fromEmail || comp?.preferences?.emailConfig?.smtpUsername || senderEmail;
-      } catch {}
+      } catch { }
     }
 
     const recipientEmail = to || senderEmail;
@@ -542,8 +513,8 @@ export const sendLicenseExpiryEmailAlert = async ({
     const subjectPrefix = isExpired
       ? 'Compliance Alert: License Expired'
       : isCritical
-      ? 'Urgent Notice: License Expiring Soon'
-      : 'Compliance Reminder: License Renewal';
+        ? 'Urgent Notice: License Expiring Soon'
+        : 'Compliance Reminder: License Renewal';
 
     const empName = employeeData?.name || 'Personnel';
     const empCode = employeeData?.employeeCode || employeeData?.employeeId || '';
@@ -2221,6 +2192,240 @@ This is an automated operational notice regarding your company workspace setup.
   }
 };
 
+/**
+ * ----------------------------------------------------------------------------
+ * ONBOARDING INVITATION & DOCUMENT VERIFICATION EMAIL TEMPLATE
+ * ----------------------------------------------------------------------------
+ */
+export const generateOnboardingInvitationEmailTemplate = ({
+  candidateName = 'Valued Candidate',
+  role = 'Workforce Personnel',
+  companyName = 'RR Security & Facilities',
+  onboardingUrl = 'http://localhost:5173/onboard',
+  joiningDate = 'Upcoming',
+  refId = '',
+  assignedClient = 'Client Post',
+  recipientEmail = ''
+}) => {
+  return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to ${companyName} - Onboarding</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; padding: 24px 12px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+          <!-- Header -->
+          <tr>
+            <td style="background-color: #0f172a; padding: 24px 32px;">
+              <h1 style="color: #ffffff; margin: 0; font-size: 20px; font-weight: bold; letter-spacing: -0.2px;">${companyName}</h1>
+              <p style="color: #94a3b8; margin: 4px 0 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Workforce Induction &amp; Document Verification</p>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 32px; color: #334155; font-size: 14px; line-height: 1.6;">
+              <p style="font-size: 16px; font-weight: bold; color: #0f172a; margin: 0 0 12px 0;">Dear ${candidateName},</p>
+              <p style="margin: 0 0 16px 0; color: #475569;">
+                Congratulations! You have been selected for the position of <strong>${role}</strong> at <strong>${companyName}</strong>.
+              </p>
+              <p style="margin: 0 0 24px 0; color: #475569;">
+                To finalize your official onboarding and prepare your uniform kit and duty assignment, please complete your document submission on our secure portal:
+              </p>
+
+              <!-- Details Table -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 24px;">
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Candidate Name:</td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; font-weight: bold;">${candidateName}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Designation / Role:</td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; font-weight: bold;">${role}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Reference ID:</td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #2563eb; font-size: 13px; font-weight: bold;">${refId || 'ONB'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 13px;">Proposed Joining:</td>
+                  <td style="padding: 10px 16px; border-bottom: 1px solid #e2e8f0; color: #059669; font-size: 13px; font-weight: bold;">${joiningDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 16px; color: #64748b; font-size: 13px;">Deployment Site:</td>
+                  <td style="padding: 10px 16px; color: #0f172a; font-size: 13px; font-weight: bold;">${assignedClient}</td>
+                </tr>
+              </table>
+
+              <!-- Steps Box -->
+              <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 16px 20px; margin-bottom: 28px;">
+                <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #1d4ed8;">Required Information to Upload:</p>
+                <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #1e40af; line-height: 1.5;">
+                  <li>Verify your personal details and residential address</li>
+                  <li>Select your uniform kit sizing (Shirt and Boot size)</li>
+                  <li>Upload clear photos of your Aadhaar Card, PAN Card, and Bank Passbook / Cheque</li>
+                </ul>
+              </div>
+
+              <!-- Button CTA -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0 16px 0;">
+                <tr>
+                  <td align="center">
+                    <table border="0" cellpadding="0" cellspacing="0" style="border-collapse: separate; border-radius: 6px; background-color: #2563eb;">
+                      <tr>
+                        <td align="center" valign="middle" style="background-color: #2563eb; border-radius: 6px; padding: 0;">
+                          <a href="${onboardingUrl}" target="_blank" rel="noopener noreferrer" style="background-color: #2563eb; color: #ffffff; display: inline-block; padding: 14px 32px; font-size: 15px; font-weight: bold; text-decoration: none; border-radius: 6px; border: 1px solid #1d4ed8; text-align: center;">
+                            Complete Digital Onboarding &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Expiry Alert Banner -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fffbeb; border: 1px solid #fef3c7; border-radius: 6px; margin: 16px 0 20px 0;">
+                <tr>
+                  <td style="padding: 12px 16px; color: #92400e; font-size: 12.5px; line-height: 1.5;">
+                    <strong style="color: #b45309;">&#9201; Security &amp; Expiration Notice:</strong> For personal data security, this onboarding link is strictly valid for <strong>24 hours</strong>. If it expires, please reach out to HR for a fresh verification link.
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size: 12px; color: #64748b; margin: 12px 0 6px 0; text-align: center;">If the button above does not open, copy and paste this link into your browser:</p>
+              <p style="font-size: 12px; color: #2563eb; margin: 0 0 20px 0; word-break: break-all; text-align: center;">
+                <a href="${onboardingUrl}" style="color: #2563eb; text-decoration: underline;">${onboardingUrl}</a>
+              </p>
+
+              <p style="font-size: 13px; color: #64748b; margin: 0; border-top: 1px solid #f1f5f9; padding-top: 16px;">
+                Please submit your documents within <strong>24 hours</strong> to confirm your uniform allocation and duty deployment.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 20px 32px; text-align: center; color: #94a3b8; font-size: 11.5px; line-height: 1.5;">
+              <p style="margin: 0 0 4px 0; color: #64748b; font-weight: bold;">${companyName} &bull; Human Resources Division</p>
+              <p style="margin: 0;">This official induction notification was sent to ${recipientEmail || 'you'} regarding your employment.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim();
+};
+
+export const sendOnboardingInvitationEmail = async ({
+  to,
+  candidateName = '',
+  role = 'Security Guard',
+  companyName = 'RR Security & Facilities',
+  onboardingUrl = 'http://localhost:5173/onboard',
+  joiningDate = 'Upcoming',
+  refId = '',
+  assignedClient = 'Main Site',
+  companyId = null,
+  customConfig = null
+}) => {
+  const toEmail = (to || '').trim();
+  if (!toEmail) {
+    console.warn('[EmailService] Cannot send onboarding invitation: recipient email is missing.');
+    return { success: false, error: 'Recipient email is missing on candidate profile' };
+  }
+
+  try {
+    const emailConfig = await getDynamicEmailConfig(companyId, customConfig);
+    if (!emailConfig.isConfigured) {
+      const compLabel = emailConfig.companyName || companyName || companyId || 'this company';
+      console.warn(`[EmailService] Strict company isolation: SMTP credentials are not configured for ${compLabel}.`);
+      return {
+        success: false,
+        error: `SMTP credentials are not configured for company "${compLabel}". Please configure Email Preferences in Admin Settings.`,
+        recipient: toEmail,
+        onboardingUrl
+      };
+    }
+
+    const transporter = await createTransporter(companyId, customConfig);
+    const authUser = (emailConfig.user || '').trim();
+    const senderEmail = (emailConfig.fromEmail || authUser).trim();
+    const senderName = emailConfig.fromName || companyName || 'Human Resources';
+    const emailDomain = (authUser.includes('@') ? authUser.split('@')[1] : senderEmail.includes('@') ? senderEmail.split('@')[1] : 'company.com').trim();
+
+    const htmlContent = generateOnboardingInvitationEmailTemplate({
+      candidateName,
+      role,
+      companyName: senderName,
+      onboardingUrl,
+      joiningDate,
+      refId,
+      assignedClient,
+      recipientEmail: toEmail
+    });
+
+    const plainText = `
+Dear ${candidateName},
+
+Congratulations! You have been selected for the position of ${role} at ${senderName}.
+
+To complete your official pre-joining onboarding and document verification, please visit the secure link below to upload your documents (Aadhaar, PAN, Bank Passbook) and select your uniform sizing:
+
+${onboardingUrl}
+
+Onboarding Reference ID: ${refId || 'ONB'}
+Proposed Joining Date: ${joiningDate}
+Assigned Location: ${assignedClient}
+
+Please complete this digital submission within 48 hours to confirm your uniform kit and duty assignment.
+
+Sincerely,
+Human Resources & Workforce Division
+${senderName}
+    `.trim();
+
+    // Clean, authentic employee onboarding subject line (anti-spam friendly)
+    const subject = `Welcome to ${senderName} - Onboarding & Document Verification for ${candidateName}`;
+
+    // Standard RFC-compliant unique Message-ID aligned with the sending domain (avoids direct-to-MX spam penalty)
+    const messageId = `<onb-${Date.now()}-${Math.random().toString(36).substring(2, 9)}@${emailDomain}>`;
+
+    const info = await transporter.sendMail({
+      from: `"${senderName}" <${senderEmail}>`,
+      to: toEmail,
+      replyTo: emailConfig.replyTo || senderEmail,
+      subject,
+      text: plainText,
+      html: htmlContent,
+      messageId,
+      date: new Date(),
+      envelope: {
+        from: authUser || senderEmail,
+        to: toEmail
+      }
+    });
+
+    console.log(`[EmailService] Dynamic onboarding invitation successfully delivered to ${toEmail} from ${senderEmail}. MessageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId, recipient: toEmail, sender: senderEmail };
+  } catch (error) {
+    console.error(`[EmailService] Error sending onboarding invitation email for company [${companyId || 'default'}]:`, error.message);
+    return {
+      success: false,
+      error: error.message,
+      recipient: toEmail,
+      onboardingUrl
+    };
+  }
+};
+
 export default {
   generateLicenseExpiryEmailTemplate,
   generateLicenseExpiryPlainTextTemplate,
@@ -2235,6 +2440,8 @@ export default {
   generatePasswordResetPlainTextTemplate,
   sendPasswordResetEmail,
   generateCompanyCredentialsEmailTemplate,
-  sendCompanyCredentialsEmail
+  sendCompanyCredentialsEmail,
+  generateOnboardingInvitationEmailTemplate,
+  sendOnboardingInvitationEmail
 };
 

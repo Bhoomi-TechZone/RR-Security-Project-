@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   UserCheck,
@@ -15,14 +15,19 @@ import {
   ShieldCheck,
   Phone,
   MessageCircle,
+  Mail,
   Edit2,
   Trash2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import { useCompany } from '../../context/CompanyContext';
+import masterService from '../../services/masterService';
+import onboardingService from '../../services/onboardingService';
 import {
   getStoredOnboarding,
+  fetchCompanyOnboarding,
   convertToEmployee,
   deleteOnboardingCandidate,
   ONBOARDING_STAGES
@@ -39,7 +44,11 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+
   const [onboardingList, setOnboardingList] = useState([]);
+  const [categoriesList, setCategoriesList] = useState(JOB_CATEGORIES);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedStage, setSelectedStage] = useState(() => searchParams.get('stage') || 'all');
@@ -48,20 +57,76 @@ export default function Onboarding() {
   // Delete modal state
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, candidate: null });
 
+  const [isLoading, setIsLoading] = useState(false);
+  const isFetchingRef = useRef(false);
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  const loadData = useCallback(() => {
-    const list = getStoredOnboarding();
-    setOnboardingList(list);
-  }, []);
+  const loadData = useCallback(async () => {
+    if (!currentCompanyId || isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    const cached = getStoredOnboarding(currentCompanyId);
+    setOnboardingList(cached);
+    setIsLoading(true);
+    try {
+      const live = await fetchCompanyOnboarding(currentCompanyId);
+      if (Array.isArray(live)) {
+        setOnboardingList(live);
+      }
+    } catch (err) {
+      console.warn('Error loading live onboarding candidates:', err);
+    } finally {
+      setIsLoading(false);
+      isFetchingRef.current = false;
+    }
+  }, [currentCompanyId]);
 
   useEffect(() => {
     loadData();
 
-    const handleUpdate = () => loadData();
+    const handleUpdate = (e) => {
+      if (!e.detail?.companyId || e.detail.companyId === currentCompanyId) {
+        loadData();
+      }
+    };
     window.addEventListener('onboarding-data-updated', handleUpdate);
     return () => window.removeEventListener('onboarding-data-updated', handleUpdate);
-  }, [loadData]);
+  }, [loadData, currentCompanyId]);
+
+  // Dynamically load company job categories from MongoDB
+  useEffect(() => {
+    let isMounted = true;
+    masterService.getMasters('job-categories', currentCompanyId, true)
+      .then((masters) => {
+        if (isMounted && Array.isArray(masters) && masters.length > 0) {
+          const names = masters
+            .filter((m) => !m.status || m.status.toLowerCase() === 'active')
+            .map((m) => m.name || m);
+          if (names.length > 0) setCategoriesList(names);
+        }
+      })
+      .catch(() => {});
+
+    const handleCatsUpdated = () => {
+      masterService.getMasters('job-categories', currentCompanyId, true)
+        .then((masters) => {
+          if (isMounted && Array.isArray(masters) && masters.length > 0) {
+            const names = masters
+              .filter((m) => !m.status || m.status.toLowerCase() === 'active')
+              .map((m) => m.name || m);
+            if (names.length > 0) setCategoriesList(names);
+          }
+        })
+        .catch(() => {});
+    };
+
+    window.addEventListener('job-categories-updated', handleCatsUpdated);
+    window.addEventListener('masters-updated', handleCatsUpdated);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('job-categories-updated', handleCatsUpdated);
+      window.removeEventListener('masters-updated', handleCatsUpdated);
+    };
+  }, [currentCompanyId]);
 
   // Sync tab with URL
   useEffect(() => {
@@ -81,22 +146,47 @@ export default function Onboarding() {
     }
   };
 
-  const handleDirectConvert = (item) => {
-    const generatedEmpCode = `RR-${Math.floor(200 + Math.random() * 700)}`;
-    convertToEmployee(item.id, generatedEmpCode);
-    showToast(
-      `Congratulations! ${item.candidateName} is now officially converted to Employee (${generatedEmpCode})!`,
-      'success'
-    );
-    loadData();
+  const handleDirectConvert = async (item) => {
+    try {
+      const res = await convertToEmployee(item.id, null, currentCompanyId);
+      const code = res?.employee?.employeeId || res?.employeeCode || 'RR-XXX';
+      showToast(
+        `Congratulations! ${item.candidateName} is now officially converted to Employee (${code})!`,
+        'success'
+      );
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to convert to employee', 'error');
+    }
   };
 
-  const handleConfirmDelete = () => {
+  const handleConfirmDelete = async () => {
     if (!deleteModal.candidate) return;
-    deleteOnboardingCandidate(deleteModal.candidate.id);
-    showToast(`Candidate ${deleteModal.candidate.candidateName} removed from onboarding pipeline.`, 'success');
-    setDeleteModal({ isOpen: false, candidate: null });
-    loadData();
+    try {
+      await deleteOnboardingCandidate(deleteModal.candidate.id, currentCompanyId);
+      showToast(`Candidate ${deleteModal.candidate.candidateName} removed from onboarding pipeline.`, 'success');
+      setDeleteModal({ isOpen: false, candidate: null });
+      await loadData();
+    } catch (err) {
+      showToast(err.message || 'Failed to remove candidate', 'error');
+    }
+  };
+
+  const [sendingEmailId, setSendingEmailId] = useState(null);
+  const handleSendEmailInvite = async (item) => {
+    if (!item.email) {
+      showToast('Candidate does not have an email address specified.', 'error');
+      return;
+    }
+    setSendingEmailId(item.id);
+    try {
+      await onboardingService.sendOnboardingInvite(item.id, item.email, currentCompanyId);
+      showToast(`✓ Onboarding invitation email sent to ${item.email}!`, 'success');
+    } catch (err) {
+      showToast(err.message || 'Failed to send invitation email', 'error');
+    } finally {
+      setSendingEmailId(null);
+    }
   };
 
   // KPI Metrics Calculation
@@ -297,7 +387,7 @@ export default function Onboarding() {
               onChange={(e) => setSelectedCategory(e.target.value)}
             >
               <option value="all">All Job Categories</option>
-              {JOB_CATEGORIES.map((cat) => (
+              {categoriesList.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>
@@ -420,9 +510,33 @@ export default function Onboarding() {
                                 </a>
                               )}
                             </div>
-                            <span style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>
-                              {item.email || '—'}
-                            </span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5 }}>
+                              <span style={{ color: 'var(--text-muted)' }}>{item.email || '—'}</span>
+                              {item.email && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendEmailInvite(item)}
+                                  disabled={sendingEmailId === item.id}
+                                  title="Send / Resend Onboarding Invitation Email with Verification Link"
+                                  style={{
+                                    background: '#eff6ff',
+                                    border: '1px solid #bfdbfe',
+                                    color: '#2563eb',
+                                    borderRadius: 4,
+                                    padding: '1px 6px',
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 3
+                                  }}
+                                >
+                                  <Mail size={10} />
+                                  <span>{sendingEmailId === item.id ? 'Sending...' : 'Invite'}</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </td>
 
@@ -452,17 +566,28 @@ export default function Onboarding() {
 
                         {/* Documents Status */}
                         <td>
-                          <span
-                            className={styles.progressPill}
-                            style={{
-                              background: isAllDocsVerified ? '#ecfdf5' : '#fefce8',
-                              color: isAllDocsVerified ? '#059669' : '#854d0e',
-                              border: `1px solid ${isAllDocsVerified ? '#a7f3d0' : '#fef08a'}`
-                            }}
-                          >
-                            <FileCheck2 size={13} />
-                            {verifiedCount} of {docKeys.length} Verified
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <span
+                              className={styles.progressPill}
+                              style={{
+                                background: isAllDocsVerified ? '#ecfdf5' : '#fefce8',
+                                color: isAllDocsVerified ? '#059669' : '#854d0e',
+                                border: `1px solid ${isAllDocsVerified ? '#a7f3d0' : '#fef08a'}`
+                              }}
+                            >
+                              <FileCheck2 size={13} />
+                              {verifiedCount} of {docKeys.length} Verified
+                            </span>
+                            {item.selfSubmitted ? (
+                              <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <CheckCircle2 size={12} /> Docs Uploaded by Candidate
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: 11, color: '#64748b', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                <Clock size={12} /> Awaiting Candidate Submission
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Uniform Kit */}

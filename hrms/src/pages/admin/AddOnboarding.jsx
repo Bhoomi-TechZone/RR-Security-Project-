@@ -11,8 +11,10 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import { useCompany } from '../../context/CompanyContext';
 import {
   getStoredCandidates,
+  fetchCompanyCandidates,
   updateCandidateStatus,
   JOB_CATEGORIES
 } from '../../data/recruitmentData';
@@ -34,7 +36,10 @@ const SHIFT_OPTIONS = [
 
 export default function AddOnboarding() {
   const navigate = useNavigate();
-  const autoOnboardingId = useMemo(() => generateNextOnboardingId(), []);
+
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const autoOnboardingId = useMemo(() => generateNextOnboardingId(currentCompanyId), [currentCompanyId]);
 
   const [candidates, setCandidates] = useState([]);
   const [selectedCandidateId, setSelectedCandidateId] = useState('');
@@ -46,10 +51,19 @@ export default function AddOnboarding() {
 
   // Load candidates eligible for onboarding (selected or applied)
   useEffect(() => {
-    const list = getStoredCandidates();
+    let isMounted = true;
+    const list = getStoredCandidates(currentCompanyId);
     const eligible = list.filter((c) => c.status === 'selected' || c.status === 'applied');
     setCandidates(eligible);
-  }, []);
+
+    fetchCompanyCandidates(currentCompanyId).then((live) => {
+      if (isMounted && Array.isArray(live)) {
+        setCandidates(live.filter((c) => c.status === 'selected' || c.status === 'applied'));
+      }
+    }).catch(() => {});
+
+    return () => { isMounted = false; };
+  }, [currentCompanyId]);
 
   const [formData, setFormData] = useState({
     id: autoOnboardingId,
@@ -133,7 +147,7 @@ export default function AddOnboarding() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       showToast('Please fix highlighted errors before submitting.', 'error');
@@ -142,11 +156,11 @@ export default function AddOnboarding() {
 
     setIsSubmitting(true);
     try {
-      const created = addOnboardingCandidate(formData);
+      const created = await addOnboardingCandidate({ ...formData, companyId: currentCompanyId }, currentCompanyId);
 
       // If imported from recruitment, update status in recruitment
       if (selectedCandidateId) {
-        updateCandidateStatus(selectedCandidateId, 'moved_to_onboarding');
+        await updateCandidateStatus(selectedCandidateId, 'moved_to_onboarding', currentCompanyId);
       }
 
       showToast(`Candidate "${created.candidateName}" added to Onboarding!`, 'success');

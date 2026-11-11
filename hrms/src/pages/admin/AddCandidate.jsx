@@ -13,6 +13,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import masterService from '../../services/masterService';
+import candidateService from '../../services/candidateService';
 import {
   generateNextCandidateId,
   addCandidate,
@@ -80,10 +81,11 @@ export default function AddCandidate() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const autoCandidateId = useMemo(() => generateNextCandidateId(), []);
 
   const { activeCompany } = useCompany();
-  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'comp_rr_security';
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const autoCandidateId = useMemo(() => generateNextCandidateId(currentCompanyId), [currentCompanyId]);
+
   const [availableCategories, setAvailableCategories] = useState(DEFAULT_JOB_CATEGORIES);
 
   // Multi-select dropdown state for Job Category
@@ -212,7 +214,7 @@ export default function AddCandidate() {
               }
             }
           }
-        } catch (e) {}
+        } catch (e) { }
         setAvailableCategories(DEFAULT_JOB_CATEGORIES);
       }
     };
@@ -242,48 +244,80 @@ export default function AddCandidate() {
   }, [isCategoryDropdownOpen]);
 
   useEffect(() => {
-    if (isEdit) {
-      const candidates = getStoredCandidates();
-      const existing = candidates.find((c) => c.id === id);
-      if (existing) {
-        setFormData({
-          id: existing.id || id,
-          name: existing.name || '',
-          mobile: existing.mobile || '',
-          altMobile: existing.altMobile || '',
-          whatsapp: existing.whatsapp || '',
-          email: existing.email || '',
-          address: existing.address || '',
-          city: existing.city || 'Noida',
-          state: existing.state || 'Uttar Pradesh',
-          jobCategory: parseJobCategories(existing.jobCategory || existing.jobCategories),
-          appliedFor: existing.appliedFor || 'Security Guard',
-          experience: existing.experience || 'Experienced',
-          totalExperienceYears: existing.totalExperienceYears !== undefined ? existing.totalExperienceYears : 2,
-          lastCompany: existing.lastCompany || '',
-          lastSalary: existing.lastSalary !== undefined ? existing.lastSalary : '',
-          expectedSalary: existing.expectedSalary !== undefined ? existing.expectedSalary : '',
-          minExpectedSalary: existing.minExpectedSalary !== undefined ? existing.minExpectedSalary : '',
-          maxExpectedSalary: existing.maxExpectedSalary !== undefined ? existing.maxExpectedSalary : '',
-          preferredLocation: existing.preferredLocation || '',
-          photo: existing.photo || '',
-          photoName: existing.photoName || '',
-          resumeUrl: existing.resumeUrl || '',
-          resumeName: existing.resumeName || existing.resumeUrl || '',
-          resumeSize: existing.resumeSize || '',
-          skills: Array.isArray(existing.skills) ? existing.skills : [],
-          customSkill: '',
-          source: existing.source || 'Walk-in',
-          registrationDate: existing.registrationDate || new Date().toISOString().split('T')[0],
-          status: existing.status || 'applied',
-          remarks: existing.remarks || ''
-        });
-      } else {
-        showToast(`Candidate "${id}" not found`, 'error');
-        setTimeout(() => navigate('/admin/recruitment'), 1500);
+    let isMounted = true;
+    if (!isEdit) {
+      if (autoCandidateId) {
+        setFormData((prev) => ({ ...prev, id: autoCandidateId }));
       }
+      candidateService.getNextCandidateId(currentCompanyId)
+        .then((dbNextId) => {
+          if (isMounted && dbNextId) {
+            setFormData((prev) => ({ ...prev, id: dbNextId }));
+          }
+        })
+        .catch(() => {});
     }
-  }, [id, isEdit, navigate]);
+    return () => { isMounted = false; };
+  }, [autoCandidateId, isEdit, currentCompanyId]);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (isEdit) {
+      const candidates = getStoredCandidates(currentCompanyId);
+      const existing = candidates.find((c) => c.id === id);
+      const populate = (data) => {
+        if (!isMounted || !data) return;
+        setFormData({
+          id: data.id || id,
+          name: data.name || '',
+          mobile: data.mobile || '',
+          altMobile: data.altMobile || '',
+          whatsapp: data.whatsapp || '',
+          email: data.email || '',
+          address: data.address || '',
+          city: data.city || 'Noida',
+          state: data.state || 'Uttar Pradesh',
+          jobCategory: parseJobCategories(data.jobCategory || data.jobCategories),
+          appliedFor: data.appliedFor || 'Security Guard',
+          experience: data.experience || 'Experienced',
+          totalExperienceYears: data.totalExperienceYears !== undefined ? data.totalExperienceYears : 2,
+          lastCompany: data.lastCompany || '',
+          lastSalary: data.lastSalary !== undefined ? data.lastSalary : '',
+          expectedSalary: data.expectedSalary !== undefined ? data.expectedSalary : '',
+          minExpectedSalary: data.minExpectedSalary !== undefined ? data.minExpectedSalary : '',
+          maxExpectedSalary: data.maxExpectedSalary !== undefined ? data.maxExpectedSalary : '',
+          preferredLocation: data.preferredLocation || '',
+          photo: data.photo || '',
+          photoName: data.photoName || '',
+          resumeUrl: data.resumeUrl || '',
+          resumeName: data.resumeName || data.resumeUrl || '',
+          resumeSize: data.resumeSize || '',
+          skills: Array.isArray(data.skills) ? data.skills : [],
+          customSkill: '',
+          source: data.source || 'Walk-in',
+          registrationDate: data.registrationDate || new Date().toISOString().split('T')[0],
+          status: data.status || 'applied',
+          remarks: data.remarks || ''
+        });
+      };
+
+      if (existing) {
+        populate(existing);
+      }
+
+      candidateService.getCandidateById(id, currentCompanyId)
+        .then((live) => {
+          if (live) populate(live);
+        })
+        .catch(() => {
+          if (!existing) {
+            showToast(`Candidate "${id}" not found`, 'error');
+            setTimeout(() => navigate('/admin/recruitment'), 1500);
+          }
+        });
+    }
+    return () => { isMounted = false; };
+  }, [id, isEdit, currentCompanyId, navigate]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -415,7 +449,7 @@ export default function AddCandidate() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       showToast('Please fill out all mandatory fields.', 'error');
@@ -431,6 +465,9 @@ export default function AddCandidate() {
 
     const payload = {
       id: formData.id,
+      candidateId: formData.id,
+      companyId: currentCompanyId,
+      companyName: activeCompany?.name || activeCompany?.companyName || '',
       name: formData.name.trim(),
       mobile: formData.mobile.trim(),
       altMobile: formData.altMobile.trim(),
@@ -456,7 +493,9 @@ export default function AddCandidate() {
 
       skills: formData.skills,
       photo: formData.photo,
+      photoName: formData.photoName || '',
       resumeUrl: formData.resumeName || formData.resumeUrl || '',
+      resumeName: formData.resumeName || '',
       resumeSize: formData.resumeSize || '',
       source: formData.source,
       registrationDate: formData.registrationDate,
@@ -468,14 +507,14 @@ export default function AddCandidate() {
 
     try {
       if (isEdit) {
-        const updated = updateCandidate(id, payload);
+        const updated = await updateCandidate(id, payload, currentCompanyId);
         showToast(`Candidate "${updated?.name || payload.name}" updated successfully!`, 'success');
         setTimeout(() => {
           navigate('/admin/recruitment');
         }, 700);
         return;
       }
-      const created = addCandidate(payload);
+      const created = await addCandidate(payload, currentCompanyId);
       showToast(`Candidate "${created.name}" (${created.id}) added successfully!`, 'success');
       setTimeout(() => {
         navigate(`/admin/recruitment/${created.id}`);
@@ -545,7 +584,7 @@ export default function AddCandidate() {
             {/* Form Wrapped in AllSectionsWrapper (3 Grouped Cards) */}
             <form onSubmit={handleSubmit} style={{ width: '100%' }}>
               <div className={styles.allSectionsWrapper}>
-                
+
                 {/* ========================================================
                     CARD 1: Basic Info (Combines Step 1 & Step 2)
                     ======================================================== */}
@@ -598,7 +637,7 @@ export default function AddCandidate() {
                       {errors.name && <span className={styles.errorText}>{errors.name}</span>}
                     </div>
 
-                    {/* Field: Registration Date (Auto Date) */}
+                    {/* Field: Registration Date (Auto Date - Non-editable) */}
                     <div className={styles.formGroup}>
                       <label htmlFor="registrationDate" className={styles.label}>
                         Registration Date
@@ -606,11 +645,22 @@ export default function AddCandidate() {
                       <input
                         id="registrationDate"
                         name="registrationDate"
-                        type="date"
-                        className={styles.input}
+                        type="text"
+                        className={`${styles.input} ${styles.readOnlyInput}`}
+                        style={{
+                          backgroundColor: 'var(--surface-alt, #f8fafc)',
+                          cursor: 'not-allowed',
+                          color: 'var(--text-secondary, #64748b)',
+                          fontWeight: 500
+                        }}
                         value={formData.registrationDate}
-                        onChange={handleChange}
+                        readOnly
+                        disabled
+                        tabIndex={-1}
                       />
+                      <span className={styles.fieldHint}>
+                        Auto-generated registration date.
+                      </span>
                     </div>
 
                     {/* Field: Job Category (Multi-Select Dropdown) */}
@@ -768,7 +818,7 @@ export default function AddCandidate() {
                                         type="checkbox"
                                         className={styles.dropdownCheckbox}
                                         checked={isChecked}
-                                        onChange={() => {}}
+                                        onChange={() => { }}
                                         onClick={(e) => e.stopPropagation()}
                                         onChangeCapture={() => handleCategoryToggle(cat)}
                                       />
