@@ -32,6 +32,8 @@ import overtimeRoutes from './routes/overtimeRoutes.js';
 import complianceRoutes from './routes/complianceRoutes.js';
 import letterRoutes from './routes/letterRoutes.js';
 import transferRoutes from './routes/transferRoutes.js';
+import candidateRoutes from './routes/candidateRoutes.js';
+import onboardingRoutes from './routes/onboardingRoutes.js';
 
 // ===========================================
 // Load Environment Variables
@@ -245,6 +247,10 @@ app.use('/api/compliance', complianceRoutes);
 
 // Dynamic Letter Management (Appointment, Joining, Experience, F&F Letters & Templates)
 app.use('/api/letters', letterRoutes);
+
+// Talent & Recruitment Engine (Candidate Directory & Onboarding Pipeline Isolated per Company)
+app.use('/api/candidates', candidateRoutes);
+app.use('/api/onboarding', onboardingRoutes);
 
 
 // ===========================================

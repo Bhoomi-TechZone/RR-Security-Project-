@@ -17,15 +17,18 @@ import {
   Award,
   Sparkles,
   UserCheck,
-  Edit2
+  Edit2,
+  Loader2
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import { useCompany } from '../../context/CompanyContext';
 import {
   getStoredCandidates,
   updateCandidateStatus,
   CANDIDATE_STATUSES
 } from '../../data/recruitmentData';
+import candidateService from '../../services/candidateService';
 import { transferCandidateToOnboarding } from '../../data/onboardingData';
 import styles from './CandidateDetails.module.css';
 
@@ -38,19 +41,29 @@ export default function CandidateDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
+  const { activeCompany } = useCompany();
+  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+
   const [candidate, setCandidate] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'salary'
   const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [isMoving, setIsMoving] = useState(false);
 
   const showToast = (message, type = 'success') => setToast({ message, type });
 
-  const loadCandidate = useCallback(() => {
-    const list = getStoredCandidates();
+  const loadCandidate = useCallback(async () => {
+    const list = getStoredCandidates(currentCompanyId);
     const found = list.find((c) => c.id === id);
     if (found) {
       setCandidate(found);
     }
-  }, [id]);
+    try {
+      const live = await candidateService.getCandidateById(id, currentCompanyId);
+      if (live) {
+        setCandidate(live);
+      }
+    } catch (_) {}
+  }, [id, currentCompanyId]);
 
   useEffect(() => {
     loadCandidate();
@@ -62,7 +75,7 @@ export default function CandidateDetails() {
         <div className={styles.container}>
           <div style={{ padding: '60px 20px', textAlign: 'center' }}>
             <h2>Candidate Not Found</h2>
-            <p style={{ color: 'var(--text-secondary)' }}>The requested candidate record "{id}" does not exist.</p>
+            <p style={{ color: 'var(--text-secondary)' }}>The requested candidate record "{id}" does not exist for this company profile.</p>
             <Link to="/admin/recruitment" className={styles.secondaryActionBtn} style={{ marginTop: 16 }}>
               <ArrowLeft size={16} /> Back to Recruitment
             </Link>
@@ -73,30 +86,55 @@ export default function CandidateDetails() {
   }
 
   // Direct Status Update Handler
-  const handleStatusChange = (newStatus) => {
-    const updated = updateCandidateStatus(candidate.id, newStatus);
-    if (updated) {
-      setCandidate(updated);
-      const label = CANDIDATE_STATUSES.find((s) => s.id === newStatus)?.label || newStatus;
-      showToast(`Candidate status updated to "${label}"`, 'success');
+  const handleStatusChange = async (newStatus) => {
+    try {
+      if (newStatus === 'moved_to_onboarding') {
+        await handleMoveToOnboard();
+        return;
+      }
+      const updated = await updateCandidateStatus(candidate.id, newStatus, currentCompanyId);
+      if (updated) {
+        setCandidate(updated);
+        const label = CANDIDATE_STATUSES.find((s) => s.id === newStatus)?.label || newStatus;
+        showToast(`Candidate status updated to "${label}"`, 'success');
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to update status', 'error');
     }
   };
 
   // Move to Onboarding
-  const handleMoveToOnboard = () => {
+  const handleMoveToOnboard = async () => {
     try {
-      transferCandidateToOnboarding(candidate, {
-        offeredSalary: candidate.expectedSalary,
-        offeredDesignation: candidate.appliedFor
-      });
-      const updated = updateCandidateStatus(candidate.id, 'moved_to_onboarding');
+      setIsMoving(true);
+      const liveOnboarding = await transferCandidateToOnboarding(
+        candidate,
+        {
+          offeredSalary: candidate.expectedSalary,
+          offeredDesignation: candidate.appliedFor
+        },
+        currentCompanyId
+      );
+      const updated = await updateCandidateStatus(candidate.id, 'moved_to_onboarding', currentCompanyId);
       if (updated) setCandidate(updated);
-      showToast(`${candidate.name} has been processed for Onboarding!`, 'success');
+
+      const meta = liveOnboarding?._meta;
+      const candidateEmail = (candidate.email || liveOnboarding?.email || '').trim();
+
+      if (meta?.emailSent) {
+        showToast(`✓ ${candidate.name} moved to Onboarding! Document verification email sent to ${candidateEmail}.`, 'success');
+      } else if (!candidateEmail) {
+        showToast(`${candidate.name} moved to Onboarding. (Notice: No email address on candidate profile)`, 'info');
+      } else {
+        showToast(`${candidate.name} moved to Onboarding. (Email notice: ${meta?.emailError || 'Configure SMTP in Company Preferences'})`, 'warning');
+      }
+
       setTimeout(() => {
         navigate('/admin/onboarding');
-      }, 800);
+      }, 750);
     } catch (err) {
-      showToast('Failed to transfer candidate to onboarding', 'error');
+      showToast(err.message || 'Failed to transfer candidate to onboarding', 'error');
+      setIsMoving(false);
     }
   };
 
@@ -219,9 +257,22 @@ export default function CandidateDetails() {
             <div className={styles.heroRight}>
               {/* If status is selected, allow 1-click move to onboard */}
               {isSelected && (
-                <button className={styles.primaryActionBtn} onClick={handleMoveToOnboard}>
-                  <Sparkles size={16} />
-                  Move to Onboarding
+                <button
+                  className={styles.primaryActionBtn}
+                  onClick={handleMoveToOnboard}
+                  disabled={isMoving}
+                >
+                  {isMoving ? (
+                    <>
+                      <Loader2 size={16} className={styles.spinner} />
+                      <span>Moving to Onboarding...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={16} />
+                      <span>Move to Onboarding</span>
+                    </>
+                  )}
                 </button>
               )}
 
@@ -539,9 +590,22 @@ export default function CandidateDetails() {
                   </p>
                 </div>
                 {isSelected && (
-                  <button className={styles.primaryActionBtn} onClick={handleMoveToOnboard}>
-                    <Sparkles size={16} />
-                    Move to Onboarding
+                  <button
+                    className={styles.primaryActionBtn}
+                    onClick={handleMoveToOnboard}
+                    disabled={isMoving}
+                  >
+                    {isMoving ? (
+                      <>
+                        <Loader2 size={16} className={styles.spinner} />
+                        <span>Moving to Onboarding...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={16} />
+                        <span>Move to Onboarding</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -556,6 +620,26 @@ export default function CandidateDetails() {
             type={toast.type}
             onClose={() => setToast({ message: '', type: 'success' })}
           />
+        )}
+
+        {/* Professional Moving-to-Onboarding Overlay */}
+        {isMoving && candidate && (
+          <div className={styles.movingOverlay}>
+            <div className={styles.movingCard}>
+              <div className={styles.spinnerWrapper}>
+                <div className={styles.pulseRing}></div>
+                <Loader2 className={styles.largeSpinner} size={36} />
+              </div>
+              <h3 className={styles.movingTitle}>Transferring to Onboarding</h3>
+              <p className={styles.movingSubtitle}>
+                Generating onboarding dossier for <strong>{candidate.name}</strong> ({candidate.id})
+              </p>
+              <div className={styles.movingProgressText}>
+                <span className={styles.progressDot}></span>
+                <span>Preparing digital verification form & dispatching email...</span>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </AdminLayout>

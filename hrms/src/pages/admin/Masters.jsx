@@ -234,16 +234,7 @@ function Masters() {
   const [documentTypes, setDocumentTypes] = useState([]);
   // Client Services Master Data State (Dynamic from MongoDB)
   const [clientServices, setClientServices] = useState([]);
-  const [jobCategories, setJobCategories] = useState(() => {
-    const saved = localStorage.getItem(`novaspark_job_categories_${companyId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch (e) {}
-    }
-    return getInitialJobCategories();
-  });
+  const [jobCategories, setJobCategories] = useState([]);
   // Clients & Work Locations for Masters Lookups (Loaded dynamically from API)
   const [clients, setClients] = useState(() => {
     const saved = localStorage.getItem(`novaspark_clients_${companyId}`);
@@ -352,30 +343,8 @@ function Masters() {
     setError(null);
     try {
       if (tab === 'job-categories') {
-        try {
-          const data = await masterService.getMasters('job-categories', companyId, true);
-          if (Array.isArray(data) && data.length > 0) {
-            setJobCategories(data);
-          } else {
-            const saved = localStorage.getItem(`novaspark_job_categories_${companyId}`);
-            if (saved) {
-              setJobCategories(JSON.parse(saved));
-            } else {
-              const initial = getInitialJobCategories();
-              setJobCategories(initial);
-              localStorage.setItem(`novaspark_job_categories_${companyId}`, JSON.stringify(initial));
-            }
-          }
-        } catch {
-          const saved = localStorage.getItem(`novaspark_job_categories_${companyId}`);
-          if (saved) {
-            setJobCategories(JSON.parse(saved));
-          } else {
-            const initial = getInitialJobCategories();
-            setJobCategories(initial);
-            localStorage.setItem(`novaspark_job_categories_${companyId}`, JSON.stringify(initial));
-          }
-        }
+        const data = await masterService.getMasters('job-categories', companyId, true);
+        setJobCategories(Array.isArray(data) ? data : []);
       } else if (tab === 'client-services' || tab === 'clients') {
         const data = await masterService.getMasters('client-services', companyId, true);
         const list = Array.isArray(data) ? data : [];

@@ -9,6 +9,7 @@ import {
   Camera,
   CheckCircle2,
   AlertCircle,
+  Clock,
   Upload,
   Phone,
   Building2,
@@ -24,6 +25,8 @@ import {
   UNIFORM_SHIRT_SIZES,
   BOOT_SIZES
 } from '../../data/onboardingData';
+import { getStoredCandidates } from '../../data/recruitmentData';
+import onboardingService from '../../services/onboardingService';
 import styles from './CandidateSelfOnboard.module.css';
 
 const GENDERS = ['Male', 'Female', 'Other'];
@@ -35,6 +38,8 @@ export default function CandidateSelfOnboard() {
   const [candidate, setCandidate] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmittedSuccess, setIsSubmittedSuccess] = useState(false);
+  const [isExpired, setIsExpired] = useState(false);
+  const [expiredInfo, setExpiredInfo] = useState({ candidateName: '', id: '' });
   const [errors, setErrors] = useState({});
 
   // Clean, focused 2-section state
@@ -73,43 +78,111 @@ export default function CandidateSelfOnboard() {
       setLoading(false);
       return;
     }
-    const found = getOnboardingCandidateById(id);
-    if (found) {
-      setCandidate(found);
-      setFormData((prev) => ({
-        ...prev,
-        name: found.candidateName || found.name || '',
-        fatherHusbandName: found.fatherHusbandName || found.fatherName || '',
-        dob: found.dob || '',
-        gender: found.gender || 'Male',
-        mobile: found.mobile || '',
-        presentAddress: found.presentAddress || found.address || '',
 
-        aadhaar: found.aadhaar || found.documents?.aadhaar?.number || '',
-        aadhaarFrontPhoto: found.documents?.aadhaar?.photoFront || '',
-        aadhaarBackPhoto: found.documents?.aadhaar?.photoBack || '',
-        pan: found.pan || found.documents?.pan?.number || '',
-        panPhoto: found.documents?.pan?.photo || '',
-
-        bankName: found.bankName || found.documents?.bankProof?.bankName || '',
-        accountNumber: found.accountNumber || found.documents?.bankProof?.accountNumber || '',
-        confirmAccountNumber: found.accountNumber || found.documents?.bankProof?.accountNumber || '',
-        ifsc: found.ifsc || found.documents?.bankProof?.ifsc || '',
-        bankPassbookPhoto: found.documents?.bankProof?.photo || '',
-
-        employeePhoto: found.employeePhoto || found.photo || '',
-        policeRefNo: found.documents?.policeVerification?.refNo || '',
-        policeSlipPhoto: found.documents?.policeVerification?.photo || '',
-
-        shirtSize: found.uniformKit?.shirtSize || 'M (40)',
-        bootSize: found.uniformKit?.bootSize || '8'
-      }));
-
-      if (found.selfSubmitted) {
-        setIsSubmittedSuccess(true);
+    let isMounted = true;
+    const loadCandidateData = async () => {
+      let found = null;
+      try {
+        const live = await onboardingService.getPublicOnboardingById(id);
+        if (live) found = live;
+      } catch (err) {
+        if (err.expired) {
+          if (isMounted) {
+            setIsExpired(true);
+            setExpiredInfo({
+              candidateName: err.candidateName || '',
+              id: err.id || id
+            });
+            setLoading(false);
+          }
+          return;
+        }
+        // Fallback to local cache if offline or backend route unavailable
       }
-    }
-    setLoading(false);
+
+      if (!found) {
+        found = getOnboardingCandidateById(id);
+      }
+
+      if (found?.linkExpiresAt && new Date() > new Date(found.linkExpiresAt)) {
+        if (isMounted) {
+          setIsExpired(true);
+          setExpiredInfo({
+            candidateName: found.candidateName || found.name || '',
+            id: found.id || id
+          });
+          setLoading(false);
+        }
+        return;
+      }
+
+      if (found && isMounted) {
+        // Format address from candidate registration if presentAddress is not yet set
+        let resolvedAddress = found.presentAddress || found.address || '';
+        if (!resolvedAddress) {
+          try {
+            const candidates = getStoredCandidates();
+            const cand = candidates.find(
+              (c) => c.id === found.candidateId || c.name === (found.candidateName || found.name)
+            );
+            if (cand) {
+              resolvedAddress =
+                cand.presentAddress ||
+                [cand.address, cand.city, cand.state ? `${cand.state}${cand.pincode ? ` - ${cand.pincode}` : ''}` : '']
+                  .filter(Boolean)
+                  .join(', ') ||
+                cand.address ||
+                '';
+            }
+          } catch (e) {
+            // fallback ignore
+          }
+        }
+
+        setCandidate(found);
+        setFormData((prev) => ({
+          ...prev,
+          name: found.candidateName || found.name || '',
+          fatherHusbandName: found.fatherHusbandName || found.fatherName || '',
+          dob: found.dob || '',
+          gender: found.gender || 'Male',
+          mobile: found.mobile || '',
+          presentAddress: resolvedAddress,
+
+          aadhaar: found.aadhaar || found.documents?.aadhaar?.number || '',
+          aadhaarFrontPhoto: found.documents?.aadhaar?.photoFront || '',
+          aadhaarBackPhoto: found.documents?.aadhaar?.photoBack || '',
+          pan: found.pan || found.documents?.pan?.number || '',
+          panPhoto: found.documents?.pan?.photo || '',
+
+          bankName: found.bankName || found.documents?.bankProof?.bankName || '',
+          accountNumber: found.accountNumber || found.documents?.bankProof?.accountNumber || '',
+          confirmAccountNumber: found.accountNumber || found.documents?.bankProof?.accountNumber || '',
+          ifsc: found.ifsc || found.documents?.bankProof?.ifsc || '',
+          bankPassbookPhoto: found.documents?.bankProof?.photo || '',
+
+          employeePhoto: found.employeePhoto || found.photo || '',
+          policeRefNo: found.documents?.policeVerification?.refNo || '',
+          policeSlipPhoto: found.documents?.policeVerification?.photo || '',
+
+          shirtSize: found.uniformKit?.shirtSize || 'M (40)',
+          bootSize: found.uniformKit?.bootSize || '8'
+        }));
+
+        if (found.selfSubmitted) {
+          setIsSubmittedSuccess(true);
+        }
+      }
+      if (isMounted) {
+        setLoading(false);
+      }
+    };
+
+    loadCandidateData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [id]);
 
   const handleChange = (e) => {
@@ -168,7 +241,7 @@ export default function CandidateSelfOnboard() {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) {
       window.scrollTo({ top: 220, behavior: 'smooth' });
@@ -176,16 +249,32 @@ export default function CandidateSelfOnboard() {
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
-      saveCandidateSelfOnboarding(candidate.id, {
-        ...formData,
-        accountHolder: formData.name,
-        permanentAddress: formData.presentAddress
-      });
-      setIsSubmitting(false);
-      setIsSubmittedSuccess(true);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 800);
+    const submissionPayload = {
+      ...formData,
+      accountHolder: formData.name,
+      permanentAddress: formData.presentAddress
+    };
+
+    try {
+      await onboardingService.submitPublicOnboarding(candidate.id || id, submissionPayload);
+    } catch (apiErr) {
+      if (apiErr.expired) {
+        setIsSubmitting(false);
+        setIsExpired(true);
+        setExpiredInfo({
+          candidateName: candidate.candidateName || candidate.name || '',
+          id: candidate.id || id
+        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      console.warn('Backend public submission error, saving locally:', apiErr.message);
+    }
+
+    saveCandidateSelfOnboarding(candidate.id || id, submissionPayload);
+    setIsSubmitting(false);
+    setIsSubmittedSuccess(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (loading) {
@@ -193,6 +282,69 @@ export default function CandidateSelfOnboard() {
       <div className={styles.loadingWrap}>
         <Loader2 size={32} className={styles.spin} />
         <p>Loading your onboarding verification portal...</p>
+      </div>
+    );
+  }
+
+  // Dedicated 24-Hour Expiration Screen
+  if (isExpired) {
+    return (
+      <div className={styles.errorWrap}>
+        <div className={styles.errorCard} style={{ maxWidth: 520, padding: '36px 32px' }}>
+          <div style={{
+            width: 64,
+            height: 64,
+            borderRadius: '50%',
+            backgroundColor: '#fff1f2',
+            border: '2px solid #fecdd3',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto 16px'
+          }}>
+            <Clock size={36} color="#e11d48" />
+          </div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, color: '#0f172a', marginBottom: 8 }}>
+            Onboarding Link Expired
+          </h2>
+          <p style={{ color: '#475569', fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+            {expiredInfo.candidateName ? (
+              <>Dear <strong>{expiredInfo.candidateName}</strong>, this </>
+            ) : (
+              'This '
+            )}
+            onboarding verification link was valid for <strong>24 hours</strong> and has now expired for your data privacy and security.
+          </p>
+
+          <div style={{
+            backgroundColor: '#f8fafc',
+            border: '1px solid #e2e8f0',
+            borderRadius: 8,
+            padding: '14px 18px',
+            textAlign: 'left',
+            marginBottom: 24,
+            fontSize: 13
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ color: '#64748b' }}>Reference ID:</span>
+              <strong style={{ color: '#0f172a' }}>{expiredInfo.id || id}</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#64748b' }}>Security Policy:</span>
+              <span style={{ color: '#e11d48', fontWeight: 600 }}>24-Hour Expiry Exceeded</span>
+            </div>
+          </div>
+
+          <p style={{ fontSize: 13.5, color: '#334155', lineHeight: 1.5, marginBottom: 20 }}>
+            To generate a new secure verification link, please contact your HR representative or recruiting coordinator.
+          </p>
+
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <Link to="/login" className={styles.backHomeBtn}>
+              Back to HRMS
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }
@@ -314,9 +466,10 @@ export default function CandidateSelfOnboard() {
                 <input
                   type="text"
                   name="name"
-                  className={`${styles.input} ${errors.name ? styles.inputError : ''}`}
+                  className={`${styles.input} ${styles.readOnlyInput} ${errors.name ? styles.inputError : ''}`}
                   value={formData.name}
-                  onChange={handleChange}
+                  readOnly
+                  tabIndex={-1}
                   placeholder="Full name as in Aadhaar card"
                 />
                 {errors.name && <span className={styles.errorText}>{errors.name}</span>}
@@ -369,9 +522,10 @@ export default function CandidateSelfOnboard() {
                 <input
                   type="tel"
                   name="mobile"
-                  className={`${styles.input} ${errors.mobile ? styles.inputError : ''}`}
+                  className={`${styles.input} ${styles.readOnlyInput} ${errors.mobile ? styles.inputError : ''}`}
                   value={formData.mobile}
-                  onChange={handleChange}
+                  readOnly
+                  tabIndex={-1}
                   placeholder="10-digit mobile number"
                 />
                 {errors.mobile && <span className={styles.errorText}>{errors.mobile}</span>}
@@ -384,9 +538,10 @@ export default function CandidateSelfOnboard() {
               </label>
               <textarea
                 name="presentAddress"
-                className={`${styles.textarea} ${errors.presentAddress ? styles.inputError : ''}`}
+                className={`${styles.textarea} ${styles.readOnlyTextarea} ${errors.presentAddress ? styles.inputError : ''}`}
                 value={formData.presentAddress}
-                onChange={handleChange}
+                readOnly
+                tabIndex={-1}
                 placeholder="House No., Street/Village, Post Office, District, City, Pincode"
                 rows={2}
               />
