@@ -382,68 +382,16 @@ export default function EditOnboarding() {
                   </div>
                 </div>
 
-                {/* Section 2: Deployment & Compensation */}
+                {/* Section 2: Joining & Compensation */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <h3 className={styles.sectionTitle}>
                       <Building2 size={18} style={{ color: '#059669' }} />
-                      <span>Deployment, Client & Compensation</span>
+                      <span>Joining & Compensation</span>
                     </h3>
                   </div>
 
                   <div className={styles.grid}>
-                    {/* Assigned Client */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="assignedClient" className={styles.label}>
-                        Assigned Client
-                      </label>
-                      <input
-                        id="assignedClient"
-                        name="assignedClient"
-                        type="text"
-                        className={styles.input}
-                        placeholder="e.g. DLF CyberCity Tech Park"
-                        value={formData.assignedClient}
-                        onChange={handleChange}
-                      />
-                    </div>
-
-                    {/* Assigned Site */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="assignedSite" className={styles.label}>
-                        Assigned Site
-                      </label>
-                      <input
-                        id="assignedSite"
-                        name="assignedSite"
-                        type="text"
-                        className={styles.input}
-                        placeholder="e.g. Tower 4 Central Gate Post"
-                        value={formData.assignedSite}
-                        onChange={handleChange}
-                      />
-                    </div>
-
-                    {/* Assigned Shift */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="assignedShift" className={styles.label}>
-                        Assigned Shift
-                      </label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          id="assignedShift"
-                          name="assignedShift"
-                          className={styles.select}
-                          value={formData.assignedShift}
-                          onChange={handleChange}
-                        >
-                          {SHIFT_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt}>{opt}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
                     {/* Proposed Joining Date */}
                     <div className={styles.formGroup}>
                       <label htmlFor="proposedJoiningDate" className={styles.label}>
@@ -500,120 +448,7 @@ export default function EditOnboarding() {
                   </div>
                 </div>
 
-                {/* Section 3: Uniform Kit & Sizing */}
-                <div className={styles.sectionCard}>
-                  <div className={styles.sectionHeader}>
-                    <h3 className={styles.sectionTitle}>
-                      <Shirt size={18} style={{ color: '#d97706' }} />
-                      <span>Uniform Kit & Sizing</span>
-                    </h3>
-                  </div>
-
-                  <div className={styles.grid}>
-                    {/* Shirt Size */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="shirtSize" className={styles.label}>Shirt Size</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          id="shirtSize"
-                          name="shirtSize"
-                          className={styles.select}
-                          value={formData.shirtSize}
-                          onChange={handleChange}
-                        >
-                          {UNIFORM_SHIRT_SIZES.map((sz) => (
-                            <option key={sz} value={sz}>{sz}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Trouser Size */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="trouserSize" className={styles.label}>Trouser Size</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          id="trouserSize"
-                          name="trouserSize"
-                          className={styles.select}
-                          value={formData.trouserSize}
-                          onChange={handleChange}
-                        >
-                          {UNIFORM_TROUSER_SIZES.map((sz) => (
-                            <option key={sz} value={sz}>{sz}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Boot Size */}
-                    <div className={styles.formGroup}>
-                      <label htmlFor="bootSize" className={styles.label}>Boot Size</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          id="bootSize"
-                          name="bootSize"
-                          className={styles.select}
-                          value={formData.bootSize}
-                          onChange={handleChange}
-                        >
-                          {BOOT_SIZES.map((sz) => (
-                            <option key={sz} value={sz}>{sz}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Kit Issued Checkboxes */}
-                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                      <label className={styles.label}>Kit Items Issued</label>
-                      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '6px' }}>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
-                          <input
-                            type="checkbox"
-                            name="capIssued"
-                            checked={formData.capIssued}
-                            onChange={handleChange}
-                            style={{ width: 16, height: 16, accentColor: 'var(--primary, #2563eb)' }}
-                          />
-                          <span>Cap Issued</span>
-                        </label>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
-                          <input
-                            type="checkbox"
-                            name="badgeIssued"
-                            checked={formData.badgeIssued}
-                            onChange={handleChange}
-                            style={{ width: 16, height: 16, accentColor: 'var(--primary, #2563eb)' }}
-                          />
-                          <span>Badge Issued</span>
-                        </label>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
-                          <input
-                            type="checkbox"
-                            name="whistleIssued"
-                            checked={formData.whistleIssued}
-                            onChange={handleChange}
-                            style={{ width: 16, height: 16, accentColor: 'var(--primary, #2563eb)' }}
-                          />
-                          <span>Whistle Issued</span>
-                        </label>
-                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}>
-                          <input
-                            type="checkbox"
-                            name="torchIssued"
-                            checked={formData.torchIssued}
-                            onChange={handleChange}
-                            style={{ width: 16, height: 16, accentColor: 'var(--primary, #2563eb)' }}
-                          />
-                          <span>Torch Issued</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 4: Notes & Remarks */}
+                {/* Section 3: Notes & Remarks */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <h3 className={styles.sectionTitle}>

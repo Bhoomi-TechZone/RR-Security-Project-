@@ -5,6 +5,7 @@ import {
   User,
   CreditCard,
   FileText,
+  FileCheck,
   Shirt,
   Camera,
   CheckCircle2,
@@ -21,9 +22,7 @@ import {
 } from 'lucide-react';
 import {
   getOnboardingCandidateById,
-  saveCandidateSelfOnboarding,
-  UNIFORM_SHIRT_SIZES,
-  BOOT_SIZES
+  saveCandidateSelfOnboarding
 } from '../../data/onboardingData';
 import { getStoredCandidates } from '../../data/recruitmentData';
 import onboardingService from '../../services/onboardingService';
@@ -41,6 +40,11 @@ export default function CandidateSelfOnboard() {
   const [isExpired, setIsExpired] = useState(false);
   const [expiredInfo, setExpiredInfo] = useState({ candidateName: '', id: '' });
   const [errors, setErrors] = useState({});
+  const [activeDocTypes, setActiveDocTypes] = useState([]);
+  const [dynamicDocValues, setDynamicDocValues] = useState({});
+  const [fileErrors, setFileErrors] = useState({});
+
+  const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
 
   // Clean, focused 2-section state
   const [formData, setFormData] = useState({
@@ -82,9 +86,13 @@ export default function CandidateSelfOnboard() {
     let isMounted = true;
     const loadCandidateData = async () => {
       let found = null;
+      let docTypes = [];
       try {
         const live = await onboardingService.getPublicOnboardingById(id);
-        if (live) found = live;
+        if (live) {
+          found = live;
+          docTypes = live.activeDocumentTypes || [];
+        }
       } catch (err) {
         if (err.expired) {
           if (isMounted) {
@@ -117,6 +125,52 @@ export default function CandidateSelfOnboard() {
       }
 
       if (found && isMounted) {
+        // Resolve company active document types from local storage if API didn't return any
+        if ((!docTypes || docTypes.length === 0) && found.companyId) {
+          try {
+            const cached = localStorage.getItem(`novaspark_masters_${found.companyId}_document-types`);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                docTypes = parsed.filter(d => (d.status || '').toLowerCase() === 'active');
+              }
+            }
+          } catch (e) {}
+        }
+
+        // If company has not configured custom document types yet, fallback to single Aadhar Card (as in Image 1)
+        if (!docTypes || docTypes.length === 0) {
+          docTypes = [
+            { name: 'Aadhar Card', code: 'DC-AADHAR', requiredType: 'required', status: 'Active' }
+          ];
+        }
+
+        setActiveDocTypes(docTypes);
+
+        // Prepopulate dynamic document fields from found.documents
+        const initialDynamic = {};
+        docTypes.forEach((doc) => {
+          const key = doc.code || doc.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          const isAadhaar = doc.name.toLowerCase().includes('aadhaar') || doc.name.toLowerCase().includes('aadhar') || (doc.code || '').toUpperCase().includes('AADHAR');
+          const isPan = doc.name.toLowerCase().includes('pan') || (doc.code || '').toUpperCase().includes('PAN');
+
+          const existingDoc = found.documents?.[key] ||
+            (isAadhaar ? found.documents?.aadhaar : null) ||
+            (isPan ? found.documents?.pan : null);
+
+          initialDynamic[key] = {
+            name: doc.name,
+            code: doc.code,
+            required: doc.requiredType === 'required',
+            number: existingDoc?.number || (isAadhaar ? found.aadhaar : '') || (isPan ? found.pan : '') || '',
+            fileUrl: existingDoc?.fileUrl || existingDoc?.photo || '',
+            photoFront: existingDoc?.photoFront || (isAadhaar ? found.documents?.aadhaar?.photoFront : '') || '',
+            photoBack: existingDoc?.photoBack || (isAadhaar ? found.documents?.aadhaar?.photoBack : '') || '',
+            fileName: existingDoc?.fileName || '',
+            fileSize: existingDoc?.fileSize || ''
+          };
+        });
+        setDynamicDocValues(initialDynamic);
         // Format address from candidate registration if presentAddress is not yet set
         let resolvedAddress = found.presentAddress || found.address || '';
         if (!resolvedAddress) {
@@ -197,14 +251,76 @@ export default function CandidateSelfOnboard() {
     }
   };
 
+  // Upload handler with strict 4MB max size enforcement
   const handleFileUpload = (field, file) => {
     if (!file) return;
+
+    if (file.size > MAX_FILE_SIZE) {
+      const actualMb = (file.size / (1024 * 1024)).toFixed(2);
+      setFileErrors((prev) => ({
+        ...prev,
+        [field]: `File size exceeds 4MB limit (${actualMb} MB). Please upload a file smaller than 4MB.`
+      }));
+      return;
+    }
+
+    setFileErrors((prev) => ({ ...prev, [field]: null }));
+
     const reader = new FileReader();
     reader.onload = () => {
       setFormData((prev) => ({
         ...prev,
         [field]: reader.result
       }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Dynamic document upload handler with strict 4MB max size enforcement
+  const handleDynamicDocUpload = (docKey, file, subField = 'fileUrl') => {
+    if (!file) return;
+    const errorKey = `${docKey}_${subField}`;
+
+    if (file.size > MAX_FILE_SIZE) {
+      const actualMb = (file.size / (1024 * 1024)).toFixed(2);
+      setFileErrors((prev) => ({
+        ...prev,
+        [errorKey]: `File size exceeds 4MB limit (${actualMb} MB). Please upload a file smaller than 4MB.`
+      }));
+      return;
+    }
+
+    setFileErrors((prev) => ({ ...prev, [errorKey]: null }));
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const resultUrl = reader.result;
+      const formattedSize = file.size > 1024 * 1024
+        ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+        : `${Math.round(file.size / 1024)} KB`;
+
+      setDynamicDocValues((prev) => {
+        const cur = prev[docKey] || {};
+        return {
+          ...prev,
+          [docKey]: {
+            ...cur,
+            [subField]: resultUrl,
+            fileName: file.name,
+            fileSize: formattedSize
+          }
+        };
+      });
+
+      // Sync to root legacy formData
+      const keyLower = docKey.toLowerCase();
+      if (keyLower.includes('aadhaar') || keyLower.includes('aadhar')) {
+        if (subField === 'photoFront') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
+        if (subField === 'photoBack') setFormData(p => ({ ...p, aadhaarBackPhoto: resultUrl }));
+        if (subField === 'fileUrl') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
+      } else if (keyLower.includes('pan')) {
+        setFormData(p => ({ ...p, panPhoto: resultUrl }));
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -228,9 +344,40 @@ export default function CandidateSelfOnboard() {
       errs.ifsc = 'Bank IFSC code is required';
     }
 
-    // Aadhaar Validation
-    if (!formData.aadhaar.trim()) {
-      errs.aadhaar = '12-digit Aadhaar number is required';
+    // Dynamic Active Document Types Validation
+    if (activeDocTypes && activeDocTypes.length > 0) {
+      activeDocTypes.forEach((doc) => {
+        const isMandatory = doc.requiredType === 'required';
+        const key = doc.code || doc.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const val = dynamicDocValues[key] || {};
+        const isAadhaar = doc.name.toLowerCase().includes('aadhaar') || doc.name.toLowerCase().includes('aadhar') || (doc.code || '').toUpperCase().includes('AADHAR');
+        const isPan = doc.name.toLowerCase().includes('pan') || (doc.code || '').toUpperCase().includes('PAN');
+
+        if (isAadhaar) {
+          if (isMandatory && !formData.aadhaar.trim() && !val.number?.trim()) {
+            errs.aadhaar = `${doc.name} number is required`;
+          }
+          if (isMandatory && !formData.aadhaarFrontPhoto && !val.photoFront && !val.fileUrl) {
+            errs[`${key}_photoFront`] = `Please upload ${doc.name} front photo (Max 4MB)`;
+          }
+        } else if (isPan) {
+          if (isMandatory && !formData.pan.trim() && !val.number?.trim()) {
+            errs.pan = `${doc.name} number is required`;
+          }
+          if (isMandatory && !formData.panPhoto && !val.fileUrl) {
+            errs[`${key}_fileUrl`] = `Please upload ${doc.name} photo (Max 4MB)`;
+          }
+        } else {
+          if (isMandatory && !val.fileUrl) {
+            errs[`${key}_fileUrl`] = `Please upload ${doc.name} (Max 4MB)`;
+          }
+        }
+      });
+    }
+
+    // Block submission if any file size exceeds 4MB
+    if (Object.values(fileErrors).some(Boolean)) {
+      errs.fileUpload = 'Please resolve file size errors (maximum 4MB per file).';
     }
 
     if (!formData.declarationAccepted) {
@@ -251,6 +398,7 @@ export default function CandidateSelfOnboard() {
     setIsSubmitting(true);
     const submissionPayload = {
       ...formData,
+      dynamicDocs: dynamicDocValues,
       accountHolder: formData.name,
       permanentAddress: formData.presentAddress
     };
@@ -399,8 +547,8 @@ export default function CandidateSelfOnboard() {
           <div className={styles.nextStepsBox}>
             <h4>What happens next?</h4>
             <ul>
-              <li>HR will verify your uploaded Aadhaar, PAN, and Bank passbook documents.</li>
-              <li>Your uniform kit (Shirt: {formData.shirtSize}, Boot: {formData.bootSize}) and Security ID card will be prepared.</li>
+              <li>HR will verify your uploaded documents and bank details for salary credit.</li>
+              <li>Your verification dossier will be completed and your official Employee ID card will be prepared.</li>
               <li>You will receive duty confirmation and shift reporting details on your mobile number.</li>
             </ul>
           </div>
@@ -549,252 +697,431 @@ export default function CandidateSelfOnboard() {
             </div>
           </section>
 
-          {/* Section 2: Document Verification & Bank Details */}
+          {/* Section 2: Document Verification */}
           <section className={styles.formSection}>
             <div className={styles.sectionHeading}>
               <div className={styles.sectionIcon} style={{ background: '#ecfdf5', color: '#059669' }}>
-                <CreditCard size={20} />
+                <FileCheck size={20} />
               </div>
               <div>
-                <h2 className={styles.sectionTitle}>2. Documents & Bank Verification</h2>
-                <p className={styles.sectionSub}>Upload clear photos of your documents for HR verification & salary credit</p>
+                <h2 className={styles.sectionTitle}>2. Document Verification</h2>
+                <p className={styles.sectionSub}>Upload clear photos or scanned copies of your active documents for HR verification (Max size: 4MB)</p>
               </div>
             </div>
 
-            {/* 1. Aadhaar Card */}
-            <div style={{ marginBottom: 20 }}>
+            {/* Dynamic Active Document Types configured for this Isolated Company */}
+            {activeDocTypes && activeDocTypes.length > 0 ? (
+              <div>
+                {activeDocTypes.map((doc, idx) => {
+                  const key = doc.code || doc.name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                  const docVal = dynamicDocValues[key] || {};
+                  const isMandatory = doc.requiredType === 'required';
+                  const docNameLower = (doc.name || '').toLowerCase();
+                  const docCodeUpper = (doc.code || '').toUpperCase();
+                  const isAadhaar = docNameLower.includes('aadhaar') || docNameLower.includes('aadhar') || docCodeUpper.includes('AADHAR');
+                  const isPan = docNameLower.includes('pan') || docCodeUpper.includes('PAN');
+                  const isPhoto = docNameLower.includes('photo') || docNameLower.includes('selfie') || docCodeUpper.includes('PHOTO');
+                  const isBankDoc = docNameLower.includes('passbook') || docNameLower.includes('cheque') || docCodeUpper.includes('PASSBOOK') || docCodeUpper.includes('CHEQUE');
+
+                  return (
+                    <div
+                      key={key || idx}
+                      style={{
+                        marginBottom: 20,
+                        paddingTop: idx > 0 ? 18 : 0,
+                        borderTop: idx > 0 ? '1px solid #e2e8f0' : 'none'
+                      }}
+                    >
+                      {/* Document Title & Mandatory Badge */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div
+                            style={{
+                              width: 30,
+                              height: 30,
+                              borderRadius: 6,
+                              background: isAadhaar ? '#eff6ff' : isPan ? '#ecfdf5' : isPhoto ? '#fdf4ff' : '#f8fafc',
+                              color: isAadhaar ? '#2563eb' : isPan ? '#059669' : isPhoto ? '#a855f7' : '#475569',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              border: '1px solid #e2e8f0'
+                            }}
+                          >
+                            {isAadhaar ? <FileText size={16} /> : isPan ? <CreditCard size={16} /> : isPhoto ? <Camera size={16} /> : <FileCheck size={16} />}
+                          </div>
+                          <div>
+                            <h3 style={{ fontSize: 14.5, fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                              {doc.name} {isMandatory && <span className={styles.req} style={{ color: '#dc2626' }}>*</span>}
+                            </h3>
+                            {doc.code && (
+                              <span style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
+                                Code: {doc.code}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            padding: '3px 10px',
+                            borderRadius: 12,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.4px',
+                            background: isMandatory ? '#fef2f2' : '#f1f5f9',
+                            color: isMandatory ? '#dc2626' : '#64748b',
+                            border: isMandatory ? '1px solid #fecaca' : '1px solid #e2e8f0'
+                          }}
+                        >
+                          {isMandatory ? 'Mandatory' : 'Optional'}
+                        </span>
+                      </div>
+
+                      {doc.description && (
+                        <p style={{ fontSize: 12, color: '#64748b', margin: '-4px 0 12px 38px' }}>
+                          {doc.description}
+                        </p>
+                      )}
+
+                      {/* Aadhaar Card View: Number + Front Photo & Back Photo */}
+                      {isAadhaar ? (
+                        <div>
+                          <div className={styles.formGroup} style={{ maxWidth: 380, marginBottom: 12 }}>
+                            <label className={styles.label}>
+                              {doc.name} Number {isMandatory && <span className={styles.req}>*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              className={`${styles.input} ${errors.aadhaar ? styles.inputError : ''}`}
+                              value={formData.aadhaar || docVal.number || ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setFormData(p => ({ ...p, aadhaar: v }));
+                                setDynamicDocValues(p => ({ ...p, [key]: { ...(p[key] || {}), number: v } }));
+                              }}
+                              placeholder="12-digit Aadhaar number (e.g. 1234 5678 9012)"
+                              maxLength={14}
+                            />
+                            {errors.aadhaar && <span className={styles.errorText}>{errors.aadhaar}</span>}
+                          </div>
+
+                          <div className={styles.uploadCardsGrid}>
+                            {/* Front Photo */}
+                            <div className={styles.uploadCard}>
+                              <div className={styles.uploadCardHeader}>
+                                <FileText size={16} color="#2563eb" />
+                                <span>{doc.name} Front Photo {isMandatory && <span className={styles.req}>*</span>}</span>
+                              </div>
+                              <label className={styles.dropZone}>
+                                <Upload size={22} className={styles.dropIcon} />
+                                <span className={styles.dropText}>
+                                  {formData.aadhaarFrontPhoto || docVal.photoFront ? '✓ Front Photo Uploaded' : `Upload ${doc.name} Front`}
+                                </span>
+                                <span className={styles.dropHint}>Click to upload JPG / PNG (Max 4MB)</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className={styles.hiddenInput}
+                                  onChange={(e) => handleDynamicDocUpload(key, e.target.files?.[0], 'photoFront')}
+                                />
+                              </label>
+                              {fileErrors[`${key}_photoFront`] && (
+                                <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                  {fileErrors[`${key}_photoFront`]}
+                                </span>
+                              )}
+                              {errors[`${key}_photoFront`] && (
+                                <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                  {errors[`${key}_photoFront`]}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Back Photo */}
+                            <div className={styles.uploadCard}>
+                              <div className={styles.uploadCardHeader}>
+                                <FileText size={16} color="#2563eb" />
+                                <span>{doc.name} Back Photo (Address)</span>
+                              </div>
+                              <label className={styles.dropZone}>
+                                <Upload size={22} className={styles.dropIcon} />
+                                <span className={styles.dropText}>
+                                  {formData.aadhaarBackPhoto || docVal.photoBack ? '✓ Back Photo Uploaded' : `Upload ${doc.name} Back`}
+                                </span>
+                                <span className={styles.dropHint}>Click to upload JPG / PNG (Max 4MB)</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className={styles.hiddenInput}
+                                  onChange={(e) => handleDynamicDocUpload(key, e.target.files?.[0], 'photoBack')}
+                                />
+                              </label>
+                              {fileErrors[`${key}_photoBack`] && (
+                                <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                  {fileErrors[`${key}_photoBack`]}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : isPan ? (
+                        /* PAN Card View: Number + PAN Photo */
+                        <div className={styles.grid2}>
+                          <div className={styles.formGroup}>
+                            <label className={styles.label}>
+                              {doc.name} Number {isMandatory && <span className={styles.req}>*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              className={`${styles.input} ${errors.pan ? styles.inputError : ''}`}
+                              value={formData.pan || docVal.number || ''}
+                              onChange={(e) => {
+                                const v = e.target.value.toUpperCase();
+                                setFormData(p => ({ ...p, pan: v }));
+                                setDynamicDocValues(p => ({ ...p, [key]: { ...(p[key] || {}), number: v } }));
+                              }}
+                              placeholder="10-digit PAN (e.g. ABCDE1234F)"
+                              maxLength={10}
+                            />
+                            {errors.pan && <span className={styles.errorText}>{errors.pan}</span>}
+                          </div>
+
+                          <div className={styles.uploadCard} style={{ margin: 0 }}>
+                            <div className={styles.uploadCardHeader}>
+                              <CreditCard size={16} color="#059669" />
+                              <span>{doc.name} Photo {isMandatory && <span className={styles.req}>*</span>}</span>
+                            </div>
+                            <label className={styles.dropZone} style={{ padding: '12px' }}>
+                              <Upload size={20} className={styles.dropIcon} />
+                              <span className={styles.dropText}>
+                                {formData.panPhoto || docVal.fileUrl ? '✓ PAN Uploaded' : `Upload ${doc.name}`}
+                              </span>
+                              <span className={styles.dropHint}>Max size: 4MB (JPG, PNG)</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className={styles.hiddenInput}
+                                onChange={(e) => handleDynamicDocUpload(key, e.target.files?.[0], 'fileUrl')}
+                              />
+                            </label>
+                            {fileErrors[`${key}_fileUrl`] && (
+                              <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                {fileErrors[`${key}_fileUrl`]}
+                              </span>
+                            )}
+                            {errors[`${key}_fileUrl`] && (
+                              <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                {errors[`${key}_fileUrl`]}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : isPhoto ? (
+                        /* Passport Photo / Selfie (if configured in Master) */
+                        <div className={styles.uploadCard} style={{ margin: 0, maxWidth: 420 }}>
+                          <div className={styles.uploadCardHeader}>
+                            <Camera size={16} color="#a855f7" />
+                            <span>Upload {doc.name} {isMandatory && <span className={styles.req}>*</span>}</span>
+                          </div>
+                          <label className={styles.dropZone} style={{ padding: '14px' }}>
+                            <Upload size={20} className={styles.dropIcon} />
+                            <span className={styles.dropText}>
+                              {docVal.fileUrl ? (
+                                <span style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Check size={14} /> {docVal.fileName || '✓ Photo Uploaded'}
+                                </span>
+                              ) : (
+                                `Click to Upload ${doc.name}`
+                              )}
+                            </span>
+                            <span className={styles.dropHint}>Clear front-facing photo (Max 4MB JPG, PNG)</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className={styles.hiddenInput}
+                              onChange={(e) => {
+                                handleDynamicDocUpload(key, e.target.files?.[0], 'fileUrl');
+                                handleFileUpload('employeePhoto', e.target.files?.[0]);
+                              }}
+                            />
+                          </label>
+                          {fileErrors[`${key}_fileUrl`] && (
+                            <span className={styles.errorText} style={{ marginTop: 6 }}>
+                              {fileErrors[`${key}_fileUrl`]}
+                            </span>
+                          )}
+                          {errors[`${key}_fileUrl`] && (
+                            <span className={styles.errorText} style={{ marginTop: 6 }}>
+                              {errors[`${key}_fileUrl`]}
+                            </span>
+                          )}
+                        </div>
+                      ) : isBankDoc ? (
+                        /* Bank Passbook / Cheque (if configured in Master) */
+                        <div className={styles.uploadCard} style={{ margin: 0, maxWidth: 420 }}>
+                          <div className={styles.uploadCardHeader}>
+                            <Building2 size={16} color="#d97706" />
+                            <span>Upload {doc.name} {isMandatory && <span className={styles.req}>*</span>}</span>
+                          </div>
+                          <label className={styles.dropZone} style={{ padding: '14px' }}>
+                            <Upload size={20} className={styles.dropIcon} />
+                            <span className={styles.dropText}>
+                              {docVal.fileUrl ? (
+                                <span style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <Check size={14} /> {docVal.fileName || '✓ Passbook Uploaded'}
+                                </span>
+                              ) : (
+                                `Click to Upload ${doc.name}`
+                              )}
+                            </span>
+                            <span className={styles.dropHint}>Passbook or cancelled cheque (Max 4MB JPG, PNG, PDF)</span>
+                            <input
+                              type="file"
+                              accept="image/*,application/pdf"
+                              className={styles.hiddenInput}
+                              onChange={(e) => {
+                                handleDynamicDocUpload(key, e.target.files?.[0], 'fileUrl');
+                                handleFileUpload('bankPassbookPhoto', e.target.files?.[0]);
+                              }}
+                            />
+                          </label>
+                          {fileErrors[`${key}_fileUrl`] && (
+                            <span className={styles.errorText} style={{ marginTop: 6 }}>
+                              {fileErrors[`${key}_fileUrl`]}
+                            </span>
+                          )}
+                          {errors[`${key}_fileUrl`] && (
+                            <span className={styles.errorText} style={{ marginTop: 6 }}>
+                              {errors[`${key}_fileUrl`]}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        /* Any Other Configured Active Document Type */
+                        <div className={styles.grid2}>
+                          <div className={styles.formGroup}>
+                            <label className={styles.label}>
+                              {doc.name} Number / Ref ID {isMandatory && <span className={styles.req}>*</span>}
+                            </label>
+                            <input
+                              type="text"
+                              className={styles.input}
+                              value={docVal.number || ''}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setDynamicDocValues(p => ({ ...p, [key]: { ...(p[key] || {}), number: v } }));
+                              }}
+                              placeholder={`Enter ${doc.name} ID / Reference number`}
+                            />
+                          </div>
+
+                          <div className={styles.uploadCard} style={{ margin: 0 }}>
+                            <div className={styles.uploadCardHeader}>
+                              <FileCheck size={16} color="#2563eb" />
+                              <span>Upload {doc.name} {isMandatory && <span className={styles.req}>*</span>}</span>
+                            </div>
+                            <label className={styles.dropZone} style={{ padding: '12px' }}>
+                              <Upload size={20} className={styles.dropIcon} />
+                              <span className={styles.dropText}>
+                                {docVal.fileUrl ? (
+                                  <span style={{ color: '#059669', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <Check size={14} /> {docVal.fileName || '✓ File Uploaded'}
+                                    {docVal.fileSize && <span style={{ fontSize: 11, color: '#64748b' }}>({docVal.fileSize})</span>}
+                                  </span>
+                                ) : (
+                                  `Click to Upload ${doc.name}`
+                                )}
+                              </span>
+                              <span className={styles.dropHint}>Max size: 4MB (JPG, PNG, PDF)</span>
+                              <input
+                                type="file"
+                                accept="image/*,application/pdf"
+                                className={styles.hiddenInput}
+                                onChange={(e) => handleDynamicDocUpload(key, e.target.files?.[0], 'fileUrl')}
+                              />
+                            </label>
+                            {fileErrors[`${key}_fileUrl`] && (
+                              <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                {fileErrors[`${key}_fileUrl`]}
+                              </span>
+                            )}
+                            {errors[`${key}_fileUrl`] && (
+                              <span className={styles.errorText} style={{ marginTop: 6 }}>
+                                {errors[`${key}_fileUrl`]}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '20px', textAlign: 'center', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0', color: '#64748b', fontSize: 13, marginBottom: 20 }}>
+                No active document types configured by HR for this organization.
+              </div>
+            )}
+          </section>
+
+          {/* Section 3: Salary Bank Account Details */}
+          <section className={styles.formSection}>
+            <div className={styles.sectionHeading}>
+              <div className={styles.sectionIcon} style={{ background: '#eff6ff', color: '#2563eb' }}>
+                <Building2 size={20} />
+              </div>
+              <div>
+                <h2 className={styles.sectionTitle}>3. Salary Bank Account Details</h2>
+                <p className={styles.sectionSub}>Enter bank account details for direct salary transfer</p>
+              </div>
+            </div>
+
+            <div className={styles.grid3}>
               <div className={styles.formGroup}>
                 <label className={styles.label}>
-                  Aadhaar Card Number <span className={styles.req}>*</span>
+                  Bank Name <span className={styles.req}>*</span>
                 </label>
                 <input
                   type="text"
-                  name="aadhaar"
-                  className={`${styles.input} ${errors.aadhaar ? styles.inputError : ''}`}
-                  value={formData.aadhaar}
+                  name="bankName"
+                  className={styles.input}
+                  value={formData.bankName}
                   onChange={handleChange}
-                  placeholder="12-digit Aadhaar number (e.g. 1234 5678 9012)"
-                  maxLength={14}
-                  style={{ maxWidth: 380 }}
+                  placeholder="e.g. SBI, HDFC, PNB, BOB"
                 />
-                {errors.aadhaar && <span className={styles.errorText}>{errors.aadhaar}</span>}
               </div>
 
-              <div className={styles.uploadCardsGrid}>
-                <div className={styles.uploadCard}>
-                  <div className={styles.uploadCardHeader}>
-                    <FileText size={16} color="#2563eb" />
-                    <span>Aadhaar Front Photo</span>
-                  </div>
-                  <label className={styles.dropZone}>
-                    <Upload size={22} className={styles.dropIcon} />
-                    <span className={styles.dropText}>
-                      {formData.aadhaarFrontPhoto ? '✓ Front Photo Uploaded' : 'Upload Aadhaar Front'}
-                    </span>
-                    <span className={styles.dropHint}>Click to upload JPG / PNG</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className={styles.hiddenInput}
-                      onChange={(e) => handleFileUpload('aadhaarFrontPhoto', e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
-
-                <div className={styles.uploadCard}>
-                  <div className={styles.uploadCardHeader}>
-                    <FileText size={16} color="#2563eb" />
-                    <span>Aadhaar Back Photo (Address)</span>
-                  </div>
-                  <label className={styles.dropZone}>
-                    <Upload size={22} className={styles.dropIcon} />
-                    <span className={styles.dropText}>
-                      {formData.aadhaarBackPhoto ? '✓ Back Photo Uploaded' : 'Upload Aadhaar Back'}
-                    </span>
-                    <span className={styles.dropHint}>Click to upload JPG / PNG</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className={styles.hiddenInput}
-                      onChange={(e) => handleFileUpload('aadhaarBackPhoto', e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* 2. PAN Card */}
-            <div style={{ marginBottom: 20, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
-              <div className={styles.grid2}>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>PAN Card Number</label>
-                  <input
-                    type="text"
-                    name="pan"
-                    className={styles.input}
-                    value={formData.pan}
-                    onChange={(e) => setFormData(p => ({ ...p, pan: e.target.value.toUpperCase() }))}
-                    placeholder="10-digit PAN (e.g. ABCDE1234F)"
-                    maxLength={10}
-                  />
-                </div>
-
-                <div className={styles.uploadCard} style={{ margin: 0 }}>
-                  <div className={styles.uploadCardHeader}>
-                    <CreditCard size={16} color="#059669" />
-                    <span>PAN Card Photo</span>
-                  </div>
-                  <label className={styles.dropZone} style={{ padding: '12px' }}>
-                    <Upload size={20} className={styles.dropIcon} />
-                    <span className={styles.dropText}>
-                      {formData.panPhoto ? '✓ PAN Uploaded' : 'Upload PAN Photo'}
-                    </span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className={styles.hiddenInput}
-                      onChange={(e) => handleFileUpload('panPhoto', e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* 3. Bank Account for Salary */}
-            <div style={{ marginBottom: 20, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', margin: '0 0 12px' }}>
-                Salary Bank Account Details
-              </h3>
-
-              <div className={styles.grid3}>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Bank Name <span className={styles.req}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="bankName"
-                    className={styles.input}
-                    value={formData.bankName}
-                    onChange={handleChange}
-                    placeholder="e.g. SBI, HDFC, PNB, BOB"
-                  />
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Account Number <span className={styles.req}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="accountNumber"
-                    className={`${styles.input} ${errors.accountNumber ? styles.inputError : ''}`}
-                    value={formData.accountNumber}
-                    onChange={handleChange}
-                    placeholder="Bank account number"
-                  />
-                  {errors.accountNumber && <span className={styles.errorText}>{errors.accountNumber}</span>}
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>
-                    Bank IFSC Code <span className={styles.req}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="ifsc"
-                    className={`${styles.input} ${errors.ifsc ? styles.inputError : ''}`}
-                    value={formData.ifsc}
-                    onChange={(e) => setFormData(p => ({ ...p, ifsc: e.target.value.toUpperCase() }))}
-                    placeholder="e.g. SBIN0001234"
-                    maxLength={11}
-                  />
-                  {errors.ifsc && <span className={styles.errorText}>{errors.ifsc}</span>}
-                </div>
-              </div>
-
-              <div className={styles.uploadCard} style={{ maxWidth: 360, marginTop: 14 }}>
-                <div className={styles.uploadCardHeader}>
-                  <Building2 size={16} color="#d97706" />
-                  <span>Bank Passbook / Cancelled Cheque Photo</span>
-                </div>
-                <label className={styles.dropZone}>
-                  <Upload size={22} className={styles.dropIcon} />
-                  <span className={styles.dropText}>
-                    {formData.bankPassbookPhoto ? '✓ Passbook Uploaded' : 'Upload Passbook / Cheque'}
-                  </span>
-                  <span className={styles.dropHint}>Passbook page or cheque with printed account & IFSC</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className={styles.hiddenInput}
-                    onChange={(e) => handleFileUpload('bankPassbookPhoto', e.target.files?.[0])}
-                  />
+              <div className={styles.formGroup}>
+                <label className={styles.label}>
+                  Account Number <span className={styles.req}>*</span>
                 </label>
-              </div>
-            </div>
-
-            {/* 4. Photo, Police Slip & Uniform Sizing */}
-            <div style={{ paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
-              <div className={styles.uploadCardsGrid}>
-                {/* Selfie / Photo */}
-                <div className={styles.uploadCard}>
-                  <div className={styles.uploadCardHeader}>
-                    <Camera size={16} color="#059669" />
-                    <span>Passport Photo / Selfie (for ID Card)</span>
-                  </div>
-                  <label className={styles.dropZone}>
-                    <Upload size={22} className={styles.dropIcon} />
-                    <span className={styles.dropText}>
-                      {formData.employeePhoto ? '✓ Photo Uploaded' : 'Upload Live Photo / Selfie'}
-                    </span>
-                    <span className={styles.dropHint}>Clear front-facing photo</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className={styles.hiddenInput}
-                      onChange={(e) => handleFileUpload('employeePhoto', e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
-
-                {/* Police Receipt */}
-                <div className={styles.uploadCard}>
-                  <div className={styles.uploadCardHeader}>
-                    <ShieldCheck size={16} color="#2563eb" />
-                    <span>Police Verification Slip (Optional)</span>
-                  </div>
-                  <label className={styles.dropZone}>
-                    <Upload size={22} className={styles.dropIcon} />
-                    <span className={styles.dropText}>
-                      {formData.policeSlipPhoto ? '✓ Police Slip Uploaded' : 'Upload Police Slip (If Available)'}
-                    </span>
-                    <span className={styles.dropHint}>Station receipt or online challan</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className={styles.hiddenInput}
-                      onChange={(e) => handleFileUpload('policeSlipPhoto', e.target.files?.[0])}
-                    />
-                  </label>
-                </div>
+                <input
+                  type="text"
+                  name="accountNumber"
+                  className={`${styles.input} ${errors.accountNumber ? styles.inputError : ''}`}
+                  value={formData.accountNumber}
+                  onChange={handleChange}
+                  placeholder="Bank account number"
+                />
+                {errors.accountNumber && <span className={styles.errorText}>{errors.accountNumber}</span>}
               </div>
 
-              {/* Quick Uniform Sizing (Optional) */}
-              <div className={styles.grid2} style={{ marginTop: 16 }}>
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Uniform Bush-Shirt Size</label>
-                  <select name="shirtSize" className={styles.select} value={formData.shirtSize} onChange={handleChange}>
-                    {UNIFORM_SHIRT_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Safety DMS Boots Size</label>
-                  <select name="bootSize" className={styles.select} value={formData.bootSize} onChange={handleChange}>
-                    {BOOT_SIZES.map(b => <option key={b} value={b}>Size {b}</option>)}
-                  </select>
-                </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label}>
+                  Bank IFSC Code <span className={styles.req}>*</span>
+                </label>
+                <input
+                  type="text"
+                  name="ifsc"
+                  className={`${styles.input} ${errors.ifsc ? styles.inputError : ''}`}
+                  value={formData.ifsc}
+                  onChange={(e) => setFormData(p => ({ ...p, ifsc: e.target.value.toUpperCase() }))}
+                  placeholder="e.g. SBIN0001234"
+                  maxLength={11}
+                />
+                {errors.ifsc && <span className={styles.errorText}>{errors.ifsc}</span>}
               </div>
             </div>
           </section>

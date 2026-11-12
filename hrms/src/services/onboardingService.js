@@ -72,7 +72,10 @@ export const onboardingService = {
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to fetch onboarding record');
-    return data.onboarding;
+    return {
+      ...(data.onboarding || {}),
+      activeDocumentTypes: data.activeDocumentTypes || []
+    };
   },
 
   /**
@@ -108,7 +111,10 @@ export const onboardingService = {
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to update onboarding record');
-    return data.onboarding;
+    return {
+      ...(data.onboarding || {}),
+      activeDocumentTypes: data.activeDocumentTypes || []
+    };
   },
 
   /**
@@ -123,7 +129,10 @@ export const onboardingService = {
 
     const data = await res.json();
     if (!res.ok) throw new Error(data.message || 'Failed to update stage');
-    return data.onboarding;
+    return {
+      ...(data.onboarding || {}),
+      activeDocumentTypes: data.activeDocumentTypes || []
+    };
   },
 
   /**
@@ -172,7 +181,10 @@ export const onboardingService = {
       err.id = data.id;
       throw err;
     }
-    return data.onboarding;
+    return {
+      ...(data.onboarding || {}),
+      activeDocumentTypes: data.activeDocumentTypes || []
+    };
   },
 
   /**
