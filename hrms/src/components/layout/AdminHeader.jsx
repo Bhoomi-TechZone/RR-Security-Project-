@@ -267,12 +267,17 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       return location.search.includes('tab=notifications') ? 'System / Notifications' : 'System / Announcements';
     }
     if (path.startsWith('/admin/payroll')) {
+      if (path.includes('/pending-exits')) return 'Payroll / Separation / Pending Exits';
+      if (path.includes('/finalized-exits')) return 'Payroll / Separation / Finalized Exits';
+      if (path.includes('/fnf-initiate') || path.includes('/separation-initiate') || path.includes('/fnf/initiate')) {
+        return 'Payroll / Separation / Initiate Separation';
+      }
       if (location.search.includes('tab=structure')) return 'Payroll / Salary Structure';
       if (location.search.includes('tab=rate-revision')) return 'Payroll / Rate Revision';
       if (location.search.includes('tab=arrears')) return 'Payroll / Arrears';
       if (location.search.includes('tab=slips')) return 'Payroll / Salary Slips';
       if (location.search.includes('tab=statutory')) return 'Payroll / Statutory Reports';
-      if (location.search.includes('tab=fnf')) return 'Payroll / Full & Final (FnF)';
+      if (location.search.includes('tab=fnf')) return 'Payroll / Separation';
       if (location.search.includes('tab=gratuity')) return 'Payroll / Gratuity Management';
       if (location.search.includes('tab=bonus')) return 'Payroll / Bonus Management';
       return 'Payroll / Payroll Processing';

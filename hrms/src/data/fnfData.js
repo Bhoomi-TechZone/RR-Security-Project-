@@ -10,16 +10,18 @@ export const EXIT_TYPES = [
 ];
 
 export const SEPARATION_REASONS = [
-  'Resignation (Better Career Opportunity)',
-  'Resignation (Personal / Family Reasons)',
-  'Resignation (Health / Medical Issues)',
-  'Relocation / Shift to Hometown',
-  'Contract Expiry / Non-Renewal by Client',
-  'Mutual Separation Agreement',
-  'Superannuation / Official Retirement',
-  'Termination (Performance / Operational Issues)',
-  'Termination (Disciplinary / Conduct Breach)',
-  'Absconding / Unauthorized Absence'
+  'Better Career Opportunity',
+  'Better Compensation Elsewhere',
+  'Death',
+  'Dissatisfied with Work Profile',
+  'Dissatisfied with Work-life Balance',
+  'End of Contract',
+  'Health Issues',
+  'Marriage',
+  'Relocation',
+  'Resignation',
+  'Retirement',
+  'Termination'
 ];
 
 export const CLEARANCE_DEPARTMENTS = [
@@ -455,6 +457,106 @@ export const INITIAL_FNF_RECORDS = [
 
     settlementStatus: 'Pending Approval',
     remarks: 'Logix client contract completed. All 6 clearances completed. Passed to Accounts for statutory verification.'
+  },
+  {
+    id: 'fnf-005',
+    settlementId: 'FNF-2026-005',
+    employeeId: 'e010',
+    employeeCode: 'RR-620',
+    employeeName: 'Rahul Dev Verma',
+    designation: 'Security Guard',
+    client: 'Unitech Cyber Park',
+    site: 'Tower A Lobby',
+    department: 'Physical Security',
+    dateOfJoining: '2026-07-01',
+    exitType: 'Resignation',
+    resignationDate: '2026-10-02',
+    lastWorkingDay: '2026-10-17',
+    separationReason: 'Resignation (Personal / Family Reasons)',
+    noticePeriodRequiredDays: 15,
+    noticePeriodServedDays: 15,
+    noticeShortfallDays: 0,
+    monthlyGrossSalary: 18000,
+    basicSalary: 12000,
+    perDayWage: 692.31,
+    tenureYears: 0.3,
+
+    clearances: {
+      hr: { status: 'Cleared', clearedBy: 'Priya Sharma', clearedDate: '2026-10-16', remarks: 'ID Card surrendered' },
+      operations: { status: 'Cleared', clearedBy: 'Site Ops Lead', clearedDate: '2026-10-17', remarks: 'Gate pass revoked' },
+      accounts: { status: 'Cleared', clearedBy: 'Accounts', clearedDate: '2026-10-17', remarks: 'No advances' },
+      admin: { status: 'Cleared', clearedBy: 'Admin', clearedDate: '2026-10-17', remarks: 'Locker empty' },
+      inventory: { status: 'Cleared', clearedBy: 'Uniform Store', clearedDate: '2026-10-17', remarks: 'Uniform kit returned' },
+      client: { status: 'Cleared', clearedBy: 'Unitech Client Rep', clearedDate: '2026-10-17', remarks: 'Cleared' }
+    },
+
+    attendance: {
+      presentDays: 15,
+      absentDays: 0,
+      overtimeHours: 0,
+      weeklyOffs: 2,
+      holidays: 0,
+      leaveBalance: 2
+    },
+
+    salaryDues: {
+      pendingSalary: 10385,
+      overtimePay: 0,
+      incentives: 0,
+      arrears: 0,
+      bonus: 0
+    },
+
+    deductions: {
+      noticeRecovery: 0,
+      advanceRecovery: 0,
+      loanRecovery: 0,
+      uniformPenalty: 0,
+      otherDeductions: 0
+    },
+
+    statutoryBenefits: {
+      employeePf: 1246,
+      employeeEsi: 135,
+      gratuityAmount: 0,
+      leaveEncashment: 1385
+    },
+
+    finalSettlement: {
+      totalEarnings: 11770,
+      totalDeductions: 1381,
+      netPayable: 10389
+    },
+
+    approvalWorkflow: {
+      currentStage: 'final_approval',
+      isFullyApproved: true,
+      stages: {
+        hr_review: { status: 'Approved', approver: 'HR Manager', date: '2026-10-18' },
+        ops_review: { status: 'Approved', approver: 'Site Ops', date: '2026-10-19' },
+        accounts_review: { status: 'Approved', approver: 'Accounts', date: '2026-10-19' },
+        final_approval: { status: 'Approved', approver: 'Admin Director', date: '2026-10-20' }
+      }
+    },
+
+    payment: {
+      mode: 'Bank Transfer (NEFT)',
+      paymentDate: '2026-10-21',
+      bankName: 'Axis Bank',
+      accountNo: '918010048192841',
+      ifsc: 'UTIB0001824',
+      utrNo: 'AXIS2026102194821',
+      status: 'Disbursed'
+    },
+
+    documents: {
+      fnfStatementGenerated: true,
+      relievingLetterGenerated: true,
+      exitPayslipGenerated: true
+    },
+
+    settlementStatus: 'Settled / Disbursed',
+    remarks: 'Pre-confirmation exit within 3 months probation. All clearances verified and settlement disbursed.'
   }
 ];
 
@@ -465,7 +567,16 @@ export function getStoredFnF() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const existingIds = new Set(parsed.map((r) => r.id));
+        const missing = INITIAL_FNF_RECORDS.filter((r) => !existingIds.has(r.id));
+        if (missing.length > 0) {
+          const merged = [...parsed, ...missing];
+          saveStoredFnF(merged);
+          return merged;
+        }
+        return parsed;
+      }
     }
   } catch (err) {
     console.warn('Error reading FnF storage:', err);
@@ -517,5 +628,108 @@ export function calculateFnFMetrics(records = []) {
     settledCount,
     totalSettledAmount,
     pendingSettlementAmount
+  };
+}
+
+export function calculateSeparationAnalytics(records = [], dateFromStr = '2026-08-03', dateToStr = '2026-11-11') {
+  const fromDate = dateFromStr ? new Date(`${dateFromStr}T00:00:00`) : new Date('2026-08-03T00:00:00');
+  const toDate = dateToStr ? new Date(`${dateToStr}T23:59:59`) : new Date('2026-11-11T23:59:59');
+
+  const inRangeRecords = records.filter((r) => {
+    const exitDate = r.lastWorkingDay || r.resignationDate || r.createdAt;
+    if (!exitDate) return false;
+    const d = new Date(exitDate.length === 10 ? `${exitDate}T12:00:00` : exitDate);
+    return d >= fromDate && d <= toDate;
+  });
+
+  const totalExits = inRangeRecords.length;
+
+  // Average Tenure
+  const totalTenureYears = inRangeRecords.reduce((sum, r) => sum + (Number(r.tenureYears) || 0), 0);
+  const avgTenure = totalExits > 0 ? (totalTenureYears / totalExits).toFixed(1) : 0;
+  const avgTenurePct = Math.min(100, Math.round(((Number(avgTenure) || 0) / 10) * 100));
+
+  // Pre-Confirmation (Tenure < 6 months / 0.5 years)
+  const preConfirmationCount = inRangeRecords.filter((r) => (Number(r.tenureYears) || 0) < 0.5).length;
+  const preConfirmationPct = totalExits > 0 ? Math.round((preConfirmationCount / totalExits) * 100) : 0;
+
+  // Retention Attempts
+  const retainedCount = inRangeRecords.filter((r) => r.isRetained === true).length;
+  const exitedCount = totalExits - retainedCount;
+  const retentionAttemptsPct = totalExits > 0 ? Math.round((retainedCount / totalExits) * 100) : 0;
+
+  // Tenure Breakdown Buckets
+  const tenureBuckets = {
+    below6Months: inRangeRecords.filter((r) => (Number(r.tenureYears) || 0) < 0.5).length,
+    months6To24: inRangeRecords.filter((r) => {
+      const t = Number(r.tenureYears) || 0;
+      return t >= 0.5 && t < 2;
+    }).length,
+    years2To5: inRangeRecords.filter((r) => {
+      const t = Number(r.tenureYears) || 0;
+      return t >= 2 && t < 5;
+    }).length,
+    above5Years: inRangeRecords.filter((r) => (Number(r.tenureYears) || 0) >= 5).length
+  };
+
+  // Top Exit Reasons
+  const reasonMap = {};
+  inRangeRecords.forEach((r) => {
+    const reason = r.separationReason || r.exitType || 'Personal Reasons';
+    reasonMap[reason] = (reasonMap[reason] || 0) + 1;
+  });
+
+  const topExitReasons = Object.entries(reasonMap)
+    .map(([reason, count]) => ({
+      reason,
+      count,
+      percentage: totalExits > 0 ? Math.round((count / totalExits) * 100) : 0
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // Generate Date-wise Timeline ticks (e.g. 15-25 points across the date range)
+  const dateWisePoints = [];
+  const startMs = fromDate.getTime();
+  const endMs = toDate.getTime();
+  const totalDays = Math.max(1, Math.round((endMs - startMs) / (1000 * 60 * 60 * 24)));
+  
+  // Decide interval in days (approx 20-30 intervals max)
+  const stepDays = Math.max(1, Math.ceil(totalDays / 25));
+
+  for (let d = new Date(fromDate); d <= toDate; d.setDate(d.getDate() + stepDays)) {
+    const dStr = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).replace(' ', '-');
+    
+    // Count exits within this interval window
+    const windowEnd = new Date(d);
+    windowEnd.setDate(windowEnd.getDate() + stepDays);
+
+    const count = inRangeRecords.filter((r) => {
+      const ed = r.lastWorkingDay || r.resignationDate;
+      if (!ed) return false;
+      const recDate = new Date(`${ed.slice(0, 10)}T12:00:00`);
+      return recDate >= d && recDate < windowEnd;
+    }).length;
+
+    dateWisePoints.push({
+      dateStr: dStr,
+      label,
+      count
+    });
+  }
+
+  return {
+    totalExits,
+    avgTenure,
+    avgTenurePct,
+    preConfirmationCount,
+    preConfirmationPct,
+    retentionAttemptsPct,
+    retainedCount,
+    exitedCount,
+    tenureBuckets,
+    topExitReasons,
+    dateWisePoints,
+    inRangeRecords
   };
 }

@@ -1,0 +1,768 @@
+/* SeparationDashboard.module.css — Matching Reference Screenshots */
+
+.dashboardWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+/* Header with Title and Action Buttons */
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.actionButtons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Action Buttons Matching Screenshot 2 with Distinct Colors */
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 15px;
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  /* box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08); */
+  text-decoration: none;
+}
+
+.actionBtn:hover {
+  transform: translateY(-1px);
+  /* box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15); */
+}
+
+.actionBtn:active {
+  transform: translateY(0);
+}
+
+.addBtn {
+  background-color: #2563eb;
+  /* Crimson / Red */
+}
+
+.addBtn:hover {
+  background-color: #0645d8;
+}
+
+.pendingBtn {
+  background-color: #c2410c;
+  /* Orange / Rust */
+}
+
+.pendingBtn:hover {
+  background-color: #9a3412;
+}
+
+.finalizedBtn {
+  background-color: #831843;
+  /* Deep Maroon / Dark Wine */
+}
+
+.finalizedBtn:hover {
+  background-color: #701a75;
+}
+
+/* Date Range Filter Bar */
+.filterRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.filterInputs {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.inputLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dateInput {
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background-color: var(--surface);
+  outline: none;
+  min-width: 150px;
+  transition: border-color 0.15s ease;
+}
+
+.dateInput:focus {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.15);
+}
+
+.searchBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #ffffff;
+  background-color: #2563eb;
+  border: none;
+  cursor: pointer;
+  height: 36px;
+  transition: all 0.15s ease;
+}
+
+.searchBtn:hover {
+  background-color: #1143af;
+}
+
+/* 4 Top Metric Cards (Grid) */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .metricsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .metricsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.metricCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.metricCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.iconBox {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.tealIcon {
+  background-color: #0d9488;
+}
+
+.blueIcon {
+  background-color: #0284c7;
+}
+
+.purpleIcon {
+  background-color: #581c87;
+}
+
+.peachIcon {
+  background-color: #fed7aa;
+  color: #ea580c;
+}
+
+.metricContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.metricLabel {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.metricValue {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.metricSubtext {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.progressBarTrack {
+  width: 100%;
+  height: 3px;
+  background-color: #cbd5e1;
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background-color: #0284c7;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.retainedBadge {
+  color: #16a34a;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.exitedBadge {
+  color: #dc2626;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.warningBadge {
+  color: #d97706;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Middle 2 Panels (Top Exit Reasons + Date Wise Exits) */
+.chartsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .chartsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panelCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.panelHeader {
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #f8fafc;
+}
+
+.panelTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.panelBody {
+  padding: 16px 18px 24px 14px;
+  flex: 1;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Top Exit Reasons List */
+.reasonsList {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.reasonItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reasonHeader {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--text-sm);
+}
+
+.reasonName {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.reasonStats {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.reasonBarTrack {
+  width: 100%;
+  height: 6px;
+  background-color: #f1f5f9;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.reasonBarFill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #b91c1c, #f97316);
+  transition: width 0.4s ease;
+}
+
+/* Date Wise Exits Chart Area */
+.chartWrapper {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  height: 220px;
+  position: relative;
+  padding-top: 10px;
+}
+
+.yAxisCol {
+  width: 28px;
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-right: 8px;
+  flex-shrink: 0;
+}
+
+.yTick {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-family: monospace;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.chartPlotArea {
+  display: flex;
+  flex: 1;
+  height: 160px;
+  border-left: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  position: relative;
+  min-width: 0;
+}
+
+.gridLines {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.gridLine {
+  width: 100%;
+  height: 1px;
+  background-color: #f1f5f9;
+}
+
+.columnsWrapper {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  z-index: 1;
+  padding: 0 4px;
+}
+
+.dateColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+.barElement {
+  width: 60%;
+  max-width: 10px;
+  background: linear-gradient(180deg, #b91c1c 0%, #991b1b 100%);
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s ease, background 0.15s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.barElement:hover {
+  background: #dc2626;
+  box-shadow: 0 0 6px rgba(185, 28, 28, 0.4);
+}
+
+.barTooltip {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #0f172a;
+  color: #ffffff;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 3px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 20;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.barElement:hover .barTooltip {
+  opacity: 1;
+}
+
+.dateTickLabel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  transform: rotate(-45deg);
+  transform-origin: top left;
+  white-space: nowrap;
+  pointer-events: none;
+  font-weight: 500;
+}
+
+/* Empty Chart / Reason States */
+.emptyVisual {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 10px;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Tenure Analysis Card (Screenshot 2) */
+.tenureCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.tenureBody {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: 100%;
+}
+
+.tenureGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  .tenureGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 580px) {
+  .tenureGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tenureItemBox {
+  border: 1px solid #f1f5f9;
+  background-color: #ffffff;
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+  transition: all 0.15s ease;
+}
+
+.tenureItemBox:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.tenureCount {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+
+.tenureTitle {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.tenureDesc {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.tenureBadge {
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+/* Specific Tenure Color Themes */
+.redZone .tenureCount {
+  color: #ef4444;
+}
+
+.redZone .tenureBadge {
+  color: #dc2626;
+}
+
+.orangeZone .tenureCount {
+  color: #f59e0b;
+}
+
+.orangeZone .tenureBadge {
+  color: #d97706;
+}
+
+.purpleZone .tenureCount {
+  color: #701a75;
+}
+
+.purpleZone .tenureBadge {
+  color: #701a75;
+}
+
+.greenZone .tenureCount {
+  color: #10b981;
+}
+
+.greenZone .tenureBadge {
+  color: #059669;
+}
+
+/* Tenure Legend (Bottom) */
+.tenureLegend {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  padding-top: 8px;
+  border-top: 1px solid #f1f5f9;
+}
+
+@media (max-width: 640px) {
+  .tenureLegend {
+    gap: 14px;
+  }
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.legendDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotRed {
+  background-color: #ef4444;
+}
+
+.dotYellow {
+  background-color: #f59e0b;
+}
+
+.dotBlue {
+  background-color: #2563eb;
+}
+
+.dotGreen {
+  background-color: #10b981;
+}
+
+/* Mobile & Small Screen Responsiveness */
+@media (max-width: 640px) {
+  .headerRow {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .actionButtons {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .actionBtn {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .filterInputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .inputGroup {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dateInput {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .searchBtn {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .chartWrapper {
+    min-width: 420px;
+  }
+
+  .tenureBody {
+    padding: 16px;
+  }
+
+  .tenureLegend {
+    justify-content: flex-start;
+    gap: 12px 18px;
+  }
+}
+
+@media (max-width: 440px) {
+
+  .actionButtons,
+  .filterInputs {
+    grid-template-columns: 1fr;
+  }
+
+  .metricCard {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+}

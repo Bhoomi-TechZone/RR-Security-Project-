@@ -246,7 +246,7 @@ export default function FnFTable({
             {records.length === 0 ? (
               <tr>
                 <td colSpan={10} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
-                  No Full &amp; Final settlement records found for selected filters.
+                  No separation settlement records found for selected filters.
                 </td>
               </tr>
             ) : (
