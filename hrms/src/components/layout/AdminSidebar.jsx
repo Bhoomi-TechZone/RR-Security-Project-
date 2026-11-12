@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
   WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
   Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature,
-  UserPlus, UserCheck, Calculator, PartyPopper
+  UserPlus, UserCheck, UserMinus, Calculator, PartyPopper
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -49,6 +49,11 @@ const NAV_GROUPS = [
         path: '/admin/onboarding',
         name: 'Onboarding',
         icon: UserCheck,
+      },
+      {
+        path: '/admin/payroll?tab=fnf',
+        name: 'Separation',
+        icon: UserMinus,
       },
     ]
   },
@@ -120,7 +125,6 @@ const NAV_GROUPS = [
           { path: '/admin/payroll?tab=arrears', name: 'Arrears' },
           { path: '/admin/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/admin/payroll?tab=statutory', name: 'Statutory Reports' },
-          { path: '/admin/payroll?tab=fnf', name: 'Full & Final (FnF)' },
           { path: '/admin/payroll?tab=gratuity', name: 'Gratuity Management' },
           { path: '/admin/payroll?tab=bonus', name: 'Bonus Management' },
         ]
@@ -307,14 +311,28 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
 
   const activeBrandLogo = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
 
+  const isSeparationRoute =
+    (location.pathname === '/admin/payroll' && location.search.includes('tab=fnf')) ||
+    location.pathname.startsWith('/admin/payroll/fnf-initiate') ||
+    location.pathname.startsWith('/admin/payroll/separation-initiate') ||
+    location.pathname.startsWith('/admin/payroll/fnf/initiate') ||
+    location.pathname.startsWith('/admin/payroll/pending-exits') ||
+    location.pathname.startsWith('/admin/payroll/finalized-exits');
+
   // Track expanded state of dropdown menus
   const [openDropdowns, setOpenDropdowns] = useState(() => {
+    const initialSep =
+      (location.pathname === '/admin/payroll' && location.search.includes('tab=fnf')) ||
+      location.pathname.startsWith('/admin/payroll/fnf') ||
+      location.pathname.startsWith('/admin/payroll/separation') ||
+      location.pathname.startsWith('/admin/payroll/pending-exits') ||
+      location.pathname.startsWith('/admin/payroll/finalized-exits');
     return {
       '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients')),
       '/admin/employees': location.pathname.startsWith('/admin/employees'),
       '/admin/attendance': location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance'),
       '/admin/shifts': location.pathname.startsWith('/admin/shifts'),
-      '/admin/payroll': location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/'),
+      '/admin/payroll': (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) && !initialSep,
       '/admin/payroll-setup': location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/') || (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components')),
       '/admin/statutory-setup': location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory',
       '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/'),
@@ -346,7 +364,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     if (location.pathname.startsWith('/admin/shifts')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/shifts': true }));
     }
-    if (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) {
+    if ((location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) && !isSeparationRoute) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/payroll': true }));
     }
     if (location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')) {
@@ -479,7 +497,11 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                     ? (
                         location.pathname.startsWith('/admin/clients') ||
                         location.pathname.startsWith('/admin/companies')
-
+                      )
+                    : item.path === '/admin/payroll'
+                    ? (
+                        (location.pathname === item.path || location.pathname.startsWith(item.path + '/')) &&
+                        !isSeparationRoute
                       )
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
@@ -577,11 +599,14 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                           end={item.path === '/admin/dashboard'}
                           className={({ isActive }) => [
                             styles.link,
-                            (isActive || 
-                             (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup')) ||
-                             (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company'))) ||
-                             (item.path === '/admin/recruitment' && location.pathname.startsWith('/admin/recruitment')) ||
-                             (item.path === '/admin/onboarding' && location.pathname.startsWith('/admin/onboarding'))
+                            (item.path === '/admin/payroll?tab=fnf'
+                              ? isSeparationRoute
+                              : (isActive ||
+                                 (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup')) ||
+                                 (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company'))) ||
+                                 (item.path === '/admin/recruitment' && location.pathname.startsWith('/admin/recruitment')) ||
+                                 (item.path === '/admin/onboarding' && location.pathname.startsWith('/admin/onboarding'))
+                                )
                             ) ? styles.active : '',
                             item.disabled ? styles.disabledLink : ''
                           ].filter(Boolean).join(' ')}

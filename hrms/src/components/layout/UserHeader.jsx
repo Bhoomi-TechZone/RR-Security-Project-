@@ -58,12 +58,17 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/reimbursements')) return 'Payroll Management / Reimbursements';
     if (path.startsWith('/user/overtime')) return 'Payroll Management / Overtime';
     if (path.startsWith('/user/payroll')) {
+      if (path.includes('/pending-exits')) return 'Payroll Management / Separation / Pending Exits';
+      if (path.includes('/finalized-exits')) return 'Payroll Management / Separation / Finalized Exits';
+      if (path.includes('/fnf-initiate') || path.includes('/separation-initiate') || path.includes('/fnf/initiate')) {
+        return 'Payroll Management / Separation / Initiate Separation';
+      }
       if (location.search.includes('tab=structure')) return 'Payroll Management / Salary Structure';
       if (location.search.includes('tab=rate-revision')) return 'Payroll Management / Rate Revision';
       if (location.search.includes('tab=arrears')) return 'Payroll Management / Arrears';
       if (location.search.includes('tab=slips')) return 'Payroll Management / Salary Slips';
       if (location.search.includes('tab=statutory')) return 'Payroll Management / Statutory Reports';
-      if (location.search.includes('tab=fnf')) return 'Payroll Management / Full & Final (FnF)';
+      if (location.search.includes('tab=fnf')) return 'Payroll Management / Separation';
       if (location.search.includes('tab=gratuity')) return 'Payroll Management / Gratuity Management';
       if (location.search.includes('tab=bonus')) return 'Payroll Management / Bonus Management';
       return 'Payroll Management / Payroll Processing';

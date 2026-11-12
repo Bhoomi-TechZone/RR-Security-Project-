@@ -28,6 +28,7 @@ import {
   ChevronDown,
   UserPlus,
   UserCheck,
+  UserMinus,
   Calculator,
   PartyPopper
 } from 'lucide-react';
@@ -64,6 +65,12 @@ const USER_NAV_GROUPS = [
         name: 'Onboarding',
         icon: UserCheck,
         moduleKey: 'onboarding',
+      },
+      {
+        path: '/user/payroll?tab=fnf',
+        name: 'Separation',
+        icon: UserMinus,
+        moduleKey: 'payroll',
       },
     ]
   },
@@ -135,7 +142,6 @@ const USER_NAV_GROUPS = [
           { path: '/user/payroll?tab=arrears', name: 'Arrears' },
           { path: '/user/payroll?tab=slips', name: 'Salary Slips' },
           { path: '/user/payroll?tab=statutory', name: 'Statutory Reports' },
-          { path: '/user/payroll?tab=fnf', name: 'Full & Final (FnF)' },
           { path: '/user/payroll?tab=gratuity', name: 'Gratuity Management' },
           { path: '/user/payroll?tab=bonus', name: 'Bonus Management' },
         ]
@@ -340,6 +346,14 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   const { canView, isAdmin, userRole, currentUser } = usePermissions();
   const activeBrandLogo = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
 
+  const isSeparationRoute =
+    (location.pathname === '/user/payroll' && location.search.includes('tab=fnf')) ||
+    location.pathname.startsWith('/user/payroll/fnf-initiate') ||
+    location.pathname.startsWith('/user/payroll/separation-initiate') ||
+    location.pathname.startsWith('/user/payroll/fnf/initiate') ||
+    location.pathname.startsWith('/user/payroll/pending-exits') ||
+    location.pathname.startsWith('/user/payroll/finalized-exits');
+
   // Dropdown states for multi-item accordions
   const [openDropdowns, setOpenDropdowns] = useState(() => ({
     '/user/recruitment': location.pathname.startsWith('/user/recruitment'),
@@ -348,7 +362,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     '/user/employees': location.pathname.startsWith('/user/employees'),
     '/user/attendance': location.pathname.startsWith('/user/attendance') || location.pathname.startsWith('/user/biometric-attendance'),
     '/user/shifts': location.pathname.startsWith('/user/shifts'),
-    '/user/payroll': location.pathname.startsWith('/user/payroll'),
+    '/user/payroll': location.pathname.startsWith('/user/payroll') && !isSeparationRoute,
     '/user/payroll-setup': location.pathname.startsWith('/user/payroll-setup'),
     '/user/statutory-setup': location.pathname.startsWith('/user/statutory-setup'),
     '/user/advances-loans': location.pathname.startsWith('/user/advances-loans'),
@@ -367,6 +381,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
   // Auto-expand active route's accordion when path changes
   useEffect(() => {
     Object.keys(openDropdowns).forEach((key) => {
+      if (key === '/user/payroll' && isSeparationRoute) return;
       if (
         location.pathname === key ||
         location.pathname.startsWith(key + '/') ||
@@ -378,7 +393,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
         setOpenDropdowns(prev => ({ ...prev, [key]: true }));
       }
     });
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   const toggleDropdown = (path) => {
     setOpenDropdowns(prev => ({
@@ -447,7 +462,9 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
               <ul className={styles.groupList}>
                 {group.items.map((item, itemIdx) => {
                   const Icon = item.icon;
-                  const isDropdownActive = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
+                  const isDropdownActive = item.path === '/user/payroll'
+                    ? ((location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isSeparationRoute)
+                    : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
                   return (
                     <li key={itemIdx} className={styles.item}>
@@ -542,7 +559,10 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                           end={item.path === '/user/dashboard'}
                           className={({ isActive }) => [
                             styles.link,
-                            (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding')) || (item.path === '/user/masters' && location.pathname.startsWith('/user/masters'))) ? styles.active : ''
+                            (item.path === '/user/payroll?tab=fnf'
+                              ? isSeparationRoute
+                              : (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding')) || (item.path === '/user/masters' && location.pathname.startsWith('/user/masters')))
+                            ) ? styles.active : ''
                           ].filter(Boolean).join(' ')}
                           onClick={() => handleItemClick(false)}
                           title={isCollapsed ? item.name : undefined}

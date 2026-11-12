@@ -56,7 +56,8 @@ import {
   calculateArrearsMetrics
 } from '../../data/rateRevisionData';
 
-// Full & Final (FnF) Components & Data
+// Full & Final / Separation Components & Data
+import SeparationDashboard from '../../components/payroll/SeparationDashboard';
 import FnFSummaryCards from '../../components/payroll/FnFSummaryCards';
 import FnFFilters from '../../components/payroll/FnFFilters';
 import FnFTable from '../../components/payroll/FnFTable';
@@ -922,7 +923,7 @@ export default function PayrollManagement() {
                 {activeTab === 'arrears' && 'Arrears'}
                 {activeTab === 'slips' && 'Salary Slips'}
                 {activeTab === 'statutory' && 'Statutory Reports'}
-                {activeTab === 'fnf' && 'Full & Final (FnF)'}
+                {activeTab === 'fnf' && 'Separation'}
                 {activeTab === 'gratuity' && 'Gratuity Management'}
               {activeTab === 'bonus' && 'Bonus Management'}
 
@@ -937,7 +938,8 @@ export default function PayrollManagement() {
           )}
         </div>
 
-        {/* Dynamic Tab-Specific Page Header */}
+        {/* Dynamic Tab-Specific Page Header (hidden for Separation as it renders dedicated Separation Dashboard header) */}
+        {activeTab !== 'fnf' && (
         <header className={styles.pageHeader}>
           <div className={styles.headerTitles}>
             <h1 className={styles.title}>
@@ -1136,6 +1138,7 @@ export default function PayrollManagement() {
             )}
           </div>
         </header>
+        )}
 
 
 
@@ -1483,44 +1486,16 @@ export default function PayrollManagement() {
           </section>
         )}
 
-        {/* TAB 7: FULL & FINAL SETTLEMENT (FnF) */}
+        {/* TAB 7: SEPARATION DASHBOARD */}
         {activeTab === 'fnf' && (
           <section className={styles.tabSection}>
-            <FnFSummaryCards metrics={fnfMetrics} />
-            <FnFFilters
-              search={fnfSearch}
-              onSearchChange={(v) => { setFnfSearch(v); setPage(1); }}
-              client={fnfClientFilter}
-              onClientChange={(v) => { setFnfClientFilter(v); setPage(1); }}
-              status={fnfStatusFilter}
-              onStatusChange={(v) => { setFnfStatusFilter(v); setPage(1); }}
-              companies={clientsList.length > 0 ? clientsList : companies}
-              onReset={() => {
-                setFnfSearch('');
-                setFnfClientFilter('');
-                setFnfStatusFilter('');
-                setPage(1);
-              }}
+            <SeparationDashboard
+              records={fnfRecords}
+              basePath={basePath}
+              onAddNewExit={() => navigate(`${basePath}/fnf-initiate`)}
+              onFilterPending={() => navigate(`${basePath}/pending-exits`)}
+              onFilterFinalized={() => navigate(`${basePath}/finalized-exits`)}
             />
-            <FnFTable
-              records={paginatedRows}
-              onView={(fnf) => {
-                setSelectedFnF(fnf);
-                setIsFnFDrawerOpen(true);
-              }}
-              onApproveStage={handleApproveStageFnF}
-              onDisburse={handleDisburseFnF}
-              onGenerateLetter={handleGenerateFnFLetter}
-            />
-            {filteredFnF.length > 0 && (
-              <Pagination
-                currentPage={page}
-                totalItems={filteredFnF.length}
-                itemsPerPage={PAGE_SIZE}
-                onPageChange={setPage}
-                label="settlement records"
-              />
-            )}
           </section>
         )}
 
@@ -1892,9 +1867,38 @@ export default function PayrollManagement() {
             setSelectedFnF(null);
           }}
           record={selectedFnF}
-          onApproveStage={handleApproveStageFnF}
+          employees={employees}
+          onSaveSettlement={(updatedRecord) => {
+            const updatedList = fnfRecords.map((item) =>
+              item.id === updatedRecord.id ? updatedRecord : item
+            );
+            setFnfRecords(updatedList);
+            saveStoredFnF(updatedList);
+            setIsFnFDrawerOpen(false);
+            setSelectedFnF(null);
+            notify(
+              `✓ Settlement processed for ${updatedRecord.employeeName} (Net: ₹${Number(
+                updatedRecord.netSettlementAmount || 0
+              ).toLocaleString('en-IN')}).`,
+              'success'
+            );
+          }}
+          onFinalizeSettlement={(updatedRecord) => {
+            const updatedList = fnfRecords.map((item) =>
+              item.id === updatedRecord.id ? updatedRecord : item
+            );
+            setFnfRecords(updatedList);
+            saveStoredFnF(updatedList);
+            setIsFnFDrawerOpen(false);
+            setSelectedFnF(null);
+            notify(
+              `✓ Settlement finalized for ${updatedRecord.employeeName} (Net: ₹${Number(
+                updatedRecord.netSettlementAmount || 0
+              ).toLocaleString('en-IN')}).`,
+              'success'
+            );
+          }}
           onDisburse={handleDisburseFnF}
-          onGenerateLetter={handleGenerateFnFLetter}
         />
 
         {/* FnF Initiate Settlement Modal */}

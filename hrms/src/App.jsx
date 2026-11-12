@@ -64,6 +64,8 @@ import AddOnboarding from './pages/admin/AddOnboarding'
 import OnboardingDetails from './pages/admin/OnboardingDetails'
 import EditOnboarding from './pages/admin/EditOnboarding'
 import FnFInitiatePage from './pages/admin/FnFInitiatePage'
+import PendingExitsPage from './pages/admin/PendingExitsPage'
+import FinalizedExitsPage from './pages/admin/FinalizedExitsPage'
 import IncomeTaxManagement from './pages/admin/IncomeTaxManagement'
 import Greetings from './pages/admin/Greetings'
 import CandidateSelfOnboard from './pages/public/CandidateSelfOnboard'
@@ -142,8 +144,11 @@ function App() {
       <Route path="/admin/advances-loans" element={<AdminRoute><AdvanceLoanManagement /></AdminRoute>} />
       <Route path="/admin/reimbursements" element={<AdminRoute><Reimbursements /></AdminRoute>} />
       <Route path="/admin/payroll" element={<AdminRoute><PayrollManagement /></AdminRoute>} />
+      <Route path="/admin/payroll/separation-initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
       <Route path="/admin/payroll/fnf-initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
       <Route path="/admin/payroll/fnf/initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
+      <Route path="/admin/payroll/pending-exits" element={<AdminRoute><PendingExitsPage /></AdminRoute>} />
+      <Route path="/admin/payroll/finalized-exits" element={<AdminRoute><FinalizedExitsPage /></AdminRoute>} />
       <Route path="/admin/income-tax" element={<AdminRoute><IncomeTaxManagement /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><Reports /></AdminRoute>} />
       <Route path="/admin/greetings" element={<AdminRoute><Greetings /></AdminRoute>} />
@@ -198,8 +203,11 @@ function App() {
 
         {/* Payroll Modules */}
         <Route path="payroll" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Payroll"><PayrollManagement /></ModulePermissionRoute>} />
-        <Route path="payroll/fnf-initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate FnF Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
-        <Route path="payroll/fnf/initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate FnF Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
+        <Route path="payroll/separation-initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate Separation Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
+        <Route path="payroll/fnf-initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate Separation Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
+        <Route path="payroll/fnf/initiate" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Initiate Separation Settlement"><FnFInitiatePage /></ModulePermissionRoute>} />
+        <Route path="payroll/pending-exits" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Pending Exits"><PendingExitsPage /></ModulePermissionRoute>} />
+        <Route path="payroll/finalized-exits" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Finalized Exits"><FinalizedExitsPage /></ModulePermissionRoute>} />
         <Route path="income-tax" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Income Tax Management"><IncomeTaxManagement /></ModulePermissionRoute>} />
         <Route path="payroll-setup" element={<ModulePermissionRoute moduleKey="payroll_setup" moduleTitle="Payroll Setup"><PayrollSetup /></ModulePermissionRoute>} />
         <Route path="statutory-setup" element={<ModulePermissionRoute moduleKey="statutory_setup" moduleTitle="Statutory Setup"><StatutorySetup /></ModulePermissionRoute>} />
