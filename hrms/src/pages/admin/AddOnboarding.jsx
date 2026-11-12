@@ -60,7 +60,7 @@ export default function AddOnboarding() {
       if (isMounted && Array.isArray(live)) {
         setCandidates(live.filter((c) => c.status === 'selected' || c.status === 'applied'));
       }
-    }).catch(() => {});
+    }).catch(() => { });
 
     return () => { isMounted = false; };
   }, [currentCompanyId]);
@@ -75,9 +75,9 @@ export default function AddOnboarding() {
     appliedFor: 'Security Guard',
     offeredSalary: '19000',
     proposedJoiningDate: new Date().toISOString().split('T')[0],
-    assignedClient: 'DLF CyberCity Tech Park',
-    assignedSite: 'Main Gate Pedestrian Post',
-    assignedShift: 'Day Shift (08:00 AM - 08:00 PM)',
+    assignedClient: '',
+    assignedSite: '',
+    assignedShift: '',
     shirtSize: 'M (40)',
     trouserSize: '32',
     bootSize: '8',
@@ -141,7 +141,6 @@ export default function AddOnboarding() {
     const newErrors = {};
     if (!formData.candidateName.trim()) newErrors.candidateName = 'Candidate name is required.';
     if (!formData.mobile.trim()) newErrors.mobile = 'Mobile number is required.';
-    if (!formData.assignedClient.trim()) newErrors.assignedClient = 'Assigned client is required.';
     if (!formData.offeredSalary) newErrors.offeredSalary = 'Offered salary is required.';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -362,64 +361,17 @@ export default function AddOnboarding() {
                 </div>
 
                 {/* ========================================================
-                    CARD 2: Client Deployment & Shift Assignment
+                    CARD 2: Joining, Compliance & Banking Details
                     ======================================================== */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <h3 className={styles.sectionTitle}>
                       <Building2 size={18} style={{ color: '#2563eb' }} />
-                      Client Site Deployment & Joining Details
+                      Joining, Compliance & Banking Details
                     </h3>
                   </div>
 
                   <div className={styles.grid}>
-                    {/* Assigned Client */}
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>
-                        Assigned Client Company <span className={styles.required}>*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="assignedClient"
-                        className={`${styles.input} ${errors.assignedClient ? styles.inputError : ''}`}
-                        placeholder="e.g. DLF CyberCity Tech Park"
-                        value={formData.assignedClient}
-                        onChange={handleChange}
-                        required
-                      />
-                      {errors.assignedClient && <span className={styles.errorText}>{errors.assignedClient}</span>}
-                    </div>
-
-                    {/* Deployment Site / Post */}
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Deployment Site / Post</label>
-                      <input
-                        type="text"
-                        name="assignedSite"
-                        className={styles.input}
-                        placeholder="e.g. Gate 1 Turnstile / Tower 4"
-                        value={formData.assignedSite}
-                        onChange={handleChange}
-                      />
-                    </div>
-
-                    {/* Shift Duty */}
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Assigned Shift Duty</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          name="assignedShift"
-                          className={styles.select}
-                          value={formData.assignedShift}
-                          onChange={handleChange}
-                        >
-                          {SHIFT_OPTIONS.map((sh) => (
-                            <option key={sh} value={sh}>{sh}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
                     {/* Proposed Joining Date */}
                     <div className={styles.formGroup}>
                       <label className={styles.label}>Proposed Joining Date</label>
@@ -491,115 +443,17 @@ export default function AddOnboarding() {
                 </div>
 
                 {/* ========================================================
-                    CARD 3: Uniform Sizing & Kit Allocation
+                    CARD 3: Joining Notes & Remarks
                     ======================================================== */}
                 <div className={styles.sectionCard}>
                   <div className={styles.sectionHeader}>
                     <h3 className={styles.sectionTitle}>
-                      <Shirt size={18} style={{ color: '#2563eb' }} />
-                      Uniform Sizing & Security Equipment Kit
+                      <FileText size={18} style={{ color: '#2563eb' }} />
+                      Joining Notes & Remarks
                     </h3>
                   </div>
 
                   <div className={styles.grid}>
-                    {/* Uniform Shirt Size */}
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Uniform Shirt Size</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          name="shirtSize"
-                          className={styles.select}
-                          value={formData.shirtSize}
-                          onChange={handleChange}
-                        >
-                          {UNIFORM_SHIRT_SIZES.map((sz) => (
-                            <option key={sz} value={sz}>{sz}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Trouser Waist Size */}
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Trouser Waist Size</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          name="trouserSize"
-                          className={styles.select}
-                          value={formData.trouserSize}
-                          onChange={handleChange}
-                        >
-                          {UNIFORM_TROUSER_SIZES.map((sz) => (
-                            <option key={sz} value={sz}>{sz} Inches</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Boot Size */}
-                    <div className={styles.formGroup}>
-                      <label className={styles.label}>Safety DMS Boots Size</label>
-                      <div className={styles.selectWrapper}>
-                        <select
-                          name="bootSize"
-                          className={styles.select}
-                          value={formData.bootSize}
-                          onChange={handleChange}
-                        >
-                          {BOOT_SIZES.map((sz) => (
-                            <option key={sz} value={sz}>Size {sz}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Kit Checkboxes */}
-                    <div className={`${styles.formGroup} ${styles.fullWidth}`}>
-                      <label className={styles.label}>Equipment Kit Issuance Checklist</label>
-                      <div className={styles.checkboxGrid}>
-                        <label className={styles.checkItem}>
-                          <input
-                            type="checkbox"
-                            name="capIssued"
-                            checked={formData.capIssued}
-                            onChange={handleChange}
-                          />
-                          <span>Security Beret / Peak Cap</span>
-                        </label>
-
-                        <label className={styles.checkItem}>
-                          <input
-                            type="checkbox"
-                            name="badgeIssued"
-                            checked={formData.badgeIssued}
-                            onChange={handleChange}
-                          />
-                          <span>Chest Badge & Name Plate</span>
-                        </label>
-
-                        <label className={styles.checkItem}>
-                          <input
-                            type="checkbox"
-                            name="whistleIssued"
-                            checked={formData.whistleIssued}
-                            onChange={handleChange}
-                          />
-                          <span>Whistle & Lanyard Cord</span>
-                        </label>
-
-                        <label className={styles.checkItem}>
-                          <input
-                            type="checkbox"
-                            name="torchIssued"
-                            checked={formData.torchIssued}
-                            onChange={handleChange}
-                          />
-                          <span>Night Baton / Torch</span>
-                        </label>
-                      </div>
-                    </div>
-
-                    {/* Remarks / Notes */}
                     <div className={`${styles.formGroup} ${styles.fullWidth}`}>
                       <label className={styles.label}>Joining Notes / Remarks</label>
                       <textarea

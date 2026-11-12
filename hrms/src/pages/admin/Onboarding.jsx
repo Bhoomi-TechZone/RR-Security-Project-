@@ -347,7 +347,7 @@ export default function Onboarding() {
             <div className={styles.metricInfo}>
               <span className={styles.metricLabel}>Ready for Deploy</span>
               <span className={styles.metricValue}>{metrics.readyToDeploy}</span>
-              <span className={styles.metricDesc}>Uniform & site assigned</span>
+              <span className={styles.metricDesc}>Cleared & site assigned</span>
             </div>
             <div className={styles.metricIconWrap} style={{ background: '#ecfdf5', color: '#059669' }}>
               <ShieldCheck size={22} />
@@ -373,7 +373,7 @@ export default function Onboarding() {
               <Search size={16} className={styles.searchIcon} />
               <input
                 type="text"
-                placeholder="Search candidate name, ID, client, role, or site..."
+                placeholder="Search candidate name, ID, or role..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className={styles.searchInput}
@@ -433,10 +433,8 @@ export default function Onboarding() {
                 <tr>
                   <th>Candidate & ID</th>
                   <th>Contact Details</th>
-                  <th>Assigned Role & Client</th>
                   <th>Joining Date</th>
                   <th>Documents Status</th>
-                  <th>Uniform Kit</th>
                   <th>Current Stage</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
@@ -444,7 +442,7 @@ export default function Onboarding() {
               <tbody>
                 {filteredList.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>
+                    <td colSpan={6}>
                       <div className={styles.emptyState}>
                         <div className={styles.emptyIcon}>
                           <Users size={28} />
@@ -458,11 +456,13 @@ export default function Onboarding() {
                   </tr>
                 ) : (
                   filteredList.map((item) => {
-                    const docKeys = Object.keys(item.documents || {});
-                    const verifiedCount = docKeys.filter(
-                      (k) => item.documents[k]?.status === 'Verified'
-                    ).length;
-                    const isAllDocsVerified = docKeys.length > 0 && verifiedCount === docKeys.length;
+                    const uploadedEntries = Object.entries(item.documents || {}).filter(([_, d]) => {
+                      if (!d) return false;
+                      return Boolean(d.photo || d.photoFront || d.photoBack || d.fileUrl || (d.number && d.status !== 'Pending'));
+                    });
+                    const uploadedCount = uploadedEntries.length;
+                    const verifiedCount = uploadedEntries.filter(([_, d]) => d?.status === 'Verified' || d?.status === 'Approved').length;
+                    const isAllDocsVerified = uploadedCount > 0 && verifiedCount === uploadedCount;
 
                     return (
                       <tr key={item.id} className={styles.tableRow}>
@@ -477,11 +477,16 @@ export default function Onboarding() {
                               </div>
                             )}
                             <div>
-                              <Link to={`/admin/onboarding/${item.id}`} className={styles.candidateLink}>
+                              <Link to={`/admin/onboarding/${item._id || item.id}`} className={styles.candidateLink}>
                                 {item.candidateName}
                               </Link>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                 <span className={styles.badgeId}>{item.id}</span>
+                                {item.appliedFor && (
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                                    • {item.appliedFor}
+                                  </span>
+                                )}
                                 {item.candidateId && (
                                   <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                                     ({item.candidateId})
@@ -540,19 +545,6 @@ export default function Onboarding() {
                           </div>
                         </td>
 
-                        {/* Assigned Role & Client */}
-                        <td>
-                          <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
-                            {item.appliedFor}
-                          </div>
-                          <div style={{ fontSize: 12, color: '#2563eb', fontWeight: 600, marginTop: 2 }}>
-                            {item.assignedClient || 'Unassigned Client'}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                            {item.assignedSite || 'Site Pending'}
-                          </div>
-                        </td>
-
                         {/* Joining Date */}
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 }}>
@@ -576,7 +568,7 @@ export default function Onboarding() {
                               }}
                             >
                               <FileCheck2 size={13} />
-                              {verifiedCount} of {docKeys.length} Verified
+                              {uploadedCount > 0 ? `${verifiedCount} of ${uploadedCount} Verified` : '0 Uploaded'}
                             </span>
                             {item.selfSubmitted ? (
                               <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -587,16 +579,6 @@ export default function Onboarding() {
                                 <Clock size={12} /> Awaiting Candidate Submission
                               </span>
                             )}
-                          </div>
-                        </td>
-
-                        {/* Uniform Kit */}
-                        <td>
-                          <span style={{ fontSize: 12, fontWeight: 600 }}>
-                            Shirt: {item.uniformKit?.shirtSize || '—'} | Boot: {item.uniformKit?.bootSize || '—'}
-                          </span>
-                          <div style={{ fontSize: 11, color: item.uniformKit?.badgeIssued ? '#059669' : '#d97706', marginTop: 2 }}>
-                            {item.uniformKit?.badgeIssued ? '✓ Kit Issued' : '⏳ Kit Pending'}
                           </div>
                         </td>
 
@@ -626,7 +608,7 @@ export default function Onboarding() {
                             )}
 
                             <Link
-                              to={`/admin/onboarding/${item.id}`}
+                              to={`/admin/onboarding/${item._id || item.id}`}
                               className={styles.viewBtn}
                               title="Open Full Onboarding Dossier"
                             >
@@ -636,7 +618,7 @@ export default function Onboarding() {
 
                             {/* Edit Action Button (Dedicated Edit Page) */}
                             <Link
-                              to={`/admin/onboarding/${item.id}/edit`}
+                              to={`/admin/onboarding/${item._id || item.id}/edit`}
                               className={styles.editBtn}
                               title="Edit Onboarding Details"
                               aria-label="Edit onboarding details"

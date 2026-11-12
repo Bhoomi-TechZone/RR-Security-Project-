@@ -216,8 +216,17 @@ export const transferCandidateToOnboarding = async (candidate, offerDetails = {}
   const candIdentifier = candidate.candidateId || candidate.id;
   const existing = list.find((item) => item.candidateId === candIdentifier || item.candidateId === candidate.id);
 
+  let nextId = existing?.id;
+  if (!nextId) {
+    try {
+      nextId = await onboardingService.getNextOnboardingId(activeId);
+    } catch (_) {
+      nextId = generateNextOnboardingId(activeId);
+    }
+  }
+
   const newOnboarding = {
-    id: existing?.id || generateNextOnboardingId(activeId),
+    id: nextId,
     companyId: activeId,
     candidateId: candIdentifier,
     candidateName: candidate.name,
@@ -228,9 +237,9 @@ export const transferCandidateToOnboarding = async (candidate, offerDetails = {}
     offeredSalary: Number(offerDetails.offeredSalary || candidate.expectedSalary || 18000),
     offeredDesignation: offerDetails.offeredDesignation || candidate.appliedFor || 'Security Guard',
     proposedJoiningDate: offerDetails.proposedJoiningDate || new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-    assignedClient: offerDetails.assignedClient || 'Corporate Office / Main Site',
-    assignedSite: offerDetails.assignedSite || 'Main Gate Security Post',
-    assignedShift: offerDetails.assignedShift || 'Day Shift (08:00 AM - 08:00 PM)',
+    assignedClient: offerDetails.assignedClient || '',
+    assignedSite: offerDetails.assignedSite || '',
+    assignedShift: offerDetails.assignedShift || '',
     stage: offerDetails.stage || 'document_verification',
     photo: candidate.photo || '',
     presentAddress: candidate.presentAddress || [candidate.address, candidate.city, candidate.state ? `${candidate.state}${candidate.pincode ? ` - ${candidate.pincode}` : ''}` : ''].filter(Boolean).join(', ') || candidate.address || '',
@@ -241,14 +250,7 @@ export const transferCandidateToOnboarding = async (candidate, offerDetails = {}
     dob: candidate.dob || '',
     gender: candidate.gender || 'Male',
     fatherHusbandName: candidate.fatherHusbandName || candidate.fatherName || '',
-    documents: existing?.documents || {
-      aadhaar: { status: 'Uploaded', number: '', documentName: 'Aadhaar Card' },
-      pan: { status: 'Uploaded', number: '', documentName: 'PAN Card' },
-      bankProof: { status: 'Pending', bankName: '', ifsc: '', accountNumber: '', documentName: 'Bank Passbook / Cheque' },
-      policeVerification: { status: 'Pending', refNo: '', clearanceDate: '', documentName: 'Police Verification' },
-      educationCertificate: { status: 'Uploaded', documentName: 'Educational Certificate' },
-      experienceRelieving: { status: candidate.experience === 'Experienced' ? 'Uploaded' : 'N/A', documentName: 'Previous Relieving Letter' }
-    },
+    documents: existing?.documents || {},
     uniformKit: existing?.uniformKit || {
       shirtSize: 'M (40)',
       trouserSize: '32',
@@ -319,9 +321,9 @@ export const addOnboardingCandidate = async (data, companyId) => {
     offeredSalary: Number(data.offeredSalary || 18000),
     offeredDesignation: data.offeredDesignation || data.appliedFor || 'Security Guard',
     proposedJoiningDate: data.proposedJoiningDate || new Date().toISOString().split('T')[0],
-    assignedClient: data.assignedClient || 'Unassigned Client',
-    assignedSite: data.assignedSite || 'Main Site',
-    assignedShift: data.assignedShift || 'Day Shift (08:00 AM - 08:00 PM)',
+    assignedClient: data.assignedClient || '',
+    assignedSite: data.assignedSite || '',
+    assignedShift: data.assignedShift || '',
     stage: data.stage || 'offer_accepted',
     photo: data.photo || '',
     documents: data.documents || {
@@ -382,7 +384,7 @@ export const convertToEmployee = async (onboardingId, generatedEmpCode, companyI
           localStorage.setItem(compKey, JSON.stringify([res.employee, ...compFiltered]));
           localStorage.setItem('hrms_employees_cache', JSON.stringify([res.employee, ...compFiltered]));
           window.dispatchEvent(new CustomEvent('employees-updated', { detail: { companyId: activeId } }));
-        } catch (_) {}
+        } catch (_) { }
       }
 
       return res;
@@ -549,7 +551,7 @@ export const convertToEmployee = async (onboardingId, generatedEmpCode, companyI
 
 export const getOnboardingCandidateById = (id) => {
   const list = getStoredOnboarding();
-  let found = list.find((item) => item.id === id || item.candidateId === id) || null;
+  let found = list.find((item) => (item._id && String(item._id) === String(id)) || item.id === id || item.candidateId === id) || null;
   if (found) {
     // If presentAddress or candidate demographics are missing, look up corresponding candidate from recruitment
     if (!found.presentAddress || !found.address) {
@@ -624,6 +626,25 @@ export const saveCandidateSelfOnboarding = (onboardingId, submission) => {
       documentName: 'Educational Certificate'
     }
   };
+
+  // Merge any dynamic document types configured for this company
+  if (submission.dynamicDocs && typeof submission.dynamicDocs === 'object') {
+    Object.entries(submission.dynamicDocs).forEach(([docKey, docData]) => {
+      if (!docData) return;
+      updatedDocs[docKey] = {
+        status: (docData.fileUrl || docData.photoFront || docData.photo) ? 'Uploaded' : (current.documents?.[docKey]?.status || 'Pending'),
+        number: docData.number || current.documents?.[docKey]?.number || '',
+        documentName: docData.name || docData.documentName || docKey,
+        code: docData.code || '',
+        fileUrl: docData.fileUrl || docData.photo || '',
+        photo: docData.photo || docData.fileUrl || '',
+        photoFront: docData.photoFront || '',
+        photoBack: docData.photoBack || '',
+        fileName: docData.fileName || '',
+        fileSize: docData.fileSize || ''
+      };
+    });
+  }
 
   const updatedKit = {
     ...current.uniformKit,

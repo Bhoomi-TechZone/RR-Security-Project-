@@ -3,6 +3,7 @@ import Onboarding from '../models/onboardingModel.js';
 import Candidate from '../models/candidateModel.js';
 import Company from '../models/companyModel.js';
 import Employee from '../models/employeeModel.js';
+import Master from '../models/masterModel.js';
 import { sendOnboardingInvitationEmail } from '../services/emailService.js';
 
 const SEED_ONBOARDING = [
@@ -227,6 +228,65 @@ export const getOnboardingList = async (req, res) => {
       adminEmail
     };
 
+    // Auto-heal duplicate IDs & sync candidate details with Candidate collection
+    try {
+      const allCompanyRecords = await Onboarding.find(filter).sort({ createdAt: 1 });
+      const seenIds = new Set();
+      let maxNum = 0;
+
+      allCompanyRecords.forEach((r) => {
+        const match = (r.id || '').match(/ONB-\d{4}-(\d+)/i);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      });
+
+      const curYear = new Date().getFullYear();
+
+      for (const record of allCompanyRecords) {
+        let dirty = false;
+
+        // Sync candidate profile data from Candidate model if needed
+        if (record.candidateId) {
+          const origCand = await Candidate.findOne({
+            companyId: { $in: companyIds },
+            adminEmail,
+            $or: [{ id: record.candidateId }, { candidateId: record.candidateId }]
+          }).lean();
+
+          if (origCand && origCand.name && record.candidateName !== origCand.name) {
+            record.candidateName = origCand.name;
+            record.mobile = origCand.mobile || record.mobile;
+            record.email = origCand.email || record.email;
+            record.appliedFor = origCand.appliedFor || record.appliedFor;
+            record.jobCategory = origCand.jobCategory || record.jobCategory;
+            dirty = true;
+          }
+        }
+
+        // Detect duplicate or missing ONB ID and assign next sequential number
+        const isDuplicate = seenIds.has(record.id);
+        const isCorrupt = !record.id || !record.id.startsWith('ONB-');
+
+        if (isDuplicate || isCorrupt) {
+          maxNum += 1;
+          const assignedId = `ONB-${curYear}-${String(maxNum).padStart(3, '0')}`;
+          record.id = assignedId;
+          seenIds.add(assignedId);
+          dirty = true;
+        } else {
+          seenIds.add(record.id);
+        }
+
+        if (dirty) {
+          await record.save();
+        }
+      }
+    } catch (healErr) {
+      console.warn('[Onboarding] Auto-heal sync notice:', healErr.message);
+    }
+
     if (req.query.stage && req.query.stage !== 'all') {
       filter.stage = req.query.stage;
     }
@@ -282,9 +342,9 @@ export const getOnboardingById = async (req, res) => {
       companyId: { $in: companyIds },
       adminEmail,
       $or: [
+        ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : []),
         { id },
-        { candidateId: id },
-        ...(mongoose.Types.ObjectId.isValid(id) ? [{ _id: id }] : [])
+        { candidateId: id }
       ]
     });
 
@@ -292,7 +352,18 @@ export const getOnboardingById = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Onboarding record not found.' });
     }
 
-    return res.status(200).json({ success: true, onboarding: record });
+    // Fetch active Document Types configured for this company in Masters
+    let activeDocumentTypes = [];
+    try {
+      activeDocumentTypes = await Master.find({
+        companyId: { $in: companyIds },
+        adminEmail,
+        type: 'document-types',
+        status: { $regex: /^active$/i }
+      }).lean();
+    } catch (_) {}
+
+    return res.status(200).json({ success: true, onboarding: record, activeDocumentTypes });
   } catch (error) {
     console.error('Error fetching onboarding record:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch onboarding record' });
@@ -366,7 +437,11 @@ export const createOnboarding = async (req, res) => {
       });
     }
 
-    const id = req.body.id || (await generateNextOnboardingIdInternal(companyIds, adminEmail));
+    let id = req.body.id;
+    const isIdTaken = id ? await Onboarding.exists({ companyId: { $in: companyIds }, adminEmail, id }) : false;
+    if (!id || isIdTaken) {
+      id = await generateNextOnboardingIdInternal(companyIds, adminEmail);
+    }
 
     const fullAddr = cand
       ? [cand.address, cand.city, cand.state ? `${cand.state}${cand.pincode ? ` - ${cand.pincode}` : ''}` : ''].filter(Boolean).join(', ')
@@ -378,6 +453,11 @@ export const createOnboarding = async (req, res) => {
       companyId,
       companyName: compName,
       adminEmail,
+      candidateName: cand?.name || req.body.candidateName || 'Candidate',
+      mobile: cand?.mobile || req.body.mobile || '',
+      email: (cand?.email || req.body.email || '').trim(),
+      jobCategory: cand?.jobCategory || req.body.jobCategory || 'Security Guard',
+      appliedFor: cand?.appliedFor || req.body.appliedFor || 'Security Guard',
       presentAddress: req.body.presentAddress || fullAddr || cand?.address || '',
       address: req.body.address || cand?.address || '',
       city: req.body.city || cand?.city || '',
@@ -786,9 +866,9 @@ export const getPublicOnboardingById = async (req, res) => {
           offeredSalary: Number(cand.expectedSalary || 18000),
           offeredDesignation: cand.appliedFor || 'Security Guard',
           proposedJoiningDate: new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0],
-          assignedClient: 'Corporate Office / Main Site',
-          assignedSite: 'Main Gate Security Post',
-          assignedShift: 'Day Shift (08:00 AM - 08:00 PM)',
+          assignedClient: '',
+          assignedSite: '',
+          assignedShift: '',
           stage: 'document_verification',
           photo: cand.photo || '',
           presentAddress: fullAddr || cand.address || '',
@@ -801,14 +881,7 @@ export const getPublicOnboardingById = async (req, res) => {
           fatherHusbandName: cand.fatherHusbandName || cand.fatherName || '',
           linkExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
           invitationSentAt: new Date(),
-          documents: {
-            aadhaar: { status: 'Uploaded', number: '', documentName: 'Aadhaar Card' },
-            pan: { status: 'Uploaded', number: '', documentName: 'PAN Card' },
-            bankProof: { status: 'Pending', bankName: '', ifsc: '', accountNumber: '', documentName: 'Bank Passbook / Cheque' },
-            policeVerification: { status: 'Pending', refNo: '', clearanceDate: '', documentName: 'Police Verification' },
-            educationCertificate: { status: 'Uploaded', documentName: 'Educational Certificate' },
-            experienceRelieving: { status: cand.experience === 'Experienced' ? 'Uploaded' : 'N/A', documentName: 'Previous Relieving Letter' }
-          },
+          documents: {},
           uniformKit: {
             shirtSize: 'M (40)',
             trouserSize: '32',
@@ -852,7 +925,26 @@ export const getPublicOnboardingById = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ success: true, onboarding: record });
+    // Fetch active Document Types configured for this company in Masters
+    let activeDocumentTypes = [];
+    try {
+      const companyIds = await resolveCompanyIds(record.companyId, record.adminEmail);
+      activeDocumentTypes = await Master.find({
+        companyId: { $in: companyIds },
+        type: 'document-types',
+        status: { $regex: /^active$/i }
+      })
+        .select('name code requiredType expiryRequired verificationRequired status description')
+        .lean();
+    } catch (docErr) {
+      console.warn('[Onboarding] Error fetching active document types for company:', docErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      onboarding: record,
+      activeDocumentTypes: activeDocumentTypes || []
+    });
   } catch (error) {
     console.error('Error fetching public onboarding:', error);
     return res.status(500).json({ success: false, message: 'Failed to fetch onboarding record' });
@@ -940,6 +1032,50 @@ export const submitPublicOnboarding = async (req, res) => {
         photo: submission.bankPassbookPhoto || record.documents?.bankProof?.photo || '',
         documentName: 'Bank Passbook / Cheque'
       };
+    }
+
+    // Process Dynamic Document Types from Company Masters
+    if (submission.dynamicDocs && typeof submission.dynamicDocs === 'object') {
+      if (!record.documents) record.documents = {};
+      const uploadedDocsList = Array.isArray(record.uploadedDocuments) ? [...record.uploadedDocuments] : [];
+
+      Object.entries(submission.dynamicDocs).forEach(([docKey, docData]) => {
+        if (!docData) return;
+        const entry = {
+          status: 'Uploaded',
+          number: docData.number || '',
+          documentName: docData.name || docData.documentName || docKey,
+          code: docData.code || '',
+          fileUrl: docData.fileUrl || docData.photo || '',
+          photo: docData.photo || docData.fileUrl || '',
+          photoFront: docData.photoFront || '',
+          photoBack: docData.photoBack || '',
+          fileName: docData.fileName || '',
+          fileSize: docData.fileSize || ''
+        };
+        record.documents[docKey] = entry;
+
+        // Sync Aadhaar or PAN root shortcuts if this doc is Aadhaar or PAN
+        const nameLower = (entry.documentName || '').toLowerCase();
+        if (nameLower.includes('aadhaar') || nameLower.includes('aadhar')) {
+          if (entry.number) record.aadhaar = entry.number;
+          record.documents.aadhaar = entry;
+        } else if (nameLower.includes('pan')) {
+          if (entry.number) record.pan = entry.number;
+          record.documents.pan = entry;
+        }
+
+        const existingIdx = uploadedDocsList.findIndex(d => (d.code && d.code === entry.code) || d.documentName === entry.documentName);
+        if (existingIdx >= 0) {
+          uploadedDocsList[existingIdx] = entry;
+        } else {
+          uploadedDocsList.push(entry);
+        }
+      });
+
+      record.uploadedDocuments = uploadedDocsList;
+      record.markModified('documents');
+      record.markModified('uploadedDocuments');
     }
 
     // Update Uniform Kit

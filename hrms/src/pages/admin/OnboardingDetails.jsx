@@ -21,7 +21,6 @@ import {
   Check,
   Eye,
   Copy,
-  MessageCircle,
   ExternalLink,
   X,
   User,
@@ -34,9 +33,6 @@ import {
   getStoredOnboarding,
   updateOnboardingCandidate,
   convertToEmployee,
-  UNIFORM_SHIRT_SIZES,
-  UNIFORM_TROUSER_SIZES,
-  BOOT_SIZES,
   ONBOARDING_STAGES
 } from '../../data/onboardingData';
 import onboardingService from '../../services/onboardingService';
@@ -62,7 +58,11 @@ export default function OnboardingDetails() {
 
   const loadData = useCallback(async () => {
     const list = getStoredOnboarding(currentCompanyId);
-    const found = list.find((item) => item.id === id);
+    const found = list.find((item) =>
+      (item._id && String(item._id) === String(id)) ||
+      item.id === id ||
+      item.candidateId === id
+    );
     if (found) {
       setCandidate(found);
     }
@@ -104,25 +104,13 @@ export default function OnboardingDetails() {
       }
     };
     try {
+      const docName = candidate.documents?.[docKey]?.documentName || docKey;
       await updateOnboardingCandidate(candidate.id, { documents: updatedDocs }, currentCompanyId);
       setCandidate((prev) => ({ ...prev, documents: updatedDocs }));
-      showToast(`Updated ${docKey} verification status to ${newStatus}.`, 'success');
+      const label = newStatus === 'Verified' ? 'Approved' : newStatus;
+      showToast(`Document "${docName}" marked as ${label}.`, 'success');
     } catch (err) {
       showToast('Failed to update document status', 'error');
-    }
-  };
-
-  // Update uniform sizing
-  const handleUniformChange = async (field, value) => {
-    const updatedKit = {
-      ...candidate.uniformKit,
-      [field]: value
-    };
-    try {
-      await updateOnboardingCandidate(candidate.id, { uniformKit: updatedKit }, currentCompanyId);
-      setCandidate((prev) => ({ ...prev, uniformKit: updatedKit }));
-    } catch (err) {
-      showToast('Failed to update uniform kit', 'error');
     }
   };
 
@@ -171,17 +159,16 @@ export default function OnboardingDetails() {
     }
   };
 
-  const handleOpenWhatsApp = () => {
-    const link = `${window.location.origin}/onboard/${candidate.id}`;
-    const cleanMobile = (candidate.mobile || '').replace(/\D/g, '');
-    const text = encodeURIComponent(
-      `Hello ${candidate.candidateName},\n\nWelcome to RR Security & Facilities! Please complete your digital onboarding & document verification using your official self-onboarding link below:\n\n🔗 ${link}\n\nPlease keep your Aadhaar, bank passbook/cheque, and uniform size ready.\n\nThank you,\nHR Department`
-    );
-    window.open(`https://wa.me/91${cleanMobile}?text=${text}`, '_blank');
-  };
+  // Only show documents that the candidate actually uploaded from the onboarding form
+  const docEntries = Object.entries(candidate.documents || {}).filter(([key, doc]) => {
+    if (!doc) return false;
+    const hasProof = Boolean(doc.photo || doc.photoFront || doc.photoBack || doc.fileUrl);
+    const hasData = Boolean(doc.number && String(doc.number).trim());
+    const isSubmitted = doc.status === 'Uploaded' || doc.status === 'Verified' || doc.status === 'Approved' || doc.status === 'Rejected';
+    return hasProof || (hasData && isSubmitted);
+  });
 
-  const docEntries = Object.entries(candidate.documents || {});
-  const verifiedCount = docEntries.filter(([_, doc]) => doc?.status === 'Verified').length;
+  const verifiedCount = docEntries.filter(([_, doc]) => doc?.status === 'Verified' || doc?.status === 'Approved').length;
   const isAllDocsVerified = docEntries.length > 0 && verifiedCount === docEntries.length;
 
   return (
@@ -215,14 +202,6 @@ export default function OnboardingDetails() {
                   <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     Recruitment Ref: {candidate.candidateId}
                   </span>
-                </div>
-
-                <div className={styles.heroRole}>
-                  <span>{candidate.appliedFor}</span>
-                  <span>•</span>
-                  <span style={{ color: '#2563eb', fontWeight: 700 }}>{candidate.assignedClient}</span>
-                  <span>•</span>
-                  <span>{candidate.assignedSite}</span>
                 </div>
 
                 <div style={{ display: 'flex', gap: 16, marginTop: 6, fontSize: 13, color: 'var(--text-secondary)' }}>
@@ -266,67 +245,6 @@ export default function OnboardingDetails() {
             </div>
           </div>
 
-          {/* Candidate Self-Onboarding Share Strip */}
-          <div className={styles.shareStrip}>
-            <div className={styles.shareStripLeft}>
-              {candidate.selfSubmitted ? (
-                <span className={styles.selfSubmittedBadge}>
-                  <CheckCircle2 size={15} /> Candidate Self-Onboarding Completed ({candidate.selfSubmittedAt ? new Date(candidate.selfSubmittedAt).toLocaleDateString('en-IN') : 'Submitted'})
-                </span>
-              ) : (
-                <span className={styles.pendingSubmitBadge}>
-                  <Clock size={15} /> Self-Onboarding Link Active (Awaiting Candidate Submission)
-                </span>
-              )}
-              <span className={styles.shareStripUrl}>{`${window.location.origin}/onboard/${candidate.id}`}</span>
-            </div>
-
-            <div className={styles.shareStripActions}>
-              <button
-                type="button"
-                className={styles.shareWhatsAppBtn}
-                onClick={handleSendEmail}
-                disabled={isSendingEmail}
-                title="Send official onboarding invitation email with link"
-                style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
-              >
-                <Mail size={15} />
-                <span>{isSendingEmail ? 'Sending...' : 'Email Link'}</span>
-              </button>
-
-              <button
-                type="button"
-                className={styles.shareWhatsAppBtn}
-                onClick={handleOpenWhatsApp}
-                title="Send self-onboarding link via WhatsApp"
-              >
-                <MessageCircle size={15} />
-                <span>WhatsApp Link</span>
-              </button>
-
-              <button
-                type="button"
-                className={styles.copyLinkBtn}
-                onClick={handleCopyLink}
-                title="Copy link to clipboard"
-              >
-                <Copy size={15} />
-                <span>Copy Link</span>
-              </button>
-
-              <a
-                href={`/onboard/${candidate.id}`}
-                target="_blank"
-                rel="noreferrer"
-                className={styles.previewLinkBtn}
-                title="Preview candidate form in new tab"
-              >
-                <ExternalLink size={15} />
-                <span>Candidate Portal</span>
-              </a>
-            </div>
-          </div>
-
           {/* Quick Metrics Bar */}
           <div className={styles.metricsBar}>
             <div className={styles.metricItem}>
@@ -346,14 +264,7 @@ export default function OnboardingDetails() {
             <div className={styles.metricItem}>
               <span className={styles.metricLabel}>Document Verification</span>
               <span className={styles.metricVal} style={{ color: isAllDocsVerified ? '#059669' : '#d97706' }}>
-                {verifiedCount} / {docEntries.length} Cleared
-              </span>
-            </div>
-
-            <div className={styles.metricItem}>
-              <span className={styles.metricLabel}>Uniform Sizing</span>
-              <span className={styles.metricVal}>
-                Shirt: {candidate.uniformKit?.shirtSize} | Boot: {candidate.uniformKit?.bootSize}
+                {docEntries.length > 0 ? `${verifiedCount} / ${docEntries.length} Approved` : 'Awaiting Uploads'}
               </span>
             </div>
           </div>
@@ -367,203 +278,178 @@ export default function OnboardingDetails() {
               <div className={styles.sectionTitle}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <FileCheck2 size={18} style={{ color: '#2563eb' }} />
-                  <span>Mandatory Document Verification Checklist</span>
+                  <span>Uploaded Candidate Documents Verification</span>
                 </div>
-                <span
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 700,
-                    color: isAllDocsVerified ? '#059669' : '#d97706',
-                    background: isAllDocsVerified ? '#ecfdf5' : '#fffbeb',
-                    padding: '2px 10px',
-                    borderRadius: 12
-                  }}
-                >
-                  {verifiedCount} of {docEntries.length} Verified
-                </span>
+                {docEntries.length > 0 && (
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      color: isAllDocsVerified ? '#059669' : '#d97706',
+                      background: isAllDocsVerified ? '#ecfdf5' : '#fffbeb',
+                      padding: '2px 10px',
+                      borderRadius: 12
+                    }}
+                  >
+                    {verifiedCount} of {docEntries.length} Approved
+                  </span>
+                )}
               </div>
 
-              <div className={styles.docsList}>
-                {docEntries.map(([key, doc]) => {
-                  const isVerified = doc.status === 'Verified';
-                  const isPending = doc.status === 'Pending';
-                  const isUploaded = doc.status === 'Uploaded';
+              {docEntries.length === 0 ? (
+                <div style={{ padding: '36px 20px', textAlign: 'center', background: '#f8fafc', borderRadius: 8, border: '1px dashed #cbd5e1' }}>
+                  <FileText size={32} color="#94a3b8" style={{ margin: '0 auto 10px', display: 'block' }} />
+                  <h4 style={{ margin: '0 0 6px', fontSize: 14.5, fontWeight: 700, color: '#334155' }}>
+                    No Documents Uploaded Yet
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 13, color: '#64748b', maxWidth: 440, marginLeft: 'auto', marginRight: 'auto' }}>
+                    The candidate has not submitted documents via the self-onboarding portal yet. Once submitted, their uploaded documents will appear here for your verification, approval, or rejection.
+                  </p>
+                  <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center', gap: 10 }}>
+                    <button
+                      type="button"
+                      className={styles.copyLinkBtn}
+                      onClick={handleCopyLink}
+                      style={{ padding: '7px 16px', fontSize: 12.5 }}
+                    >
+                      <Copy size={13} /> Copy Onboarding Link
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.shareWhatsAppBtn}
+                      onClick={handleSendEmail}
+                      disabled={isSendingEmail}
+                      style={{ padding: '7px 16px', fontSize: 12.5, background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}
+                    >
+                      <Mail size={13} /> {isSendingEmail ? 'Sending...' : 'Email Onboarding Link'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.docsList}>
+                  {docEntries.map(([key, doc]) => {
+                    const isVerified = doc.status === 'Verified' || doc.status === 'Approved';
+                    const isRejected = doc.status === 'Rejected';
+                    const isUploaded = !isVerified && !isRejected;
 
-                  let statusColor = '#64748b';
-                  let statusBg = '#f1f5f9';
-                  if (isVerified) {
-                    statusColor = '#059669';
-                    statusBg = '#ecfdf5';
-                  } else if (isUploaded) {
-                    statusColor = '#2563eb';
-                    statusBg = '#eff6ff';
-                  } else if (isPending) {
-                    statusColor = '#d97706';
-                    statusBg = '#fffbeb';
-                  }
+                    let statusColor = '#2563eb';
+                    let statusBg = '#eff6ff';
+                    if (isVerified) {
+                      statusColor = '#059669';
+                      statusBg = '#ecfdf5';
+                    } else if (isRejected) {
+                      statusColor = '#dc2626';
+                      statusBg = '#fef2f2';
+                    }
 
-                  const hasProof = Boolean(doc.photo || doc.photoFront || doc.photoBack);
+                    const hasProof = Boolean(doc.photo || doc.photoFront || doc.photoBack || doc.fileUrl);
 
-                  return (
-                    <div key={key} className={styles.docRow}>
-                      <div className={styles.docInfo}>
-                        <div className={styles.docIconWrap} style={{ background: statusBg, color: statusColor }}>
-                          {isVerified ? <Check size={18} /> : <FileText size={18} />}
-                        </div>
-                        <div>
-                          <div className={styles.docName}>{doc.documentName || key}</div>
-                          <div className={styles.docMeta}>
-                            {doc.number && `Number: ${doc.number} • `}
-                            {doc.refNo && `Ref: ${doc.refNo} • `}
-                            {doc.bankName && `Bank: ${doc.bankName} (A/C: ${doc.accountNumber || '—'}, IFSC: ${doc.ifsc || '—'}) • `}
-                            Status: <strong style={{ color: statusColor }}>{doc.status}</strong>
+                    return (
+                      <div key={key} className={styles.docRow} style={{ padding: '14px 16px' }}>
+                        <div className={styles.docInfo}>
+                          <div className={styles.docIconWrap} style={{ background: statusBg, color: statusColor }}>
+                            {isVerified ? <Check size={18} /> : isRejected ? <X size={18} /> : <FileText size={18} />}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div className={styles.docName} style={{ margin: 0 }}>{doc.documentName || key}</div>
+                              {/* Uploaded badge */}
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  padding: '1px 8px',
+                                  borderRadius: 4,
+                                  background: '#eff6ff',
+                                  color: '#2563eb',
+                                  border: '1px solid #bfdbfe'
+                                }}
+                              >
+                                Uploaded
+                              </span>
+                            </div>
+                            <div className={styles.docMeta} style={{ marginTop: 4 }}>
+                              {doc.number && `Number: ${doc.number} • `}
+                              {doc.photoFront && doc.photoBack && 'Front & Back Photos • '}
+                              {doc.fileSize && `Size: ${doc.fileSize} • `}
+                              Status: <strong style={{ color: statusColor }}>{isVerified ? 'Approved' : isRejected ? 'Rejected' : 'Uploaded (Pending Verification)'}</strong>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className={styles.docStatusControls}>
-                        {hasProof ? (
+                        <div className={styles.docStatusControls} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {hasProof && (
+                            <button
+                              type="button"
+                              className={styles.previewDocBtn}
+                              onClick={() => setPreviewDoc({
+                                key,
+                                name: doc.documentName || key,
+                                doc,
+                                status: doc.status
+                              })}
+                              title="Inspect candidate uploaded proof"
+                            >
+                              <Eye size={13} />
+                              <span>View Uploaded Proof</span>
+                            </button>
+                          )}
+
+                          {/* Approve Button */}
                           <button
                             type="button"
-                            className={styles.previewDocBtn}
-                            onClick={() => setPreviewDoc({
-                              key,
-                              name: doc.documentName || key,
-                              doc,
-                              status: doc.status
-                            })}
-                            title="Inspect candidate uploaded proof"
+                            onClick={() => handleDocStatusChange(key, 'Verified')}
+                            disabled={isVerified}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '6px 14px',
+                              background: isVerified ? '#d1fae5' : '#059669',
+                              color: isVerified ? '#065f46' : '#ffffff',
+                              border: isVerified ? '1px solid #a7f3d0' : 'none',
+                              borderRadius: 6,
+                              fontSize: 12.5,
+                              fontWeight: 700,
+                              cursor: isVerified ? 'default' : 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={isVerified ? 'Document is already approved' : 'Approve this document'}
                           >
-                            <Eye size={13} />
-                            <span>View Uploaded Proof</span>
+                            <Check size={14} /> {isVerified ? 'Approved' : 'Approve'}
                           </button>
-                        ) : (
-                          <span className={styles.noDocBadge}>No Upload</span>
-                        )}
 
-                        <select
-                          className={styles.docStatusSelect}
-                          value={doc.status}
-                          onChange={(e) => handleDocStatusChange(key, e.target.value)}
-                        >
-                          <option value="Verified">✓ Mark Verified</option>
-                          <option value="Uploaded">Uploaded (Pending Verification)</option>
-                          <option value="Pending">Pending Submission</option>
-                          <option value="Rejected">Rejected</option>
-                        </select>
+                          {/* Reject Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleDocStatusChange(key, 'Rejected')}
+                            disabled={isRejected}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 5,
+                              padding: '6px 14px',
+                              background: isRejected ? '#fee2e2' : '#ffffff',
+                              color: isRejected ? '#991b1b' : '#dc2626',
+                              border: isRejected ? '1px solid #fecaca' : '1px solid #fca5a5',
+                              borderRadius: 6,
+                              fontSize: 12.5,
+                              fontWeight: 700,
+                              cursor: isRejected ? 'default' : 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            title={isRejected ? 'Document is marked rejected' : 'Reject this document'}
+                          >
+                            <X size={14} /> {isRejected ? 'Rejected' : 'Reject'}
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Section 2: Uniform & Kit Allocation */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionTitle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Shirt size={18} style={{ color: '#2563eb' }} />
-                  <span>Uniform Sizing & Security Equipment Kit</span>
-                </div>
-                <span style={{ fontSize: 12, color: candidate.uniformKit?.badgeIssued ? '#059669' : '#d97706', fontWeight: 600 }}>
-                  {candidate.uniformKit?.badgeIssued ? '✓ Kit Issued' : '⏳ Kit Pending'}
-                </span>
-              </div>
-
-              <div className={styles.uniformGrid}>
-                <div className={styles.uniformItem}>
-                  <label className={styles.itemLabel}>Uniform Shirt / Bush Shirt</label>
-                  <select
-                    className={styles.fieldInput}
-                    value={candidate.uniformKit?.shirtSize || 'M (40)'}
-                    onChange={(e) => handleUniformChange('shirtSize', e.target.value)}
-                  >
-                    {UNIFORM_SHIRT_SIZES.map((sz) => (
-                      <option key={sz} value={sz}>{sz}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className={styles.uniformItem}>
-                  <label className={styles.itemLabel}>Trouser Waist Size</label>
-                  <select
-                    className={styles.fieldInput}
-                    value={candidate.uniformKit?.trouserSize || '32'}
-                    onChange={(e) => handleUniformChange('trouserSize', e.target.value)}
-                  >
-                    {UNIFORM_TROUSER_SIZES.map((sz) => (
-                      <option key={sz} value={sz}>{sz} Inches</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className={styles.uniformItem}>
-                  <label className={styles.itemLabel}>Safety DMS Boots / Shoes</label>
-                  <select
-                    className={styles.fieldInput}
-                    value={candidate.uniformKit?.bootSize || '8'}
-                    onChange={(e) => handleUniformChange('bootSize', e.target.value)}
-                  >
-                    {BOOT_SIZES.map((sz) => (
-                      <option key={sz} value={sz}>Size {sz}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Kit Items Checkboxes */}
-              <div className={styles.kitChecklist}>
-                <label className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    className={styles.checkboxInput}
-                    checked={Boolean(candidate.uniformKit?.capIssued)}
-                    onChange={(e) => handleUniformChange('capIssued', e.target.checked)}
-                  />
-                  <span>Security Beret / Peak Cap Issued</span>
-                </label>
-
-                <label className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    className={styles.checkboxInput}
-                    checked={Boolean(candidate.uniformKit?.badgeIssued)}
-                    onChange={(e) => handleUniformChange('badgeIssued', e.target.checked)}
-                  />
-                  <span>Chest Badge & Name Plate Issued</span>
-                </label>
-
-                <label className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    className={styles.checkboxInput}
-                    checked={Boolean(candidate.uniformKit?.whistleIssued)}
-                    onChange={(e) => handleUniformChange('whistleIssued', e.target.checked)}
-                  />
-                  <span>Whistle & Lanyard Cord</span>
-                </label>
-
-                <label className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    className={styles.checkboxInput}
-                    checked={Boolean(candidate.uniformKit?.torchIssued)}
-                    onChange={(e) => handleUniformChange('torchIssued', e.target.checked)}
-                  />
-                  <span>Rechargeable Night Baton / Torch</span>
-                </label>
-
-                <label className={styles.checkItem}>
-                  <input
-                    type="checkbox"
-                    className={styles.checkboxInput}
-                    checked={Boolean(candidate.uniformKit?.idCardGenerated)}
-                    onChange={(e) => handleUniformChange('idCardGenerated', e.target.checked)}
-                  />
-                  <span>Employee Security ID Card Printed</span>
-                </label>
-              </div>
-            </div>
           </div>
 
           {/* Right Column: Candidate Personal Profile & Deployment */}
@@ -680,105 +566,6 @@ export default function OnboardingDetails() {
                 </div>
               </div>
             </div>
-
-            {/* Deployment Assignment */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionTitle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Building2 size={18} style={{ color: '#2563eb' }} />
-                  <span>Client Site Deployment</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div className={styles.infoField}>
-                  <label className={styles.fieldLabel}>Assigned Client</label>
-                  <input
-                    type="text"
-                    className={styles.fieldInput}
-                    value={candidate.assignedClient || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { assignedClient: val }, currentCompanyId);
-                      setCandidate((p) => ({ ...p, assignedClient: val }));
-                    }}
-                  />
-                </div>
-
-                <div className={styles.infoField}>
-                  <label className={styles.fieldLabel}>Deployment Site / Post</label>
-                  <input
-                    type="text"
-                    className={styles.fieldInput}
-                    value={candidate.assignedSite || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { assignedSite: val }, currentCompanyId);
-                      setCandidate((p) => ({ ...p, assignedSite: val }));
-                    }}
-                  />
-                </div>
-
-                <div className={styles.infoField}>
-                  <label className={styles.fieldLabel}>Assigned Shift Duty</label>
-                  <input
-                    type="text"
-                    className={styles.fieldInput}
-                    value={candidate.assignedShift || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { assignedShift: val }, currentCompanyId);
-                      setCandidate((p) => ({ ...p, assignedShift: val }));
-                    }}
-                  />
-                </div>
-
-                <div className={styles.infoField}>
-                  <label className={styles.fieldLabel}>Proposed Joining Date</label>
-                  <input
-                    type="date"
-                    className={styles.fieldInput}
-                    value={candidate.proposedJoiningDate || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      updateOnboardingCandidate(candidate.id, { proposedJoiningDate: val }, currentCompanyId);
-                      setCandidate((p) => ({ ...p, proposedJoiningDate: val }));
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Offer Summary Card */}
-            <div className={styles.sectionCard}>
-              <div className={styles.sectionTitle}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <ShieldCheck size={18} style={{ color: '#059669' }} />
-                  <span>Agreed Compensation</span>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Offered Gross Salary:</span>
-                  <strong style={{ color: '#0f172a' }}>{formatINR(candidate.offeredSalary)}</strong>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>PF & ESI Compliance:</span>
-                  <span style={{ color: '#059669', fontWeight: 600 }}>Applicable</span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>Uniform Allowance:</span>
-                  <span style={{ color: '#059669', fontWeight: 600 }}>Included</span>
-                </div>
-
-                <div style={{ marginTop: 12, padding: 12, background: '#f8fafc', borderRadius: 8, fontSize: 12, color: '#64748b' }}>
-                  {candidate.notes || 'Candidate cleared for joining subject to uniform issue.'}
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -845,6 +632,21 @@ export default function OnboardingDetails() {
                       Back Side (Address Proof)
                     </div>
                     <img src={previewDoc.doc.photoBack} alt="Back Side" className={styles.docImage} />
+                  </div>
+                )}
+
+                {previewDoc.doc?.fileUrl && !previewDoc.doc?.photo && !previewDoc.doc?.photoFront && (
+                  <div className={styles.docImageWrap}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase' }}>
+                      Uploaded Document File / Proof
+                    </div>
+                    {previewDoc.doc.fileUrl.startsWith('data:image/') || /\.(jpg|jpeg|png|webp)($|\?)/i.test(previewDoc.doc.fileUrl) ? (
+                      <img src={previewDoc.doc.fileUrl} alt="Document Proof" className={styles.docImage} />
+                    ) : (
+                      <a href={previewDoc.doc.fileUrl} target="_blank" rel="noreferrer" className={styles.previewDocBtn} style={{ display: 'inline-flex', padding: '10px 18px', fontSize: 13 }}>
+                        <ExternalLink size={16} /> View Uploaded File
+                      </a>
+                    )}
                   </div>
                 )}
               </div>

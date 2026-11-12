@@ -173,12 +173,12 @@ const onboardingSchema = new mongoose.Schema(
       default: ''
     },
     documents: {
-      aadhaar: { type: documentItemSchema, default: () => ({}) },
-      pan: { type: documentItemSchema, default: () => ({}) },
-      bankProof: { type: documentItemSchema, default: () => ({}) },
-      policeVerification: { type: documentItemSchema, default: () => ({}) },
-      educationCertificate: { type: documentItemSchema, default: () => ({}) },
-      experienceRelieving: { type: documentItemSchema, default: () => ({}) }
+      type: mongoose.Schema.Types.Mixed,
+      default: () => ({})
+    },
+    uploadedDocuments: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: []
     },
     uniformKit: {
       type: uniformKitSchema,
