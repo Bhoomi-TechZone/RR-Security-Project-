@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   PlusCircle,
   Clock,
@@ -10,8 +10,12 @@ import {
   AlertTriangle,
   BarChart3,
   TrendingUp,
-  Calendar
+  Calendar,
+  Building2,
+  RefreshCw
 } from 'lucide-react';
+import { useCompany } from '../../context/CompanyContext';
+import separationService from '../../services/separationService';
 import { calculateSeparationAnalytics } from '../../data/fnfData';
 import styles from './SeparationDashboard.module.css';
 
@@ -22,16 +26,43 @@ export default function SeparationDashboard({
   onFilterFinalized,
   basePath = '/admin/payroll'
 }) {
+  const { activeCompanyId, activeCompany } = useCompany();
+
   // Date range filter state (defaults matching Screenshot: 08/03/2026 to 11/11/2026 = 100 days)
   const [dateFrom, setDateFrom] = useState('2026-08-03');
   const [dateTo, setDateTo] = useState('2026-11-11');
   const [appliedDateFrom, setAppliedDateFrom] = useState('2026-08-03');
   const [appliedDateTo, setAppliedDateTo] = useState('2026-11-11');
 
-  // Analytics calculation
-  const analytics = useMemo(() => {
+  const [liveAnalytics, setLiveAnalytics] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch company-isolated live separation analytics
+  const fetchAnalytics = useCallback(async () => {
+    if (!activeCompanyId) return;
+    setIsLoading(true);
+    try {
+      const res = await separationService.getAnalytics(appliedDateFrom, appliedDateTo, activeCompanyId);
+      if (res?.analytics) {
+        setLiveAnalytics(res.analytics);
+      }
+    } catch (err) {
+      console.warn('[SeparationDashboard] Failed to fetch live analytics, using local:', err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [activeCompanyId, appliedDateFrom, appliedDateTo]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  // Analytics calculation fallback to records if backend is not yet populated
+  const fallbackAnalytics = useMemo(() => {
     return calculateSeparationAnalytics(records, appliedDateFrom, appliedDateTo);
   }, [records, appliedDateFrom, appliedDateTo]);
+
+  const analytics = liveAnalytics || fallbackAnalytics;
 
   // Dynamic Y-axis scaling for Date-wise Exits graph
   const { maxY, yAxisTicks } = useMemo(() => {
@@ -51,13 +82,33 @@ export default function SeparationDashboard({
     setAppliedDateTo(dateTo);
   };
 
+  const companyDisplayName = activeCompany?.name || activeCompany?.companyName || 'Active Company';
+
   return (
     <div className={styles.dashboardWrapper}>
       {/* 1. Header with Title and 4 Pill Action Buttons */}
       <div className={styles.headerRow}>
         <div className={styles.titleGroup}>
-          <h2 className={styles.title}>Separation Dashboard</h2>
-          <p className={styles.subtitle}>Analyze employee exits and separation trends.</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <h2 className={styles.title}>Separation Dashboard</h2>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                color: '#2563eb',
+                background: '#eff6ff',
+                border: '1px solid #bfdbfe',
+                padding: '2px 10px',
+                borderRadius: 12,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5
+              }}
+            >
+              <Building2 size={13} /> {companyDisplayName}
+            </span>
+          </div>
+          <p className={styles.subtitle}>Analyze employee exits and separation trends for {companyDisplayName}.</p>
         </div>
 
         <div className={styles.actionButtons}>

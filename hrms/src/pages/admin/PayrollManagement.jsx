@@ -63,6 +63,7 @@ import FnFFilters from '../../components/payroll/FnFFilters';
 import FnFTable from '../../components/payroll/FnFTable';
 import FnFDetailsDrawer from '../../components/payroll/FnFDetailsDrawer';
 import FnFInitiateModal from '../../components/payroll/FnFInitiateModal';
+import separationService from '../../services/separationService';
 import {
   getStoredFnF,
   saveStoredFnF,
@@ -252,12 +253,13 @@ export default function PayrollManagement() {
       // Primary table data is ready: release main loading lock immediately!
       setIsLoading(false);
 
-      // 2. Concurrently fetch secondary tabs (slips, rate revisions, arrears) in background without blocking UI
+      // 2. Concurrently fetch secondary tabs (slips, rate revisions, arrears, separations) in background without blocking UI
       Promise.allSettled([
         payrollService.getSalarySlips(activeCompanyId, { month: selectedMonth }),
         payrollService.getRateRevisions(activeCompanyId),
         payrollService.getArrears(activeCompanyId),
-      ]).then(([slipsResult, revisionsResult, arrearsResult]) => {
+        separationService.getSeparations({}, activeCompanyId)
+      ]).then(([slipsResult, revisionsResult, arrearsResult, sepResult]) => {
         if (slipsResult.status === 'fulfilled' && slipsResult.value) {
           setSlips(slipsResult.value || []);
         }
@@ -266,6 +268,9 @@ export default function PayrollManagement() {
         }
         if (arrearsResult.status === 'fulfilled' && arrearsResult.value) {
           setArrears(arrearsResult.value || []);
+        }
+        if (sepResult.status === 'fulfilled' && sepResult.value?.data && sepResult.value.data.length > 0) {
+          setFnfRecords(sepResult.value.data);
         }
       }).catch((err) => {
         console.warn('Background secondary payroll tabs fetch error:', err);

@@ -16,6 +16,7 @@ import UserLayout from '../../components/layout/UserLayout';
 import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import employeeService from '../../services/employeeService';
+import separationService from '../../services/separationService';
 import {
   SEPARATION_REASONS,
   getStoredFnF,
@@ -100,9 +101,24 @@ export default function FinalizedExitsPage() {
   const [rehireDate, setRehireDate] = useState('');
   const [rehireError, setRehireError] = useState('');
 
+  const loadFinalizedExits = React.useCallback(async () => {
+    if (!activeCompanyId) return;
+    try {
+      const res = await separationService.getSeparations({ status: 'finalized' }, activeCompanyId);
+      if (res?.data && res.data.length > 0) {
+        setRecords(res.data);
+      } else {
+        setRecords(getStoredFnF());
+      }
+    } catch (err) {
+      console.warn('Failed to load finalized exits from backend:', err);
+      setRecords(getStoredFnF());
+    }
+  }, [activeCompanyId]);
+
   useEffect(() => {
-    setRecords(getStoredFnF());
-  }, []);
+    loadFinalizedExits();
+  }, [loadFinalizedExits]);
 
   const handleApplySearch = (e) => {
     if (e) e.preventDefault();
@@ -157,20 +173,24 @@ export default function FinalizedExitsPage() {
     }
 
     const rec = rehireTarget;
+    const targetId = rec._id || rec.id;
+    try {
+      await separationService.rehireEmployee(targetId, rehireDate, activeCompanyId);
+    } catch (_) { }
+
     try {
       if (rec.employeeId && !String(rec.employeeId).startsWith('emp-')) {
         await employeeService.updateEmployee(activeCompanyId, rec.employeeId, {
           employeeStatus: 'Active',
+          status: 'Active',
           joiningDate: rehireDate,
           exitDateReason: null
         });
       }
-    } catch (_) {
-      // Local persistence handles status cleanly if API unavailable
-    }
+    } catch (_) { }
 
     const updatedList = records.map((item) =>
-      item.id === rec.id
+      (item._id || item.id) === targetId
         ? {
             ...item,
             isRehired: true,
