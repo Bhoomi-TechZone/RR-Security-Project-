@@ -37,6 +37,7 @@ const notificationSchema = new mongoose.Schema({
       'document-expiry',
       'compliance_alert',
       'birthday',
+      'work-anniversary',
       'general'
     ],
     required: true,

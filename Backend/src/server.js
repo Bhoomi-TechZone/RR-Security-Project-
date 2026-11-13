@@ -34,6 +34,8 @@ import letterRoutes from './routes/letterRoutes.js';
 import transferRoutes from './routes/transferRoutes.js';
 import candidateRoutes from './routes/candidateRoutes.js';
 import onboardingRoutes from './routes/onboardingRoutes.js';
+import greetingRoutes from './routes/greetingRoutes.js';
+import { dispatchAllCompaniesGreetings } from './services/greetingService.js';
 
 // ===========================================
 // Load Environment Variables
@@ -252,6 +254,9 @@ app.use('/api/letters', letterRoutes);
 app.use('/api/candidates', candidateRoutes);
 app.use('/api/onboarding', onboardingRoutes);
 
+// Dynamic Automated Greetings (Birthday & Work Anniversary Isolated per Company)
+app.use('/api/greetings', greetingRoutes);
+
 
 // ===========================================
 // 404 Handler
@@ -286,6 +291,19 @@ app.listen(PORT, () => {
   console.log('🗄️ Database: RR_Security (MongoDB Atlas)');
   console.log(`🔗 API Base: http://localhost:${PORT}/api/auth`);
   console.log('===========================================');
+
+  // Initialize automated daily greetings engine (runs after 15s warm-up, then every 1 hour)
+  setTimeout(() => {
+    dispatchAllCompaniesGreetings().catch(err =>
+      console.warn('[Server] Initial greetings dispatch check notice:', err.message)
+    );
+  }, 15000);
+
+  setInterval(() => {
+    dispatchAllCompaniesGreetings().catch(err =>
+      console.warn('[Server] Periodic greetings dispatch check notice:', err.message)
+    );
+  }, 60 * 60 * 1000);
 });
 
 
