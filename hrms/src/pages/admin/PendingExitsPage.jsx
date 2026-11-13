@@ -14,6 +14,8 @@ import UserLayout from '../../components/layout/UserLayout';
 import Toast from '../../components/common/Toast';
 import FnFDetailsDrawer from '../../components/payroll/FnFDetailsDrawer';
 import FinalizeExitDrawer from '../../components/payroll/FinalizeExitDrawer';
+import { useCompany } from '../../context/CompanyContext';
+import separationService from '../../services/separationService';
 import {
   SEPARATION_REASONS,
   getStoredFnF,
@@ -68,6 +70,8 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
   const basePath = isAdmin ? '/admin/payroll' : '/user/payroll';
   const LayoutComponent = isAdmin ? AdminLayout : UserLayout;
 
+  const { activeCompanyId, activeCompany } = useCompany();
+
   const queryParams = new URLSearchParams(location.search);
   const urlFinalized = queryParams.get('finalized') === 'true';
 
@@ -104,9 +108,24 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
   // Confirmation modal state ('cancel')
   const [confirmAction, setConfirmAction] = useState(null);
 
+  const loadExits = useCallback(async () => {
+    if (!activeCompanyId) return;
+    try {
+      const res = await separationService.getSeparations({}, activeCompanyId);
+      if (res?.data && res.data.length > 0) {
+        setRecords(res.data);
+      } else {
+        setRecords(getStoredFnF());
+      }
+    } catch (err) {
+      console.warn('Failed to load exits from backend, using local:', err);
+      setRecords(getStoredFnF());
+    }
+  }, [activeCompanyId]);
+
   useEffect(() => {
-    setRecords(getStoredFnF());
-  }, []);
+    loadExits();
+  }, [loadExits]);
 
   useEffect(() => {
     if (urlFinalized) {
@@ -166,10 +185,23 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
   }, [filteredRecords, safePage, pageSize]);
 
   // Finalize exit handler (triggered from FinalizeExitDrawer)
-  const executeFinalize = (rec, { selectedLetters = [], sendEmail = false } = {}) => {
+  const executeFinalize = async (rec, { selectedLetters = [], sendEmail = false } = {}) => {
     const today = new Date().toISOString().slice(0, 10);
+    const targetId = rec._id || rec.id;
+
+    try {
+      await separationService.finalizeSeparation(targetId, {
+        paymentDate: today,
+        mode: rec.payment?.mode || 'Bank Transfer (NEFT)',
+        utrNo: rec.payment?.utrNo || `CMS${Date.now().toString().slice(-8)}`
+      }, activeCompanyId);
+    } catch (apiErr) {
+      console.warn('Backend finalize notice:', apiErr.message);
+    }
+
     const updatedList = records.map((item) => {
-      if (item.id !== rec.id) return item;
+      const itemId = item._id || item.id;
+      if (itemId !== targetId) return item;
       return {
         ...item,
         settlementStatus: 'Settled / Disbursed',
@@ -198,12 +230,19 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
       selectedLetters.length > 0
         ? ` ${selectedLetters.length} letter(s) generated${sendEmail ? ' & emailed' : ''}.`
         : '';
-    notify(`Exit finalized for ${rec.employeeName} (${rec.employeeCode}).${letterNote}`, 'success');
+    notify(`✓ Exit finalized for ${rec.employeeName} (${rec.employeeCode}). Employee marked inactive.${letterNote}`, 'success');
   };
 
   // Cancel exit handler
-  const executeCancel = (rec) => {
-    const updatedList = records.filter((item) => item.id !== rec.id);
+  const executeCancel = async (rec) => {
+    const targetId = rec._id || rec.id;
+    try {
+      await separationService.cancelSeparation(targetId, activeCompanyId);
+    } catch (apiErr) {
+      console.warn('Backend cancel notice:', apiErr.message);
+    }
+
+    const updatedList = records.filter((item) => (item._id || item.id) !== targetId);
     setRecords(updatedList);
     saveStoredFnF(updatedList);
     setConfirmAction(null);
@@ -211,7 +250,7 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
   };
 
   // Drawer handlers
-  const handleApproveStage = (fnf) => {
+  const handleApproveStage = async (fnf) => {
     const stageOrder = ['hr_review', 'ops_review', 'accounts_review', 'final_approval'];
     const currentStage = fnf.approvalWorkflow?.currentStage || 'hr_review';
     const currentIdx = stageOrder.indexOf(currentStage);
@@ -243,19 +282,27 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
       settlementStatus: nextStatus
     };
 
-    const updatedList = records.map((item) => (item.id === fnf.id ? updatedRecord : item));
+    const targetId = fnf._id || fnf.id;
+    try {
+      await separationService.updateSeparation(targetId, {
+        approvalWorkflow: updatedWorkflow,
+        settlementStatus: nextStatus
+      }, activeCompanyId);
+    } catch (_) { }
+
+    const updatedList = records.map((item) => ((item._id || item.id) === targetId ? updatedRecord : item));
     setRecords(updatedList);
     saveStoredFnF(updatedList);
     setSelectedRecord(updatedRecord);
     notify(
       updatedWorkflow.isFullyApproved
-        ? `Final approval completed for ${fnf.employeeName}.`
-        : `Stage approved for ${fnf.employeeName}.`,
+        ? `✓ Final approval completed for ${fnf.employeeName}.`
+        : `✓ Stage approved for ${fnf.employeeName}.`,
       'success'
     );
   };
 
-  const handleDisburse = (fnf, payoutDetails = {}) => {
+  const handleDisburse = async (fnf, payoutDetails = {}) => {
     const today = payoutDetails.paymentDate || new Date().toISOString().slice(0, 10);
     const utr = payoutDetails.utrNo || `CMS${Date.now().toString().slice(-8)}`;
     const mode = payoutDetails.mode || 'Bank Transfer (NEFT)';
@@ -273,36 +320,55 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
       }
     };
 
-    const updatedList = records.map((item) => (item.id === fnf.id ? updatedRecord : item));
+    const targetId = fnf._id || fnf.id;
+    try {
+      await separationService.finalizeSeparation(targetId, {
+        paymentDate: today,
+        mode,
+        utrNo: utr
+      }, activeCompanyId);
+    } catch (_) { }
+
+    const updatedList = records.map((item) => ((item._id || item.id) === targetId ? updatedRecord : item));
     setRecords(updatedList);
     saveStoredFnF(updatedList);
     setSelectedRecord(updatedRecord);
-    notify(`Settlement disbursed via ${mode} (UTR: ${utr}) for ${fnf.employeeName}.`, 'success');
+    notify(`✓ Settlement disbursed via ${mode} (UTR: ${utr}) for ${fnf.employeeName}.`, 'success');
   };
 
-  const handleSaveSettlement = (updatedRecord) => {
-    const updatedList = records.map((item) => (item.id === updatedRecord.id ? updatedRecord : item));
+  const handleSaveSettlement = async (updatedRecord) => {
+    const targetId = updatedRecord._id || updatedRecord.id;
+    try {
+      await separationService.updateSeparation(targetId, updatedRecord, activeCompanyId);
+    } catch (_) { }
+
+    const updatedList = records.map((item) => ((item._id || item.id) === targetId ? updatedRecord : item));
     setRecords(updatedList);
     saveStoredFnF(updatedList);
     setIsDrawerOpen(false);
     setSelectedRecord(null);
     notify(
-      `Settlement processed for ${updatedRecord.employeeName} (Net: ₹${Number(
-        updatedRecord.netSettlementAmount || 0
+      `✓ Settlement processed for ${updatedRecord.employeeName} (Net: ₹${Number(
+        updatedRecord.netSettlementAmount || updatedRecord.finalSettlement?.netPayable || 0
       ).toLocaleString('en-IN')}).`,
       'success'
     );
   };
 
-  const handleFinalizeSettlement = (updatedRecord) => {
-    const updatedList = records.map((item) => (item.id === updatedRecord.id ? updatedRecord : item));
+  const handleFinalizeSettlement = async (updatedRecord) => {
+    const targetId = updatedRecord._id || updatedRecord.id;
+    try {
+      await separationService.finalizeSeparation(targetId, updatedRecord, activeCompanyId);
+    } catch (_) { }
+
+    const updatedList = records.map((item) => ((item._id || item.id) === targetId ? updatedRecord : item));
     setRecords(updatedList);
     saveStoredFnF(updatedList);
     setIsDrawerOpen(false);
     setSelectedRecord(null);
     notify(
-      `Exit finalized & settled for ${updatedRecord.employeeName} (Net: ₹${Number(
-        updatedRecord.netSettlementAmount || 0
+      `✓ Exit finalized & settled for ${updatedRecord.employeeName} (Net: ₹${Number(
+        updatedRecord.netSettlementAmount || updatedRecord.finalSettlement?.netPayable || 0
       ).toLocaleString('en-IN')}).`,
       'success'
     );

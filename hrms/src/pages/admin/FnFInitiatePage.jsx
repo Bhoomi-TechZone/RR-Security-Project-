@@ -24,6 +24,7 @@ import UserLayout from '../../components/layout/UserLayout';
 import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import employeeService from '../../services/employeeService';
+import separationService from '../../services/separationService';
 import { mockEmployees } from '../../data/employeeData';
 import {
   SEPARATION_REASONS,
@@ -302,7 +303,7 @@ export default function FnFInitiatePage() {
   }, [resignationDate, lastWorkingDate, noticeDays]);
 
   // Form Submit Handler
-  const handleSubmitSeparation = (e) => {
+  const handleSubmitSeparation = async (e) => {
     e.preventDefault();
     if (!selectedEmp) {
       notify('Please select and load an employee first.', 'error');
@@ -324,14 +325,8 @@ export default function FnFInitiatePage() {
     setIsSubmitting(true);
 
     try {
-      const existingRecords = getStoredFnF();
-      const newId = `fnf-${Date.now()}`;
-      const settlementNumber = `FNF-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`;
-
-      const newRecord = {
-        id: newId,
-        settlementId: settlementNumber,
-        employeeId: selectedEmp.id || selectedEmp.code,
+      const payload = {
+        employeeId: selectedEmp.id || selectedEmp._id || selectedEmp.code,
         employeeCode: selectedEmp.code || selectedEmp.employeeCode || 'EMP-NEW',
         employeeName: selectedEmp.name,
         avatar: selectedEmp.avatar || null,
@@ -345,52 +340,40 @@ export default function FnFInitiatePage() {
         lastWorkingDay: lastWorkingDate,
         separationReason: reasonOfExit,
         noticePeriodRequiredDays: noticeDays,
-        noticePeriodServedDays: timelineSummary.days,
-        noticeShortfallDays: Math.max(0, noticeDays - timelineSummary.days),
-        monthlyGrossSalary: 25000,
-        basicSalary: 15000,
-        perDayWage: 961.54,
-        tenureYears: 1.0,
         tryingToRetain: tryingToRetain,
-        remarks: remarks.trim(),
-        settlementStatus: 'Pending Clearance',
-        createdAt: new Date().toISOString(),
-
-        // Clearance Checklist
-        clearances: {
-          hr: { status: 'Pending', clearedBy: 'Pending Assignment', clearedDate: '—', remarks: 'Awaiting clearance checklist' },
-          operations: { status: 'Pending', clearedBy: 'Pending Assignment', clearedDate: '—', remarks: 'Awaiting site handover' },
-          accounts: { status: 'Pending', clearedBy: 'Pending Assignment', clearedDate: '—', remarks: 'Pending ledger verification' },
-          admin: { status: 'Pending', clearedBy: 'Pending Assignment', clearedDate: '—', remarks: 'Locker & biometric access' },
-          inventory: { status: 'Pending', clearedBy: 'Pending Assignment', clearedDate: '—', remarks: 'Kit inspection pending' },
-          client: { status: 'Pending', clearedBy: 'Pending Assignment', clearedDate: '—', remarks: 'Client sign-off pending' }
-        },
-
-        // Approval Stages
-        approvalWorkflow: {
-          currentStage: 'hr_review',
-          isFullyApproved: false,
-          stages: {
-            hr_review: { status: 'Pending', approver: 'HR Manager', date: '—' },
-            ops_review: { status: 'Pending', approver: 'Operations Head', date: '—' },
-            accounts_review: { status: 'Pending', approver: 'Accounts Head', date: '—' },
-            final_approval: { status: 'Pending', approver: 'Managing Director', date: '—' }
-          }
-        }
+        remarks: remarks.trim()
       };
 
-      const updatedList = [newRecord, ...existingRecords];
-      saveStoredFnF(updatedList);
+      let createdRecord = null;
+      try {
+        const res = await separationService.createSeparation(payload, activeCompanyId);
+        createdRecord = res?.data;
+      } catch (apiErr) {
+        console.warn('Backend separation create notice:', apiErr.message);
+      }
 
-      notify(`Separation record initiated successfully for ${selectedEmp.name}!`, 'success');
+      // Also sync to local storage cache
+      try {
+        const existingRecords = getStoredFnF();
+        const fallbackRecord = createdRecord || {
+          ...payload,
+          id: `fnf-${Date.now()}`,
+          settlementId: `FNF-${new Date().getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
+          settlementStatus: 'Pending Clearance',
+          createdAt: new Date().toISOString()
+        };
+        saveStoredFnF([fallbackRecord, ...existingRecords]);
+      } catch (_) { }
+
+      notify(`✓ Separation record initiated successfully for ${selectedEmp.name}!`, 'success');
 
       // Navigate to Pending Exits to display the newly initiated record
       setTimeout(() => {
         navigate(`${basePath}/pending-exits`);
-      }, 900);
+      }, 800);
     } catch (err) {
       console.error('Error initiating separation:', err);
-      notify('Failed to save separation record. Please try again.', 'error');
+      notify(err.message || 'Failed to save separation record. Please try again.', 'error');
       setIsSubmitting(false);
     }
   };

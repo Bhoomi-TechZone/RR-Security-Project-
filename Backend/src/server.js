@@ -35,6 +35,7 @@ import transferRoutes from './routes/transferRoutes.js';
 import candidateRoutes from './routes/candidateRoutes.js';
 import onboardingRoutes from './routes/onboardingRoutes.js';
 import greetingRoutes from './routes/greetingRoutes.js';
+import separationRoutes from './routes/separationRoutes.js';
 import { dispatchAllCompaniesGreetings } from './services/greetingService.js';
 
 // ===========================================
@@ -256,6 +257,9 @@ app.use('/api/onboarding', onboardingRoutes);
 
 // Dynamic Automated Greetings (Birthday & Work Anniversary Isolated per Company)
 app.use('/api/greetings', greetingRoutes);
+
+// Dynamic Separation & FnF Settlement Engine (Multi-Tenant Company Isolated)
+app.use('/api/separation', separationRoutes);
 
 
 // ===========================================
