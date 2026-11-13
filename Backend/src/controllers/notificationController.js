@@ -347,18 +347,18 @@ export const getNotifications = async (req, res) => {
     // Role filtering:
     if (user && user.role === 'employee') {
       const empId = user.employeeId || user.id;
+      query.recipientRole = { $in: ['employee', 'all'] };
       query.$or = [
-        { recipientRole: 'employee', recipientId: empId },
-        { recipientRole: 'employee', employeeId: empId },
-        { recipientRole: 'all' },
-        { employeeId: empId }
+        { recipientId: empId },
+        { employeeId: empId },
+        { recipientRole: 'all' }
       ];
     } else if (targetEmpId && user?.role !== 'admin') {
+      query.recipientRole = { $in: ['employee', 'all'] };
       query.$or = [
-        { recipientRole: 'employee', recipientId: targetEmpId },
-        { recipientRole: 'employee', employeeId: targetEmpId },
-        { recipientRole: 'all' },
-        { employeeId: targetEmpId }
+        { recipientId: targetEmpId },
+        { employeeId: targetEmpId },
+        { recipientRole: 'all' }
       ];
     } else if (user && user.role === 'client') {
       const clientId = user.clientId || user.id;
@@ -422,11 +422,11 @@ export const getNotifications = async (req, res) => {
       status: 'unread',
       ...(unreadEmpId && user?.role !== 'admin'
         ? {
+          recipientRole: { $in: ['employee', 'all'] },
           $or: [
-            { recipientRole: 'employee', recipientId: unreadEmpId },
-            { recipientRole: 'employee', employeeId: unreadEmpId },
-            { recipientRole: 'all' },
-            { employeeId: unreadEmpId }
+            { recipientId: unreadEmpId },
+            { employeeId: unreadEmpId },
+            { recipientRole: 'all' }
           ]
         }
         : user?.role === 'client'
@@ -444,14 +444,34 @@ export const getNotifications = async (req, res) => {
       Notification.countDocuments(unreadCountQuery)
     ]);
 
+    // When viewing as an employee, ensure celebration greetings are strictly deduplicated
+    // and suppress any legacy broadcast feed announcement items
+    let finalNotifications = notifications;
+    if (user && user.role === 'employee') {
+      const seenGreetings = new Set();
+      finalNotifications = notifications.filter(n => {
+        // Suppress any legacy broadcast feed announcements
+        if (n.recipientRole === 'all' && (n.title?.includes('Birthday') || n.title?.includes('Work Milestone'))) {
+          return false;
+        }
+        // Deduplicate birthday / work anniversary to at most 1 per date
+        if (n.type === 'birthday' || n.type === 'work-anniversary') {
+          const key = `${n.type}_${n.date || (n.createdAt ? new Date(n.createdAt).toISOString().slice(0, 10) : '')}`;
+          if (seenGreetings.has(key)) return false;
+          seenGreetings.add(key);
+        }
+        return true;
+      });
+    }
+
     res.status(200).json({
       success: true,
-      count: notifications.length,
-      total,
+      count: finalNotifications.length,
+      total: user && user.role === 'employee' ? finalNotifications.length : total,
       unreadCount,
       page: pageNum,
       totalPages: Math.ceil(total / limitNum) || 1,
-      data: notifications
+      data: finalNotifications
     });
   } catch (error) {
     console.error('Error in getNotifications:', error);

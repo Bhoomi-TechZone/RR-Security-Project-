@@ -2375,6 +2375,146 @@ ${senderName} HR Team
   }
 };
 
+/**
+ * Professional HTML Email Template for Dynamic Birthday & Work Anniversary Greetings
+ */
+export const generateGreetingEmailTemplate = ({
+  employeeName = '',
+  type = 'birthday',
+  subject = '',
+  message = '',
+  companyName = 'RR Security & Facilities',
+  workYears = 1,
+  recipientEmail = ''
+}) => {
+  const isBday = type === 'birthday';
+  const subtitle = isBday ? 'Birthday Celebration & Best Wishes' : `${workYears} Year Work Anniversary Milestone`;
+
+  const paragraphs = String(message || '')
+    .split(/\n\s*\n/)
+    .map(p => `<p style="margin: 0 0 14px 0; color: #334155; font-size: 14.5px; line-height: 1.6;">${p.replace(/\n/g, '<br />')}</p>`)
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #1e293b; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
+          <!-- Top Accent Banner -->
+          <tr>
+            <td style="background-color: ${isBday ? '#2563eb' : '#059669'}; height: 6px; padding: 0;"></td>
+          </tr>
+          <!-- Brand Header -->
+          <tr>
+            <td style="padding: 24px 32px 16px 32px; border-bottom: 1px solid #f1f5f9;">
+              <h2 style="margin: 0; color: #0f172a; font-size: 20px; font-weight: 700;">${companyName}</h2>
+              <p style="margin: 4px 0 0 0; color: ${isBday ? '#2563eb' : '#059669'}; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${subtitle}</p>
+            </td>
+          </tr>
+          
+          <!-- Body Content -->
+          <tr>
+            <td style="padding: 28px 32px 32px 32px;">
+              <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 22px 24px;">
+                ${paragraphs}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 32px; text-align: center; color: #94a3b8; font-size: 11.5px;">
+              <p style="margin: 0;">This celebration greeting was sent by ${companyName}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`.trim();
+};
+
+/**
+ * Send Employee Birthday or Work Anniversary Greeting Email with High Deliverability
+ */
+export const sendGreetingEmail = async ({
+  to,
+  employeeName = '',
+  type = 'birthday',
+  subject = '',
+  message = '',
+  companyName = 'RR Security & Facilities',
+  workYears = 1,
+  companyId = null,
+  customConfig = null
+}) => {
+  const toEmail = (to || '').trim();
+  if (!toEmail) {
+    return { success: false, error: 'Recipient email is required to send greeting' };
+  }
+
+  try {
+    const emailConfig = await getDynamicEmailConfig(companyId, customConfig);
+    if (!emailConfig.isConfigured) {
+      const compLabel = emailConfig.companyName || companyName || companyId || 'this company';
+      console.warn(`[GreetingService] Strict company isolation: SMTP credentials not configured for ${compLabel}.`);
+      return {
+        success: false,
+        notConfigured: true,
+        error: `SMTP credentials are not configured for company "${compLabel}". Please configure Email Preferences in Admin Settings.`,
+        recipient: toEmail
+      };
+    }
+
+    const transporter = await createTransporter(companyId, customConfig);
+    const authUser = (emailConfig.user || '').trim();
+    const senderEmail = (emailConfig.fromEmail || authUser).trim();
+    const senderName = emailConfig.fromName || companyName || 'Human Resources';
+    const cleanSenderName = senderName.replace(/["\r\n<>]/g, '').trim();
+
+    const htmlContent = generateGreetingEmailTemplate({
+      employeeName,
+      type,
+      subject,
+      message,
+      companyName: senderName,
+      workYears,
+      recipientEmail: toEmail
+    });
+
+    const plainText = `
+${subject}
+
+${message}
+    `.trim();
+
+    // Standard RFC-compliant delivery:
+    // Sender aligned with authenticated user, native DKIM Message-ID from SMTP server
+    const info = await transporter.sendMail({
+      from: `"${cleanSenderName}" <${authUser || senderEmail}>`,
+      to: toEmail,
+      replyTo: senderEmail || authUser,
+      subject,
+      text: plainText,
+      html: htmlContent
+    });
+
+    console.log(`[GreetingService] Greeting email (${type}) sent to ${toEmail} from ${authUser || senderEmail}. MessageId: ${info.messageId}`);
+    return { success: true, messageId: info.messageId, recipient: toEmail };
+  } catch (error) {
+    console.error(`[GreetingService] Failed to send greeting email to ${toEmail}:`, error.message);
+    return { success: false, error: error.message, recipient: toEmail };
+  }
+};
+
 export default {
   generateLicenseExpiryEmailTemplate,
   generateLicenseExpiryPlainTextTemplate,
@@ -2391,6 +2531,8 @@ export default {
   generateCompanyCredentialsEmailTemplate,
   sendCompanyCredentialsEmail,
   generateOnboardingInvitationEmailTemplate,
-  sendOnboardingInvitationEmail
+  sendOnboardingInvitationEmail,
+  generateGreetingEmailTemplate,
+  sendGreetingEmail
 };
 
