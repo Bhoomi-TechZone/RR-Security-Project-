@@ -2376,7 +2376,7 @@ ${senderName} HR Team
 };
 
 /**
- * Professional HTML Email Template for Dynamic Birthday & Work Anniversary Greetings
+ * Professional HTML Email Template for Dynamic Birthday, Work Anniversary, Wedding Anniversary & New Joining Greetings
  */
 export const generateGreetingEmailTemplate = ({
   employeeName = '',
@@ -2385,15 +2385,51 @@ export const generateGreetingEmailTemplate = ({
   message = '',
   companyName = 'RR Security & Facilities',
   workYears = 1,
-  recipientEmail = ''
+  recipientEmail = '',
+  sticker = '',
+  isManagerCopy = false
 }) => {
-  const isBday = type === 'birthday';
-  const subtitle = isBday ? 'Birthday Celebration & Best Wishes' : `${workYears} Year Work Anniversary Milestone`;
+  let accentColor = '#2563eb';
+  let subtitle = 'Celebration & Best Wishes';
+
+  switch (type) {
+    case 'birthday':
+      accentColor = '#e11d48';
+      subtitle = 'Birthday Celebration & Best Wishes';
+      break;
+    case 'workAnniversary':
+      accentColor = '#d97706';
+      subtitle = `${workYears} Year Work Anniversary Milestone`;
+      break;
+    case 'weddingAnniversary':
+      accentColor = '#ec4899';
+      subtitle = 'Wedding Anniversary Celebration';
+      break;
+    case 'newJoining':
+      accentColor = '#059669';
+      subtitle = 'Welcome to the Team & Best Wishes';
+      break;
+    default:
+      accentColor = '#2563eb';
+      subtitle = 'Celebration Greeting';
+  }
 
   const paragraphs = String(message || '')
     .split(/\n\s*\n/)
     .map(p => `<p style="margin: 0 0 14px 0; color: #334155; font-size: 14.5px; line-height: 1.6;">${p.replace(/\n/g, '<br />')}</p>`)
     .join('');
+
+  const stickerHtml = sticker
+    ? `<div style="text-align: center; margin: 0 0 20px 0;">
+        <img src="${sticker}" alt="Celebration Sticker" style="width: 80px; height: 80px; object-fit: contain; display: inline-block;" />
+      </div>`
+    : '';
+
+  const managerBannerHtml = isManagerCopy
+    ? `<div style="margin-bottom: 20px; padding: 12px 16px; background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; font-size: 13px; color: #1e40af; line-height: 1.4;">
+        <strong>📢 Manager Notification Copy:</strong> This greeting was automatically delivered to your assigned team member <strong>${employeeName}</strong>.
+      </div>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -2409,19 +2445,21 @@ export const generateGreetingEmailTemplate = ({
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden;">
           <!-- Top Accent Banner -->
           <tr>
-            <td style="background-color: ${isBday ? '#2563eb' : '#059669'}; height: 6px; padding: 0;"></td>
+            <td style="background-color: ${accentColor}; height: 6px; padding: 0;"></td>
           </tr>
           <!-- Brand Header -->
           <tr>
-            <td style="padding: 24px 32px 16px 32px; border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 24px 32px 16px 32px; border-bottom: 1px solid #f1f5f9; text-align: left;">
               <h2 style="margin: 0; color: #0f172a; font-size: 20px; font-weight: 700;">${companyName}</h2>
-              <p style="margin: 4px 0 0 0; color: ${isBday ? '#2563eb' : '#059669'}; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${subtitle}</p>
+              <p style="margin: 4px 0 0 0; color: ${accentColor}; font-size: 12.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">${subtitle}</p>
             </td>
           </tr>
           
           <!-- Body Content -->
           <tr>
             <td style="padding: 28px 32px 32px 32px;">
+              ${managerBannerHtml}
+              ${stickerHtml}
               <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 22px 24px;">
                 ${paragraphs}
               </div>
@@ -2431,7 +2469,7 @@ export const generateGreetingEmailTemplate = ({
           <!-- Footer -->
           <tr>
             <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px 32px; text-align: center; color: #94a3b8; font-size: 11.5px;">
-              <p style="margin: 0;">This celebration greeting was sent by ${companyName}</p>
+              <p style="margin: 0;">This celebration greeting was automatically sent by ${companyName}</p>
             </td>
           </tr>
         </table>
@@ -2443,7 +2481,7 @@ export const generateGreetingEmailTemplate = ({
 };
 
 /**
- * Send Employee Birthday or Work Anniversary Greeting Email with High Deliverability
+ * Send Employee Greeting Email with High Deliverability
  */
 export const sendGreetingEmail = async ({
   to,
@@ -2454,7 +2492,9 @@ export const sendGreetingEmail = async ({
   companyName = 'RR Security & Facilities',
   workYears = 1,
   companyId = null,
-  customConfig = null
+  customConfig = null,
+  sticker = '',
+  isManagerCopy = false
 }) => {
   const toEmail = (to || '').trim();
   if (!toEmail) {
@@ -2487,7 +2527,9 @@ export const sendGreetingEmail = async ({
       message,
       companyName: senderName,
       workYears,
-      recipientEmail: toEmail
+      recipientEmail: toEmail,
+      sticker,
+      isManagerCopy
     });
 
     const plainText = `

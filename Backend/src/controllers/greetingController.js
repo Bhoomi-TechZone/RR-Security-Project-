@@ -35,6 +35,22 @@ const resolveCompany = async (companyIdHeader, adminEmail) => {
 };
 
 /**
+ * Sanitize greeting template entry
+ */
+const sanitizeGreeting = (input, defKey) => {
+  const def = DEFAULT_GREETINGS_CONFIG[defKey] || {};
+  const obj = input || {};
+  return {
+    enabled: obj.enabled !== undefined ? Boolean(obj.enabled) : def.enabled,
+    sendCopyToManagers: obj.sendCopyToManagers !== undefined ? Boolean(obj.sendCopyToManagers) : def.sendCopyToManagers,
+    postOnFeed: obj.postOnFeed !== undefined ? Boolean(obj.postOnFeed) : def.postOnFeed,
+    sticker: obj.sticker !== undefined ? String(obj.sticker) : def.sticker,
+    subject: obj.subject !== undefined ? String(obj.subject) : def.subject,
+    message: obj.message !== undefined ? String(obj.message) : def.message
+  };
+};
+
+/**
  * @desc    Get dynamic greetings configuration and upcoming celebrations for active company
  * @route   GET /api/greetings
  * @access  Private (Admin / HR)
@@ -54,16 +70,10 @@ export const getGreetingsConfig = async (req, res) => {
 
     const savedConfig = company.preferences?.greetingsConfig || {};
     const mergedConfig = {
-      birthday: {
-        enabled: savedConfig.birthday?.enabled !== undefined ? Boolean(savedConfig.birthday.enabled) : DEFAULT_GREETINGS_CONFIG.birthday.enabled,
-        subject: String(savedConfig.birthday?.subject || DEFAULT_GREETINGS_CONFIG.birthday.subject),
-        message: String(savedConfig.birthday?.message || DEFAULT_GREETINGS_CONFIG.birthday.message)
-      },
-      workAnniversary: {
-        enabled: savedConfig.workAnniversary?.enabled !== undefined ? Boolean(savedConfig.workAnniversary.enabled) : DEFAULT_GREETINGS_CONFIG.workAnniversary.enabled,
-        subject: String(savedConfig.workAnniversary?.subject || DEFAULT_GREETINGS_CONFIG.workAnniversary.subject),
-        message: String(savedConfig.workAnniversary?.message || DEFAULT_GREETINGS_CONFIG.workAnniversary.message)
-      }
+      birthday: sanitizeGreeting(savedConfig.birthday, 'birthday'),
+      workAnniversary: sanitizeGreeting(savedConfig.workAnniversary, 'workAnniversary'),
+      weddingAnniversary: sanitizeGreeting(savedConfig.weddingAnniversary, 'weddingAnniversary'),
+      newJoining: sanitizeGreeting(savedConfig.newJoining, 'newJoining')
     };
 
     // Calculate upcoming celebrations for this company
@@ -109,19 +119,13 @@ export const updateGreetingsConfig = async (req, res) => {
       });
     }
 
-    const { birthday, workAnniversary } = req.body;
+    const { birthday, workAnniversary, weddingAnniversary, newJoining } = req.body;
 
     const newGreetingsConfig = {
-      birthday: {
-        enabled: birthday?.enabled !== undefined ? Boolean(birthday.enabled) : true,
-        subject: String(birthday?.subject !== undefined ? birthday.subject : DEFAULT_GREETINGS_CONFIG.birthday.subject),
-        message: String(birthday?.message !== undefined ? birthday.message : DEFAULT_GREETINGS_CONFIG.birthday.message)
-      },
-      workAnniversary: {
-        enabled: workAnniversary?.enabled !== undefined ? Boolean(workAnniversary.enabled) : true,
-        subject: String(workAnniversary?.subject !== undefined ? workAnniversary.subject : DEFAULT_GREETINGS_CONFIG.workAnniversary.subject),
-        message: String(workAnniversary?.message !== undefined ? workAnniversary.message : DEFAULT_GREETINGS_CONFIG.workAnniversary.message)
-      }
+      birthday: sanitizeGreeting(birthday, 'birthday'),
+      workAnniversary: sanitizeGreeting(workAnniversary, 'workAnniversary'),
+      weddingAnniversary: sanitizeGreeting(weddingAnniversary, 'weddingAnniversary'),
+      newJoining: sanitizeGreeting(newJoining, 'newJoining')
     };
 
     await Company.updateOne(
@@ -166,7 +170,7 @@ export const triggerGreetingsDispatch = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: `Greetings dispatch completed: ${result.birthdaySentCount} birthday email(s), ${result.anniversarySentCount} anniversary email(s), ${result.notificationsCreated} panel notification(s) dispatched.`,
+      message: `Greetings dispatch completed: ${result.birthdaySentCount} birthday email(s), ${result.anniversarySentCount} work anniversary email(s), ${result.weddingSentCount || 0} wedding anniversary email(s), ${result.newJoiningSentCount || 0} new joining email(s), ${result.managerCopiesSent || 0} manager copy email(s), ${result.feedPostsCreated || 0} feed post(s), ${result.notificationsCreated} panel notification(s).`,
       result
     });
   } catch (error) {
@@ -177,4 +181,3 @@ export const triggerGreetingsDispatch = async (req, res) => {
     });
   }
 };
-

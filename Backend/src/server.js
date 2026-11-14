@@ -296,18 +296,25 @@ app.listen(PORT, () => {
   console.log(`🔗 API Base: http://localhost:${PORT}/api/auth`);
   console.log('===========================================');
 
-  // Initialize automated daily greetings engine (runs after 15s warm-up, then every 1 hour)
+  // Initialize automated daily greetings engine (checks accurately in 7:00 AM - 8:00 AM morning delivery window)
   setTimeout(() => {
     dispatchAllCompaniesGreetings().catch(err =>
       console.warn('[Server] Initial greetings dispatch check notice:', err.message)
     );
   }, 15000);
 
-  setInterval(() => {
-    dispatchAllCompaniesGreetings().catch(err =>
-      console.warn('[Server] Periodic greetings dispatch check notice:', err.message)
-    );
-  }, 60 * 60 * 1000);
+  // Periodic morning dispatch checker every 5 minutes to ensure accurate delivery between 7:00 AM and 8:00 AM
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const currentHour = now.getHours();
+      if (currentHour === 7) {
+        await dispatchAllCompaniesGreetings();
+      }
+    } catch (err) {
+      console.warn('[Server] Morning greetings check notice:', err.message);
+    }
+  }, 5 * 60 * 1000);
 });
 
 
