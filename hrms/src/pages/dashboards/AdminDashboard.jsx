@@ -12,7 +12,6 @@ import LeaveRequestsModal from '../../components/dashboard/LeaveRequestsModal';
 import EmployeeDistribution from '../../components/dashboard/EmployeeDistribution';
 import RecentActivities from '../../components/dashboard/RecentActivities';
 import UpcomingReminders from '../../components/dashboard/UpcomingReminders';
-import PayrollSummary from '../../components/dashboard/PayrollSummary';
 import Dropdown from '../../components/common/Dropdown';
 import { useCompany } from '../../context/CompanyContext';
 import dashboardService from '../../services/dashboardService';
@@ -215,15 +214,6 @@ function AdminDashboard() {
             data={dashboardData?.upcomingReminders || []} 
           />
         </div>
-
-        {/* ---- Payroll Summary ---- */}
-        <section aria-label="Payroll Summary">
-          <PayrollSummary 
-            overallData={dashboardData?.payrollSummary?.overall} 
-            clientWiseData={dashboardData?.payrollSummary?.clientWise || []}
-            loading={loading && !dashboardData}
-          />
-        </section>
 
         {/* ---- Upcoming Birthdays Modal Card ---- */}
         <UpcomingBirthdaysModal

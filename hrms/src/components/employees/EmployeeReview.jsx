@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, Briefcase, DollarSign, Landmark, Home, FileText, Edit2, Shield, CheckCircle } from 'lucide-react';
+import { User, Briefcase, DollarSign, Landmark, Home, FileText, Edit2, Shield, CheckCircle, Key } from 'lucide-react';
 import styles from './EmployeeFormSteps.module.css';
 
 const INR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
@@ -88,14 +88,14 @@ function EmployeeReview({ data, onEditStep }) {
           <div className={styles.reviewSectionHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <User size={16} />
-              <span>01. Basic Details</span>
+              <span>02. Basic Details</span>
             </div>
             {onEditStep && (
               <button
                 type="button"
                 className={styles.addMemberBtn}
                 style={{ padding: '3px 8px', fontSize: '12px' }}
-                onClick={() => onEditStep(0)}
+                onClick={() => onEditStep(1)}
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -143,14 +143,14 @@ function EmployeeReview({ data, onEditStep }) {
           <div className={styles.reviewSectionHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Briefcase size={16} />
-              <span>02. Employment Details</span>
+              <span>03. Employment Details</span>
             </div>
             {onEditStep && (
               <button
                 type="button"
                 className={styles.addMemberBtn}
                 style={{ padding: '3px 8px', fontSize: '12px' }}
-                onClick={() => onEditStep(1)}
+                onClick={() => onEditStep(2)}
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -204,14 +204,14 @@ function EmployeeReview({ data, onEditStep }) {
           <div className={styles.reviewSectionHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <DollarSign size={16} />
-              <span>03. Salary Details</span>
+              <span>04. Salary Details</span>
             </div>
             {onEditStep && (
               <button
                 type="button"
                 className={styles.addMemberBtn}
                 style={{ padding: '3px 8px', fontSize: '12px' }}
-                onClick={() => onEditStep(2)}
+                onClick={() => onEditStep(3)}
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -240,14 +240,14 @@ function EmployeeReview({ data, onEditStep }) {
           <div className={styles.reviewSectionHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Landmark size={16} />
-              <span>04. Bank Details</span>
+              <span>05. Bank Details</span>
             </div>
             {onEditStep && (
               <button
                 type="button"
                 className={styles.addMemberBtn}
                 style={{ padding: '3px 8px', fontSize: '12px' }}
-                onClick={() => onEditStep(3)}
+                onClick={() => onEditStep(4)}
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -268,14 +268,14 @@ function EmployeeReview({ data, onEditStep }) {
           <div className={styles.reviewSectionHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Home size={16} />
-              <span>05. Address & Family</span>
+              <span>06. Address & Family</span>
             </div>
             {onEditStep && (
               <button
                 type="button"
                 className={styles.addMemberBtn}
                 style={{ padding: '3px 8px', fontSize: '12px' }}
-                onClick={() => onEditStep(4)}
+                onClick={() => onEditStep(5)}
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -305,14 +305,14 @@ function EmployeeReview({ data, onEditStep }) {
           <div className={styles.reviewSectionHeader}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <FileText size={16} />
-              <span>06. Licenses, Documents & Remarks</span>
+              <span>07. Licenses, Documents & Remarks</span>
             </div>
             {onEditStep && (
               <button
                 type="button"
                 className={styles.addMemberBtn}
                 style={{ padding: '3px 8px', fontSize: '12px' }}
-                onClick={() => onEditStep(5)}
+                onClick={() => onEditStep(6)}
               >
                 <Edit2 size={12} /> Edit
               </button>
@@ -362,6 +362,62 @@ function EmployeeReview({ data, onEditStep }) {
             </div>
 
             <ReviewRow label="Remarks" value={data.remarks || '—'} />
+          </div>
+        </div>
+
+        {/* Step 7: Login Access & Security */}
+        <div className={styles.reviewSection}>
+          <div className={styles.reviewSectionHeader}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Key size={16} />
+              <span>08. Login Access & Security</span>
+            </div>
+            {onEditStep && (
+              <button
+                type="button"
+                className={styles.addMemberBtn}
+                style={{ padding: '3px 8px', fontSize: '12px' }}
+                onClick={() => onEditStep(7)}
+              >
+                <Edit2 size={12} /> Edit
+              </button>
+            )}
+          </div>
+          <div className={styles.reviewSectionBody}>
+            <ReviewRow label="Login ID / Username" value={data.employeeCode || data.employeeId || '—'} />
+            <ReviewRow label="Registered Login Email" value={data.email || '—'} />
+            <ReviewRow label="Web Portal Access" value={data.enablePortalAccess !== false ? 'Enabled' : 'Disabled'} />
+            <ReviewRow label="Mobile App Login" value={data.allowMobileAppLogin !== false ? 'Allowed' : 'Disabled'} />
+            <ReviewRow label="Password" value={data.password ? '••••••••' : '(Not set / unchanged)'} />
+          </div>
+        </div>
+
+        {/* Step 8: Additional Info */}
+        <div className={styles.reviewSection}>
+          <div className={styles.reviewSectionHeader}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FileText size={16} />
+              <span>09. Additional Info</span>
+            </div>
+            {onEditStep && (
+              <button
+                type="button"
+                className={styles.addMemberBtn}
+                style={{ padding: '3px 8px', fontSize: '12px' }}
+                onClick={() => onEditStep(8)}
+              >
+                <Edit2 size={12} /> Edit
+              </button>
+            )}
+          </div>
+          <div className={styles.reviewSectionBody}>
+            <ReviewRow label="Notes" value={data.notes || data.additionalInfo?.notes || '—'} />
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+              const k = `otherInfo${num}`;
+              const val = data[k] || data.additionalInfo?.[k];
+              if (!val) return null;
+              return <ReviewRow key={k} label={`Other Info ${num}`} value={val} />;
+            })}
           </div>
         </div>
       </div>

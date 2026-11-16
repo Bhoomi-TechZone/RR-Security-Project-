@@ -8,26 +8,38 @@ import BankDetailsStep from './BankDetailsStep';
 import AddressFamilyStep from './AddressFamilyStep';
 import DocumentsStep from './DocumentsStep';
 import EmployeeReview from './EmployeeReview';
+import EmployeeSummaryStep from './EmployeeSummaryStep';
+import LoginAccessStep from './LoginAccessStep';
+import AdditionalInfoStep from './AdditionalInfoStep';
+import ActivityLogsStep from './ActivityLogsStep';
 import { useCompany } from '../../context/CompanyContext';
 import { generateSeriesPreview } from '../../data/numberSeriesData';
 
 const STEPS = [
-  { id: 'basic', label: 'Basic Details', number: '01' },
-  { id: 'employment', label: 'Employment Details', number: '02' },
-  { id: 'salary', label: 'Salary & Statutory', number: '03' },
-  { id: 'statutory', label: 'Bank Details', number: '04' },
-  { id: 'address', label: 'Address & Family', number: '05' },
-  { id: 'documents', label: 'Documents', number: '06' },
-  { id: 'review', label: 'Review & Submit', number: '07' }
+  { id: 'summary', label: 'Summary', number: '01' },
+  { id: 'basic', label: 'Basic Details', number: '02' },
+  { id: 'employment', label: 'Employment Details', number: '03' },
+  { id: 'salary', label: 'Salary & Statutory', number: '04' },
+  { id: 'statutory', label: 'Bank Details', number: '05' },
+  { id: 'address', label: 'Address & Family', number: '06' },
+  { id: 'documents', label: 'Documents', number: '07' },
+  { id: 'login', label: 'Login Access', number: '08' },
+  { id: 'additional', label: 'Additional Info', number: '09' },
+  { id: 'activity', label: 'Activity Logs', number: '10' },
+  { id: 'review', label: 'Review & Submit', number: '11' }
 ];
 
 const QUICK_NAV_SECTIONS = [
-  { id: 'section-basic', number: '01', label: 'Basic Details' },
-  { id: 'section-employment', number: '02', label: 'Employment Details' },
-  { id: 'section-salary', number: '03', label: 'Salary & Statutory' },
-  { id: 'section-bank', number: '04', label: 'Bank Details' },
-  { id: 'section-address', number: '05', label: 'Address & Family' },
-  { id: 'section-documents', number: '06', label: 'Documents' },
+  { id: 'section-summary', number: '01', label: 'Summary' },
+  { id: 'section-basic', number: '02', label: 'Basic Details' },
+  { id: 'section-employment', number: '03', label: 'Employment Details' },
+  { id: 'section-salary', number: '04', label: 'Salary & Statutory' },
+  { id: 'section-bank', number: '05', label: 'Bank Details' },
+  { id: 'section-address', number: '06', label: 'Address & Family' },
+  { id: 'section-documents', number: '07', label: 'Documents' },
+  { id: 'section-login', number: '08', label: 'Login Access' },
+  { id: 'section-additional', number: '09', label: 'Additional Info' },
+  { id: 'section-activity', number: '10', label: 'Activity Logs' },
 ];
 
 const DEFAULT_FORM_DATA = {
@@ -167,7 +179,19 @@ const DEFAULT_FORM_DATA = {
     employeeSignature: { status: 'pending', date: null },
     hrAdminVerification: { status: 'pending', date: null }
   },
-  remarks: ''
+  remarks: '',
+  notes: '',
+  otherInfo1: '',
+  otherInfo2: '',
+  otherInfo3: '',
+  otherInfo4: '',
+  otherInfo5: '',
+  otherInfo6: '',
+  otherInfo7: '',
+  otherInfo8: '',
+  otherInfo9: '',
+  otherInfo10: '',
+  additionalInfo: {}
 };
 
 const normalizeEmployeeForForm = (employee) => {
@@ -343,7 +367,22 @@ const normalizeEmployeeForForm = (employee) => {
     remarks: employee.remarks ?? '',
     status: employee.status ?? employee.employeeStatus ?? 'active',
     site: employee.site ?? employee.siteLocation ?? '',
-    contact: employee.contact ?? employee.mobile ?? ''
+    contact: employee.contact ?? employee.mobile ?? '',
+    password: employee.savedPassword ?? employee.password ?? '',
+    enablePortalAccess: employee.enablePortalAccess !== false && employee.enablePortalAccess !== 'false',
+    allowMobileAppLogin: employee.allowMobileAppLogin !== undefined ? !!employee.allowMobileAppLogin : true,
+    notes: employee.notes ?? employee.additionalInfo?.notes ?? '',
+    otherInfo1: employee.otherInfo1 ?? employee.additionalInfo?.otherInfo1 ?? '',
+    otherInfo2: employee.otherInfo2 ?? employee.additionalInfo?.otherInfo2 ?? '',
+    otherInfo3: employee.otherInfo3 ?? employee.additionalInfo?.otherInfo3 ?? '',
+    otherInfo4: employee.otherInfo4 ?? employee.additionalInfo?.otherInfo4 ?? '',
+    otherInfo5: employee.otherInfo5 ?? employee.additionalInfo?.otherInfo5 ?? '',
+    otherInfo6: employee.otherInfo6 ?? employee.additionalInfo?.otherInfo6 ?? '',
+    otherInfo7: employee.otherInfo7 ?? employee.additionalInfo?.otherInfo7 ?? '',
+    otherInfo8: employee.otherInfo8 ?? employee.additionalInfo?.otherInfo8 ?? '',
+    otherInfo9: employee.otherInfo9 ?? employee.additionalInfo?.otherInfo9 ?? '',
+    otherInfo10: employee.otherInfo10 ?? employee.additionalInfo?.otherInfo10 ?? '',
+    additionalInfo: employee.additionalInfo || {}
   };
 };
 
@@ -379,16 +418,16 @@ function EmployeeForm({
   const isEditMode = !!employee;
   const shouldShow = isPageMode || isOpen;
   const isStackedMode = isPageMode;
-  const [activeSection, setActiveSection] = useState('section-basic');
+  const [activeSection, setActiveSection] = useState('section-summary');
 
   // Track active section on scroll for quickNav sidebar in page mode
   useEffect(() => {
     if (!isStackedMode) return;
 
     const handleScroll = () => {
-      // If near top of the page, keep Basic Details active and avoid premature switching
+      // If near top of the page, keep Summary active and avoid premature switching
       if (window.scrollY < 120) {
-        setActiveSection('section-basic');
+        setActiveSection('section-summary');
         return;
       }
 
@@ -413,10 +452,10 @@ function EmployeeForm({
 
   const scrollToSection = (e, sectionId) => {
     e.preventDefault();
-    if (sectionId === 'section-basic') {
-      // Basic Details is at the top of the form — scroll to top 0 so the Add Employee header remains 100% visible
+    if (sectionId === 'section-summary') {
+      // Summary is at the top of the form — scroll to top 0 so the Add Employee header remains 100% visible
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      setActiveSection('section-basic');
+      setActiveSection('section-summary');
       return;
     }
 
@@ -641,11 +680,16 @@ function EmployeeForm({
 
             {/* Form Content on Right */}
             <div className={styles.allSectionsWrapper}>
-            {/* 01. Basic Details */}
+            {/* 01. Summary */}
+            <section id="section-summary" className={styles.sectionCard}>
+              <EmployeeSummaryStep data={formData} />
+            </section>
+
+            {/* 02. Basic Details */}
             <section id="section-basic" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>01</span>
+                  <span className={styles.sectionNumber}>02</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Basic Details</h3>
                     <p className={styles.sectionSubtitle}>Personal information, contact details, identity and profile picture</p>
@@ -679,11 +723,11 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 02. Employment Details */}
+            {/* 03. Employment Details */}
             <section id="section-employment" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>02</span>
+                  <span className={styles.sectionNumber}>03</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Employment Details</h3>
                     <p className={styles.sectionSubtitle}>Client company allocation, site location, designation, department and shift roster</p>
@@ -729,11 +773,11 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 03. Salary & Statutory */}
+            {/* 04. Salary & Statutory */}
             <section id="section-salary" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>03</span>
+                  <span className={styles.sectionNumber}>04</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Salary & Statutory Details</h3>
                     <p className={styles.sectionSubtitle}>Wage structure, basic salary, allowances, PF, ESIC, PT, LWF and compliance</p>
@@ -767,11 +811,11 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 04. Bank Details */}
+            {/* 05. Bank Details */}
             <section id="section-bank" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>04</span>
+                  <span className={styles.sectionNumber}>05</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Bank Details</h3>
                     <p className={styles.sectionSubtitle}>Salary disbursement bank account, branch, IFSC and payment mode</p>
@@ -810,11 +854,11 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 05. Address & Family */}
+            {/* 06. Address & Family */}
             <section id="section-address" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>05</span>
+                  <span className={styles.sectionNumber}>06</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Address & Family Information</h3>
                     <p className={styles.sectionSubtitle}>Present & permanent residential address, family members and insurance nominees</p>
@@ -848,11 +892,11 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 06. Documents & Licenses */}
+            {/* 07. Documents & Licenses */}
             <section id="section-documents" className={styles.sectionCard}>
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>06</span>
+                  <span className={styles.sectionNumber}>07</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Documents & Licenses</h3>
                     <p className={styles.sectionSubtitle}>Driving & armed licenses, KYC documents and administrative verification</p>
@@ -889,6 +933,107 @@ function EmployeeForm({
                   </button>
                 </div>
               )}
+            </section>
+
+            {/* 08. Login Access */}
+            <section id="section-login" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>08</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Login Access</h3>
+                    <p className={styles.sectionSubtitle}>Employee portal login credentials, password setup and account permissions</p>
+                  </div>
+                </div>
+              </div>
+              <div className={styles.sectionBody}>
+                <LoginAccessStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  isEditMode={isEditMode}
+                />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* 09. Additional Info */}
+            <section id="section-additional" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>09</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Additional Info</h3>
+                    <p className={styles.sectionSubtitle}>Customized data fields and additional organizational notes</p>
+                  </div>
+                </div>
+              </div>
+              <div className={styles.sectionBody}>
+                <AdditionalInfoStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  onSave={isEditMode ? handleSubmit : undefined}
+                  isSubmitting={isSubmitting}
+                />
+              </div>
+              {isEditMode && (
+                <div className={styles.sectionFooter}>
+                  <button
+                    type="button"
+                    className={styles.sectionSaveBtn}
+                    onClick={handleSubmit}
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={14} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={14} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </section>
+
+            {/* 10. Activity Logs */}
+            <section id="section-activity" className={styles.sectionCard}>
+              <div className={styles.sectionHeader}>
+                <div className={styles.sectionHeaderLeft}>
+                  <span className={styles.sectionNumber}>10</span>
+                  <div>
+                    <h3 className={styles.sectionTitle}>Activity Logs</h3>
+                    <p className={styles.sectionSubtitle}>System audit trail, authentication logs and record change history</p>
+                  </div>
+                </div>
+              </div>
+              <div className={styles.sectionBody}>
+                <ActivityLogsStep data={formData} />
+              </div>
             </section>
           </div>
         </div>
@@ -945,9 +1090,12 @@ function EmployeeForm({
 
           <div className={styles.content}>
             {currentStep === 0 && (
-              <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
+              <EmployeeSummaryStep data={formData} />
             )}
             {currentStep === 1 && (
+              <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
+            )}
+            {currentStep === 2 && (
               <EmploymentStep
                 data={formData}
                 onChange={handleFormDataChange}
@@ -962,10 +1110,10 @@ function EmployeeForm({
                 workLocations={workLocations}
               />
             )}
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
             )}
-            {currentStep === 3 && (
+            {currentStep === 4 && (
               <BankDetailsStep
                 data={formData}
                 onChange={handleFormDataChange}
@@ -973,10 +1121,10 @@ function EmployeeForm({
                 banks={banks}
               />
             )}
-            {currentStep === 4 && (
+            {currentStep === 5 && (
               <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
             )}
-            {currentStep === 5 && (
+            {currentStep === 6 && (
               <DocumentsStep
                 data={formData}
                 onChange={handleFormDataChange}
@@ -984,7 +1132,25 @@ function EmployeeForm({
                 documentTypes={documentTypes}
               />
             )}
-            {currentStep === 6 && (
+            {currentStep === 7 && (
+              <LoginAccessStep
+                data={formData}
+                onChange={handleFormDataChange}
+                isEditMode={isEditMode}
+              />
+            )}
+            {currentStep === 8 && (
+              <AdditionalInfoStep
+                data={formData}
+                onChange={handleFormDataChange}
+                onSave={isEditMode ? handleSubmit : undefined}
+                isSubmitting={isSubmitting}
+              />
+            )}
+            {currentStep === 9 && (
+              <ActivityLogsStep data={formData} />
+            )}
+            {currentStep === 10 && (
               <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
             )}
           </div>

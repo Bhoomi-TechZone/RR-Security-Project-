@@ -6,6 +6,7 @@ import {
   updateEmployee,
   deleteEmployee,
   sendEmployeeCredentials,
+  sendDirectEmployeeCredentials,
   bulkImportEmployees,
 } from '../controllers/employeeController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
@@ -20,6 +21,7 @@ router.route('/')
   .post(adminOnly, createEmployee);
 
 router.post('/bulk-import', adminOnly, bulkImportEmployees);
+router.post('/send-credentials-direct', adminOnly, sendDirectEmployeeCredentials);
 
 router.route('/:id')
   .get(getEmployeeById)

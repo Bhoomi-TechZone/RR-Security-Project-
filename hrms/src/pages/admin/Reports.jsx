@@ -6440,144 +6440,138 @@ function Reports() {
         ) : (
           <>
             {/* Active Report Header & Navigation */}
-            <div className={styles.breadcrumb}>
-              <span
-                onClick={() => navigate('/admin/dashboard')}
-                style={{ cursor: 'pointer' }}
-              >
-                Dashboard
-              </span>
-              <span>/</span>
-              <span
-                onClick={handleBackToReports}
-                style={{
-                  cursor: 'pointer',
-                  color: 'var(--primary-color, #2563eb)',
-                  fontWeight: 500
-                }}
-              >
-                Reports
-              </span>
-              <span>/</span>
-              <strong>{reportMeta[activeReport]?.title}</strong>
-            </div>
-
-            <header className={styles.pageHeader}>
-              <div className={styles.pageHeaderContent} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', order: 2, marginLeft: 'auto' }}>
-                    {isReportGenerated && reportData && (
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        {getReportFormats(activeReport).map((fmt) => {
-                          const isCurrentDownloading = downloadingFormat === fmt;
-                          let bg = '#16a34a';
-                          let hoverBg = '#15803d';
-                          let text = '#ffffff';
-                          let border = 'none';
-                          let Icon = FileSpreadsheet;
-
-                          if (fmt === 'PDF') {
-                            bg = '#dc2626';
-                            hoverBg = '#b91c1c';
-                            Icon = Download;
-                          } else if (fmt === 'CSV') {
-                            bg = '#0284c7';
-                            hoverBg = '#0369a1';
-                            Icon = FileText;
-                          } else if (fmt === 'Word') {
-                            bg = '#2563eb';
-                            hoverBg = '#1d4ed8';
-                            Icon = FileText;
-                          } else if (fmt === 'Print') {
-                            bg = '#ffffff';
-                            hoverBg = '#f8fafc';
-                            text = '#334155';
-                            border = '1px solid #cbd5e1';
-                            Icon = Printer;
-                          }
-
-                          return (
-                            <button
-                              key={fmt}
-                              type="button"
-                              onClick={() => handleDirectDownload(fmt)}
-                              disabled={Boolean(downloadingFormat) || isLoading}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                padding: '8px 14px',
-                                borderRadius: '8px',
-                                fontSize: '12.5px',
-                                fontWeight: 600,
-                                cursor: Boolean(downloadingFormat) || isLoading ? 'not-allowed' : 'pointer',
-                                background: bg,
-                                color: text,
-                                border,
-                                transition: 'all 0.15s ease',
-                                whiteSpace: 'nowrap',
-                                opacity: Boolean(downloadingFormat) && !isCurrentDownloading ? 0.6 : 1
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!Boolean(downloadingFormat) && !isLoading) {
-                                  e.currentTarget.style.background = hoverBg;
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.background = bg;
-                              }}
-                              title={`Download ${reportMeta[activeReport]?.title || ''} as ${fmt}`}
-                            >
-                              {isCurrentDownloading ? (
-                                <>
-                                  <Loader2 size={14} className={styles.spinner} />
-                                  <span>Generating...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Icon size={14} />
-                                  <span>{fmt}</span>
-                                </>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleBackToReports}
-                      className={styles.secondaryButton}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '7px',
-                        padding: '8px 16px',
-                        background: 'rgb(215, 119, 5)',
-                        color: '#ffffff',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '12.5px',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        transition: 'all 0.15s ease',
-                        whiteSpace: 'nowrap'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = 'rgb(180, 83, 9)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = 'rgb(215, 119, 5)';
-                      }}
-                    >
-                      <ArrowLeft size={15} color="#fff" /> Back to Reports
-                    </button>
-                  </div>
-                  <h1 style={{ margin: 0, fontSize: '22px', order: 1 }}>{reportMeta[activeReport]?.title}</h1>
-                </div>
-                <p className={styles.pageDescription}>{reportMeta[activeReport]?.description}</p>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
+              <div className={styles.breadcrumb} style={{ margin: 0 }}>
+                <span
+                  onClick={() => navigate('/admin/dashboard')}
+                  style={{ cursor: 'pointer' }}
+                >
+                  Dashboard
+                </span>
+                <span>/</span>
+                <span
+                  onClick={handleBackToReports}
+                  style={{
+                    cursor: 'pointer',
+                    color: 'var(--primary-color, #2563eb)',
+                    fontWeight: 500
+                  }}
+                >
+                  Reports
+                </span>
+                <span>/</span>
+                <strong>{reportMeta[activeReport]?.title}</strong>
               </div>
-            </header>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: 'auto' }}>
+                {isReportGenerated && reportData && (
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {getReportFormats(activeReport).map((fmt) => {
+                      const isCurrentDownloading = downloadingFormat === fmt;
+                      let bg = '#16a34a';
+                      let hoverBg = '#15803d';
+                      let text = '#ffffff';
+                      let border = 'none';
+                      let Icon = FileSpreadsheet;
+
+                      if (fmt === 'PDF') {
+                        bg = '#dc2626';
+                        hoverBg = '#b91c1c';
+                        Icon = Download;
+                      } else if (fmt === 'CSV') {
+                        bg = '#0284c7';
+                        hoverBg = '#0369a1';
+                        Icon = FileText;
+                      } else if (fmt === 'Word') {
+                        bg = '#2563eb';
+                        hoverBg = '#1d4ed8';
+                        Icon = FileText;
+                      } else if (fmt === 'Print') {
+                        bg = '#ffffff';
+                        hoverBg = '#f8fafc';
+                        text = '#334155';
+                        border = '1px solid #cbd5e1';
+                        Icon = Printer;
+                      }
+
+                      return (
+                        <button
+                          key={fmt}
+                          type="button"
+                          onClick={() => handleDirectDownload(fmt)}
+                          disabled={Boolean(downloadingFormat) || isLoading}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '8px 14px',
+                            borderRadius: '8px',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            cursor: Boolean(downloadingFormat) || isLoading ? 'not-allowed' : 'pointer',
+                            background: bg,
+                            color: text,
+                            border,
+                            transition: 'all 0.15s ease',
+                            whiteSpace: 'nowrap',
+                            opacity: Boolean(downloadingFormat) && !isCurrentDownloading ? 0.6 : 1
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!Boolean(downloadingFormat) && !isLoading) {
+                              e.currentTarget.style.background = hoverBg;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.background = bg;
+                          }}
+                          title={`Download ${reportMeta[activeReport]?.title || ''} as ${fmt}`}
+                        >
+                          {isCurrentDownloading ? (
+                            <>
+                              <Loader2 size={14} className={styles.spinner} />
+                              <span>Generating...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Icon size={14} />
+                              <span>{fmt}</span>
+                            </>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleBackToReports}
+                  className={styles.secondaryButton}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '7px',
+                    padding: '8px 16px',
+                    background: 'rgb(215, 119, 5)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '12.5px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgb(180, 83, 9)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'rgb(215, 119, 5)';
+                  }}
+                >
+                  <ArrowLeft size={15} color="#fff" /> Back to Reports
+                </button>
+              </div>
+            </div>
 
             <ReportBody
               activeReport={activeReport}

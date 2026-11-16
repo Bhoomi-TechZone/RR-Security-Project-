@@ -46,7 +46,8 @@ const TABS = [
   { id: 'statutory', label: 'Statutory & Bank', icon: CreditCard },
   { id: 'address', label: 'Address & Family', icon: MapPin },
   { id: 'salary', label: 'Salary Structure', icon: IndianRupee },
-  { id: 'documents', label: 'Documents', icon: FileText }
+  { id: 'documents', label: 'Documents', icon: FileText },
+  { id: 'additional', label: 'Additional Info', icon: Layers }
 ];
 
 function EmployeeDetails() {
@@ -1181,6 +1182,22 @@ function EmployeeDetails() {
                   <span>Effective From: {employee.salaryEffectiveFrom || 'N/A'}</span>
                   <span>Minimum Wage Category: {employee.minimumWageCategory || 'N/A'}</span>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* ADDITIONAL INFO TAB */}
+          {activeTab === 'additional' && (
+            <div className={styles.infoCard}>
+              <h3 className={styles.infoCardTitle}>Additional Customized Information</h3>
+              <div className={styles.infoRows}>
+                <InfoRow label="Notes" value={employee.notes || employee.additionalInfo?.notes || '—'} />
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => {
+                  const k = `otherInfo${num}`;
+                  const val = employee[k] || employee.additionalInfo?.[k];
+                  if (!val) return null;
+                  return <InfoRow key={k} label={`Other Info ${num}`} value={val} />;
+                })}
               </div>
             </div>
           )}
