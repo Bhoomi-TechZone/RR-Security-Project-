@@ -188,6 +188,20 @@ const employeeSchema = new mongoose.Schema(
     documentList: { type: Array, default: [] },
     documents: { type: mongoose.Schema.Types.Mixed, default: {} },
     remarks: { type: String, default: '' },
+
+    // Additional Info (Customizable Fields)
+    notes: { type: String, default: '' },
+    otherInfo1: { type: String, default: '' },
+    otherInfo2: { type: String, default: '' },
+    otherInfo3: { type: String, default: '' },
+    otherInfo4: { type: String, default: '' },
+    otherInfo5: { type: String, default: '' },
+    otherInfo6: { type: String, default: '' },
+    otherInfo7: { type: String, default: '' },
+    otherInfo8: { type: String, default: '' },
+    otherInfo9: { type: String, default: '' },
+    otherInfo10: { type: String, default: '' },
+    additionalInfo: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   {
     timestamps: true,

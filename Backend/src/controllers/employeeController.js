@@ -482,7 +482,33 @@ export const createEmployee = async (req, res) => {
       // Documents & Remarks
       documentList: req.body.documentList || [],
       documents: req.body.documents || {},
-      remarks: req.body.remarks || ''
+      remarks: req.body.remarks || '',
+
+      // Additional Info Fields
+      notes: req.body.notes ?? req.body.additionalInfo?.notes ?? '',
+      otherInfo1: req.body.otherInfo1 ?? req.body.additionalInfo?.otherInfo1 ?? '',
+      otherInfo2: req.body.otherInfo2 ?? req.body.additionalInfo?.otherInfo2 ?? '',
+      otherInfo3: req.body.otherInfo3 ?? req.body.additionalInfo?.otherInfo3 ?? '',
+      otherInfo4: req.body.otherInfo4 ?? req.body.additionalInfo?.otherInfo4 ?? '',
+      otherInfo5: req.body.otherInfo5 ?? req.body.additionalInfo?.otherInfo5 ?? '',
+      otherInfo6: req.body.otherInfo6 ?? req.body.additionalInfo?.otherInfo6 ?? '',
+      otherInfo7: req.body.otherInfo7 ?? req.body.additionalInfo?.otherInfo7 ?? '',
+      otherInfo8: req.body.otherInfo8 ?? req.body.additionalInfo?.otherInfo8 ?? '',
+      otherInfo9: req.body.otherInfo9 ?? req.body.additionalInfo?.otherInfo9 ?? '',
+      otherInfo10: req.body.otherInfo10 ?? req.body.additionalInfo?.otherInfo10 ?? '',
+      additionalInfo: req.body.additionalInfo || {
+        notes: req.body.notes ?? '',
+        otherInfo1: req.body.otherInfo1 ?? '',
+        otherInfo2: req.body.otherInfo2 ?? '',
+        otherInfo3: req.body.otherInfo3 ?? '',
+        otherInfo4: req.body.otherInfo4 ?? '',
+        otherInfo5: req.body.otherInfo5 ?? '',
+        otherInfo6: req.body.otherInfo6 ?? '',
+        otherInfo7: req.body.otherInfo7 ?? '',
+        otherInfo8: req.body.otherInfo8 ?? '',
+        otherInfo9: req.body.otherInfo9 ?? '',
+        otherInfo10: req.body.otherInfo10 ?? ''
+      }
     };
 
     const newEmployee = await Employee.create(employeeData);
@@ -711,6 +737,75 @@ export const sendEmployeeCredentials = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || 'Failed to send credentials email.'
+    });
+  }
+};
+
+/**
+ * @desc    Send Employee Portal Welcome Email with Credentials Directly (before or after save)
+ * @route   POST /api/employees/send-credentials-direct
+ * @access  Private (Admin)
+ */
+export const sendDirectEmployeeCredentials = async (req, res) => {
+  try {
+    const adminEmail = req.user.email.toLowerCase();
+    const companyId = req.headers['x-company-id'] || req.body.companyId;
+
+    const recipientEmail = (req.body.to || req.body.recipientEmail || req.body.email || '').trim();
+    if (!recipientEmail) {
+      return res.status(400).json({
+        success: false,
+        message: 'No recipient email specified. Please provide a registered email.'
+      });
+    }
+
+    const rawPassword = req.body.password || '••••••';
+    const empId = req.body.employeeId || req.body.employeeCode || 'EMP';
+    const empName = req.body.name || req.body.employeeName || 'Employee';
+
+    let activeCompName = req.body.companyName || '';
+    if (companyId) {
+      try {
+        const compDoc = await Company.findOne({
+          $or: [
+            ...(mongoose.isValidObjectId(companyId) ? [{ _id: companyId }] : []),
+            { companyId }
+          ]
+        }).lean();
+        if (compDoc?.name) activeCompName = compDoc.name;
+      } catch {}
+    }
+
+    const result = await sendEmployeeWelcomeEmail({
+      to: recipientEmail,
+      employeeData: {
+        name: empName,
+        employeeId: empId,
+        employeeCode: empId,
+        email: recipientEmail,
+        companyName: activeCompName
+      },
+      password: rawPassword,
+      companyName: activeCompName,
+      companyId
+    });
+
+    if (!result.success) {
+      return res.status(500).json({
+        success: false,
+        message: `Failed to send email: ${result.error}`
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Login credentials successfully sent to ${recipientEmail}!`
+    });
+  } catch (error) {
+    console.error('Error in sendDirectEmployeeCredentials:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to dispatch credentials email.'
     });
   }
 };
