@@ -69,6 +69,7 @@ import FinalizedExitsPage from './pages/admin/FinalizedExitsPage'
 import IncomeTaxManagement from './pages/admin/IncomeTaxManagement'
 import Greetings from './pages/admin/Greetings'
 import CandidateSelfOnboard from './pages/public/CandidateSelfOnboard'
+import HRRequests from './pages/admin/HRRequests'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
 import ModulePermissionRoute from './components/common/ModulePermissionRoute'
@@ -131,6 +132,9 @@ function App() {
       <Route path="/admin/employees/transfer" element={<AdminRoute><EmployeeTransfer /></AdminRoute>} />
       <Route path="/admin/employees/:id" element={<AdminRoute><EmployeeDetails /></AdminRoute>} />
       <Route path="/admin/employees/:id/edit" element={<AdminRoute><EditEmployee /></AdminRoute>} />
+
+      <Route path="/admin/hr-management" element={<Navigate to="/admin/hr-management/requests" replace />} />
+      <Route path="/admin/hr-management/requests" element={<AdminRoute><HRRequests /></AdminRoute>} />
 
       <Route path="/admin/masters" element={<AdminRoute><Masters /></AdminRoute>} />
       <Route path="/admin/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
@@ -197,6 +201,8 @@ function App() {
         <Route path="employees/transfer" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employee Transfer"><EmployeeTransfer /></ModulePermissionRoute>} />
         <Route path="employees/:id" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EmployeeDetails /></ModulePermissionRoute>} />
         <Route path="employees/:id/edit" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
+        <Route path="hr-management" element={<Navigate to="/user/hr-management/requests" replace />} />
+        <Route path="hr-management/requests" element={<HRRequests />} />
         <Route path="attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Attendance"><Attendance /></ModulePermissionRoute>} />
         <Route path="biometric-attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Biometric Attendance"><BiometricAttendance /></ModulePermissionRoute>} />
         <Route path="shifts" element={<ModulePermissionRoute moduleKey="shifts" moduleTitle="Shift Management"><ShiftManagement /></ModulePermissionRoute>} />

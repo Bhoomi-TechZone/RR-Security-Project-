@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Building2, Users, ClipboardCheck, CalendarDays,
   WalletCards, HandCoins, Timer, CalendarOff, Package, BarChart3,
   Settings2, Bell, LogOut, ChevronLeft, ChevronRight, Zap, ShieldCheck, UserCog, MapPin, SlidersHorizontal, Landmark, FileText, FileCheck, Hash, Receipt, ChevronDown, FileSignature,
-  UserPlus, UserCheck, UserMinus, Calculator, PartyPopper
+  UserPlus, UserCheck, UserMinus, Calculator, PartyPopper, Briefcase
 } from 'lucide-react';
 import styles from './AdminSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -81,6 +81,16 @@ const NAV_GROUPS = [
         subItems: [
           { path: '/admin/employees', name: 'All Employees' },
           { path: '/admin/employees/transfer', name: 'Transfer Employees' },
+        ]
+      },
+      {
+        path: '/admin/hr-management',
+        name: 'HR Management',
+        icon: Briefcase,
+        moduleKey: 'hr_management',
+        hasDropdown: true,
+        subItems: [
+          { path: '/admin/hr-management/requests', name: 'Requests' },
         ]
       },
       {
@@ -330,6 +340,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     return {
       '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients')),
       '/admin/employees': location.pathname.startsWith('/admin/employees'),
+      '/admin/hr-management': location.pathname.startsWith('/admin/hr-management'),
       '/admin/attendance': location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance'),
       '/admin/shifts': location.pathname.startsWith('/admin/shifts'),
       '/admin/payroll': (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) && !initialSep,
@@ -357,6 +368,9 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if (location.pathname.startsWith('/admin/employees')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/employees': true }));
+    }
+    if (location.pathname.startsWith('/admin/hr-management')) {
+      setOpenDropdowns(prev => ({ ...prev, '/admin/hr-management': true }));
     }
     if (location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/attendance': true }));

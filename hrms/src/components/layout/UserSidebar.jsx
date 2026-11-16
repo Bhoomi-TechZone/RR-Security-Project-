@@ -30,7 +30,8 @@ import {
   UserCheck,
   UserMinus,
   Calculator,
-  PartyPopper
+  PartyPopper,
+  Briefcase
 } from 'lucide-react';
 import styles from './UserSidebar.module.css';
 import Avatar from '../common/Avatar';
@@ -98,6 +99,17 @@ const USER_NAV_GROUPS = [
         subItems: [
           { path: '/user/employees', name: 'All Employees' },
           { path: '/user/employees/transfer', name: 'Transfer Employees' },
+        ]
+      },
+      { 
+        path: '/user/hr-management', 
+        name: 'HR Management', 
+        icon: Briefcase, 
+        moduleKey: 'hr_management',
+        isAlwaysVisible: true,
+        hasDropdown: true,
+        subItems: [
+          { path: '/user/hr-management/requests', name: 'Requests' },
         ]
       },
       { 
@@ -360,6 +372,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     '/user/onboarding': location.pathname.startsWith('/user/onboarding'),
     '/user/clients': location.pathname.startsWith('/user/clients'),
     '/user/employees': location.pathname.startsWith('/user/employees'),
+    '/user/hr-management': location.pathname.startsWith('/user/hr-management'),
     '/user/attendance': location.pathname.startsWith('/user/attendance') || location.pathname.startsWith('/user/biometric-attendance'),
     '/user/shifts': location.pathname.startsWith('/user/shifts'),
     '/user/payroll': location.pathname.startsWith('/user/payroll') && !isSeparationRoute,
