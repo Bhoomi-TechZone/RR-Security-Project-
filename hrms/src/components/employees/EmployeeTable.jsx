@@ -166,11 +166,11 @@ function EmployeeTable({
               <div className={styles.cardGrid}>
                 <div>
                   <span className={styles.cardLabel}>Department</span>
-                  <div className={styles.cardValue}>{employee.department}</div>
+                  <div className={styles.cardValue}>{employee.department || '—'}</div>
                 </div>
                 <div>
                   <span className={styles.cardLabel}>Designation</span>
-                  <div className={styles.cardValue}>{employee.designation}</div>
+                  <div className={styles.cardValue}>{employee.designation || '—'}</div>
                 </div>
               </div>
 

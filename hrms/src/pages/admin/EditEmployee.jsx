@@ -118,7 +118,7 @@ function EditEmployee() {
 
       setToast({ message: '✓ Employee updated successfully in database.', type: 'success' });
       window.dispatchEvent(new CustomEvent('employees-updated'));
-      setTimeout(() => navigate(`${basePath}/${id}`), 1000);
+      setTimeout(() => navigate(basePath), 1000);
     } catch (err) {
       console.error('Error updating employee:', err);
       setToast({ message: err.message || 'Failed to update employee.', type: 'error' });
@@ -163,7 +163,7 @@ function EditEmployee() {
         <EmployeeForm
           isOpen={true}
           isPageMode={true}
-          onClose={() => navigate(`${basePath}/${id}`)}
+          onClose={() => navigate(basePath)}
           onSubmit={handleSubmit}
           employee={employee}
           clients={clients}
