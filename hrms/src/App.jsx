@@ -130,7 +130,7 @@ function App() {
       <Route path="/admin/employees" element={<AdminRoute><Employees /></AdminRoute>} />
       <Route path="/admin/employees/add" element={<AdminRoute><AddEmployee /></AdminRoute>} />
       <Route path="/admin/employees/transfer" element={<AdminRoute><EmployeeTransfer /></AdminRoute>} />
-      <Route path="/admin/employees/:id" element={<AdminRoute><EmployeeDetails /></AdminRoute>} />
+      <Route path="/admin/employees/:id" element={<AdminRoute><EditEmployee /></AdminRoute>} />
       <Route path="/admin/employees/:id/edit" element={<AdminRoute><EditEmployee /></AdminRoute>} />
 
       <Route path="/admin/hr-management" element={<Navigate to="/admin/hr-management/requests" replace />} />
@@ -199,7 +199,7 @@ function App() {
         <Route path="employees" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><Employees /></ModulePermissionRoute>} />
         <Route path="employees/add" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Add Employee"><AddEmployee /></ModulePermissionRoute>} />
         <Route path="employees/transfer" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employee Transfer"><EmployeeTransfer /></ModulePermissionRoute>} />
-        <Route path="employees/:id" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EmployeeDetails /></ModulePermissionRoute>} />
+        <Route path="employees/:id" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
         <Route path="employees/:id/edit" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
         <Route path="hr-management" element={<Navigate to="/user/hr-management/requests" replace />} />
         <Route path="hr-management/requests" element={<HRRequests />} />

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmployeeForm from '../../components/employees/EmployeeForm';
+import NewEmployeeForm from '../../components/employees/NewEmployeeForm';
 import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import { authService } from '../../services/authService';
@@ -24,9 +25,10 @@ function AddEmployee() {
   const isUserPanel = location.pathname.startsWith('/user');
   const basePath = isUserPanel ? '/user/employees' : '/admin/employees';
 
-  const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
+  const currentCompanyId = activeCompany?.companyId || activeCompany?._id || activeCompany?.id || '';
 
   const [toast, setToast] = useState({ message: '', type: 'success' });
+  const [isDetailedMode, setIsDetailedMode] = useState(false);
   const [clients, setClients] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
@@ -86,12 +88,16 @@ function AddEmployee() {
         throw new Error(data.message || 'Failed to create employee');
       }
 
-      setToast({ message: '✓ Employee added successfully!', type: 'success' });
+      const isWarning = Boolean(formData.sendLogin && data.emailError);
+      setToast({
+        message: data.message ? `✓ ${data.message}` : '✓ Employee added successfully!',
+        type: isWarning ? 'warning' : 'success'
+      });
       window.dispatchEvent(new CustomEvent('employees-updated'));
 
       setTimeout(() => {
         navigate(basePath);
-      }, 1000);
+      }, isWarning ? 2500 : 1200);
     } catch (err) {
       console.error('Error creating employee:', err);
       setToast({ message: err.message || 'Failed to create employee.', type: 'error' });
@@ -130,25 +136,64 @@ function AddEmployee() {
           <span className={styles.crumbActive}>Add Employee</span>
         </nav>
 
-        {/* Full-Page Multi-Step Employee Form */}
-        <EmployeeForm
-          isOpen={true}
-          isPageMode={true}
-          onClose={handleClose}
-          onSubmit={handleSubmit}
-          employee={null}
-          clients={clients}
-          departments={departments}
-          designations={designations}
-          employeeTypes={employeeTypes}
-          sites={sites}
-          posts={posts}
-          shifts={shifts}
-          banks={banks}
-          documentTypes={documentTypes}
-          workLocations={workLocations}
-          employeesCount={employeesCount}
-        />
+        {/* Employee Form: New Employee UI (Image Style) with Toggle to Detailed */}
+        {!isDetailedMode ? (
+          <NewEmployeeForm
+            onSubmit={handleSubmit}
+            onSwitchToDetailed={() => setIsDetailedMode(true)}
+            clients={clients}
+            departments={departments}
+            designations={designations}
+            employeeTypes={employeeTypes}
+            sites={sites}
+            posts={posts}
+            shifts={shifts}
+            workLocations={workLocations}
+            employeesCount={employeesCount}
+          />
+        ) : (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setIsDetailedMode(false)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '6px 12px',
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontSize: '12.5px',
+                  fontWeight: 600,
+                  color: '#334155',
+                  cursor: 'pointer'
+                }}
+              >
+                ← Back to Quick New Employee Form
+              </button>
+            </div>
+            <EmployeeForm
+              isOpen={true}
+              isPageMode={true}
+              onClose={handleClose}
+              onSubmit={handleSubmit}
+              employee={null}
+              clients={clients}
+              departments={departments}
+              designations={designations}
+              employeeTypes={employeeTypes}
+              sites={sites}
+              posts={posts}
+              shifts={shifts}
+              banks={banks}
+              documentTypes={documentTypes}
+              workLocations={workLocations}
+              employeesCount={employeesCount}
+            />
+          </div>
+        )}
       </div>
     </AdminLayout>
   );

@@ -309,7 +309,8 @@ export const createEmployee = async (req, res) => {
       documents
     } = req.body;
 
-    if (!name || !name.trim()) {
+    const candidateName = (name || [req.body.firstName, req.body.middleName, req.body.lastName].filter(Boolean).join(' ') || '').trim();
+    if (!candidateName) {
       return res.status(400).json({
         success: false,
         message: 'Employee Name is required.'
@@ -373,6 +374,8 @@ export const createEmployee = async (req, res) => {
 
     const clientCompName = (req.body.clientName || req.body.companyName || '').trim();
     const photoUrl = req.body.employeePhoto || req.body.photo || '';
+    const resolvedName = (req.body.name || [req.body.firstName, req.body.middleName, req.body.lastName].filter(Boolean).join(' ') || '').trim();
+    const initialPassword = (req.body.password || `${resolvedEmpId}@123`).trim();
 
     const employeeData = {
       ...req.body,
@@ -383,7 +386,24 @@ export const createEmployee = async (req, res) => {
       clientId: req.body.clientId || '',
       clientName: clientCompName,
       adminEmail,
-      name: (req.body.name || '').trim(),
+      name: resolvedName,
+      firstName: req.body.firstName || '',
+      middleName: req.body.middleName || '',
+      lastName: req.body.lastName || '',
+      biometricCode: req.body.biometricCode || '',
+      confirmationDate: req.body.confirmationDate || '',
+      businessUnit: req.body.businessUnit || clientCompName,
+      costCenter: req.body.costCenter || '',
+      grade: req.body.grade || '',
+      shiftPolicy: req.body.shiftPolicy || req.body.shift || '',
+      weekOffPolicy: req.body.weekOffPolicy || '',
+      password: initialPassword,
+      savedPassword: initialPassword,
+      sendLogin: req.body.sendLogin !== false,
+      sendMobileLogin: req.body.sendLogin !== false && req.body.sendMobileLogin !== false,
+      sendWebLogin: req.body.sendLogin !== false && req.body.sendWebLogin !== false,
+      enablePortalAccess: req.body.sendLogin !== false && req.body.enablePortalAccess !== false,
+      allowMobileAppLogin: req.body.sendLogin !== false && req.body.allowMobileAppLogin !== false,
       fatherHusbandName: req.body.fatherHusbandName || '',
       fatherHusbandRelation: req.body.fatherHusbandRelation || '',
       gender: req.body.gender || 'Male',
@@ -403,8 +423,8 @@ export const createEmployee = async (req, res) => {
 
       // Employment Details
       employeeType: req.body.employeeType || 'Permanent',
-      department: req.body.department || 'Security',
-      designation: req.body.designation || 'Security Guard',
+      department: req.body.department !== undefined ? String(req.body.department).trim() : '',
+      designation: req.body.designation !== undefined ? String(req.body.designation).trim() : '',
       siteLocation: req.body.siteLocation || req.body.site || '',
       site: req.body.siteLocation || req.body.site || '',
       dutyPost: req.body.dutyPost || '',
@@ -513,10 +533,50 @@ export const createEmployee = async (req, res) => {
 
     const newEmployee = await Employee.create(employeeData);
 
+    const shouldSendLogin = Boolean(req.body.sendLogin || req.body.sendWebLogin || req.body.sendMobileLogin);
+    let emailSent = false;
+    let emailError = null;
+
+    if (shouldSendLogin) {
+      if (newEmployee.email) {
+        try {
+          const welcomeRes = await sendEmployeeWelcomeEmail({
+            to: newEmployee.email,
+            employeeData: {
+              name: newEmployee.name,
+              employeeId: newEmployee.employeeId,
+              employeeCode: newEmployee.employeeCode,
+              email: newEmployee.email,
+              companyName: clientCompName || company?.name
+            },
+            password: initialPassword,
+            companyName: clientCompName || company?.name,
+            companyId
+          });
+          emailSent = Boolean(welcomeRes?.success);
+          if (!welcomeRes?.success) {
+            emailError = welcomeRes?.error || 'Failed to dispatch email via SMTP server.';
+            console.warn('Failed to send employee welcome email during create:', emailError);
+          }
+        } catch (err) {
+          emailError = err.message;
+          console.warn('Failed to send employee welcome email during create:', err.message);
+        }
+      } else {
+        emailError = 'Official email was not provided for this employee.';
+      }
+    }
+
     return res.status(201).json({
       success: true,
-      message: `Employee "${newEmployee.name}" (${newEmployee.employeeId}) created successfully.`,
-      employee: newEmployee.toJSON()
+      message: emailSent
+        ? `Employee "${newEmployee.name}" (${newEmployee.employeeId}) created and login credentials sent to ${newEmployee.email}!`
+        : (shouldSendLogin && emailError
+            ? `Employee "${newEmployee.name}" created, but login email could not be sent: ${emailError}`
+            : `Employee "${newEmployee.name}" (${newEmployee.employeeId}) created successfully.`),
+      employee: newEmployee.toJSON(),
+      emailSent,
+      emailError
     });
   } catch (error) {
     console.error('Error creating employee:', error);

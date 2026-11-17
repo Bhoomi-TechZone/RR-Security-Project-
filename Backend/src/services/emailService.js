@@ -22,16 +22,31 @@ export const getDynamicEmailConfig = async (companyId = null, customConfig = nul
     config = { ...customConfig };
   }
 
-  // 2. Query strictly for the requested isolated company
-  if (!config && companyId) {
+  // 2. Query dynamically from MongoDB for the targeted company
+  if (!config) {
     try {
-      const isObjectId = mongoose.isValidObjectId(companyId);
-      const company = await Company.findOne({
-        $or: [
-          { companyId },
-          ...(isObjectId ? [{ _id: companyId }] : [])
-        ]
-      }).lean();
+      let company = null;
+
+      if (companyId) {
+        const cIdStr = typeof companyId === 'object' ? (companyId.companyId || companyId._id || companyId.id || '') : String(companyId);
+        const isObjectId = mongoose.isValidObjectId(cIdStr);
+        company = await Company.findOne({
+          $or: [
+            { companyId: cIdStr },
+            ...(isObjectId ? [{ _id: cIdStr }] : []),
+            { name: cIdStr },
+            { code: cIdStr }
+          ]
+        }).lean();
+      }
+
+      // If specific company has no configured email, check default active company from DB
+      if (!company || !company?.preferences?.emailConfig?.smtpUsername) {
+        const defaultCompany = await Company.findOne({ isDefault: true }).lean() || await Company.findOne({}).lean();
+        if (defaultCompany?.preferences?.emailConfig?.smtpUsername) {
+          company = defaultCompany;
+        }
+      }
 
       if (company) {
         targetCompanyName = company.name || company.companyName || '';
@@ -963,16 +978,19 @@ export const sendEmployeeWelcomeEmail = async ({
       resolvedCompName = employeeData?.companyName || employeeData?.clientName || 'Workforce Management Portal';
     }
 
-    const recipientEmail = to || employeeData?.email || senderEmail;
+    const recipientEmail = (to || employeeData?.email || senderEmail || '').trim().toLowerCase();
     if (!recipientEmail) {
       throw new Error('Recipient email address is required to dispatch welcome credentials.');
     }
 
     const transporter = await createTransporter(companyId);
+    const dynamicConfig = transporter.dynamicConfig || {};
+    const actualSenderEmail = (dynamicConfig.fromEmail || dynamicConfig.user || senderEmail).trim();
+    const actualSenderName = (dynamicConfig.fromName || resolvedCompName || 'HRMS Portal').trim();
 
     const empName = employeeData?.name || 'Employee';
     const empCode = employeeData?.employeeCode || employeeData?.employeeId || '';
-    const portalBaseUrl = clientUrl || process.env.CLIENT_URL || 'http://localhost:5173';
+    const portalBaseUrl = clientUrl || process.env.CLIENT_URL || 'https://hrmspayroll.bhoomitechzone.shop';
     const loginUrl = `${portalBaseUrl.replace(/\/$/, '')}/login`;
 
     const subject = `[${resolvedCompName}] Welcome to Employee Self-Service Portal - Your Login Credentials`;
@@ -995,16 +1013,15 @@ export const sendEmployeeWelcomeEmail = async ({
     const text = generateEmployeeWelcomePlainTextTemplate(templateParams);
 
     const info = await transporter.sendMail({
-      from: `"${resolvedCompName} HR Portal" <${senderEmail}>`,
+      from: `"${actualSenderName}" <${actualSenderEmail}>`,
       to: recipientEmail,
-      replyTo: senderEmail,
+      replyTo: actualSenderEmail,
       subject,
       text, // Essential text alternative for anti-spam filters
       html,
       headers: {
-        'X-Mailer': 'HRMS Automated Provisioner',
-        'Importance': 'Normal',
-        'Auto-Submitted': 'auto-generated',
+        'X-Mailer': 'RR Security & Facilities HRMS',
+        'Importance': 'Normal'
       }
     });
 
