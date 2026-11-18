@@ -22,6 +22,7 @@ import masterService from '../../services/masterService';
 import clientService from '../../services/clientService';
 import workLocationService from '../../services/workLocationService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
+import { downloadEmployeeIdCardPdf } from '../../utils/idCardExport';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 const ITEMS_PER_PAGE = 10;
@@ -407,6 +408,13 @@ function Employees() {
       navigate(isUserPanel ? `/user/employees/transfer?empId=${empId}` : `/admin/employees/transfer?empId=${empId}`);
     } else if (actionType === 'download') {
       downloadEmployeeProfile(employee, activeCompany);
+    } else if (actionType === 'idcard') {
+      try {
+        downloadEmployeeIdCardPdf(employee, activeCompany);
+      } catch (err) {
+        console.error('Failed to export ID Card:', err);
+        showToast('Failed to generate ID Card PDF', 'error');
+      }
     } else if (actionType === 'credentials') {
       setCredentialsEmployee(employee);
       setIsCredentialsOpen(true);
@@ -544,7 +552,7 @@ function Employees() {
   };
 
   return (
-    <AdminLayout>
+    <AdminLayout bgWhite>
       <div className={styles.container}>
         {/* Toast */}
         <Toast
@@ -609,21 +617,16 @@ function Employees() {
           onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
         />
 
-        {/* Breadcrumb */}
-        <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
-          <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
-            Dashboard
-          </span>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Employees</span>
-        </div>
-
-        {/* Page Header */}
-        <header className={styles.header}>
-          <div className={styles.titleArea}>
-            <h1 className={styles.title}>Employees</h1>
-            <p className={styles.description}>Manage employees across your client companies for {activeCompany?.name || 'Company Profile'}.</p>
+        {/* Top Bar with Breadcrumb and Compact Action Buttons */}
+        <div className={styles.topBar}>
+          <div className={styles.breadcrumb} role="navigation" aria-label="Breadcrumb">
+            <span className={styles.crumbLink} onClick={() => navigate('/admin/dashboard')}>
+              Dashboard
+            </span>
+            <span className={styles.separator}>/</span>
+            <span className={styles.crumbActive}>Employees</span>
           </div>
+
           <div className={styles.headerActions}>
             {canAdd('employees') && (
               <button
@@ -631,7 +634,7 @@ function Employees() {
                 onClick={() => setIsImportModalOpen(true)}
                 aria-label="Bulk import employees"
               >
-                <UploadCloud size={16} />
+                <UploadCloud size={14} />
                 <span>Import</span>
               </button>
             )}
@@ -641,12 +644,12 @@ function Employees() {
                 onClick={() => navigate(addEmployeePath)}
                 aria-label="Add a new employee"
               >
-                <Plus size={16} />
+                <Plus size={14} />
                 <span>Add Employee</span>
               </button>
             )}
           </div>
-        </header>
+        </div>
 
         {/* Filters */}
         <EmployeeFilters
@@ -699,6 +702,7 @@ function Employees() {
               onAction={handleActionClick}
               onResetFilters={handleResetFilters}
               startIndex={(currentPage - 1) * ITEMS_PER_PAGE}
+              clients={clients}
             />
 
             {!loading && sortedEmployees.length > 0 && (

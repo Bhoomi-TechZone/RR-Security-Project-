@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, ChevronDown, Key, FileText, UserX, UserCheck } from 'lucide-react';
+import { Download, ChevronDown, CreditCard, FileText, UserX, UserCheck } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './EmployeeActionMenu.module.css';
 import { usePermissions } from '../../context/PermissionContext';
@@ -7,8 +7,6 @@ import { usePermissions } from '../../context/PermissionContext';
 /**
  * EmployeeActionMenu Component
  * Renders the Options dropdown menu for each employee in the table/cards.
- * Note: Edit Employee is handled by the dedicated quick-edit button on the row,
- * and View Profile is triggered by clicking the employee record row directly.
  */
 function EmployeeActionMenu({ employee, onAction }) {
   const { canEdit, canDelete, canExport } = usePermissions();
@@ -30,14 +28,12 @@ function EmployeeActionMenu({ employee, onAction }) {
       }
     >
       <ul className={styles.menuList}>
-        {allowEdit && (
-          <li>
-            <button className={styles.menuItem} onClick={() => onAction('credentials', employee)}>
-              <Key size={14} />
-              <span>Credentials</span>
-            </button>
-          </li>
-        )}
+        <li>
+          <button className={styles.menuItem} onClick={() => onAction('idcard', employee)}>
+            <CreditCard size={14} />
+            <span>ID Card</span>
+          </button>
+        </li>
         <li>
           <button className={styles.menuItem} onClick={() => onAction('payslip', employee)}>
             <FileText size={14} />

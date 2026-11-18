@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Users,
   Search,
   RotateCcw,
-  ArrowUpDown
+  ArrowUpDown,
+  Loader2
 } from 'lucide-react';
 import styles from './EmployeeFilters.module.css';
 
@@ -38,6 +39,30 @@ function EmployeeFilters({
   departments = [],
   designations = []
 }) {
+  // Local input state: only filter when the search icon is clicked or Enter is pressed
+  const [inputVal, setInputVal] = useState(searchTerm || '');
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    setInputVal(searchTerm || '');
+  }, [searchTerm]);
+
+  const handleTriggerSearch = () => {
+    setIsSearching(true);
+    if (onSearchChange) {
+      onSearchChange(inputVal);
+    }
+    setTimeout(() => {
+      setIsSearching(false);
+    }, 450);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleTriggerSearch();
+    }
+  };
   const deptList = useMemo(() => {
     if (departments && departments.length > 0) {
       const items = departments
@@ -285,29 +310,43 @@ function EmployeeFilters({
         <div className={styles.searchGroup}>
           <label className={styles.fieldLabel}>Search Employee</label>
           <div className={styles.searchBox}>
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Search employee..."
-              value={searchTerm}
-              onChange={(e) => onSearchChange(e.target.value)}
-            />
-            <button
-              type="button"
-              className={styles.searchBtn}
-              title="Search"
-              aria-label="Search"
-            >
-              <Search size={15} />
-            </button>
+            <div className={styles.searchInputGroup}>
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder="Search employee..."
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              <button
+                type="button"
+                className={styles.searchBtn}
+                onClick={handleTriggerSearch}
+                title="Search"
+                aria-label="Search"
+                disabled={isSearching}
+              >
+                <Search size={15} />
+              </button>
+            </div>
+            {isSearching && (
+              <div className={styles.searchLoadingBadge}>
+                <Loader2 size={13} className={styles.searchSpinner} />
+                <span>Searching...</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {(searchTerm || companyFilter !== 'all' || locationFilter !== 'all' || departmentFilter !== 'all' || designationFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'none') && (
+        {(searchTerm || inputVal || companyFilter !== 'all' || locationFilter !== 'all' || departmentFilter !== 'all' || designationFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'none') && (
           <button
             type="button"
             className={styles.resetBtn}
-            onClick={onResetFilters}
+            onClick={() => {
+              setInputVal('');
+              onResetFilters();
+            }}
             aria-label="Reset all search and filters"
           >
             <RotateCcw size={13} />

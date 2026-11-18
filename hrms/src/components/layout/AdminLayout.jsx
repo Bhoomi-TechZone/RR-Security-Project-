@@ -9,7 +9,7 @@ import authService from '../../services/authService';
  * AdminLayout Component
  * Framework layout wrapping navigation sidebar, top header, and scrollable content.
  */
-function AdminLayout({ children }) {
+function AdminLayout({ children, bgWhite = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -47,7 +47,7 @@ function AdminLayout({ children }) {
   }, []);
 
   return (
-    <div className={styles.layout}>
+    <div className={`${styles.layout} ${bgWhite ? styles.bgWhite : ''}`}>
       {/* Sidebar Panel */}
       <AdminSidebar 
         isCollapsed={isCollapsed} 
