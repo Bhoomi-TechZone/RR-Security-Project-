@@ -876,12 +876,12 @@
 
 .credentialsGrid {
   display: grid;
-  grid-template-columns: 1fr 1.3fr 0.9fr;
-  gap: 16px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px 20px;
   align-items: flex-start;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 768px) {
   .credentialsGrid {
     grid-template-columns: 1fr;
   }

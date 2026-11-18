@@ -40,6 +40,7 @@ function EditEmployee() {
   const [documentTypes, setDocumentTypes] = useState([]);
   const [workLocations, setWorkLocations] = useState([]);
   const [employeesCount, setEmployeesCount] = useState(0);
+  const [employeeList, setEmployeeList] = useState([]);
 
   // Fetch employee record
   useEffect(() => {
@@ -86,7 +87,9 @@ function EditEmployee() {
       workLocationService.getWorkLocations(currentCompanyId).then(setWorkLocations).catch(() => {});
       
       const allEmps = await employeeService.getEmployees(currentCompanyId);
-      setEmployeesCount(Array.isArray(allEmps) ? allEmps.length : 0);
+      const emps = Array.isArray(allEmps) ? allEmps : [];
+      setEmployeesCount(emps.length);
+      setEmployeeList(emps);
     } catch (err) {
       console.error('Error fetching master records for EditEmployee:', err);
     }
@@ -136,6 +139,44 @@ function EditEmployee() {
     );
   }
 
+  const currentEmpIndex = employeeList.findIndex(
+    (e) => String(e._id || e.id || e.employeeId) === String(id)
+  );
+  const prevEmp = currentEmpIndex > 0 ? employeeList[currentEmpIndex - 1] : null;
+  const nextEmp = (currentEmpIndex >= 0 && currentEmpIndex < employeeList.length - 1)
+    ? employeeList[currentEmpIndex + 1]
+    : null;
+
+  const handlePrevEmployee = () => {
+    if (prevEmp) {
+      const targetId = prevEmp._id || prevEmp.id || prevEmp.employeeId;
+      navigate(`${basePath}/${targetId}/edit`);
+    }
+  };
+
+  const handleNextEmployee = () => {
+    if (nextEmp) {
+      const targetId = nextEmp._id || nextEmp.id || nextEmp.employeeId;
+      navigate(`${basePath}/${targetId}/edit`);
+    }
+  };
+
+  const breadcrumbNav = (
+    <nav className={styles.breadcrumb} aria-label="Breadcrumb">
+      <Link to={isUserPanel ? "/user/dashboard" : "/admin/dashboard"} className={styles.crumbLink}>
+        Dashboard
+      </Link>
+      <span className={styles.separator}>/</span>
+      <span className={styles.crumbLink}>Workforce</span>
+      <span className={styles.separator}>/</span>
+      <Link to={basePath} className={styles.crumbLink}>
+        Employees
+      </Link>
+      <span className={styles.separator}>/</span>
+      <span className={styles.crumbActive}>Edit {employee.name || 'Employee'}</span>
+    </nav>
+  );
+
   return (
     <AdminLayout>
       <div className={styles.container}>
@@ -145,24 +186,14 @@ function EditEmployee() {
           onClose={() => setToast({ message: '', type: 'success' })}
         />
 
-        {/* Breadcrumb Navigation */}
-        <nav className={styles.breadcrumb} aria-label="Breadcrumb">
-          <Link to={isUserPanel ? "/user/dashboard" : "/admin/dashboard"} className={styles.crumbLink}>
-            Dashboard
-          </Link>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbLink}>Workforce</span>
-          <span className={styles.separator}>/</span>
-          <Link to={basePath} className={styles.crumbLink}>
-            Employees
-          </Link>
-          <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Edit {employee.name || 'Employee'}</span>
-        </nav>
-
         <EmployeeForm
           isOpen={true}
           isPageMode={true}
+          breadcrumb={breadcrumbNav}
+          onPrevEmployee={handlePrevEmployee}
+          onNextEmployee={handleNextEmployee}
+          hasPrevEmployee={Boolean(prevEmp)}
+          hasNextEmployee={Boolean(nextEmp)}
           onClose={() => navigate(basePath)}
           onSubmit={handleSubmit}
           employee={employee}

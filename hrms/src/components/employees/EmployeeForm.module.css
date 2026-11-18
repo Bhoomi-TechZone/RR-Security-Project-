@@ -30,17 +30,57 @@
   max-width: 100%;
   margin: 0 auto;
   padding: 0;
+  background: transparent;
 }
 
 .pageCard {
-  background-color: var(--surface);
-  border-radius: var(--radius-md, 12px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
-  border: 1px solid var(--border);
+  background-color: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
   width: 100%;
   display: flex;
   flex-direction: column;
   outline: none;
+  padding: 0;
+}
+
+.pageTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 0 16px 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+  gap: 16px;
+}
+
+.breadcrumbWrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 0 16px 0;
+  border: none;
+  background: transparent;
+  width: 100%;
+}
+
+.pageFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  background-color: transparent;
 }
 
 /* ---- All Sections Stacked Mode (Left Nav + Right Content) ---- */
@@ -49,7 +89,7 @@
   grid-template-columns: 210px 1fr;
   gap: 15px;
   align-items: flex-start;
-  padding: 10px;
+  padding: 0;
 }
 
 .allSectionsWrapper {
@@ -68,6 +108,26 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   scroll-margin-top: calc(var(--header-height, 68px) + 20px);
   transition: border-color var(--transition-fast, 0.2s), box-shadow var(--transition-fast, 0.2s);
+}
+
+.plainSectionCard {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  scroll-margin-top: calc(var(--header-height, 68px) + 20px);
+}
+
+.pageBottomBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 0 32px 0;
+  margin-top: 16px;
+  border-top: 1px solid var(--border, #e2e8f0);
+  width: 100%;
 }
 
 .sectionCard:hover {
@@ -153,13 +213,7 @@
 }
 
 .sectionFooter {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px dashed var(--border, #e2e8f0);
+  display: none;
 }
 
 .sectionSaveBtn {
@@ -207,6 +261,76 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
+/* Sidebar Employee Header (Replaces Quick Navigation title in Edit Mode) */
+.sidebarEmployeeHeader {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 6px;
+}
+
+.navRoundButtonsRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.roundNavBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #475569;
+  cursor: pointer;
+  transition: all var(--transition-fast, 0.15s);
+  padding: 0;
+}
+
+.roundNavBtn:hover:not(:disabled) {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.roundNavBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.sidebarDivider {
+  height: 1px;
+  background-color: var(--border, #e2e8f0);
+  margin: 10px 0;
+  width: 100%;
+}
+
+.sidebarEmpInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+
+.sidebarEmpName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+  margin: 0;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.sidebarEmpCode {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+  letter-spacing: 0.3px;
+}
+
 .quickNavHeader {
   padding: 0 4px 10px 4px;
   border-bottom: 1px solid var(--border, #e2e8f0);
@@ -242,6 +366,10 @@
   white-space: nowrap;
   transition: all 0.15s ease;
   text-decoration: none;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .quickNavItem:hover {

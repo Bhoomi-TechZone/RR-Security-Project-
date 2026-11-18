@@ -634,7 +634,7 @@ function Employees() {
                 onClick={() => setIsImportModalOpen(true)}
                 aria-label="Bulk import employees"
               >
-                <UploadCloud size={14} />
+                <UploadCloud size={13} />
                 <span>Import</span>
               </button>
             )}
@@ -644,7 +644,7 @@ function Employees() {
                 onClick={() => navigate(addEmployeePath)}
                 aria-label="Add a new employee"
               >
-                <Plus size={14} />
+                <Plus size={13} />
                 <span>Add Employee</span>
               </button>
             )}
