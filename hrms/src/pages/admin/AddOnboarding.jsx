@@ -7,7 +7,8 @@ import {
   Shirt,
   ShieldCheck,
   Sparkles,
-  Loader2
+  Loader2,
+  FileText
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
