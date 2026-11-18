@@ -1,129 +1,299 @@
 .container {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-top: none;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   min-height: 280px;
   width: 100%;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .tableWrapper {
   overflow-x: auto;
   overflow-y: visible;
   min-height: 280px;
-  padding-bottom: 70px;
-  -webkit-overflow-scrolling: touch;
   width: 100%;
   display: block;
 }
 
 .table {
   width: 100%;
-  min-width: 880px;
-  border-collapse: collapse;
+  min-width: 860px;
+  border-collapse: separate;
+  border-spacing: 0;
   text-align: left;
 }
 
+/* Table Headers */
 .table th {
-  background-color: var(--surface-alt);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border);
+  background-color: #f8fafc;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e2e8f0;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   white-space: nowrap;
 }
 
+.thIndex {
+  width: 45px;
+  text-align: center;
+}
+
+.thEmployee {
+  min-width: 220px;
+}
+
+.thDesignation {
+  min-width: 160px;
+}
+
+.thPlacement {
+  min-width: 260px;
+}
+
+.thJoining {
+  width: 130px;
+}
+
+.thActions {
+  width: 140px;
+  text-align: right;
+  padding-right: 24px;
+}
+
+/* Table Cells */
 .table td {
-  padding: 14px 24px;
-  border-bottom: 1px solid var(--border-light);
-  color: var(--text-primary);
-  font-size: var(--text-base);
+  padding: 14px 18px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+  font-size: 13px;
   vertical-align: middle;
+  background-color: #ffffff;
+  transition: background-color 0.15s ease;
 }
 
-.table tr:hover td {
-  background-color: var(--surface-alt);
+.table tr.tableRow {
+  cursor: pointer;
 }
 
+.table tr.tableRow:hover td {
+  background-color: #f1f5f9;
+}
+
+.inactiveRow td {
+  opacity: 0.75;
+  background-color: #fafafa;
+}
+
+/* Index Number */
+.tdIndex {
+  text-align: center;
+}
+
+.indexNumber {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* Employee Column */
 .employeeCell {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
 }
 
-.avatar {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-full);
-  background-color: var(--primary-light);
-  color: var(--primary);
+.avatarImg {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #e2e8f0;
+}
+
+.avatarInitials {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: var(--text-base);
+  font-size: 13px;
+  letter-spacing: 0.5px;
   flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.avatarImg {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-full);
-  object-fit: cover;
-  flex-shrink: 0;
+.employeeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
 }
 
 .employeeName {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.employeeName:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+.employeeMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.employeeCode {
+  font-family: monospace;
+  font-size: 11.5px;
   font-weight: 600;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
+  color: #64748b;
+}
+
+.verifiedIcon {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
+.inactiveBadge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #ef4444;
+  background-color: #fee2e2;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* Designation Column */
+.designationCell {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   white-space: nowrap;
 }
 
-.employeeId {
-  font-family: monospace;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+.designationBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  color: #059669;
+  flex-shrink: 0;
+}
+
+.badgeIcon {
+  color: #059669;
+}
+
+.designationText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+/* Placement Column */
+.placementCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 320px;
+}
+
+.placementRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.pinIcon {
+  color: #f43f5e;
+  flex-shrink: 0;
+}
+
+.buildingIcon {
+  color: #8b5cf6;
+  flex-shrink: 0;
+}
+
+.placementPrimary {
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.placementSecondary {
+  color: #64748b;
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.companyName {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-primary);
+/* Joining Column */
+.joiningDateText {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #334155;
   white-space: nowrap;
 }
 
-.departmentName,
-.designationName {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
+/* Actions Column */
+.actionsCell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-right: 6px;
 }
 
-.contactPhone {
-  color: var(--text-primary);
-  font-family: monospace;
-  font-weight: 500;
-  white-space: nowrap;
+.quickEditBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--primary, #2563eb);
+  background-color: var(--primary, #2563eb);
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
 }
 
-.textCenter {
-  text-align: center;
+.quickEditBtn:hover {
+  background-color: var(--primary-dark, #1d4ed8);
+  border-color: var(--primary-dark, #1d4ed8);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.25);
 }
 
-.inactiveRow {
-  opacity: 0.75;
-}
-
-/* Skeleton Styles */
+/* Skeletons */
 .skeletonRow td {
-  background-color: #ffffff;
+  padding: 16px 18px;
 }
 
 .skeletonEmployee {
@@ -133,12 +303,11 @@
 }
 
 .skeletonAvatar {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-  background-size: 200% 100%;
-  animation: loadingShimmer 1.5s infinite;
-  border-radius: var(--radius-full);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #e2e8f0;
+  animation: pulse 1.5s infinite;
 }
 
 .skeletonTextStack {
@@ -149,110 +318,114 @@
 
 .skeletonBarShort {
   height: 12px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-  background-size: 200% 100%;
-  animation: loadingShimmer 1.5s infinite;
+  background-color: #e2e8f0;
   border-radius: 4px;
+  animation: pulse 1.5s infinite;
 }
 
-.skeletonBadge {
-  width: 70px;
-  height: 24px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-  background-size: 200% 100%;
-  animation: loadingShimmer 1.5s infinite;
+.skeletonActionGroup {
+  width: 90px;
+  height: 28px;
   border-radius: 6px;
+  background-color: #e2e8f0;
+  margin-left: auto;
+  animation: pulse 1.5s infinite;
 }
 
-.skeletonAction {
-  width: 24px;
-  height: 24px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
-  background-size: 200% 100%;
-  animation: loadingShimmer 1.5s infinite;
-  border-radius: 4px;
-  margin: 0 auto;
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
-@keyframes loadingShimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
+/* Empty State */
 .emptyWrapper {
-  background-color: var(--surface);
-  border: 1px solid var(--border);
-  border-top: none;
-  padding: 40px 24px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 40px 20px;
+  text-align: center;
 }
 
-/* Mobile card layout disabled - Table view strictly preserved across all devices */
+/* Mobile List */
 .mobileList {
-  display: none !important;
+  display: none;
 }
 
-.mobileCard {
-  display: none !important;
-}
-
-@media (max-width: 992px) {
+@media (max-width: 860px) {
   .tableWrapper {
-    display: block !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .tableWrapper {
-    display: block !important;
-    padding-bottom: 70px;
+    display: none;
   }
 
   .mobileList {
-    display: none !important;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px;
   }
 
-  .container {
-    border: 1px solid var(--border);
-    border-top: none;
-    background-color: var(--surface);
-    border-radius: 0 0 var(--radius-md) var(--radius-md);
+  .mobileCard {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
 
-  .table th {
-    padding: 10px 14px;
-    font-size: 11px;
-    letter-spacing: 0.4px;
+  .mobileCard:hover {
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.08);
   }
 
-  .table td {
-    padding: 10px 14px;
-    font-size: 13px;
+  .mobileCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 10px;
   }
 
-  .avatar,
-  .avatarImg {
-    width: 32px;
-    height: 32px;
-    font-size: 13px;
-  }
-
-  .employeeCell {
-    gap: 10px;
-  }
-}
-
-@media (max-width: 480px) {
-  .table th {
-    padding: 8px 10px;
-    font-size: 10px;
-  }
-
-  .table td {
-    padding: 8px 10px;
+  .mobileIndexCol {
     font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+  }
+
+  .mobileEmployeeInfo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .mobileCardBody {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 12.5px;
+  }
+
+  .mobileCardRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .mobileLabel {
+    color: #64748b;
+    font-weight: 600;
+    min-width: 85px;
+  }
+
+  .mobileCardFooter {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid #f1f5f9;
   }
 }

@@ -1,12 +1,14 @@
 import React from 'react';
-import { Eye, Edit2, Download, MoreVertical, Key, FileText, UserX, UserCheck } from 'lucide-react';
+import { Download, ChevronDown, Key, FileText, UserX, UserCheck } from 'lucide-react';
 import Dropdown from '../common/Dropdown';
 import styles from './EmployeeActionMenu.module.css';
 import { usePermissions } from '../../context/PermissionContext';
 
 /**
  * EmployeeActionMenu Component
- * Renders the three-dot action menu for each employee in the table/cards.
+ * Renders the Options dropdown menu for each employee in the table/cards.
+ * Note: Edit Employee is handled by the dedicated quick-edit button on the row,
+ * and View Profile is triggered by clicking the employee record row directly.
  */
 function EmployeeActionMenu({ employee, onAction }) {
   const { canEdit, canDelete, canExport } = usePermissions();
@@ -21,26 +23,13 @@ function EmployeeActionMenu({ employee, onAction }) {
     <Dropdown
       align="right"
       trigger={
-        <button className={styles.actionBtn} aria-label="Employee action menu">
-          <MoreVertical size={16} />
+        <button className={styles.optionsBtn} aria-label="Employee options">
+          <span>Options</span>
+          <ChevronDown size={13} className={styles.chevronIcon} />
         </button>
       }
     >
       <ul className={styles.menuList}>
-        <li>
-          <button className={styles.menuItem} onClick={() => onAction('view', employee)}>
-            <Eye size={14} />
-            <span>View Profile</span>
-          </button>
-        </li>
-        {allowEdit && (
-          <li>
-            <button className={styles.menuItem} onClick={() => onAction('edit', employee)}>
-              <Edit2 size={14} />
-              <span>Edit Employee</span>
-            </button>
-          </li>
-        )}
         {allowEdit && (
           <li>
             <button className={styles.menuItem} onClick={() => onAction('credentials', employee)}>
