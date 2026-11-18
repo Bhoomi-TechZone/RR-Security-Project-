@@ -992,7 +992,6 @@ function EmployeeForm({
                 <AdditionalInfoStep
                   data={formData}
                   onChange={handleFormDataChange}
-                  onSave={isEditMode ? handleSubmit : undefined}
                   isSubmitting={isSubmitting}
                 />
               </div>
@@ -1143,7 +1142,6 @@ function EmployeeForm({
               <AdditionalInfoStep
                 data={formData}
                 onChange={handleFormDataChange}
-                onSave={isEditMode ? handleSubmit : undefined}
                 isSubmitting={isSubmitting}
               />
             )}

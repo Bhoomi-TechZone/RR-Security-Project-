@@ -1,13 +1,44 @@
 import React from 'react';
-import StatusBadge from '../common/StatusBadge';
+import {
+  MapPin,
+  Building2,
+  CheckCircle2,
+  Edit2,
+  BadgeCheck
+} from 'lucide-react';
 import EmployeeActionMenu from './EmployeeActionMenu';
 import EmptyState from '../common/EmptyState';
 import styles from './EmployeeTable.module.css';
 
+const AVATAR_PALETTES = [
+  { bg: '#e0f2fe', text: '#0369a1' }, // Sky
+  { bg: '#dbeafe', text: '#1d4ed8' }, // Blue
+  { bg: '#ede9fe', text: '#6d28d9' }, // Purple
+  { bg: '#fce7f3', text: '#be185d' }, // Pink
+  { bg: '#dcfce7', text: '#15803d' }, // Green
+  { bg: '#fef3c7', text: '#b45309' }, // Amber
+  { bg: '#ccfbf1', text: '#0f766e' }, // Teal
+];
+
+const getInitials = (name) => {
+  if (!name) return 'EM';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const getAvatarPalette = (name = '') => {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % AVATAR_PALETTES.length;
+  return AVATAR_PALETTES[index];
+};
+
 const formatDisplayEmployeeId = (id) => {
   if (!id) return '—';
   const str = String(id).trim();
-  // Normalize unseparated IDs like RR005, RR006 -> RR-005, RR-006
   const match = str.match(/^([A-Za-z]+)(\d+)$/);
   if (match) {
     return `${match[1].toUpperCase()}-${match[2]}`;
@@ -15,54 +46,76 @@ const formatDisplayEmployeeId = (id) => {
   return str;
 };
 
+const formatJoiningDate = (dateStr) => {
+  if (!dateStr) return '—';
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const day = String(d.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  } catch {
+    return dateStr;
+  }
+};
+
 /**
  * EmployeeTable Component
- * Displays a list of employees in an enterprise table for desktop,
- * and a list of cards for mobile.
+ * Updated to match modern placement and employee row design with
+ * avatar/initials, placement location/dept, formatted joining date,
+ * quick edit and Options dropdown.
  */
 function EmployeeTable({
   employees = [],
   loading = false,
   onAction,
-  onResetFilters
+  onResetFilters,
+  startIndex = 0
 }) {
   if (loading) {
     return (
-      <div className={styles.tableWrapper}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>Employee ID</th>
-              <th>Employee</th>
-              <th>Client</th>
-              <th>Department</th>
-              <th>Designation</th>
-              <th>Contact</th>
-              <th>Status</th>
-              <th className={styles.textCenter}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[1, 2, 3, 4, 5].map((idx) => (
-              <tr key={idx} className={styles.skeletonRow}>
-                <td><div className={styles.skeletonBarShort} style={{ width: '60px' }} /></td>
-                <td>
-                  <div className={styles.skeletonEmployee}>
-                    <div className={styles.skeletonTextStack}>
-                      <div className={styles.skeletonBarShort} style={{ width: '120px' }} />
-                    </div>
-                  </div>
-                </td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '150px' }} /></td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '80px' }} /></td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '100px' }} /></td>
-                <td><div className={styles.skeletonBarShort} style={{ width: '110px' }} /></td>
-                <td><div className={styles.skeletonBadge} /></td>
-                <td><div className={styles.skeletonAction} /></td>
+      <div className={styles.container}>
+        <div className={styles.tableWrapper}>
+          <table className={styles.table}>
+            <thead>
+              <tr>
+                <th className={styles.thIndex}>#</th>
+                <th className={styles.thEmployee}>Employee</th>
+                <th className={styles.thDesignation}>Designation</th>
+                <th className={styles.thPlacement}>Placement</th>
+                <th className={styles.thJoining}>Joining</th>
+                <th className={styles.thActions}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {[1, 2, 3, 4, 5].map((idx) => (
+                <tr key={idx} className={styles.skeletonRow}>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '20px' }} /></td>
+                  <td>
+                    <div className={styles.skeletonEmployee}>
+                      <div className={styles.skeletonAvatar} />
+                      <div className={styles.skeletonTextStack}>
+                        <div className={styles.skeletonBarShort} style={{ width: '130px' }} />
+                        <div className={styles.skeletonBarShort} style={{ width: '70px', height: '10px' }} />
+                      </div>
+                    </div>
+                  </td>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '100px' }} /></td>
+                  <td>
+                    <div className={styles.skeletonTextStack}>
+                      <div className={styles.skeletonBarShort} style={{ width: '150px' }} />
+                      <div className={styles.skeletonBarShort} style={{ width: '110px', height: '10px' }} />
+                    </div>
+                  </td>
+                  <td><div className={styles.skeletonBarShort} style={{ width: '85px' }} /></td>
+                  <td><div className={styles.skeletonActionGroup} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
@@ -87,105 +140,239 @@ function EmployeeTable({
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>Employee ID</th>
-              <th>Employee</th>
-              <th>Client</th>
-              <th>Department</th>
-              <th>Designation</th>
-              <th>Contact</th>
-              <th>Status</th>
-              <th className={styles.textCenter}>Actions</th>
+              <th className={styles.thIndex}>#</th>
+              <th className={styles.thEmployee}>Employee</th>
+              <th className={styles.thDesignation}>Designation</th>
+              <th className={styles.thPlacement}>Placement</th>
+              <th className={styles.thJoining}>Joining</th>
+              <th className={styles.thActions}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {employees.map((employee) => (
-              <tr key={employee.id || employee._id || employee.employeeId}>
-                <td>
-                  <span role="text" className={styles.employeeId}>
-                    {formatDisplayEmployeeId(employee.employeeId || employee.employeeCode)}
-                  </span>
-                </td>
-                <td>
-                  <div className={String(employee.status || '').toLowerCase() === 'inactive' ? `${styles.employeeCell} ${styles.inactiveRow}` : styles.employeeCell} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {employee.employeePhoto || employee.photo ? (
-                      <img
-                        src={employee.employeePhoto || employee.photo}
-                        alt={employee.name}
-                        style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
-                      />
-                    ) : null}
-                    <span className={styles.employeeName}>{employee.name}</span>
-                  </div>
-                </td>
-                <td>
-                  <span className={styles.companyName}>{employee.clientName || employee.companyName || '—'}</span>
-                </td>
-                <td>
-                  <span className={styles.departmentName}>{employee.department || '—'}</span>
-                </td>
-                <td>
-                  <span className={styles.designationName}>{employee.designation || '—'}</span>
-                </td>
-                <td>
-                  <span className={styles.contactPhone}>{employee.contact || employee.mobile || '—'}</span>
-                </td>
-                <td>
-                  <StatusBadge status={employee.status} />
-                </td>
-                <td className={styles.textCenter}>
-                  <EmployeeActionMenu employee={employee} onAction={onAction} />
-                </td>
-              </tr>
-            ))}
+            {employees.map((employee, idx) => {
+              const empKey = employee.id || employee._id || employee.employeeId || idx;
+              const empCode = formatDisplayEmployeeId(employee.employeeCode || employee.employeeId);
+              const isInactive = String(employee.status || employee.employeeStatus || '').toLowerCase() === 'inactive';
+              const avatarColor = getAvatarPalette(employee.name);
+              const initials = getInitials(employee.name);
+              
+              const siteLocation = employee.siteLocation || employee.site || employee.location || employee.joiningLocation || employee.clientName || employee.companyName || 'General Deployment';
+              const department = employee.department || employee.clientUnit || employee.businessUnit || 'Operations';
+
+              return (
+                <tr
+                  key={empKey}
+                  className={`${styles.tableRow} ${isInactive ? styles.inactiveRow : ''}`}
+                  onClick={() => onAction('view', employee)}
+                  title="Click to view employee details"
+                >
+                  {/* # Index Column */}
+                  <td className={styles.tdIndex}>
+                    <span className={styles.indexNumber}>{startIndex + idx + 1}</span>
+                  </td>
+
+                  {/* Employee Column: Avatar + Name + Code + Verified */}
+                  <td className={styles.tdEmployee}>
+                    <div className={styles.employeeCell}>
+                      {employee.employeePhoto || employee.photo ? (
+                        <img
+                          src={employee.employeePhoto || employee.photo}
+                          alt={employee.name}
+                          className={styles.avatarImg}
+                        />
+                      ) : (
+                        <div
+                          className={styles.avatarInitials}
+                          style={{ backgroundColor: avatarColor.bg, color: avatarColor.text }}
+                        >
+                          {initials}
+                        </div>
+                      )}
+
+                      <div className={styles.employeeInfo}>
+                        <span
+                          className={styles.employeeName}
+                          title="Click to view full employee profile"
+                        >
+                          {employee.name || 'Unnamed Employee'}
+                        </span>
+                        <div className={styles.employeeMeta}>
+                          <span className={styles.employeeCode}>{empCode}</span>
+                          {!isInactive ? (
+                            <CheckCircle2
+                              size={13}
+                              className={styles.verifiedIcon}
+                              title="Active Verified Employee"
+                            />
+                          ) : (
+                            <span className={styles.inactiveBadge} title="Inactive Employee">Inactive</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Designation Column */}
+                  <td className={styles.tdDesignation}>
+                    <div className={styles.designationCell}>
+                      <span className={styles.designationBadge}>
+                        <BadgeCheck size={14} className={styles.badgeIcon} />
+                      </span>
+                      <span className={styles.designationText}>
+                        {employee.designation || '—'}
+                      </span>
+                    </div>
+                  </td>
+
+                  {/* Placement Column: Pin Location + Building Department */}
+                  <td className={styles.tdPlacement}>
+                    <div className={styles.placementCell}>
+                      <div className={styles.placementRow} title={siteLocation}>
+                        <MapPin size={13} className={styles.pinIcon} />
+                        <span className={styles.placementPrimary}>{siteLocation}</span>
+                      </div>
+                      <div className={styles.placementRow} title={department}>
+                        <Building2 size={13} className={styles.buildingIcon} />
+                        <span className={styles.placementSecondary}>{department}</span>
+                      </div>
+                    </div>
+                  </td>
+
+                  {/* Joining Column */}
+                  <td className={styles.tdJoining}>
+                    <span className={styles.joiningDateText}>
+                      {formatJoiningDate(employee.joiningDate)}
+                    </span>
+                  </td>
+
+                  {/* Actions Column: Quick Edit + Options Button */}
+                  <td className={styles.tdActions} onClick={(e) => e.stopPropagation()}>
+                    <div className={styles.actionsCell}>
+                      <button
+                        type="button"
+                        className={styles.quickEditBtn}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAction('edit', employee);
+                        }}
+                        title="Edit Employee"
+                        aria-label="Edit Employee"
+                      >
+                        <Edit2 size={13} />
+                      </button>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <EmployeeActionMenu employee={employee} onAction={onAction} />
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
 
       {/* Mobile Card Layout */}
       <div className={styles.mobileList}>
-        {employees.map((employee) => (
-          <div key={employee.id || employee._id || employee.employeeId} className={styles.mobileCard}>
-            <div className={styles.cardHeader}>
-              <div className={styles.employeeInfo}>
-                <div className={styles.info}>
-                  <span className={styles.employeeId}>
-                    {formatDisplayEmployeeId(employee.employeeId || employee.employeeCode)}
-                  </span>
-                  <h4 className={styles.employeeName}>{employee.name}</h4>
+        {employees.map((employee, idx) => {
+          const empKey = employee.id || employee._id || employee.employeeId || idx;
+          const empCode = formatDisplayEmployeeId(employee.employeeCode || employee.employeeId);
+          const isInactive = String(employee.status || employee.employeeStatus || '').toLowerCase() === 'inactive';
+          const avatarColor = getAvatarPalette(employee.name);
+          const initials = getInitials(employee.name);
+          const siteLocation = employee.siteLocation || employee.site || employee.location || employee.joiningLocation || employee.clientName || employee.companyName || 'General Deployment';
+          const department = employee.department || employee.clientUnit || employee.businessUnit || 'Operations';
+
+          return (
+            <div
+              key={empKey}
+              className={styles.mobileCard}
+              onClick={() => onAction('view', employee)}
+              title="Click to view employee details"
+            >
+              <div className={styles.mobileCardHeader}>
+                <div className={styles.mobileIndexCol}>
+                  <span className={styles.indexNumber}>#{startIndex + idx + 1}</span>
+                </div>
+                <div className={styles.mobileEmployeeInfo}>
+                  {employee.employeePhoto || employee.photo ? (
+                    <img
+                      src={employee.employeePhoto || employee.photo}
+                      alt={employee.name}
+                      className={styles.avatarImg}
+                    />
+                  ) : (
+                    <div
+                      className={styles.avatarInitials}
+                      style={{ backgroundColor: avatarColor.bg, color: avatarColor.text }}
+                    >
+                      {initials}
+                    </div>
+                  )}
+                  <div>
+                    <h4 className={styles.employeeName}>
+                      {employee.name}
+                    </h4>
+                    <div className={styles.employeeMeta}>
+                      <span className={styles.employeeCode}>{empCode}</span>
+                      {!isInactive ? (
+                        <CheckCircle2 size={13} className={styles.verifiedIcon} />
+                      ) : (
+                        <span className={styles.inactiveBadge}>Inactive</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <StatusBadge status={employee.status} />
-            </div>
 
-            <div className={styles.cardBody}>
-              <div className={styles.cardSection}>
-                <span className={styles.cardLabel}>Client / Company</span>
-                <div className={styles.cardValue}>{employee.clientName || employee.companyName || '—'}</div>
+              <div className={styles.mobileCardBody}>
+                <div className={styles.mobileCardRow}>
+                  <span className={styles.mobileLabel}>Designation:</span>
+                  <div className={styles.designationCell}>
+                    <BadgeCheck size={14} className={styles.badgeIcon} />
+                    <span className={styles.designationText}>{employee.designation || '—'}</span>
+                  </div>
+                </div>
+
+                <div className={styles.mobileCardRow}>
+                  <span className={styles.mobileLabel}>Placement:</span>
+                  <div className={styles.placementCell}>
+                    <div className={styles.placementRow}>
+                      <MapPin size={13} className={styles.pinIcon} />
+                      <span>{siteLocation}</span>
+                    </div>
+                    <div className={styles.placementRow}>
+                      <Building2 size={13} className={styles.buildingIcon} />
+                      <span>{department}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.mobileCardRow}>
+                  <span className={styles.mobileLabel}>Joining:</span>
+                  <span className={styles.joiningDateText}>{formatJoiningDate(employee.joiningDate)}</span>
+                </div>
               </div>
 
-              <div className={styles.cardGrid}>
-                <div>
-                  <span className={styles.cardLabel}>Department</span>
-                  <div className={styles.cardValue}>{employee.department || '—'}</div>
-                </div>
-                <div>
-                  <span className={styles.cardLabel}>Designation</span>
-                  <div className={styles.cardValue}>{employee.designation || '—'}</div>
-                </div>
-              </div>
-
-              <div className={styles.cardFooter}>
-                <div>
-                  <span className={styles.cardLabel}>Contact</span>
-                  <div className={styles.cardValue}>{employee.contact}</div>
-                </div>
-                <div className={styles.cardActions}>
+              <div className={styles.mobileCardFooter} onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className={styles.quickEditBtn}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onAction('edit', employee);
+                  }}
+                  title="Edit Employee"
+                >
+                  <Edit2 size={13} />
+                </button>
+                <div onClick={(e) => e.stopPropagation()}>
                   <EmployeeActionMenu employee={employee} onAction={onAction} />
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -119,30 +119,6 @@ function AdditionalInfoStep({ data, onChange, onSave, isSubmitting = false }) {
         })}
       </div>
 
-      {/* Footer Save Button matching the image */}
-      {onSave && (
-        <div className={styles.footer}>
-          <button
-            type="button"
-            className={styles.saveBtn}
-            onClick={onSave}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? (
-              <>
-                <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save size={15} />
-                <span>Save</span>
-              </>
-            )}
-          </button>
-        </div>
-      )}
-
       {/* Customize Field Names Modal */}
       {showCustomizeModal && (
         <div className={styles.modalBackdrop} onClick={() => setShowCustomizeModal(false)}>

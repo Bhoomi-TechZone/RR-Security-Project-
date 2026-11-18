@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Plus, Users, UploadCloud } from 'lucide-react';
 import styles from './Employees.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
-import EmployeeSummaryCards from '../../components/employees/EmployeeSummaryCards';
 import EmployeeFilters from '../../components/employees/EmployeeFilters';
 import EmployeeTable from '../../components/employees/EmployeeTable';
 import TransferEmployeeModal from '../../components/employees/TransferEmployeeModal';
@@ -56,9 +55,12 @@ function Employees() {
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState(companyIdParam || 'all');
+  const [locationFilter, setLocationFilter] = useState('all');
   const [departmentFilter, setDepartmentFilter] = useState('all');
   const [designationFilter, setDesignationFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all');
+  const [sortBy, setSortBy] = useState('none');
+  const [sortOrder, setSortOrder] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
 
   // Form / Modal State
@@ -183,13 +185,15 @@ function Employees() {
     };
   }, []);
 
-  // Fetch essential filter masters (clients, departments, designations) for table/filter view
+  // Fetch essential filter masters (clients, departments, designations, sites, locations) for table/filter view
   const fetchFilterMasters = useCallback(async () => {
     if (!currentCompanyId) return;
     try {
       clientService.getClients(currentCompanyId).then(setClients).catch(() => {});
       masterService.getMasters('departments', currentCompanyId).then(setDepartments).catch(() => {});
       masterService.getMasters('designations', currentCompanyId).then(setDesignations).catch(() => {});
+      masterService.getMasters('sites', currentCompanyId).then(setSites).catch(() => {});
+      workLocationService.getWorkLocations(currentCompanyId).then(setWorkLocations).catch(() => {});
     } catch (err) {
       console.error('Error fetching filter masters for employees page:', err);
     }
@@ -245,12 +249,35 @@ function Employees() {
     };
   }, [fetchFilterMasters, fetchFormMasters, isFormOpen, fetchEmployees]);
 
+  // Extract unique locations from workLocations, sites, and employees
+  const locationList = useMemo(() => {
+    const locSet = new Set();
+    (workLocations || []).forEach((w) => {
+      const val = typeof w === 'string' ? w : (w.name || w.locationName || w.title);
+      if (val) locSet.add(val);
+    });
+    (sites || []).forEach((s) => {
+      const val = typeof s === 'string' ? s : (s.name || s.siteName);
+      if (val) locSet.add(val);
+    });
+    (employees || []).forEach((e) => {
+      if (e.siteLocation) locSet.add(e.siteLocation);
+      if (e.location) locSet.add(e.location);
+      if (e.site) locSet.add(e.site);
+      if (e.workLocation) locSet.add(e.workLocation);
+    });
+    return Array.from(locSet).filter(Boolean).sort();
+  }, [workLocations, sites, employees]);
+
   const handleResetFilters = () => {
     setSearchTerm('');
     setCompanyFilter('all');
+    setLocationFilter('all');
     setDepartmentFilter('all');
     setDesignationFilter('all');
     setStatusFilter('all');
+    setSortBy('none');
+    setSortOrder('asc');
     setCurrentPage(1);
   };
 
@@ -271,25 +298,55 @@ function Employees() {
       e.clientName === companyFilter ||
       e.companyName === companyFilter;
 
+    const matchesLocation =
+      locationFilter === 'all' ||
+      e.siteLocation === locationFilter ||
+      e.location === locationFilter ||
+      e.site === locationFilter ||
+      e.workLocation === locationFilter;
+
     const matchesDept = departmentFilter === 'all' || e.department === departmentFilter;
     const matchesDesg = designationFilter === 'all' || e.designation === designationFilter;
     const matchesStatus =
       statusFilter === 'all' ||
       (e.status && e.status.toLowerCase() === statusFilter.toLowerCase());
 
-    return matchesSearch && matchesCompany && matchesDept && matchesDesg && matchesStatus;
+    return matchesSearch && matchesCompany && matchesLocation && matchesDept && matchesDesg && matchesStatus;
   });
 
+  // Dynamic Sorting (Name, E-Code, Date of Joining)
+  const sortedEmployees = useMemo(() => {
+    if (!sortBy || sortBy === 'none') return filteredEmployees;
+    return [...filteredEmployees].sort((a, b) => {
+      let valA = '';
+      let valB = '';
+      if (sortBy === 'name') {
+        valA = (a.name || '').toLowerCase();
+        valB = (b.name || '').toLowerCase();
+      } else if (sortBy === 'code') {
+        valA = (a.employeeCode || a.employeeId || '').toLowerCase();
+        valB = (b.employeeCode || b.employeeId || '').toLowerCase();
+      } else if (sortBy === 'doj') {
+        valA = a.joiningDate ? new Date(a.joiningDate).getTime() : 0;
+        valB = b.joiningDate ? new Date(b.joiningDate).getTime() : 0;
+        return sortOrder === 'asc' ? valA - valB : valB - valA;
+      }
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [filteredEmployees, sortBy, sortOrder]);
+
   // Pagination
-  const paginatedEmployees = filteredEmployees.slice(
+  const paginatedEmployees = sortedEmployees.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Reset page on filter change
+  // Reset page on filter or sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, companyFilter, departmentFilter, designationFilter, statusFilter]);
+  }, [searchTerm, companyFilter, locationFilter, departmentFilter, designationFilter, statusFilter, sortBy, sortOrder]);
 
   // Add / Edit form submit to Backend API
   const handleFormSubmit = async (formData) => {
@@ -591,23 +648,27 @@ function Employees() {
           </div>
         </header>
 
-        {/* Summary Cards */}
-        <EmployeeSummaryCards employees={employees} />
-
         {/* Filters */}
         <EmployeeFilters
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
           companyFilter={companyFilter}
           onCompanyFilterChange={setCompanyFilter}
+          locationFilter={locationFilter}
+          onLocationFilterChange={setLocationFilter}
           departmentFilter={departmentFilter}
           onDepartmentFilterChange={setDepartmentFilter}
           designationFilter={designationFilter}
           onDesignationFilterChange={setDesignationFilter}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
+          sortBy={sortBy}
+          onSortChange={setSortBy}
+          sortOrder={sortOrder}
+          onSortOrderChange={setSortOrder}
           onResetFilters={handleResetFilters}
           clients={clients}
+          locations={locationList}
           departments={departments}
           designations={designations}
         />
@@ -637,12 +698,13 @@ function Employees() {
               loading={loading}
               onAction={handleActionClick}
               onResetFilters={handleResetFilters}
+              startIndex={(currentPage - 1) * ITEMS_PER_PAGE}
             />
 
-            {!loading && filteredEmployees.length > 0 && (
+            {!loading && sortedEmployees.length > 0 && (
               <Pagination
                 currentPage={currentPage}
-                totalItems={filteredEmployees.length}
+                totalItems={sortedEmployees.length}
                 itemsPerPage={ITEMS_PER_PAGE}
                 onPageChange={setCurrentPage}
                 label="employees"
