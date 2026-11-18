@@ -46,6 +46,9 @@ const DEFAULT_FORM_DATA = {
   employeeCode: '',
   joiningDate: '',
   name: '',
+  firstName: '',
+  middleName: '',
+  lastName: '',
   fatherHusbandName: '',
   fatherHusbandRelation: '',
   gender: '',
@@ -263,12 +266,26 @@ const normalizeEmployeeForForm = (employee) => {
         }
       ];
 
+  const rawName = (employee.name || '').trim();
+  const nameParts = rawName.split(/\s+/).filter(Boolean);
+  const hasDistinctParts = Boolean(
+    (employee.firstName && String(employee.firstName).trim() !== '') ||
+    (employee.lastName && String(employee.lastName).trim() !== '')
+  );
+  const inferredFirst = hasDistinctParts ? (employee.firstName || '') : (nameParts[0] || '');
+  const inferredMiddle = hasDistinctParts ? (employee.middleName || '') : (nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '');
+  const inferredLast = hasDistinctParts ? (employee.lastName || '') : (nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
+  const resolvedFullName = rawName || [inferredFirst, inferredMiddle, inferredLast].filter(Boolean).join(' ');
+
   return {
     ...DEFAULT_FORM_DATA,
     ...employee,
     employeeCode: employee.employeeCode ?? employee.employeeId ?? '',
     employeeId: employee.employeeId ?? employee.employeeCode ?? '',
-    name: employee.name ?? '',
+    name: resolvedFullName,
+    firstName: inferredFirst,
+    middleName: inferredMiddle,
+    lastName: inferredLast,
     fatherHusbandName: employee.fatherHusbandName ?? '',
     fatherHusbandRelation: employee.fatherHusbandRelation ?? employee.fatherRelation ?? '',
     gender: employee.gender ?? '',
@@ -700,132 +717,33 @@ function EmployeeForm({
             {/* 04. Salary & Statutory */}
             <section
               id="section-salary"
-              className={styles.sectionCard}
+              className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-salary' ? 'block' : 'none' }}
             >
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>04</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Salary & Statutory Details</h3>
-                    <p className={styles.sectionSubtitle}>Wage structure, basic salary, allowances, PF, ESIC, PT, LWF and compliance</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
             </section>
 
             {/* 05. Bank Details */}
             <section
               id="section-bank"
-              className={styles.sectionCard}
+              className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-bank' ? 'block' : 'none' }}
             >
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>05</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Bank Details</h3>
-                    <p className={styles.sectionSubtitle}>Salary disbursement bank account, branch, IFSC and payment mode</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <BankDetailsStep
-                  data={formData}
-                  onChange={handleFormDataChange}
-                  errors={errors}
-                  banks={banks}
-                />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <BankDetailsStep
+                data={formData}
+                onChange={handleFormDataChange}
+                errors={errors}
+                banks={banks}
+              />
             </section>
 
             {/* 06. Address & Family */}
             <section
               id="section-address"
-              className={styles.sectionCard}
+              className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-address' ? 'block' : 'none' }}
             >
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>06</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Address & Family Information</h3>
-                    <p className={styles.sectionSubtitle}>Present & permanent residential address, family members and insurance nominees</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
             </section>
 
             {/* 07. Documents & Licenses */}
@@ -867,7 +785,7 @@ function EmployeeForm({
                     ) : (
                       <>
                         <Check size={14} />
-                        <span>Save Changes</span>
+                        <span>Save</span>
                       </>
                     )}
                   </button>
@@ -878,47 +796,14 @@ function EmployeeForm({
             {/* 08. Login Access */}
             <section
               id="section-login"
-              className={styles.sectionCard}
+              className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-login' ? 'block' : 'none' }}
             >
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>08</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Login Access</h3>
-                    <p className={styles.sectionSubtitle}>Employee portal login credentials, password setup and account permissions</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <LoginAccessStep
-                  data={formData}
-                  onChange={handleFormDataChange}
-                  isEditMode={isEditMode}
-                />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <LoginAccessStep
+                data={formData}
+                onChange={handleFormDataChange}
+                isEditMode={isEditMode}
+              />
             </section>
 
             {/* 09. Additional Info */}
@@ -959,7 +844,7 @@ function EmployeeForm({
                     ) : (
                       <>
                         <Check size={14} />
-                        <span>Save Changes</span>
+                        <span>Save</span>
                       </>
                     )}
                   </button>
@@ -990,17 +875,6 @@ function EmployeeForm({
             {/* Bottom Actions Bar in Page Mode (Shifted to bottom as requested) */}
             {isPageMode && (
               <div className={styles.pageBottomBar}>
-                {onClose && (
-                  <button
-                    type="button"
-                    className={styles.cancelBtn}
-                    onClick={onClose}
-                    disabled={isSubmitting}
-                  >
-                    <ChevronLeft size={16} />
-                    <span>Back</span>
-                  </button>
-                )}
                 <button
                   type="button"
                   className={styles.submitBtn}
@@ -1015,7 +889,7 @@ function EmployeeForm({
                   ) : (
                     <>
                       <Check size={16} />
-                      <span>{isEditMode ? 'Save Changes' : 'Save Employee'}</span>
+                      <span>Save</span>
                     </>
                   )}
                 </button>
@@ -1176,7 +1050,7 @@ function EmployeeForm({
                     ) : (
                       <>
                         <Check size={16} />
-                        <span>Save Changes</span>
+                        <span>Save</span>
                       </>
                     )}
                   </button>

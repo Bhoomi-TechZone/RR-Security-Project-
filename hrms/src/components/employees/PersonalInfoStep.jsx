@@ -19,10 +19,14 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
   };
 
   // Name splitting & syncing
-  const nameParts = (data.name || '').trim().split(/\s+/);
-  const firstName = data.firstName ?? (nameParts[0] || '');
-  const middleName = data.middleName ?? (nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '');
-  const lastName = data.lastName ?? (nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
+  const nameParts = (data.name || '').trim().split(/\s+/).filter(Boolean);
+  const hasDistinctParts = Boolean(
+    (data.firstName && String(data.firstName).trim() !== '') ||
+    (data.lastName && String(data.lastName).trim() !== '')
+  );
+  const firstName = hasDistinctParts ? (data.firstName || '') : (nameParts[0] || '');
+  const middleName = hasDistinctParts ? (data.middleName || '') : (nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '');
+  const lastName = hasDistinctParts ? (data.lastName || '') : (nameParts.length > 1 ? nameParts[nameParts.length - 1] : '');
 
   const handleNamePartChange = (part, val) => {
     const updatedFirst = part === 'firstName' ? val : firstName;
@@ -32,7 +36,9 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
 
     onChange({
       ...data,
-      [part]: val,
+      firstName: updatedFirst,
+      middleName: updatedMiddle,
+      lastName: updatedLast,
       name: fullName
     });
   };
