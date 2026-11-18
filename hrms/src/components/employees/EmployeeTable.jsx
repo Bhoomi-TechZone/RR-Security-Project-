@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   MapPin,
   Building2,
@@ -72,8 +72,20 @@ function EmployeeTable({
   loading = false,
   onAction,
   onResetFilters,
-  startIndex = 0
+  startIndex = 0,
+  clients = []
 }) {
+  const clientMap = useMemo(() => {
+    const map = new Map();
+    (clients || []).forEach((c) => {
+      if (c.clientId) map.set(c.clientId, c);
+      if (c.id) map.set(c.id, c);
+      if (c._id) map.set(String(c._id), c);
+      if (c.name) map.set(c.name.trim().toLowerCase(), c);
+    });
+    return map;
+  }, [clients]);
+
   if (loading) {
     return (
       <div className={styles.container}>
@@ -156,8 +168,30 @@ function EmployeeTable({
               const avatarColor = getAvatarPalette(employee.name);
               const initials = getInitials(employee.name);
               
-              const siteLocation = employee.siteLocation || employee.site || employee.location || employee.joiningLocation || employee.clientName || employee.companyName || 'General Deployment';
-              const department = employee.department || employee.clientUnit || employee.businessUnit || 'Operations';
+              const matchedClient =
+                (employee.clientId && clientMap.get(employee.clientId)) ||
+                (employee.companyId && clientMap.get(employee.companyId)) ||
+                (employee.clientName && clientMap.get(employee.clientName.trim().toLowerCase())) ||
+                (employee.companyName && clientMap.get(employee.companyName.trim().toLowerCase()));
+
+              const clientName =
+                employee.clientName ||
+                employee.companyName ||
+                matchedClient?.name ||
+                'RR Security & Facilities';
+
+              const clientAddress =
+                matchedClient?.address ||
+                employee.clientAddress ||
+                employee.siteLocation ||
+                employee.site ||
+                employee.location ||
+                employee.joiningLocation ||
+                employee.address ||
+                'Main Office / General Deployment';
+
+              const department = employee.department || employee.clientUnit || employee.businessUnit || '—';
+              const designation = employee.designation || '—';
 
               return (
                 <tr
@@ -212,28 +246,34 @@ function EmployeeTable({
                     </div>
                   </td>
 
-                  {/* Designation Column */}
+                  {/* Designation Column: Designation + Department */}
                   <td className={styles.tdDesignation}>
                     <div className={styles.designationCell}>
-                      <span className={styles.designationBadge}>
-                        <BadgeCheck size={14} className={styles.badgeIcon} />
-                      </span>
-                      <span className={styles.designationText}>
-                        {employee.designation || '—'}
-                      </span>
+                      <div className={styles.designationRow} title={designation}>
+                        <span className={styles.designationBadge}>
+                          <BadgeCheck size={14} className={styles.badgeIcon} />
+                        </span>
+                        <span className={styles.designationText}>
+                          {designation}
+                        </span>
+                      </div>
+                      <div className={styles.departmentRow} title={department}>
+                        <Building2 size={12} className={styles.departmentIcon} />
+                        <span className={styles.departmentText}>{department}</span>
+                      </div>
                     </div>
                   </td>
 
-                  {/* Placement Column: Pin Location + Building Department */}
+                  {/* Placement Column: Client Name + Address */}
                   <td className={styles.tdPlacement}>
                     <div className={styles.placementCell}>
-                      <div className={styles.placementRow} title={siteLocation}>
-                        <MapPin size={13} className={styles.pinIcon} />
-                        <span className={styles.placementPrimary}>{siteLocation}</span>
+                      <div className={styles.placementRow} title={clientName}>
+                        <Building2 size={13} className={styles.clientIcon} />
+                        <span className={styles.placementPrimary}>{clientName}</span>
                       </div>
-                      <div className={styles.placementRow} title={department}>
-                        <Building2 size={13} className={styles.buildingIcon} />
-                        <span className={styles.placementSecondary}>{department}</span>
+                      <div className={styles.placementRow} title={clientAddress}>
+                        <MapPin size={13} className={styles.pinIcon} />
+                        <span className={styles.placementSecondary}>{clientAddress}</span>
                       </div>
                     </div>
                   </td>
@@ -280,8 +320,30 @@ function EmployeeTable({
           const isInactive = String(employee.status || employee.employeeStatus || '').toLowerCase() === 'inactive';
           const avatarColor = getAvatarPalette(employee.name);
           const initials = getInitials(employee.name);
-          const siteLocation = employee.siteLocation || employee.site || employee.location || employee.joiningLocation || employee.clientName || employee.companyName || 'General Deployment';
-          const department = employee.department || employee.clientUnit || employee.businessUnit || 'Operations';
+          const matchedClient =
+            (employee.clientId && clientMap.get(employee.clientId)) ||
+            (employee.companyId && clientMap.get(employee.companyId)) ||
+            (employee.clientName && clientMap.get(employee.clientName.trim().toLowerCase())) ||
+            (employee.companyName && clientMap.get(employee.companyName.trim().toLowerCase()));
+
+          const clientName =
+            employee.clientName ||
+            employee.companyName ||
+            matchedClient?.name ||
+            'RR Security & Facilities';
+
+          const clientAddress =
+            matchedClient?.address ||
+            employee.clientAddress ||
+            employee.siteLocation ||
+            employee.site ||
+            employee.location ||
+            employee.joiningLocation ||
+            employee.address ||
+            'Main Office / General Deployment';
+
+          const department = employee.department || employee.clientUnit || employee.businessUnit || '—';
+          const designation = employee.designation || '—';
 
           return (
             <div
@@ -329,8 +391,14 @@ function EmployeeTable({
                 <div className={styles.mobileCardRow}>
                   <span className={styles.mobileLabel}>Designation:</span>
                   <div className={styles.designationCell}>
-                    <BadgeCheck size={14} className={styles.badgeIcon} />
-                    <span className={styles.designationText}>{employee.designation || '—'}</span>
+                    <div className={styles.designationRow}>
+                      <BadgeCheck size={14} className={styles.badgeIcon} />
+                      <span className={styles.designationText}>{designation}</span>
+                    </div>
+                    <div className={styles.departmentRow}>
+                      <Building2 size={12} className={styles.departmentIcon} />
+                      <span className={styles.departmentText}>{department}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -338,12 +406,12 @@ function EmployeeTable({
                   <span className={styles.mobileLabel}>Placement:</span>
                   <div className={styles.placementCell}>
                     <div className={styles.placementRow}>
-                      <MapPin size={13} className={styles.pinIcon} />
-                      <span>{siteLocation}</span>
+                      <Building2 size={13} className={styles.clientIcon} />
+                      <span className={styles.placementPrimary}>{clientName}</span>
                     </div>
                     <div className={styles.placementRow}>
-                      <Building2 size={13} className={styles.buildingIcon} />
-                      <span>{department}</span>
+                      <MapPin size={13} className={styles.pinIcon} />
+                      <span className={styles.placementSecondary}>{clientAddress}</span>
                     </div>
                   </div>
                 </div>

@@ -4,6 +4,16 @@
   background-color: var(--background);
 }
 
+.bgWhite {
+  background-color: #ffffff !important;
+}
+
+.bgWhite .mainContainer,
+.bgWhite .content,
+.bgWhite .wrapper {
+  background-color: #ffffff !important;
+}
+
 .mainContainer {
   flex: 1;
   display: flex;

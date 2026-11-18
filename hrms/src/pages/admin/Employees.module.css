@@ -2,6 +2,15 @@
   padding: 0;
   width: 100%;
   box-sizing: border-box;
+  background-color: #ffffff;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  gap: 12px;
 }
 
 .breadcrumb {
@@ -9,7 +18,7 @@
   align-items: center;
   gap: 8px;
   font-size: var(--text-sm);
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .crumbLink {
@@ -33,53 +42,25 @@
   font-weight: 600;
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 24px;
-  gap: 16px;
-}
-
-.titleArea {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.title {
-  font-size: var(--text-3xl);
-  font-weight: 800;
-  color: var(--text-primary);
-  margin: 0;
-  letter-spacing: -0.5px;
-}
-
-.description {
-  font-size: var(--text-base);
-  color: var(--text-secondary);
-  margin: 0;
-}
-
 .headerActions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .importBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 16px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
   background-color: var(--surface);
   color: var(--text-primary);
-  font-size: var(--text-base);
+  font-size: 13px;
   font-weight: 600;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
   box-shadow: var(--shadow-xs);
   transition: all var(--transition-fast);
@@ -98,15 +79,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 40px;
-  padding: 0 18px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 14px;
   background-color: var(--primary);
   color: #ffffff;
-  font-size: var(--text-base);
+  font-size: 13px;
   font-weight: 600;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: 6px;
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: all var(--transition-fast);

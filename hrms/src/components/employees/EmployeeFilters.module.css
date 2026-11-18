@@ -1,7 +1,7 @@
 .filtersContainer {
   background-color: var(--surface, #ffffff);
   border: 1px solid var(--border, #e2e8f0);
-  border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+  border-radius: 16px 16px 0 0;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;
@@ -265,13 +265,20 @@
   flex-direction: column;
   gap: 6px;
   width: 100%;
-  max-width: 340px;
 }
 
 .searchBox {
   display: flex;
   align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.searchInputGroup {
+  display: flex;
+  align-items: center;
   width: 100%;
+  max-width: 320px;
 }
 
 .searchInput {
@@ -311,6 +318,34 @@
 .searchBtn:hover {
   background-color: var(--primary-dark, #1d4ed8);
   border-color: var(--primary-dark, #1d4ed8);
+}
+
+.searchLoadingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary, #2563eb);
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.searchSpinner {
+  animation: searchSpin 0.75s linear infinite;
+  color: var(--primary, #2563eb);
+}
+
+@keyframes searchSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .resetBtn {
