@@ -24,12 +24,14 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 function LoginAccessStep({ data, onChange, isEditMode = false }) {
   const { activeCompany } = useCompany();
   const [showPassword, setShowPassword] = useState(false);
-  const [copiedLoginId, setCopiedLoginId] = useState(false);
+  const [copiedCompanyId, setCopiedCompanyId] = useState(false);
+  const [copiedEmpId, setCopiedEmpId] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailStatus, setEmailStatus] = useState({ message: '', type: '' });
 
-  const loginId = data.employeeCode || data.employeeId || '';
+  const companyId = data.companyId || activeCompany?.companyId || activeCompany?.id || '';
+  const empId = data.employeeCode || data.employeeId || data.empCode || '';
   const empName = data.name || 'Employee';
   const empEmail = (data.email || '').trim();
 
@@ -59,9 +61,12 @@ function LoginAccessStep({ data, onChange, isEditMode = false }) {
   const handleCopy = (text, type) => {
     if (!text) return;
     navigator.clipboard.writeText(text);
-    if (type === 'loginId') {
-      setCopiedLoginId(true);
-      setTimeout(() => setCopiedLoginId(false), 2000);
+    if (type === 'companyId') {
+      setCopiedCompanyId(true);
+      setTimeout(() => setCopiedCompanyId(false), 2000);
+    } else if (type === 'empId') {
+      setCopiedEmpId(true);
+      setTimeout(() => setCopiedEmpId(false), 2000);
     } else if (type === 'password') {
       setCopiedPassword(true);
       setTimeout(() => setCopiedPassword(false), 2000);
@@ -108,8 +113,8 @@ function LoginAccessStep({ data, onChange, isEditMode = false }) {
           recipientEmail: empEmail,
           to: empEmail,
           password: passwordToSend,
-          employeeId: loginId || 'EMP',
-          employeeCode: loginId || 'EMP',
+          employeeId: empId || 'EMP',
+          employeeCode: empId || 'EMP',
           name: empName,
           companyId: compId,
           companyName: activeCompany?.name || data.companyName || ''
@@ -219,16 +224,16 @@ function LoginAccessStep({ data, onChange, isEditMode = false }) {
 
         {/* Credentials Grid */}
         <div className={styles.credentialsGrid}>
-          {/* 1. Employee Login ID */}
+          {/* 1. Company ID */}
           <div className={styles.fieldGroup}>
             <label className={styles.label}>
-              Login ID / Username
+              Company ID
             </label>
             <div className={styles.passwordInputWrapper}>
               <input
                 type="text"
                 className={styles.input}
-                value={loginId || 'Auto-generated on save'}
+                value={companyId || 'Not Defined'}
                 readOnly
                 style={{ backgroundColor: '#f8fafc', fontWeight: 600, color: '#0f172a' }}
               />
@@ -236,16 +241,46 @@ function LoginAccessStep({ data, onChange, isEditMode = false }) {
                 <button
                   type="button"
                   className={styles.iconButton}
-                  onClick={() => handleCopy(loginId, 'loginId')}
-                  title="Copy Employee ID"
-                  disabled={!loginId}
+                  onClick={() => handleCopy(companyId, 'companyId')}
+                  title="Copy Company ID"
+                  disabled={!companyId}
                 >
-                  {copiedLoginId ? <Check size={14} style={{ color: '#16a34a' }} /> : <Copy size={14} />}
+                  {copiedCompanyId ? <Check size={14} style={{ color: '#16a34a' }} /> : <Copy size={14} />}
                 </button>
               </div>
             </div>
             <span style={{ fontSize: 11, color: '#64748b' }}>
-              Used by employee to log in to web portal and mobile application
+              Organization identifier required for mobile app & portal authentication
+            </span>
+          </div>
+
+          {/* 2. Employee ID (Emp ID) */}
+          <div className={styles.fieldGroup}>
+            <label className={styles.label}>
+              Emp ID (Username)
+            </label>
+            <div className={styles.passwordInputWrapper}>
+              <input
+                type="text"
+                className={styles.input}
+                value={empId || 'Auto-generated on save'}
+                readOnly
+                style={{ backgroundColor: '#f8fafc', fontWeight: 600, color: '#0f172a' }}
+              />
+              <div className={styles.passwordActionButtons}>
+                <button
+                  type="button"
+                  className={styles.iconButton}
+                  onClick={() => handleCopy(empId, 'empId')}
+                  title="Copy Employee ID"
+                  disabled={!empId}
+                >
+                  {copiedEmpId ? <Check size={14} style={{ color: '#16a34a' }} /> : <Copy size={14} />}
+                </button>
+              </div>
+            </div>
+            <span style={{ fontSize: 11, color: '#64748b' }}>
+              Unique employee ID used to authenticate into web portal and mobile app
             </span>
           </div>
 

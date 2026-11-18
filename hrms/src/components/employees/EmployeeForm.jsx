@@ -406,7 +406,12 @@ function EmployeeForm({
   banks = [],
   documentTypes = [],
   workLocations = [],
-  employeesCount = 0
+  employeesCount = 0,
+  breadcrumb = null,
+  onPrevEmployee = null,
+  onNextEmployee = null,
+  hasPrevEmployee = false,
+  hasNextEmployee = false
 }) {
   const { activeCompany } = useCompany();
   const [currentStep, setCurrentStep] = useState(0);
@@ -420,53 +425,9 @@ function EmployeeForm({
   const isStackedMode = isPageMode;
   const [activeSection, setActiveSection] = useState('section-summary');
 
-  // Track active section on scroll for quickNav sidebar in page mode
-  useEffect(() => {
-    if (!isStackedMode) return;
-
-    const handleScroll = () => {
-      // If near top of the page, keep Summary active and avoid premature switching
-      if (window.scrollY < 120) {
-        setActiveSection('section-summary');
-        return;
-      }
-
-      const scrollPosition = window.scrollY + 180;
-      for (let i = QUICK_NAV_SECTIONS.length - 1; i >= 0; i--) {
-        const item = QUICK_NAV_SECTIONS[i];
-        const el = document.getElementById(item.id);
-        if (el) {
-          const top = el.getBoundingClientRect().top + window.scrollY;
-          if (scrollPosition >= top) {
-            setActiveSection(item.id);
-            break;
-          }
-        }
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll();
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [isStackedMode]);
-
-  const scrollToSection = (e, sectionId) => {
-    e.preventDefault();
-    if (sectionId === 'section-summary') {
-      // Summary is at the top of the form — scroll to top 0 so the Add Employee header remains 100% visible
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setActiveSection('section-summary');
-      return;
-    }
-
-    const el = document.getElementById(sectionId);
-    if (el) {
-      // AdminHeader is 68px + 20px padding buffer = 88px
-      const headerOffset = 88;
-      const top = el.getBoundingClientRect().top + window.scrollY - headerOffset;
-      window.scrollTo({ top, behavior: 'smooth' });
-      setActiveSection(sectionId);
-    }
+  const handleTabClick = (sectionId) => {
+    setActiveSection(sectionId);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -591,53 +552,29 @@ function EmployeeForm({
         className={isPageMode ? styles.pageCard : styles.modal}
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header */}
-        <header className={styles.header}>
-          <div>
-            <h2 id="employee-form-title" className={styles.title}>
-              {isEditMode ? 'Edit Employee' : 'Add Employee'}
-            </h2>
-            <p className={styles.subtitle}>
-              {isStackedMode
-                ? (isEditMode ? 'Update employee details across all sections below' : 'Fill out all employee details below across sections')
-                : `Step ${currentStep + 1} of ${STEPS.length}: ${STEPS[currentStep].label}`}
-            </p>
+        {/* Header: In Page Mode, render top bar with breadcrumb */}
+        {isPageMode ? (
+          <div className={styles.pageTopBar}>
+            {breadcrumb ? (
+              <div className={styles.breadcrumbWrapper}>{breadcrumb}</div>
+            ) : (
+              <div />
+            )}
           </div>
-
-          {isPageMode ? (
-            <div className={styles.headerActions}>
-              {onClose && (
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={onClose}
-                  disabled={isSubmitting}
-                >
-                  <ChevronLeft size={16} />
-                  <span>Back</span>
-                </button>
-              )}
-              <button
-                type="button"
-                className={styles.submitBtn}
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={16} className={styles.spinner} />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={16} />
-                    <span>{isEditMode ? 'Save Changes' : 'Save Employee'}</span>
-                  </>
-                )}
-              </button>
+        ) : (
+          <header className={styles.header}>
+            <div>
+              <h2 id="employee-form-title" className={styles.title}>
+                {isEditMode ? 'Edit Employee' : 'Add Employee'}
+              </h2>
+              <p className={styles.subtitle}>
+                {isStackedMode
+                  ? (isEditMode ? 'Update employee details across all sections below' : 'Fill out all employee details below across sections')
+                  : `Step ${currentStep + 1} of ${STEPS.length}: ${STEPS[currentStep].label}`}
+              </p>
             </div>
-          ) : (
-            onClose && (
+
+            {onClose && (
               <button
                 className={styles.closeBtn}
                 onClick={onClose}
@@ -646,135 +583,126 @@ function EmployeeForm({
               >
                 <X size={16} />
               </button>
-            )
-          )}
-        </header>
+            )}
+          </header>
+        )}
 
         {/* Form Content: Stacked Layout with Left Quick Nav for Page Mode, Stepped for Modal Mode */}
         {isStackedMode ? (
           <div className={styles.stackedLayout}>
             {/* Quick Section Navigator (Sticky Left Sidebar) */}
             <aside className={styles.quickNavWrapper}>
-              <div className={styles.quickNavHeader}>
-                <span className={styles.quickNavTitle}>Quick Navigation</span>
-              </div>
-              <nav className={styles.quickNavList} aria-label="Section navigation">
+              {/* Sidebar Header: Next/Previous navigation and Employee Name & Code in Edit Mode, or title in Add Mode */}
+              {isEditMode ? (
+                <div className={styles.sidebarEmployeeHeader}>
+                  <div className={styles.navRoundButtonsRow}>
+                    <button
+                      type="button"
+                      className={styles.roundNavBtn}
+                      onClick={onPrevEmployee}
+                      disabled={!hasPrevEmployee}
+                      title={hasPrevEmployee ? "Previous Employee" : "No previous employee"}
+                      aria-label="Previous Employee"
+                    >
+                      <ChevronLeft size={15} strokeWidth={2.5} />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.roundNavBtn}
+                      onClick={onNextEmployee}
+                      disabled={!hasNextEmployee}
+                      title={hasNextEmployee ? "Next Employee" : "No next employee"}
+                      aria-label="Next Employee"
+                    >
+                      <ChevronRight size={15} strokeWidth={2.5} />
+                    </button>
+                  </div>
+
+                  <div className={styles.sidebarDivider} />
+
+                  <div className={styles.sidebarEmpInfo}>
+                    <h3 className={styles.sidebarEmpName}>
+                      {employee?.name || formData?.name || 'Employee Details'}
+                    </h3>
+                    <div className={styles.sidebarEmpCode}>
+                      {employee?.employeeId || employee?.empCode || employee?.employeeCode || formData?.employeeId || '—'}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={styles.quickNavHeader}>
+                  <span className={styles.quickNavTitle}>Quick Navigation</span>
+                </div>
+              )}
+              <nav className={styles.quickNavList} aria-label="Section navigation" role="tablist">
                 {QUICK_NAV_SECTIONS.map((item) => {
                   const isActive = activeSection === item.id;
                   return (
-                    <a
+                    <button
                       key={item.id}
-                      href={`#${item.id}`}
-                      onClick={(e) => scrollToSection(e, item.id)}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      onClick={() => handleTabClick(item.id)}
                       className={`${styles.quickNavItem} ${isActive ? styles.quickNavItemActive : ''}`}
                     >
                       <span className={`${styles.quickNavNumber} ${isActive ? styles.quickNavNumberActive : ''}`}>
                         {item.number}
                       </span>
                       <span className={styles.quickNavLabel}>{item.label}</span>
-                    </a>
+                    </button>
                   );
                 })}
               </nav>
             </aside>
 
-            {/* Form Content on Right */}
+            {/* Form Content on Right (Tab-based: only active tab displayed) */}
             <div className={styles.allSectionsWrapper}>
             {/* 01. Summary */}
-            <section id="section-summary" className={styles.sectionCard}>
+            <section
+              id="section-summary"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-summary' ? 'block' : 'none' }}
+            >
               <EmployeeSummaryStep data={formData} />
             </section>
 
             {/* 02. Basic Details */}
-            <section id="section-basic" className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>02</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Basic Details</h3>
-                    <p className={styles.sectionSubtitle}>Personal information, contact details, identity and profile picture</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+            <section
+              id="section-basic"
+              className={styles.plainSectionCard}
+              style={{ display: activeSection === 'section-basic' ? 'block' : 'none' }}
+            >
+              <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
             </section>
 
             {/* 03. Employment Details */}
-            <section id="section-employment" className={styles.sectionCard}>
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>03</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Employment Details</h3>
-                    <p className={styles.sectionSubtitle}>Client company allocation, site location, designation, department and shift roster</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <EmploymentStep
-                  data={formData}
-                  onChange={handleFormDataChange}
-                  errors={errors}
-                  clients={clients}
-                  departments={departments}
-                  designations={designations}
-                  employeeTypes={employeeTypes}
-                  sites={sites}
-                  posts={posts}
-                  shifts={shifts}
-                  workLocations={workLocations}
-                />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save Changes</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+            <section
+              id="section-employment"
+              className={styles.plainSectionCard}
+              style={{ display: activeSection === 'section-employment' ? 'block' : 'none' }}
+            >
+              <EmploymentStep
+                data={formData}
+                onChange={handleFormDataChange}
+                errors={errors}
+                clients={clients}
+                departments={departments}
+                designations={designations}
+                employeeTypes={employeeTypes}
+                sites={sites}
+                posts={posts}
+                shifts={shifts}
+                workLocations={workLocations}
+              />
             </section>
 
             {/* 04. Salary & Statutory */}
-            <section id="section-salary" className={styles.sectionCard}>
+            <section
+              id="section-salary"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-salary' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>04</span>
@@ -812,7 +740,11 @@ function EmployeeForm({
             </section>
 
             {/* 05. Bank Details */}
-            <section id="section-bank" className={styles.sectionCard}>
+            <section
+              id="section-bank"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-bank' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>05</span>
@@ -855,7 +787,11 @@ function EmployeeForm({
             </section>
 
             {/* 06. Address & Family */}
-            <section id="section-address" className={styles.sectionCard}>
+            <section
+              id="section-address"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-address' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>06</span>
@@ -893,7 +829,11 @@ function EmployeeForm({
             </section>
 
             {/* 07. Documents & Licenses */}
-            <section id="section-documents" className={styles.sectionCard}>
+            <section
+              id="section-documents"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-documents' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>07</span>
@@ -936,7 +876,11 @@ function EmployeeForm({
             </section>
 
             {/* 08. Login Access */}
-            <section id="section-login" className={styles.sectionCard}>
+            <section
+              id="section-login"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-login' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>08</span>
@@ -978,7 +922,11 @@ function EmployeeForm({
             </section>
 
             {/* 09. Additional Info */}
-            <section id="section-additional" className={styles.sectionCard}>
+            <section
+              id="section-additional"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-additional' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>09</span>
@@ -1020,7 +968,11 @@ function EmployeeForm({
             </section>
 
             {/* 10. Activity Logs */}
-            <section id="section-activity" className={styles.sectionCard}>
+            <section
+              id="section-activity"
+              className={styles.sectionCard}
+              style={{ display: activeSection === 'section-activity' ? 'block' : 'none' }}
+            >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
                   <span className={styles.sectionNumber}>10</span>
@@ -1034,6 +986,41 @@ function EmployeeForm({
                 <ActivityLogsStep data={formData} />
               </div>
             </section>
+
+            {/* Bottom Actions Bar in Page Mode (Shifted to bottom as requested) */}
+            {isPageMode && (
+              <div className={styles.pageBottomBar}>
+                {onClose && (
+                  <button
+                    type="button"
+                    className={styles.cancelBtn}
+                    onClick={onClose}
+                    disabled={isSubmitting}
+                  >
+                    <ChevronLeft size={16} />
+                    <span>Back</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={styles.submitBtn}
+                  onClick={handleSubmit}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className={styles.spinner} />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={16} />
+                      <span>{isEditMode ? 'Save Changes' : 'Save Employee'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1155,57 +1142,59 @@ function EmployeeForm({
         </>
       )}
 
-        {/* Footer Navigation */}
-        <footer className={styles.footer}>
-          {onClose && (
-            <button className={styles.cancelBtn} onClick={onClose} type="button" disabled={isSubmitting}>
-              {isPageMode ? (
-                <>
+        {/* Footer Navigation: Only shown in Modal Mode */}
+        {!isPageMode && (
+          <footer className={styles.footer}>
+            {onClose && (
+              <button className={styles.cancelBtn} onClick={onClose} type="button" disabled={isSubmitting}>
+                Cancel
+              </button>
+            )}
+
+            <div className={styles.navButtons}>
+              {currentStep > 0 && (
+                <button className={styles.backBtn} onClick={handleBack} type="button" disabled={isSubmitting}>
                   <ChevronLeft size={16} />
                   <span>Back</span>
+                </button>
+              )}
+
+              {isEditMode ? (
+                <>
+                  <button
+                    className={styles.submitBtn}
+                    onClick={handleSubmit}
+                    type="button"
+                    title="Save changes"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={16} className={styles.spinner} />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check size={16} />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+
+                  {!isLastStep && (
+                    <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
+                      <span>Continue</span>
+                      <ChevronRight size={16} />
+                    </button>
+                  )}
                 </>
               ) : (
-                'Cancel'
-              )}
-            </button>
-          )}
-
-          <div className={styles.navButtons}>
-            {isStackedMode ? (
-              <button
-                className={styles.submitBtn}
-                onClick={handleSubmit}
-                type="button"
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 size={16} className={styles.spinner} />
-                    <span>Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <Check size={16} />
-                    <span>{isEditMode ? 'Save Changes' : 'Save Employee'}</span>
-                  </>
-                )}
-              </button>
-            ) : (
-              <>
-                {currentStep > 0 && (
-                  <button className={styles.backBtn} onClick={handleBack} type="button" disabled={isSubmitting}>
-                    <ChevronLeft size={16} />
-                    <span>Back</span>
-                  </button>
-                )}
-
-                {isEditMode ? (
-                  <>
+                <>
+                  {isLastStep ? (
                     <button
                       className={styles.submitBtn}
                       onClick={handleSubmit}
                       type="button"
-                      title="Save changes"
                       disabled={isSubmitting}
                     >
                       {isSubmitting ? (
@@ -1216,51 +1205,21 @@ function EmployeeForm({
                       ) : (
                         <>
                           <Check size={16} />
-                          <span>Save Changes</span>
+                          <span>Save Employee</span>
                         </>
                       )}
                     </button>
-
-                    {!isLastStep && (
-                      <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
-                        <span>Continue</span>
-                        <ChevronRight size={16} />
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    {isLastStep ? (
-                      <button
-                        className={styles.submitBtn}
-                        onClick={handleSubmit}
-                        type="button"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 size={16} className={styles.spinner} />
-                            <span>Saving...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Check size={16} />
-                            <span>Save Employee</span>
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
-                        <span>Continue</span>
-                        <ChevronRight size={16} />
-                      </button>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        </footer>
+                  ) : (
+                    <button className={styles.nextBtn} onClick={handleNext} type="button" disabled={isSubmitting}>
+                      <span>Continue</span>
+                      <ChevronRight size={16} />
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   );
