@@ -9,16 +9,30 @@ import Company from '../models/companyModel.js';
 const getCompanyIdVariations = async (companyId, adminEmail) => {
   let companyIds = [companyId].filter(Boolean);
   try {
-    const comp = await Company.findOne({
-      $or: [
-        { companyId },
-        ...(mongoose.Types.ObjectId.isValid(companyId) ? [{ _id: companyId }] : []),
-        ...(adminEmail ? [{ adminEmail }] : [])
-      ]
-    });
-    if (comp) {
-      companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
+    const orConditions = [];
+    if (companyId) {
+      orConditions.push({ companyId });
+      orConditions.push({ name: companyId });
+      if (mongoose.Types.ObjectId.isValid(companyId)) {
+        orConditions.push({ _id: companyId });
+      }
     }
+    if (adminEmail) {
+      orConditions.push({ adminEmail });
+    }
+
+    const comps = await Company.find({ $or: orConditions })
+      .select('companyId name _id')
+      .lean();
+
+    const ids = new Set([companyId].filter(Boolean));
+    comps.forEach((c) => {
+      if (c.companyId) ids.add(c.companyId);
+      if (c._id) ids.add(c._id.toString());
+      if (c.name) ids.add(c.name);
+    });
+
+    companyIds = Array.from(ids);
   } catch (_) {}
   return companyIds;
 };

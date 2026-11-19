@@ -13,6 +13,7 @@ import EmployeeSummaryStep from './EmployeeSummaryStep';
 import LoginAccessStep from './LoginAccessStep';
 import AdditionalInfoStep from './AdditionalInfoStep';
 import ActivityLogsStep from './ActivityLogsStep';
+import LetterInboxStep from './LetterInboxStep';
 import { useCompany } from '../../context/CompanyContext';
 import { generateSeriesPreview } from '../../data/numberSeriesData';
 
@@ -25,10 +26,11 @@ const STEPS = [
   { id: 'address', label: 'Addresses', number: '06' },
   { id: 'family', label: 'Family Details', number: '07' },
   { id: 'documents', label: 'Documents', number: '08' },
-  { id: 'login', label: 'Login Access', number: '09' },
-  { id: 'additional', label: 'Additional Info', number: '10' },
-  { id: 'activity', label: 'Activity Logs', number: '11' },
-  { id: 'review', label: 'Review & Submit', number: '12' }
+  { id: 'letters', label: 'Letter Inbox', number: '09' },
+  { id: 'login', label: 'Login Access', number: '10' },
+  { id: 'additional', label: 'Additional Info', number: '11' },
+  { id: 'activity', label: 'Activity Logs', number: '12' },
+  { id: 'review', label: 'Review & Submit', number: '13' }
 ];
 
 const QUICK_NAV_SECTIONS = [
@@ -40,9 +42,10 @@ const QUICK_NAV_SECTIONS = [
   { id: 'section-address', number: '06', label: 'Addresses' },
   { id: 'section-family', number: '07', label: 'Family Details' },
   { id: 'section-documents', number: '08', label: 'Documents' },
-  { id: 'section-login', number: '09', label: 'Login Access' },
-  { id: 'section-additional', number: '10', label: 'Additional Info' },
-  { id: 'section-activity', number: '11', label: 'Activity Logs' },
+  { id: 'section-letters', number: '09', label: 'Letter Inbox' },
+  { id: 'section-login', number: '10', label: 'Login Access' },
+  { id: 'section-additional', number: '11', label: 'Additional Info' },
+  { id: 'section-activity', number: '12', label: 'Activity Logs' },
 ];
 
 const DEFAULT_FORM_DATA = {
@@ -159,8 +162,8 @@ const DEFAULT_FORM_DATA = {
       dobAge: '',
       aadhaarNumber: '',
       address: '',
-      nomineeYesNo: 'No',
-      nomineeSharePercent: '',
+      residentWith: 'Yes',
+      residingWith: 'Yes',
       aadhaarPhoto: ''
     }
   ],
@@ -169,6 +172,8 @@ const DEFAULT_FORM_DATA = {
   dob: '',
   dobAge: '',
   address: '',
+  residentWith: 'Yes',
+  residingWith: 'Yes',
   nomineeYesNo: '',
   nomineeSharePercent: '',
   documentList: [
@@ -257,8 +262,8 @@ const normalizeEmployeeForForm = (employee) => {
         dobAge: m.dobAge ?? m.dob ?? '',
         aadhaarNumber: m.aadhaarNumber ?? m.aadhaar ?? '',
         address: m.address ?? '',
-        nomineeYesNo: m.nomineeYesNo ?? m.nominee ?? 'No',
-        nomineeSharePercent: m.nomineeSharePercent ?? '',
+        residentWith: m.residentWith ?? m.residingWith ?? 'Yes',
+        residingWith: m.residingWith ?? m.residentWith ?? 'Yes',
         aadhaarPhoto: m.aadhaarPhoto ?? m.photo ?? ''
       }))
     : [
@@ -269,8 +274,8 @@ const normalizeEmployeeForForm = (employee) => {
           dobAge: employee.dobAge ?? employee.familyDob ?? '',
           aadhaarNumber: employee.familyAadhaar ?? '',
           address: employee.address ?? '',
-          nomineeYesNo: employee.nomineeYesNo ?? 'No',
-          nomineeSharePercent: employee.nomineeSharePercent ?? '',
+          residentWith: employee.residentWith ?? employee.residingWith ?? 'Yes',
+          residingWith: employee.residingWith ?? employee.residentWith ?? 'Yes',
           aadhaarPhoto: ''
         }
       ];
@@ -394,6 +399,8 @@ const normalizeEmployeeForForm = (employee) => {
     relation: familyMembers[0]?.relation || (employee.relation ?? ''),
     dobAge: familyMembers[0]?.dobAge || (employee.dobAge ?? ''),
     address: familyMembers[0]?.address || (employee.address ?? ''),
+    residentWith: familyMembers[0]?.residentWith || familyMembers[0]?.residingWith || employee.residentWith || employee.residingWith || 'Yes',
+    residingWith: familyMembers[0]?.residentWith || familyMembers[0]?.residingWith || employee.residentWith || employee.residingWith || 'Yes',
     nomineeYesNo: familyMembers[0]?.nomineeYesNo || (employee.nomineeYesNo ?? ''),
     nomineeSharePercent: familyMembers[0]?.nomineeSharePercent || (employee.nomineeSharePercent ?? ''),
     documentList,
@@ -806,51 +813,30 @@ function EmployeeForm({
             {/* 08. Documents & Licenses */}
             <section
               id="section-documents"
-              className={styles.sectionCard}
+              className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-documents' ? 'block' : 'none' }}
             >
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>08</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Documents & Licenses</h3>
-                    <p className={styles.sectionSubtitle}>Driving & armed licenses, KYC documents and administrative verification</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <DocumentsStep
-                  data={formData}
-                  onChange={handleFormDataChange}
-                  designation={formData.designation}
-                  documentTypes={documentTypes}
-                />
-              </div>
-              {isEditMode && (
-                <div className={styles.sectionFooter}>
-                  <button
-                    type="button"
-                    className={styles.sectionSaveBtn}
-                    onClick={handleSubmit}
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 size={14} className={styles.spinner} />
-                        <span>Saving...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check size={14} />
-                        <span>Save</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              )}
+              <DocumentsStep
+                data={formData}
+                onChange={handleFormDataChange}
+                designation={formData.designation}
+                documentTypes={documentTypes}
+              />
             </section>
 
-            {/* 09. Login Access */}
+            {/* 09. Letter Inbox */}
+            <section
+              id="section-letters"
+              className={styles.plainSectionCard}
+              style={{ display: activeSection === 'section-letters' ? 'block' : 'none' }}
+            >
+              <LetterInboxStep
+                data={formData}
+                employee={employee}
+              />
+            </section>
+
+            {/* 10. Login Access */}
             <section
               id="section-login"
               className={styles.plainSectionCard}
@@ -863,7 +849,7 @@ function EmployeeForm({
               />
             </section>
 
-            {/* 10. Additional Info */}
+            {/* 11. Additional Info */}
             <section
               id="section-additional"
               className={styles.sectionCard}
@@ -871,7 +857,7 @@ function EmployeeForm({
             >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>10</span>
+                  <span className={styles.sectionNumber}>11</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Additional Info</h3>
                     <p className={styles.sectionSubtitle}>Customized data fields and additional organizational notes</p>
@@ -909,24 +895,13 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 11. Activity Logs */}
+            {/* 12. Activity Logs */}
             <section
               id="section-activity"
-              className={styles.sectionCard}
+              className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-activity' ? 'block' : 'none' }}
             >
-              <div className={styles.sectionHeader}>
-                <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>11</span>
-                  <div>
-                    <h3 className={styles.sectionTitle}>Activity Logs</h3>
-                    <p className={styles.sectionSubtitle}>System audit trail, authentication logs and record change history</p>
-                  </div>
-                </div>
-              </div>
-              <div className={styles.sectionBody}>
-                <ActivityLogsStep data={formData} />
-              </div>
+              <ActivityLogsStep data={formData} employee={employee} />
             </section>
 
             {/* Bottom Actions Bar in Page Mode (Shifted to bottom as requested) */}
@@ -1053,23 +1028,29 @@ function EmployeeForm({
               />
             )}
             {currentStep === 8 && (
+              <LetterInboxStep
+                data={formData}
+                employee={employee}
+              />
+            )}
+            {currentStep === 9 && (
               <LoginAccessStep
                 data={formData}
                 onChange={handleFormDataChange}
                 isEditMode={isEditMode}
               />
             )}
-            {currentStep === 9 && (
+            {currentStep === 10 && (
               <AdditionalInfoStep
                 data={formData}
                 onChange={handleFormDataChange}
                 isSubmitting={isSubmitting}
               />
             )}
-            {currentStep === 10 && (
+            {currentStep === 11 && (
               <ActivityLogsStep data={formData} />
             )}
-            {currentStep === 11 && (
+            {currentStep === 12 && (
               <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
             )}
           </div>

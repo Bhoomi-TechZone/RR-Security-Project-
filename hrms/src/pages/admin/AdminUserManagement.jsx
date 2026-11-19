@@ -287,11 +287,12 @@ function AdminUserManagement() {
         try {
           const targetId = user._id || user.id || user.userId;
           await userService.toggleUserStatus(currentCompanyId, targetId, newStatus);
-          setUsers(prev => prev.map(u => (u.id === user.id || u._id === user._id) ? { ...u, status: newStatus } : u));
-          if (selectedUserForDetails && (selectedUserForDetails.id === user.id || selectedUserForDetails._id === user._id)) {
+          setUsers(prev => prev.map(u => (u._id === (user._id || targetId) || u.id === (user.id || targetId)) ? { ...u, status: newStatus } : u));
+          if (selectedUserForDetails && (selectedUserForDetails._id === user._id || selectedUserForDetails.id === user.id)) {
             setSelectedUserForDetails(prev => ({ ...prev, status: newStatus }));
           }
           showToast(`User account ${user.name} is now ${newStatus}.`);
+          loadCompanyData();
         } catch (error) {
           showToast(error.message || 'Failed to update user status', 'error');
         } finally {
@@ -317,11 +318,12 @@ function AdminUserManagement() {
         try {
           const targetId = user._id || user.id || user.userId;
           await userService.toggleUserStatus(currentCompanyId, targetId, newStatus);
-          setUsers(prev => prev.map(u => (u.id === user.id || u._id === user._id) ? { ...u, status: newStatus } : u));
-          if (selectedUserForDetails && (selectedUserForDetails.id === user.id || selectedUserForDetails._id === user._id)) {
+          setUsers(prev => prev.map(u => (u._id === (user._id || targetId) || u.id === (user.id || targetId)) ? { ...u, status: newStatus } : u));
+          if (selectedUserForDetails && (selectedUserForDetails._id === user._id || selectedUserForDetails.id === user.id)) {
             setSelectedUserForDetails(prev => ({ ...prev, status: newStatus }));
           }
           showToast(`User ${user.name} is now ${newStatus}.`);
+          loadCompanyData();
         } catch (error) {
           showToast(error.message || 'Failed to update suspension status', 'error');
         } finally {
@@ -418,6 +420,7 @@ function AdminUserManagement() {
             <UsersTable
               users={users}
               roles={roles}
+              isLoading={loading}
               externalStatusFilter={cardFilter}
               onViewUser={handleViewUser}
               onEditUser={handleOpenEditUser}

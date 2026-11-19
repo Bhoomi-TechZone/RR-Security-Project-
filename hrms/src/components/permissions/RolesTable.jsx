@@ -18,7 +18,8 @@ import {
   RotateCcw,
   CheckCircle2,
   XCircle,
-  Clock
+  Clock,
+  Loader2
 } from 'lucide-react';
 import styles from './RolesTable.module.css';
 import Dropdown from '../common/Dropdown';
@@ -27,6 +28,7 @@ import { countRolePermissions, getEnabledModulesCount } from '../../data/rolesPe
 function RolesTable({
   roles = [],
   users = [],
+  isLoading = false,
   onViewRole,
   onEditPermissions,
   onEditRoleInfo,
@@ -148,7 +150,23 @@ function RolesTable({
               </tr>
             </thead>
             <tbody>
-              {roles.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={8} className={styles.loaderCell}>
+                    <div className={styles.loaderContainer}>
+                      <div className={styles.spinnerWrapper}>
+                        <Loader2 size={32} className={styles.spinnerIcon} />
+                      </div>
+                      <div className={styles.loaderTextWrap}>
+                        <h4 className={styles.loaderTitle}>Loading Roles & Permissions</h4>
+                        <p className={styles.loaderSubtitle}>
+                          Fetching configured roles and module permissions from database...
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : roles.length === 0 ? (
                 <tr>
                   <td colSpan={8} className={styles.emptyTd}>
                     <div className={styles.emptyState}>
@@ -395,7 +413,16 @@ function RolesTable({
 
         {/* Responsive Mobile Cards List */}
         <div className={styles.mobileList}>
-          {filteredRoles.map(role => {
+          {isLoading ? (
+            <div className={styles.mobileLoader}>
+              <div className={styles.spinnerWrapper}>
+                <Loader2 size={28} className={styles.spinnerIcon} />
+              </div>
+              <h4 className={styles.loaderTitle}>Loading Roles & Permissions</h4>
+              <p className={styles.loaderSubtitle}>Fetching roles from database...</p>
+            </div>
+          ) : (
+            filteredRoles.map(role => {
             const isSystem = role.type === 'system';
             const isActive = role.status === 'Active';
             const totalPerms = countRolePermissions(role);
@@ -469,7 +496,7 @@ function RolesTable({
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
     </div>

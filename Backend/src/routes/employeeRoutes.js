@@ -8,6 +8,7 @@ import {
   sendEmployeeCredentials,
   sendDirectEmployeeCredentials,
   bulkImportEmployees,
+  getEmployeeActivityLogs,
 } from '../controllers/employeeController.js';
 import { protect, adminOnly } from '../middleware/authMiddleware.js';
 
@@ -27,6 +28,8 @@ router.route('/:id')
   .get(getEmployeeById)
   .put(adminOnly, updateEmployee)
   .delete(adminOnly, deleteEmployee);
+
+router.get('/:id/activity-logs', getEmployeeActivityLogs);
 
 router.post('/:id/send-credentials', adminOnly, sendEmployeeCredentials);
 

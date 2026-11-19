@@ -404,8 +404,10 @@ export const createEmployee = async (req, res) => {
       sendWebLogin: req.body.sendLogin !== false && req.body.sendWebLogin !== false,
       enablePortalAccess: req.body.sendLogin !== false && req.body.enablePortalAccess !== false,
       allowMobileAppLogin: req.body.sendLogin !== false && req.body.allowMobileAppLogin !== false,
-      fatherHusbandName: req.body.fatherHusbandName || '',
+      fatherHusbandName: req.body.fatherHusbandName || req.body.fatherName || '',
+      fatherName: req.body.fatherName || req.body.fatherHusbandName || '',
       fatherHusbandRelation: req.body.fatherHusbandRelation || '',
+      noticePeriod: req.body.noticePeriod || '30 days',
       gender: req.body.gender || 'Male',
       dob: req.body.dob || '',
       contact: req.body.contact || req.body.mobile || '',
@@ -431,6 +433,7 @@ export const createEmployee = async (req, res) => {
       shift: req.body.shift || '',
       joiningDate: req.body.joiningDate || '',
       reportingSupervisor: req.body.reportingSupervisor || '',
+      reportingManager: req.body.reportingManager || '',
       joiningLocation: req.body.joiningLocation || '',
       previousExperience: req.body.previousExperience || '',
       language: req.body.language || '',
@@ -498,6 +501,8 @@ export const createEmployee = async (req, res) => {
       address: req.body.address || '',
       nomineeYesNo: req.body.nomineeYesNo || '',
       nomineeSharePercent: req.body.nomineeSharePercent || '',
+      residentWith: req.body.residentWith || req.body.residingWith || (req.body.familyMembers?.[0]?.residentWith) || 'Yes',
+      residingWith: req.body.residingWith || req.body.residentWith || (req.body.familyMembers?.[0]?.residingWith) || 'Yes',
 
       // Documents & Remarks
       documentList: req.body.documentList || [],
@@ -655,6 +660,25 @@ export const updateEmployee = async (req, res) => {
     if (req.body.familyMembers !== undefined) {
       employee.familyMembers = Array.isArray(req.body.familyMembers) ? req.body.familyMembers : [];
       employee.markModified('familyMembers');
+      if (employee.familyMembers.length > 0) {
+        const first = employee.familyMembers[0] || {};
+        const resVal = req.body.residentWith || first.residentWith || first.residingWith || employee.residentWith || 'Yes';
+        employee.residentWith = resVal;
+        employee.residingWith = resVal;
+      }
+    }
+
+    if (req.body.fatherName !== undefined || req.body.fatherHusbandName !== undefined) {
+      const fName = req.body.fatherName || req.body.fatherHusbandName || '';
+      employee.fatherName = fName;
+      employee.fatherHusbandName = fName;
+    }
+
+    if (req.body.reportingManager !== undefined) {
+      employee.reportingManager = req.body.reportingManager;
+    }
+    if (req.body.reportingSupervisor !== undefined) {
+      employee.reportingSupervisor = req.body.reportingSupervisor;
     }
 
     if (req.body.documents !== undefined) {
@@ -679,6 +703,135 @@ export const updateEmployee = async (req, res) => {
       employee.employeeStatus = incomingStatus;
       employee.isActive = incomingStatus !== 'Inactive';
     }
+
+    // Record who edited the employee details in activityLogs
+    const editorName = req.body.editorName || req.user?.name || (req.user?.email ? req.user.email.split('@')[0] : 'Ravi Rana');
+    
+    // Format timestamp: "19-Nov-2026 12:03 PM"
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[now.getMonth()];
+    const year = now.getFullYear();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const formattedTime = `${hours}:${minutes} ${ampm}`;
+    const formattedDate = `${day}-${month}-${year}`;
+    const displayTimestamp = `${formattedDate} ${formattedTime}`;
+    const isoDateOnly = now.toISOString().split('T')[0];
+
+    // Detect dynamic changes across employee sub-sections
+    const detectedChanges = [];
+
+    // 1. Family Members
+    if (req.body.familyMembers !== undefined) {
+      const oldFam = Array.isArray(employee.familyMembers) ? employee.familyMembers : [];
+      const newFam = Array.isArray(req.body.familyMembers) ? req.body.familyMembers : [];
+      if (JSON.stringify(oldFam) !== JSON.stringify(newFam)) {
+        if (newFam.length > oldFam.length) {
+          const added = newFam[newFam.length - 1];
+          detectedChanges.push(`Family member record added (${added?.relation || added?.name || 'Member'})`);
+        } else if (newFam.length < oldFam.length) {
+          detectedChanges.push('Family member record removed');
+        } else {
+          const diffMember = newFam.find((m, i) => JSON.stringify(m) !== JSON.stringify(oldFam[i])) || newFam[0];
+          detectedChanges.push(`Family member record updated (${diffMember?.relation || diffMember?.name || 'Son'})`);
+        }
+      }
+    }
+
+    // 2. Personal / Basic Details
+    if (req.body.name && req.body.name !== employee.name) {
+      detectedChanges.push(`Employee name updated to ${req.body.name}`);
+    }
+    if ((req.body.mobile || req.body.contact) && (req.body.mobile !== employee.mobile && req.body.contact !== employee.contact)) {
+      detectedChanges.push(`Contact phone number updated`);
+    }
+    if (req.body.email && req.body.email !== employee.email) {
+      detectedChanges.push(`Email address updated to ${req.body.email}`);
+    }
+    if ((req.body.dob && req.body.dob !== employee.dob) ||
+        (req.body.maritalStatus && req.body.maritalStatus !== employee.maritalStatus) ||
+        (req.body.gender && req.body.gender !== employee.gender)) {
+      detectedChanges.push(`Basic personal details updated`);
+    }
+
+    // 3. Employment Details
+    if (req.body.designation && req.body.designation !== employee.designation) {
+      detectedChanges.push(`Designation updated to ${req.body.designation}`);
+    }
+    if (req.body.department && req.body.department !== employee.department) {
+      detectedChanges.push(`Department updated to ${req.body.department}`);
+    }
+    if (req.body.siteLocation && req.body.siteLocation !== employee.siteLocation) {
+      detectedChanges.push(`Site location updated to ${req.body.siteLocation}`);
+    }
+    if (req.body.shift && req.body.shift !== employee.shift) {
+      detectedChanges.push(`Shift schedule updated to ${req.body.shift}`);
+    }
+
+    // 4. Salary & Statutory
+    if (req.body.grossSalary !== undefined && Number(req.body.grossSalary) !== Number(employee.grossSalary)) {
+      detectedChanges.push(`Gross salary revised to ₹${Number(req.body.grossSalary).toLocaleString('en-IN')}`);
+    } else if (req.body.basic !== undefined && Number(req.body.basic) !== Number(employee.basic)) {
+      detectedChanges.push(`Basic wage revised to ₹${Number(req.body.basic).toLocaleString('en-IN')}`);
+    }
+
+    // 5. Bank Details
+    if ((req.body.accountNumber && req.body.accountNumber !== employee.accountNumber) ||
+        (req.body.ifsc && req.body.ifsc !== employee.ifsc)) {
+      detectedChanges.push(`Bank account details updated (${req.body.bankName || employee.bankName || 'Account'})`);
+    }
+
+    // 6. Address
+    if ((req.body.presentAddress && req.body.presentAddress !== employee.presentAddress) ||
+        (req.body.permanentAddress && req.body.permanentAddress !== employee.permanentAddress)) {
+      detectedChanges.push(`Residential address details updated`);
+    }
+
+    // 7. Documents & Licenses
+    if (req.body.documentList && JSON.stringify(req.body.documentList) !== JSON.stringify(employee.documentList)) {
+      detectedChanges.push(`Employee documents updated`);
+    }
+    if (req.body.licenseList && JSON.stringify(req.body.licenseList) !== JSON.stringify(employee.licenseList)) {
+      detectedChanges.push(`Employee licenses updated`);
+    }
+
+    // 8. Login Access
+    if (req.body.enablePortalAccess !== undefined && req.body.enablePortalAccess !== employee.enablePortalAccess) {
+      detectedChanges.push(`Portal login access ${req.body.enablePortalAccess ? 'enabled' : 'disabled'}`);
+    }
+    if (req.body.password) {
+      detectedChanges.push(`Portal credentials password updated`);
+    }
+
+    // Fallback if update called without specific field diffs
+    if (detectedChanges.length === 0) {
+      detectedChanges.push(req.body.activityLogAction || 'Employee record details updated');
+    }
+
+    // Create a dynamic log entry for each detected change
+    const newLogs = detectedChanges.map((changeText, idx) => ({
+      id: `log-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+      action: changeText,
+      performedBy: editorName,
+      date: isoDateOnly,
+      timestamp: displayTimestamp,
+      createdAt: now.toISOString()
+    }));
+
+    // Ensure activityLogs is initialized on employee
+    const currentLogs = Array.isArray(employee.activityLogs) ? employee.activityLogs : [];
+    employee.activityLogs = [...newLogs, ...currentLogs];
+    employee.markModified('activityLogs');
+
+    // Remove activityLogs and helpers from req.body so Object.assign does not overwrite them
+    delete req.body.activityLogs;
+    delete req.body.editorName;
+    delete req.body.activityLogAction;
 
     Object.assign(employee, req.body);
     await employee.save();
@@ -1292,6 +1445,66 @@ export const bulkImportEmployees = async (req, res) => {
       success: false,
       message: error.message || 'Failed to bulk import employees.'
     });
+  }
+};
+
+/**
+ * @desc    Get dynamic activity logs for an employee
+ * @route   GET /api/employees/:id/activity-logs
+ * @access  Private
+ */
+export const getEmployeeActivityLogs = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const adminEmail = req.user.email.toLowerCase();
+
+    let query = { adminEmail };
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query.$or = [{ _id: id }, { employeeId: id }, { employeeCode: id }];
+    } else {
+      query.$or = [{ employeeId: id }, { employeeCode: id }];
+    }
+
+    const employee = await Employee.findOne(query);
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee not found.' });
+    }
+
+    let logs = Array.isArray(employee.activityLogs) ? [...employee.activityLogs] : [];
+
+    // If no edit logs exist yet, generate dynamic creation event
+    if (logs.length === 0) {
+      const createdDate = employee.createdAt ? new Date(employee.createdAt) : new Date();
+      const day = String(createdDate.getDate()).padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = months[createdDate.getMonth()];
+      const year = createdDate.getFullYear();
+      let hours = createdDate.getHours();
+      const minutes = String(createdDate.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const formattedTimestamp = `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
+      const isoDate = createdDate.toISOString().split('T')[0];
+
+      logs.push({
+        id: `log-create-${employee._id}`,
+        action: `Employee record created (${employee.name || employee.employeeCode})`,
+        performedBy: employee.adminEmail ? employee.adminEmail.split('@')[0] : 'Administrator',
+        date: isoDate,
+        timestamp: formattedTimestamp,
+        createdAt: createdDate.toISOString()
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      count: logs.length,
+      activityLogs: logs
+    });
+  } catch (error) {
+    console.error('Error fetching employee activity logs:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch activity logs.' });
   }
 };
 

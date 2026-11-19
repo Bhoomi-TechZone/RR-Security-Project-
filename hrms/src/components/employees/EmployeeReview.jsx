@@ -103,10 +103,9 @@ function EmployeeReview({ data, onEditStep }) {
           </div>
           <div className={styles.reviewBody}>
             <ReviewRow label="Employee Name" value={data.name || '—'} />
-            {data.maritalStatus === 'Married' ? (
-              <ReviewRow label="Spouse Name" value={data.spouseName || (data.maritalStatus === 'Married' ? data.fatherHusbandName : '') || '—'} />
-            ) : (
-              <ReviewRow label="Father Name" value={data.fatherName || data.fatherHusbandName || '—'} />
+            <ReviewRow label="Father Name" value={data.fatherName || data.fatherHusbandName || '—'} />
+            {data.maritalStatus === 'Married' && (
+              <ReviewRow label="Spouse Name" value={data.spouseName || '—'} />
             )}
             <ReviewRow label="Gender" value={data.gender || '—'} />
             <ReviewRow label="Date of Birth" value={data.dob || '—'} />
@@ -297,7 +296,7 @@ function EmployeeReview({ data, onEditStep }) {
               {familyMembers.map((m, mIdx) => (
                 <div key={mIdx} style={{ margin: '6px 0', padding: '8px 12px', background: 'var(--surface)', borderRadius: '6px', border: '1px solid var(--border)', fontSize: '13px' }}>
                   <div>
-                    <strong>#{mIdx + 1} {m.name || 'Unnamed'}</strong> ({m.relation || 'Relation N/A'}) • DOB: {m.dob || m.dobAge || '—'} • Aadhaar: {m.aadhaarNumber || '—'} • Nominee: {m.nomineeYesNo || 'No'} {m.nomineeSharePercent ? `(${m.nomineeSharePercent}%)` : ''}
+                    <strong>#{mIdx + 1} {m.name || 'Unnamed'}</strong> ({m.relation || 'Relation N/A'}) • DOB: {m.dob || m.dobAge || '—'} • Aadhaar: {m.aadhaarNumber || '—'} • Resident With: {m.residentWith || m.residingWith || 'Yes'}
                   </div>
                   {m.aadhaarPhoto && (
                     <FilePreviewBadge fileUrl={m.aadhaarPhoto} label={`Aadhaar - ${m.name}`} />

@@ -13,7 +13,8 @@ import {
   Clock,
   Building2,
   Mail,
-  UserX
+  UserX,
+  Loader2
 } from 'lucide-react';
 import styles from './AssignedUsersTable.module.css';
 import Avatar from '../common/Avatar';
@@ -22,6 +23,7 @@ import Dropdown from '../common/Dropdown';
 function AssignedUsersTable({
   users = [],
   roles = [],
+  isLoading = false,
   onAssignUser,
   onChangeRole,
   onToggleUserStatus,
@@ -141,7 +143,23 @@ function AssignedUsersTable({
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className={styles.loaderCell}>
+                    <div className={styles.loaderContainer}>
+                      <div className={styles.spinnerWrapper}>
+                        <Loader2 size={32} className={styles.spinnerIcon} />
+                      </div>
+                      <div className={styles.loaderTextWrap}>
+                        <h4 className={styles.loaderTitle}>Loading Assigned Users</h4>
+                        <p className={styles.loaderSubtitle}>
+                          Fetching user role assignments from database...
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className={styles.emptyTd}>
                     <div className={styles.emptyState}>

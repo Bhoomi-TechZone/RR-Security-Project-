@@ -678,6 +678,7 @@ function RolePermissions() {
               <RolesTable
                 roles={roles}
                 users={users}
+                isLoading={loading}
                 onViewRole={handleViewRole}
                 onEditPermissions={handleEditPermissions}
                 onEditRoleInfo={handleOpenEditRoleInfo}
@@ -692,6 +693,7 @@ function RolePermissions() {
               <AssignedUsersTable
                 users={users}
                 roles={roles}
+                isLoading={loading}
                 onAssignUser={() => handleOpenAssignUserModal(null)}
                 onChangeRole={handleOpenChangeUserRoleModal}
                 onToggleStatus={handleToggleUserStatus}

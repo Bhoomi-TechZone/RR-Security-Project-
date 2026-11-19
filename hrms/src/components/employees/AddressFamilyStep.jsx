@@ -73,8 +73,8 @@ function AddressFamilyStep({ data, onChange }) {
           dobAge: data.dobAge || '',
           aadhaarNumber: data.aadhaarNumber || '',
           address: data.address || '',
-          nomineeYesNo: data.nomineeYesNo || 'No',
-          nomineeSharePercent: data.nomineeSharePercent || '',
+          residentWith: data.residentWith || data.residingWith || 'Yes',
+          residingWith: data.residentWith || data.residingWith || 'Yes',
           aadhaarPhoto: data.aadhaarPhoto || ''
         }
       ];
@@ -94,8 +94,8 @@ function AddressFamilyStep({ data, onChange }) {
       relation: first.relation || '',
       dobAge: first.dobAge || '',
       address: first.address || '',
-      nomineeYesNo: first.nomineeYesNo || '',
-      nomineeSharePercent: first.nomineeSharePercent || ''
+      residentWith: first.residentWith || first.residingWith || 'Yes',
+      residingWith: first.residentWith || first.residingWith || 'Yes'
     });
   };
 
@@ -108,8 +108,8 @@ function AddressFamilyStep({ data, onChange }) {
         dobAge: '',
         aadhaarNumber: '',
         address: '',
-        nomineeYesNo: 'No',
-        nomineeSharePercent: '',
+        residentWith: 'Yes',
+        residingWith: 'Yes',
         aadhaarPhoto: ''
       }
     ];
@@ -132,8 +132,8 @@ function AddressFamilyStep({ data, onChange }) {
       relation: first.relation || '',
       dobAge: first.dobAge || '',
       address: first.address || '',
-      nomineeYesNo: first.nomineeYesNo || '',
-      nomineeSharePercent: first.nomineeSharePercent || ''
+      residentWith: first.residentWith || first.residingWith || 'Yes',
+      residingWith: first.residentWith || first.residingWith || 'Yes'
     });
   };
 
@@ -426,47 +426,22 @@ function AddressFamilyStep({ data, onChange }) {
                 </div>
               </div>
 
-              {/* Row 2: Address, Nominee, Share %, Aadhaar Photo */}
+              {/* Row 2: Resident With (Yes/No), Aadhaar Photo */}
               <div className={styles.fieldsRow}>
                 <div className={styles.fieldGroup}>
-                  <label htmlFor={`fam-addr-${idx}`} className={styles.label}>Residential Address</label>
-                  <input
-                    id={`fam-addr-${idx}`}
-                    type="text"
-                    className={styles.input}
-                    placeholder="Address if different"
-                    value={member.address || ''}
-                    onChange={(e) => handleMemberChange(idx, 'address', e.target.value)}
-                  />
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <label htmlFor={`fam-nominee-${idx}`} className={styles.label}>Nominee</label>
+                  <label htmlFor={`fam-resident-${idx}`} className={styles.label}>Resident With</label>
                   <select
-                    id={`fam-nominee-${idx}`}
+                    id={`fam-resident-${idx}`}
                     className={styles.select}
-                    value={member.nomineeYesNo || ''}
-                    onChange={(e) => handleMemberChange(idx, 'nomineeYesNo', e.target.value)}
+                    value={member.residentWith || member.residingWith || 'Yes'}
+                    onChange={(e) => {
+                      handleMemberChange(idx, 'residentWith', e.target.value);
+                      handleMemberChange(idx, 'residingWith', e.target.value);
+                    }}
                   >
-                    <option value="">Select</option>
                     <option value="Yes">Yes</option>
                     <option value="No">No</option>
                   </select>
-                </div>
-
-                <div className={styles.fieldGroup}>
-                  <label htmlFor={`fam-share-${idx}`} className={styles.label}>Nominee Share %</label>
-                  <input
-                    id={`fam-share-${idx}`}
-                    type="number"
-                    min="0"
-                    max="100"
-                    className={styles.input}
-                    placeholder="e.g. 100"
-                    value={member.nomineeSharePercent || ''}
-                    onChange={(e) => handleMemberChange(idx, 'nomineeSharePercent', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
                 </div>
 
                 <div className={styles.fieldGroup}>
