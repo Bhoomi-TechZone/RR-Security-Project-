@@ -14,7 +14,8 @@ import {
   Mail,
   Phone,
   Clock,
-  Shield
+  Shield,
+  Loader2
 } from 'lucide-react';
 import styles from './UsersTable.module.css';
 import Avatar from '../common/Avatar';
@@ -23,6 +24,7 @@ import Dropdown from '../common/Dropdown';
 function UsersTable({
   users = [],
   roles = [],
+  isLoading = false,
   onViewUser,
   onEditUser,
   onChangeRole,
@@ -161,7 +163,23 @@ function UsersTable({
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className={styles.loaderCell}>
+                    <div className={styles.loaderContainer}>
+                      <div className={styles.spinnerWrapper}>
+                        <Loader2 size={32} className={styles.spinnerIcon} />
+                      </div>
+                      <div className={styles.loaderTextWrap}>
+                        <h4 className={styles.loaderTitle}>Loading User Accounts</h4>
+                        <p className={styles.loaderSubtitle}>
+                          Fetching authenticated users and role assignments from database...
+                        </p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className={styles.emptyTd}>
                     <div className={styles.emptyState}>
@@ -200,7 +218,7 @@ function UsersTable({
                   const isSuspended = user.status === 'Suspended';
 
                   return (
-                    <tr key={user.id || user._id || user.userId} className={styles.row}>
+                    <tr key={user._id || user.id || user.userId} className={styles.row}>
                       {/* User Avatar + Name */}
                       <td>
                         <div className={styles.userCell}>
@@ -345,7 +363,16 @@ function UsersTable({
 
         {/* Mobile Card View */}
         <div className={styles.mobileList}>
-          {filteredUsers.map(user => {
+          {isLoading ? (
+            <div className={styles.mobileLoader}>
+              <div className={styles.spinnerWrapper}>
+                <Loader2 size={28} className={styles.spinnerIcon} />
+              </div>
+              <h4 className={styles.loaderTitle}>Loading User Accounts</h4>
+              <p className={styles.loaderSubtitle}>Fetching users from database...</p>
+            </div>
+          ) : (
+            filteredUsers.map(user => {
             const roleObj = roles.find(r => r.id === user.roleId || r.name === user.roleName);
             const isSystemRole = roleObj?.type === 'system';
             const isActive = user.status === 'Active';
@@ -393,7 +420,7 @@ function UsersTable({
                 </div>
               </div>
             );
-          })}
+          }))}
         </div>
       </div>
     </div>

@@ -39,7 +39,8 @@ function EmploymentStep({
   workLocations = []
 }) {
   const { activeCompany } = useCompany();
-  const companyId = data.companyId || activeCompany?.companyId || activeCompany?.id || '';
+  const primaryCompanyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const companyId = primaryCompanyId;
 
   const [managerOptions, setManagerOptions] = useState([]);
   const [supervisorOptions, setSupervisorOptions] = useState([]);
@@ -47,23 +48,63 @@ function EmploymentStep({
   useEffect(() => {
     let isCancelled = false;
     const fetchReportingUsers = async () => {
-      if (!companyId) return;
       try {
-        const [usersRes, rolesRes] = await Promise.allSettled([
-          userService.getUsers(companyId),
-          roleService.getRoles(companyId)
+        let userList = [];
+        let roleList = [];
+
+        // Gather all relevant company IDs to query (activeCompany companyId, id, data.companyId, and default)
+        const compIdsToTry = Array.from(
+          new Set([
+            primaryCompanyId,
+            activeCompany?.companyId,
+            activeCompany?.id,
+            data?.companyId,
+            'RRS8392014SEC'
+          ].filter(Boolean))
+        );
+
+        // Fetch users and roles across candidate company IDs to guarantee all active users are discovered
+        const userPromises = compIdsToTry.map(cid => userService.getUsers(cid).catch(() => []));
+        const rolePromises = compIdsToTry.map(cid => roleService.getRoles(cid).catch(() => []));
+
+        const [allUserArrays, allRoleArrays] = await Promise.all([
+          Promise.all(userPromises),
+          Promise.all(rolePromises)
         ]);
 
         if (isCancelled) return;
 
-        const userList = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) ? usersRes.value : [];
-        const roleList = rolesRes.status === 'fulfilled' && Array.isArray(rolesRes.value) ? rolesRes.value : [];
+        // Consolidate users deduplicated by _id / userId / name
+        const userMap = new Map();
+        allUserArrays.flat().forEach(u => {
+          if (!u) return;
+          const key = String(u._id || u.id || u.userId || u.name || '').trim().toLowerCase();
+          if (key && !userMap.has(key)) {
+            userMap.set(key, u);
+          }
+        });
+        userList = Array.from(userMap.values());
 
-        // Build role lookup map by ID and Name
+        // Consolidate roles deduplicated by roleId / id / _id
+        const roleMapById = new Map();
+        allRoleArrays.flat().forEach(r => {
+          if (!r) return;
+          const key = String(r.id || r._id || r.roleId || r.name || '').trim().toLowerCase();
+          if (key && !roleMapById.has(key)) {
+            roleMapById.set(key, r);
+          }
+        });
+        roleList = Array.from(roleMapById.values());
+
+        // Build role lookup map mapping every possible ID/code/name to lowercase role name
         const roleMap = new Map();
         roleList.forEach(r => {
-          const rId = String(r.id || r._id || r.roleId || '').trim();
-          if (rId) roleMap.set(rId, String(r.name || '').toLowerCase());
+          const rName = String(r.name || r.roleName || r.title || '').trim().toLowerCase();
+          if (!rName) return;
+          if (r.id) roleMap.set(String(r.id).trim().toLowerCase(), rName);
+          if (r._id) roleMap.set(String(r._id).trim().toLowerCase(), rName);
+          if (r.roleId) roleMap.set(String(r.roleId).trim().toLowerCase(), rName);
+          if (r.code) roleMap.set(String(r.code).trim().toLowerCase(), rName);
         });
 
         const managers = [];
@@ -75,27 +116,33 @@ function EmploymentStep({
           const name = (u.name || u.fullName || u.username || '').trim();
           if (!name) return;
 
-          // Check role name from user directly or via role lookup
-          const directRole = String(u.roleName || u.role || u.assignedRole || '').toLowerCase().trim();
-          const mappedRole = u.roleId ? (roleMap.get(String(u.roleId).trim()) || '') : '';
-          const roleCombined = `${directRole} ${mappedRole}`;
+          // Only show ACTIVE users (skip if explicitly inactive or suspended)
+          const statusStr = String(u.status || '').trim().toLowerCase();
+          if (statusStr === 'inactive' || statusStr === 'suspended') return;
 
-          const isSupervisor = (roleCombined.includes('supervisor') || roleCombined.includes('superviser')) && !roleCombined.includes('manager');
-          const isManager = (roleCombined.includes('manager') || roleCombined.includes('mgr')) && !roleCombined.includes('supervisor');
+          // Check role name from user directly or via role lookup
+          const roleName = String(u.roleName || '').trim().toLowerCase();
+          const role = String(u.role || '').trim().toLowerCase();
+          const assignedRole = String(u.assignedRole || '').trim().toLowerCase();
+          const roleIdStr = String(u.roleId || '').trim().toLowerCase();
+          const mappedRole = roleIdStr ? (roleMap.get(roleIdStr) || '') : '';
+
+          // Check Supervisor (handles 'supervisor', 'supervisior', 'superviser', etc.)
+          const isSupervisor =
+            roleName.includes('supervis') ||
+            role.includes('supervis') ||
+            assignedRole.includes('supervis') ||
+            mappedRole.includes('supervis');
+
+          // Check Manager (handles 'manager', 'mgr', etc.)
+          const isManager =
+            roleName.includes('manager') || roleName.includes('mgr') ||
+            role.includes('manager') || role.includes('mgr') ||
+            assignedRole.includes('manager') || assignedRole.includes('mgr') ||
+            mappedRole.includes('manager') || mappedRole.includes('mgr');
 
           const userId = u.userId || u.id || u.user_id || '';
           const label = userId ? `${name} (${userId})` : name;
-
-          if (isManager && !seenMgr.has(name.toLowerCase())) {
-            seenMgr.add(name.toLowerCase());
-            managers.push({
-              key: `mgr-${u._id || u.id || userId || name}`,
-              name: name,
-              userId: userId,
-              label: label,
-              role: u.roleName || 'Manager'
-            });
-          }
 
           if (isSupervisor && !seenSup.has(name.toLowerCase())) {
             seenSup.add(name.toLowerCase());
@@ -105,6 +152,17 @@ function EmploymentStep({
               userId: userId,
               label: label,
               role: u.roleName || 'Supervisor'
+            });
+          }
+
+          if (isManager && !seenMgr.has(name.toLowerCase())) {
+            seenMgr.add(name.toLowerCase());
+            managers.push({
+              key: `mgr-${u._id || u.id || userId || name}`,
+              name: name,
+              userId: userId,
+              label: label,
+              role: u.roleName || 'Manager'
             });
           }
         });
@@ -121,7 +179,7 @@ function EmploymentStep({
     return () => {
       isCancelled = true;
     };
-  }, [companyId]);
+  }, [primaryCompanyId, activeCompany?.companyId, activeCompany?.id, data?.companyId]);
 
   const currentMgrValue = useMemo(() => {
     if (!data.reportingManager) return '';
@@ -204,43 +262,92 @@ function EmploymentStep({
 
   const deptList = useMemo(() => {
     if (departments && departments.length > 0) {
-      return departments
-        .filter(d => typeof d === 'string' || !d.status || d.status === 'active' || d.name === data.department)
-        .map(d => (typeof d === 'string' ? d : d.name || d.label || d));
+      const seen = new Set();
+      const unique = [];
+      departments.forEach(d => {
+        if (!d) return;
+        const name = (typeof d === 'string' ? d : d.name || d.label || '').trim();
+        if (!name) return;
+        const isActive = typeof d === 'string' || !d.status || String(d.status).toLowerCase() === 'active' || name === data.department;
+        if (!isActive) return;
+        const lower = name.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          unique.push(name);
+        }
+      });
+      return unique;
     }
     return [];
   }, [departments, data.department]);
 
   const desgList = useMemo(() => {
     if (designations && designations.length > 0) {
-      return designations
-        .filter(d => typeof d === 'string' || !d.status || d.status === 'active' || d.name === data.designation)
-        .map(d => (typeof d === 'string' ? d : d.name || d.label || d));
+      const seen = new Set();
+      const unique = [];
+      designations.forEach(d => {
+        if (!d) return;
+        const name = (typeof d === 'string' ? d : d.name || d.label || '').trim();
+        if (!name) return;
+        const isActive = typeof d === 'string' || !d.status || String(d.status).toLowerCase() === 'active' || name === data.designation;
+        if (!isActive) return;
+        const lower = name.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          unique.push(name);
+        }
+      });
+      return unique;
     }
     return [];
   }, [designations, data.designation]);
 
   const empTypeList = useMemo(() => {
     if (employeeTypes && employeeTypes.length > 0) {
-      return employeeTypes
-        .filter(t => typeof t === 'string' || !t.status || t.status === 'active' || t.name === data.employeeType)
-        .map(t => (typeof t === 'string' ? t : t.name || t.label || t));
+      const seen = new Set();
+      const unique = [];
+      employeeTypes.forEach(t => {
+        if (!t) return;
+        const name = (typeof t === 'string' ? t : t.name || t.label || '').trim();
+        if (!name) return;
+        const isActive = typeof t === 'string' || !t.status || String(t.status).toLowerCase() === 'active' || name === data.employeeType;
+        if (!isActive) return;
+        const lower = name.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          unique.push(name);
+        }
+      });
+      return unique;
     }
     return [];
   }, [employeeTypes, data.employeeType]);
 
   const shiftList = useMemo(() => {
     if (shifts && shifts.length > 0) {
-      return shifts
-        .filter(s => typeof s === 'string' || !s.status || s.status === 'active' || s.name === data.shift)
-        .map(s => {
-          if (typeof s === 'string') return { name: s, label: s };
-          const timeInfo = s.startTime && s.endTime ? ` (${s.startTime} - ${s.endTime})` : '';
-          return { name: s.name, label: `${s.name}${timeInfo}` };
-        });
+      const seen = new Set();
+      const uniqueShifts = [];
+      shifts.forEach(s => {
+        if (!s) return;
+        const name = (typeof s === 'string' ? s : s.name || s.label || '').trim();
+        if (!name) return;
+        const isActive = typeof s === 'string' || !s.status || String(s.status).toLowerCase() === 'active' || name === data.shift || name === data.shiftPolicy;
+        if (!isActive) return;
+        const lowerName = name.toLowerCase();
+        if (!seen.has(lowerName)) {
+          seen.add(lowerName);
+          const timeInfo = typeof s === 'object' && s.startTime && s.endTime ? ` (${s.startTime} - ${s.endTime})` : '';
+          uniqueShifts.push({
+            id: typeof s === 'object' ? (s.id || s._id || name) : name,
+            name,
+            label: `${name}${timeInfo}`
+          });
+        }
+      });
+      return uniqueShifts;
     }
     return [];
-  }, [shifts, data.shift]);
+  }, [shifts, data.shift, data.shiftPolicy]);
 
   const siteList = useMemo(() => {
     if (!sites || sites.length === 0) return [];
@@ -303,9 +410,21 @@ function EmploymentStep({
 
   const locList = useMemo(() => {
     if (workLocations && workLocations.length > 0) {
-      return workLocations
-        .filter(l => typeof l === 'string' || !l.status || l.status === 'active' || (l.locationName || l.name) === data.joiningLocation)
-        .map(l => (typeof l === 'string' ? l : l.locationName || l.name || l));
+      const seen = new Set();
+      const unique = [];
+      workLocations.forEach(l => {
+        if (!l) return;
+        const name = (typeof l === 'string' ? l : l.locationName || l.name || '').trim();
+        if (!name) return;
+        const isActive = typeof l === 'string' || !l.status || String(l.status).toLowerCase() === 'active' || name === data.joiningLocation;
+        if (!isActive) return;
+        const lower = name.toLowerCase();
+        if (!seen.has(lower)) {
+          seen.add(lower);
+          unique.push(name);
+        }
+      });
+      return unique;
     }
     return [];
   }, [workLocations, data.joiningLocation]);
@@ -490,34 +609,9 @@ function EmploymentStep({
             </div>
           </div>
 
-          {/* Section 2: Shift & Reporting */}
+          {/* Section 2: Reporting To */}
           <div className={styles.sectionGroup}>
-            <h4 className={styles.sectionTitle}>Shift & Reporting</h4>
-
-            {/* Shift */}
-            <div className={styles.formRow}>
-              <label htmlFor="emp-shift" className={styles.rowLabel}>
-                <span>Shift</span>
-              </label>
-              <div className={styles.rowControl}>
-                <select
-                  id="emp-shift"
-                  className={styles.select}
-                  value={data.shift || ''}
-                  onChange={(e) => handleChange('shift', e.target.value)}
-                >
-                  <option value="">
-                    {shiftList.length > 0 ? 'Select Shift' : 'No active shifts in Masters'}
-                  </option>
-                  {shiftList.map(s => (
-                    <option key={s.name} value={s.name}>{s.label}</option>
-                  ))}
-                  {data.shift && !shiftList.some(s => s.name === data.shift) && (
-                    <option value={data.shift}>{data.shift}</option>
-                  )}
-                </select>
-              </div>
-            </div>
+            <h4 className={styles.sectionTitle}>Reporting To</h4>
 
             {/* Reporting Supervisor */}
             <div className={styles.formRow}>
@@ -692,10 +786,10 @@ function EmploymentStep({
                 >
                   <option value="">Select Shift Policy</option>
                   {shiftList.map(s => (
-                    <option key={s.name} value={s.name}>{s.label}</option>
+                    <option key={s.id || s.name} value={s.name}>{s.label}</option>
                   ))}
                   {data.shiftPolicy && !shiftList.some(s => s.name === data.shiftPolicy) && (
-                    <option value={data.shiftPolicy}>{data.shiftPolicy}</option>
+                    <option key={`custom-${data.shiftPolicy}`} value={data.shiftPolicy}>{data.shiftPolicy}</option>
                   )}
                 </select>
               </div>

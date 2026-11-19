@@ -60,7 +60,9 @@ const employeeSchema = new mongoose.Schema(
     sendMobileLogin: { type: Boolean, default: true },
     sendWebLogin: { type: Boolean, default: true },
     fatherHusbandName: { type: String, default: '' },
+    fatherName: { type: String, default: '' },
     fatherHusbandRelation: { type: String, default: '' },
+    noticePeriod: { type: String, default: '30 days' },
     gender: { type: String, default: 'Male' },
     dob: { type: String, default: '' },
     contact: { type: String, default: '' },
@@ -198,6 +200,8 @@ const employeeSchema = new mongoose.Schema(
     address: { type: String, default: '' },
     nomineeYesNo: { type: String, default: '' },
     nomineeSharePercent: { type: String, default: '' },
+    residentWith: { type: String, default: 'Yes' },
+    residingWith: { type: String, default: 'Yes' },
 
     // Documents & Notes
     documentList: { type: Array, default: [] },
@@ -217,6 +221,9 @@ const employeeSchema = new mongoose.Schema(
     otherInfo9: { type: String, default: '' },
     otherInfo10: { type: String, default: '' },
     additionalInfo: { type: mongoose.Schema.Types.Mixed, default: {} },
+
+    // Audit & Activity Logs
+    activityLogs: { type: Array, default: [] },
   },
   {
     timestamps: true,

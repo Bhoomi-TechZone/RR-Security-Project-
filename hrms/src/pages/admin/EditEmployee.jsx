@@ -124,6 +124,50 @@ function EditEmployee() {
 
   const handleSubmit = async (formData) => {
     try {
+      const activeUserStr = localStorage.getItem('novaspark_active_user');
+      let editorName = 'Ravi Rana';
+      try {
+        if (activeUserStr) {
+          const parsedUser = JSON.parse(activeUserStr);
+          if (parsedUser?.name) editorName = parsedUser.name;
+        }
+      } catch {}
+
+      const empCode = formData?.employeeCode || formData?.employeeId || employee?.employeeCode || id;
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = months[now.getMonth()];
+      const year = now.getFullYear();
+      let hours = now.getHours();
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      const formattedTimestamp = `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
+
+      // Check relation if family member updated
+      let actionTitle = 'Employee details updated';
+      if (formData.familyMembers && Array.isArray(formData.familyMembers) && formData.familyMembers.length > 0) {
+        const relation = formData.familyMembers[0]?.relation || 'Son';
+        actionTitle = `Family member record updated (${relation})`;
+      }
+
+      // Record to local storage for immediate reflection
+      try {
+        const storageKey = `novaspark_activity_logs_emp_${empCode}`;
+        const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+        const newLog = {
+          id: `log-${Date.now()}`,
+          action: actionTitle,
+          performedBy: editorName,
+          date: now.toISOString().split('T')[0],
+          timestamp: formattedTimestamp,
+          createdAt: now.toISOString()
+        };
+        localStorage.setItem(storageKey, JSON.stringify([newLog, ...existing]));
+      } catch {}
+
       const token = authService.getToken();
       const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
         method: 'PUT',
@@ -134,6 +178,8 @@ function EditEmployee() {
         },
         body: JSON.stringify({
           ...formData,
+          editorName,
+          activityLogAction: actionTitle,
           companyId: currentCompanyId
         })
       });

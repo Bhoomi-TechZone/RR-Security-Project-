@@ -584,6 +584,45 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
               </div>
             )}
 
+            {/* Spouse Name (Shown when Married) */}
+            {data.maritalStatus === 'Married' && (
+              <div className={styles.formRow}>
+                <label htmlFor="emp-spouse" className={styles.rowLabel}>
+                  <span>Spouse Name</span>
+                </label>
+                <div className={styles.rowControl}>
+                  <input
+                    id="emp-spouse"
+                    type="text"
+                    className={styles.input}
+                    placeholder="Enter Spouse Name"
+                    value={data.spouseName || ''}
+                    onChange={(e) => handleChange('spouseName', e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Father Name (Always shown for all statuses, before Personal E-Mail) */}
+            <div className={styles.formRow}>
+              <label htmlFor="emp-father" className={styles.rowLabel}>
+                <span>Father Name</span>
+              </label>
+              <div className={styles.rowControl}>
+                <input
+                  id="emp-father"
+                  type="text"
+                  className={styles.input}
+                  placeholder="Enter Father Name"
+                  value={data.fatherName || data.fatherHusbandName || ''}
+                  onChange={(e) => {
+                    handleChange('fatherName', e.target.value);
+                    handleChange('fatherHusbandName', e.target.value);
+                  }}
+                />
+              </div>
+            </div>
+
             {/* Personal E-Mail */}
             <div className={styles.formRow}>
               <label htmlFor="personal-email" className={styles.rowLabel}>
@@ -620,47 +659,6 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                 />
               </div>
             </div>
-
-            {/* Father Name (when Unmarried/Divorced/Widow) or Spouse Name (when Married) */}
-            {data.maritalStatus === 'Married' ? (
-              <div className={styles.formRow}>
-                <label htmlFor="emp-spouse" className={styles.rowLabel}>
-                  <span>Spouse Name</span>
-                </label>
-                <div className={styles.rowControl}>
-                  <input
-                    id="emp-spouse"
-                    type="text"
-                    className={styles.input}
-                    placeholder="Enter Spouse Name"
-                    value={data.spouseName || (data.maritalStatus === 'Married' ? data.fatherHusbandName : '') || ''}
-                    onChange={(e) => {
-                      handleChange('spouseName', e.target.value);
-                      handleChange('fatherHusbandName', e.target.value);
-                    }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <div className={styles.formRow}>
-                <label htmlFor="emp-father" className={styles.rowLabel}>
-                  <span>Father Name</span>
-                </label>
-                <div className={styles.rowControl}>
-                  <input
-                    id="emp-father"
-                    type="text"
-                    className={styles.input}
-                    placeholder="Enter Father Name"
-                    value={data.fatherName || data.fatherHusbandName || ''}
-                    onChange={(e) => {
-                      handleChange('fatherName', e.target.value);
-                      handleChange('fatherHusbandName', e.target.value);
-                    }}
-                  />
-                </div>
-              </div>
-            )}
 
             {/* Blood Group */}
             <div className={styles.formRow}>
