@@ -216,9 +216,9 @@ export const getEmployeeById = async (req, res) => {
 
     let query = { adminEmail };
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query.$or = [{ _id: id }, { employeeId: id }];
+      query.$or = [{ _id: id }, { employeeId: id }, { employeeCode: id }];
     } else {
-      query.employeeId = id;
+      query.$or = [{ employeeId: id }, { employeeCode: id }];
     }
 
     const employee = await Employee.findOne(query);
@@ -600,9 +600,9 @@ export const updateEmployee = async (req, res) => {
 
     let query = { adminEmail };
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query.$or = [{ _id: id }, { employeeId: id }];
+      query.$or = [{ _id: id }, { employeeId: id }, { employeeCode: id }];
     } else {
-      query.employeeId = id;
+      query.$or = [{ employeeId: id }, { employeeCode: id }];
     }
     if (companyId) query.companyId = companyId;
 
@@ -738,9 +738,9 @@ export const sendEmployeeCredentials = async (req, res) => {
 
     let query = { adminEmail };
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query.$or = [{ _id: id }, { employeeId: id }];
+      query.$or = [{ _id: id }, { employeeId: id }, { employeeCode: id }];
     } else {
-      query.employeeId = id;
+      query.$or = [{ employeeId: id }, { employeeCode: id }];
     }
     if (companyId) query.companyId = companyId;
 
@@ -882,9 +882,9 @@ export const deleteEmployee = async (req, res) => {
 
     let query = { adminEmail };
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query.$or = [{ _id: id }, { employeeId: id }];
+      query.$or = [{ _id: id }, { employeeId: id }, { employeeCode: id }];
     } else {
-      query.employeeId = id;
+      query.$or = [{ employeeId: id }, { employeeCode: id }];
     }
 
     const employee = await Employee.findOne(query);

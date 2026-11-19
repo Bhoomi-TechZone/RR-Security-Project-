@@ -192,7 +192,7 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
                   id={`lic-no-${idx}`}
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. DL-1420110012345"
+                  placeholder="Enter License Number"
                   value={license.licenseNo || ''}
                   onChange={(e) => handleLicenseChange(idx, 'licenseNo', e.target.value)}
                 />

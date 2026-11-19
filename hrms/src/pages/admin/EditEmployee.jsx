@@ -44,56 +44,79 @@ function EditEmployee() {
 
   // Fetch employee record
   useEffect(() => {
+    let isCancelled = false;
     const fetchEmployee = async () => {
       try {
         const token = authService.getToken();
+        const compId = currentCompanyId || employee?.companyId || '';
         const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
           headers: {
             'Authorization': `Bearer ${token || ''}`,
-            'x-company-id': currentCompanyId
+            'x-company-id': compId
           }
         });
         const data = await res.json();
+        if (isCancelled) return;
         if (res.ok && data.success && data.employee) {
           setEmployee(data.employee);
         } else {
           setToast({ message: data.message || 'Employee not found.', type: 'error' });
-          setTimeout(() => navigate(basePath), 1500);
+          if (!isCancelled) {
+            setTimeout(() => navigate(basePath), 1500);
+          }
         }
       } catch (err) {
-        console.error('Error fetching employee:', err);
-        setToast({ message: 'Failed to load employee details.', type: 'error' });
+        if (!isCancelled) {
+          console.error('Error fetching employee:', err);
+          setToast({ message: 'Failed to load employee details.', type: 'error' });
+        }
       }
     };
 
     if (id) {
       fetchEmployee();
     }
+
+    return () => {
+      isCancelled = true;
+    };
   }, [id, currentCompanyId, navigate, basePath]);
 
-  // Fetch dropdown masters
+  // Fetch dropdown masters & employee list
   const fetchMasters = useCallback(async () => {
-    if (!currentCompanyId) return;
+    const compId = currentCompanyId || employee?.companyId;
+    if (!compId) return;
     try {
-      clientService.getClients(currentCompanyId).then(setClients).catch(() => {});
-      masterService.getMasters('departments', currentCompanyId).then(setDepartments).catch(() => {});
-      masterService.getMasters('designations', currentCompanyId).then(setDesignations).catch(() => {});
-      masterService.getMasters('employee-types', currentCompanyId).then(setEmployeeTypes).catch(() => {});
-      masterService.getMasters('sites', currentCompanyId).then(setSites).catch(() => {});
-      masterService.getMasters('posts', currentCompanyId).then(setPosts).catch(() => {});
-      masterService.getMasters('shifts', currentCompanyId).then(setShifts).catch(() => {});
-      masterService.getMasters('banks', currentCompanyId).then(setBanks).catch(() => {});
-      masterService.getMasters('document-types', currentCompanyId).then(setDocumentTypes).catch(() => {});
-      workLocationService.getWorkLocations(currentCompanyId).then(setWorkLocations).catch(() => {});
+      clientService.getClients(compId).then(setClients).catch(() => {});
+      masterService.getMasters('departments', compId).then(setDepartments).catch(() => {});
+      masterService.getMasters('designations', compId).then(setDesignations).catch(() => {});
+      masterService.getMasters('employee-types', compId).then(setEmployeeTypes).catch(() => {});
+      masterService.getMasters('sites', compId).then(setSites).catch(() => {});
+      masterService.getMasters('posts', compId).then(setPosts).catch(() => {});
+      masterService.getMasters('shifts', compId).then(setShifts).catch(() => {});
+      masterService.getMasters('banks', compId).then(setBanks).catch(() => {});
+      masterService.getMasters('document-types', compId).then(setDocumentTypes).catch(() => {});
+      workLocationService.getWorkLocations(compId).then(setWorkLocations).catch(() => {});
       
-      const allEmps = await employeeService.getEmployees(currentCompanyId);
+      const allEmps = await employeeService.getEmployees(compId);
       const emps = Array.isArray(allEmps) ? allEmps : [];
       setEmployeesCount(emps.length);
-      setEmployeeList(emps);
+
+      // Sort employees in natural sequence by code/id (e.g. RR-001, RR-002 ... RR-020)
+      const sortedEmps = [...emps].sort((a, b) => {
+        const codeA = String(a.employeeCode || a.employeeId || a.id || '').trim();
+        const codeB = String(b.employeeCode || b.employeeId || b.id || '').trim();
+        if (codeA && codeB) {
+          return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        }
+        return 0;
+      });
+
+      setEmployeeList(sortedEmps);
     } catch (err) {
       console.error('Error fetching master records for EditEmployee:', err);
     }
-  }, [currentCompanyId]);
+  }, [currentCompanyId, employee?.companyId]);
 
   useEffect(() => {
     fetchMasters();
@@ -139,9 +162,24 @@ function EditEmployee() {
     );
   }
 
-  const currentEmpIndex = employeeList.findIndex(
-    (e) => String(e._id || e.id || e.employeeId) === String(id)
-  );
+  // Find index of current employee in employeeList
+  const currentEmpIndex = employeeList.findIndex((e) => {
+    if (!e) return false;
+    const match = (val) => val && String(val).trim().toLowerCase() === String(id).trim().toLowerCase();
+    const matchWith = (val, target) => val && target && String(val).trim().toLowerCase() === String(target).trim().toLowerCase();
+
+    return (
+      match(e.employeeCode) ||
+      match(e.employeeId) ||
+      match(e.empCode) ||
+      match(e.id) ||
+      match(e._id) ||
+      matchWith(e._id, employee?._id) ||
+      matchWith(e.employeeId, employee?.employeeId) ||
+      matchWith(e.employeeCode, employee?.employeeCode)
+    );
+  });
+
   const prevEmp = currentEmpIndex > 0 ? employeeList[currentEmpIndex - 1] : null;
   const nextEmp = (currentEmpIndex >= 0 && currentEmpIndex < employeeList.length - 1)
     ? employeeList[currentEmpIndex + 1]
@@ -149,15 +187,17 @@ function EditEmployee() {
 
   const handlePrevEmployee = () => {
     if (prevEmp) {
-      const targetId = prevEmp._id || prevEmp.id || prevEmp.employeeId;
-      navigate(`${basePath}/${targetId}/edit`);
+      const targetId = prevEmp.employeeCode || prevEmp.employeeId || prevEmp.id || prevEmp._id;
+      const isEditRoute = location.pathname.endsWith('/edit');
+      navigate(`${basePath}/${targetId}${isEditRoute ? '/edit' : ''}`);
     }
   };
 
   const handleNextEmployee = () => {
     if (nextEmp) {
-      const targetId = nextEmp._id || nextEmp.id || nextEmp.employeeId;
-      navigate(`${basePath}/${targetId}/edit`);
+      const targetId = nextEmp.employeeCode || nextEmp.employeeId || nextEmp.id || nextEmp._id;
+      const isEditRoute = location.pathname.endsWith('/edit');
+      navigate(`${basePath}/${targetId}${isEditRoute ? '/edit' : ''}`);
     }
   };
 

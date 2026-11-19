@@ -5,7 +5,8 @@ import PersonalInfoStep from './PersonalInfoStep';
 import EmploymentStep from './EmploymentStep';
 import SalaryStructureStep from './SalaryStructureStep';
 import BankDetailsStep from './BankDetailsStep';
-import AddressFamilyStep from './AddressFamilyStep';
+import AddressStep from './AddressStep';
+import FamilyStep from './FamilyStep';
 import DocumentsStep from './DocumentsStep';
 import EmployeeReview from './EmployeeReview';
 import EmployeeSummaryStep from './EmployeeSummaryStep';
@@ -21,12 +22,13 @@ const STEPS = [
   { id: 'employment', label: 'Employment Details', number: '03' },
   { id: 'salary', label: 'Salary & Statutory', number: '04' },
   { id: 'statutory', label: 'Bank Details', number: '05' },
-  { id: 'address', label: 'Address & Family', number: '06' },
-  { id: 'documents', label: 'Documents', number: '07' },
-  { id: 'login', label: 'Login Access', number: '08' },
-  { id: 'additional', label: 'Additional Info', number: '09' },
-  { id: 'activity', label: 'Activity Logs', number: '10' },
-  { id: 'review', label: 'Review & Submit', number: '11' }
+  { id: 'address', label: 'Addresses', number: '06' },
+  { id: 'family', label: 'Family Details', number: '07' },
+  { id: 'documents', label: 'Documents', number: '08' },
+  { id: 'login', label: 'Login Access', number: '09' },
+  { id: 'additional', label: 'Additional Info', number: '10' },
+  { id: 'activity', label: 'Activity Logs', number: '11' },
+  { id: 'review', label: 'Review & Submit', number: '12' }
 ];
 
 const QUICK_NAV_SECTIONS = [
@@ -35,11 +37,12 @@ const QUICK_NAV_SECTIONS = [
   { id: 'section-employment', number: '03', label: 'Employment Details' },
   { id: 'section-salary', number: '04', label: 'Salary & Statutory' },
   { id: 'section-bank', number: '05', label: 'Bank Details' },
-  { id: 'section-address', number: '06', label: 'Address & Family' },
-  { id: 'section-documents', number: '07', label: 'Documents' },
-  { id: 'section-login', number: '08', label: 'Login Access' },
-  { id: 'section-additional', number: '09', label: 'Additional Info' },
-  { id: 'section-activity', number: '10', label: 'Activity Logs' },
+  { id: 'section-address', number: '06', label: 'Addresses' },
+  { id: 'section-family', number: '07', label: 'Family Details' },
+  { id: 'section-documents', number: '08', label: 'Documents' },
+  { id: 'section-login', number: '09', label: 'Login Access' },
+  { id: 'section-additional', number: '10', label: 'Additional Info' },
+  { id: 'section-activity', number: '11', label: 'Activity Logs' },
 ];
 
 const DEFAULT_FORM_DATA = {
@@ -50,6 +53,7 @@ const DEFAULT_FORM_DATA = {
   middleName: '',
   lastName: '',
   fatherHusbandName: '',
+  fatherName: '',
   fatherHusbandRelation: '',
   gender: '',
   dob: '',
@@ -58,6 +62,8 @@ const DEFAULT_FORM_DATA = {
   emergencyMobile: '',
   email: '',
   maritalStatus: '',
+  marriedDate: '',
+  marriageDate: '',
   spouseName: '',
   bloodGroup: '',
   religion: '',
@@ -77,12 +83,15 @@ const DEFAULT_FORM_DATA = {
   siteLocation: '',
   dutyPost: '',
   shift: '',
+  shiftPolicy: '',
+  weekOffPolicy: 'Sunday Fixed',
   attendanceMethod: 'Manual',
   attendanceMethods: ['Default / WiFi / Geolocation'],
   allowMobileAppLogin: true,
   attendanceHolidayOfficeOff: false,
   autoPunchOutLocationOff: false,
   reportingSupervisor: '',
+  reportingManager: '',
   joiningLocation: '',
   previousExperience: '',
   language: '',
@@ -286,7 +295,8 @@ const normalizeEmployeeForForm = (employee) => {
     firstName: inferredFirst,
     middleName: inferredMiddle,
     lastName: inferredLast,
-    fatherHusbandName: employee.fatherHusbandName ?? '',
+    fatherHusbandName: employee.fatherHusbandName ?? employee.fatherName ?? '',
+    fatherName: employee.fatherName ?? employee.fatherHusbandName ?? '',
     fatherHusbandRelation: employee.fatherHusbandRelation ?? employee.fatherRelation ?? '',
     gender: employee.gender ?? '',
     dob: employee.dob ?? '',
@@ -295,6 +305,8 @@ const normalizeEmployeeForForm = (employee) => {
     emergencyMobile: employee.emergencyMobile ?? employee.alternateMobile ?? '',
     email: employee.email ?? '',
     maritalStatus: employee.maritalStatus ?? '',
+    marriedDate: employee.marriedDate ?? employee.marriageDate ?? '',
+    marriageDate: employee.marriageDate ?? employee.marriedDate ?? '',
     spouseName: employee.spouseName ?? '',
     bloodGroup: employee.bloodGroup ?? '',
     religion: employee.religion ?? '',
@@ -307,11 +319,15 @@ const normalizeEmployeeForForm = (employee) => {
     companyName: employee.companyName ?? employee.clientName ?? '',
     department: employee.department ?? '',
     designation: employee.designation ?? '',
-    clientAddress: employee.clientAddress ?? employee.siteLocation ?? employee.site ?? employee.address ?? '',
+    clientAddress: (employee.clientAddress && employee.clientAddress !== 'Branch Office' && employee.clientAddress !== 'Main Site')
+      ? employee.clientAddress
+      : (employee.clientCompanyAddress || employee.address || ''),
     site: employee.site ?? employee.siteLocation ?? '',
     siteLocation: employee.site ?? employee.siteLocation ?? '',
     dutyPost: employee.dutyPost ?? '',
-    shift: employee.shift ?? '',
+    shift: employee.shift ?? employee.shiftPolicy ?? '',
+    shiftPolicy: employee.shiftPolicy ?? employee.shift ?? '',
+    weekOffPolicy: employee.weekOffPolicy ?? 'Sunday Fixed',
     attendanceMethod: employee.attendanceMethod ?? 'Manual',
     attendanceMethods: Array.isArray(employee.attendanceMethods) && employee.attendanceMethods.length > 0
       ? employee.attendanceMethods
@@ -320,6 +336,7 @@ const normalizeEmployeeForForm = (employee) => {
     attendanceHolidayOfficeOff: employee.attendanceHolidayOfficeOff !== undefined ? !!employee.attendanceHolidayOfficeOff : false,
     autoPunchOutLocationOff: employee.autoPunchOutLocationOff !== undefined ? !!employee.autoPunchOutLocationOff : false,
     reportingSupervisor: employee.reportingSupervisor ?? '',
+    reportingManager: employee.reportingManager ?? '',
     joiningLocation: employee.joiningLocation ?? '',
     previousExperience: employee.previousExperience ?? '',
     language: employee.language ?? '',
@@ -435,6 +452,7 @@ function EmployeeForm({
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeNavBtn, setActiveNavBtn] = useState(null);
   const modalRef = useRef(null);
 
   const isEditMode = !!employee;
@@ -449,7 +467,9 @@ function EmployeeForm({
 
   useEffect(() => {
     if (shouldShow) {
-      setCurrentStep(0);
+      if (!isPageMode) {
+        setCurrentStep(0);
+      }
       setErrors({});
 
       if (employee) {
@@ -546,7 +566,27 @@ function EmployeeForm({
     if (isSubmitting) return;
     try {
       setIsSubmitting(true);
-      await onSubmit(formData);
+      const selClient = (clients || []).find(
+        c => (c.clientId && c.clientId === formData.clientId) ||
+             (c.id && c.id === formData.clientId) ||
+             (c._id && c._id === formData.clientId) ||
+             (c.name && (c.name === formData.clientName || c.name === formData.companyName))
+      );
+      const resolvedAddress = selClient?.address ||
+        ((formData.clientAddress && formData.clientAddress !== 'Branch Office' && formData.clientAddress !== 'Main Site') ? formData.clientAddress : '');
+
+      const payload = {
+        ...formData,
+        shift: formData.shiftPolicy || formData.shift || '',
+        shiftPolicy: formData.shiftPolicy || formData.shift || '',
+        weekOffPolicy: formData.weekOffPolicy || 'Sunday Fixed',
+        ...(resolvedAddress ? {
+          clientAddress: resolvedAddress,
+          siteLocation: resolvedAddress,
+          site: resolvedAddress
+        } : {})
+      };
+      await onSubmit(payload);
     } catch (err) {
       console.error('Error saving employee:', err);
     } finally {
@@ -615,8 +655,12 @@ function EmployeeForm({
                   <div className={styles.navRoundButtonsRow}>
                     <button
                       type="button"
-                      className={styles.roundNavBtn}
-                      onClick={onPrevEmployee}
+                      className={`${styles.roundNavBtn} ${activeNavBtn === 'prev' ? styles.roundNavBtnActive : ''}`}
+                      onClick={() => {
+                        setActiveNavBtn('prev');
+                        onPrevEmployee?.();
+                        setTimeout(() => setActiveNavBtn(null), 350);
+                      }}
                       disabled={!hasPrevEmployee}
                       title={hasPrevEmployee ? "Previous Employee" : "No previous employee"}
                       aria-label="Previous Employee"
@@ -625,8 +669,12 @@ function EmployeeForm({
                     </button>
                     <button
                       type="button"
-                      className={styles.roundNavBtn}
-                      onClick={onNextEmployee}
+                      className={`${styles.roundNavBtn} ${activeNavBtn === 'next' ? styles.roundNavBtnActive : ''}`}
+                      onClick={() => {
+                        setActiveNavBtn('next');
+                        onNextEmployee?.();
+                        setTimeout(() => setActiveNavBtn(null), 350);
+                      }}
                       disabled={!hasNextEmployee}
                       title={hasNextEmployee ? "Next Employee" : "No next employee"}
                       aria-label="Next Employee"
@@ -737,16 +785,25 @@ function EmployeeForm({
               />
             </section>
 
-            {/* 06. Address & Family */}
+            {/* 06. Addresses */}
             <section
               id="section-address"
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-address' ? 'block' : 'none' }}
             >
-              <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
+              <AddressStep data={formData} onChange={handleFormDataChange} />
             </section>
 
-            {/* 07. Documents & Licenses */}
+            {/* 07. Family Details */}
+            <section
+              id="section-family"
+              className={styles.plainSectionCard}
+              style={{ display: activeSection === 'section-family' ? 'block' : 'none' }}
+            >
+              <FamilyStep data={formData} onChange={handleFormDataChange} />
+            </section>
+
+            {/* 08. Documents & Licenses */}
             <section
               id="section-documents"
               className={styles.sectionCard}
@@ -754,7 +811,7 @@ function EmployeeForm({
             >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>07</span>
+                  <span className={styles.sectionNumber}>08</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Documents & Licenses</h3>
                     <p className={styles.sectionSubtitle}>Driving & armed licenses, KYC documents and administrative verification</p>
@@ -793,7 +850,7 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 08. Login Access */}
+            {/* 09. Login Access */}
             <section
               id="section-login"
               className={styles.plainSectionCard}
@@ -806,7 +863,7 @@ function EmployeeForm({
               />
             </section>
 
-            {/* 09. Additional Info */}
+            {/* 10. Additional Info */}
             <section
               id="section-additional"
               className={styles.sectionCard}
@@ -814,7 +871,7 @@ function EmployeeForm({
             >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>09</span>
+                  <span className={styles.sectionNumber}>10</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Additional Info</h3>
                     <p className={styles.sectionSubtitle}>Customized data fields and additional organizational notes</p>
@@ -852,7 +909,7 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 10. Activity Logs */}
+            {/* 11. Activity Logs */}
             <section
               id="section-activity"
               className={styles.sectionCard}
@@ -860,7 +917,7 @@ function EmployeeForm({
             >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>10</span>
+                  <span className={styles.sectionNumber}>11</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Activity Logs</h3>
                     <p className={styles.sectionSubtitle}>System audit trail, authentication logs and record change history</p>
@@ -982,9 +1039,12 @@ function EmployeeForm({
               />
             )}
             {currentStep === 5 && (
-              <AddressFamilyStep data={formData} onChange={handleFormDataChange} />
+              <AddressStep data={formData} onChange={handleFormDataChange} />
             )}
             {currentStep === 6 && (
+              <FamilyStep data={formData} onChange={handleFormDataChange} />
+            )}
+            {currentStep === 7 && (
               <DocumentsStep
                 data={formData}
                 onChange={handleFormDataChange}
@@ -992,24 +1052,24 @@ function EmployeeForm({
                 documentTypes={documentTypes}
               />
             )}
-            {currentStep === 7 && (
+            {currentStep === 8 && (
               <LoginAccessStep
                 data={formData}
                 onChange={handleFormDataChange}
                 isEditMode={isEditMode}
               />
             )}
-            {currentStep === 8 && (
+            {currentStep === 9 && (
               <AdditionalInfoStep
                 data={formData}
                 onChange={handleFormDataChange}
                 isSubmitting={isSubmitting}
               />
             )}
-            {currentStep === 9 && (
+            {currentStep === 10 && (
               <ActivityLogsStep data={formData} />
             )}
-            {currentStep === 10 && (
+            {currentStep === 11 && (
               <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
             )}
           </div>

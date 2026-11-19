@@ -172,7 +172,8 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
           />
           <p className={styles.avatarMetaText}>Maximum File Size: 1 MB</p>
           <label htmlFor="emp-avatar-upload" className={styles.avatarHintAction}>
-            <span>👆 Click on the image to change</span>
+            <Camera size={13} />
+            <span>Click on the image to change</span>
           </label>
         </div>
 
@@ -341,7 +342,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="emp-mobile"
                   type="tel"
                   className={styles.input}
-                  placeholder="e.g. 9999890891"
+                  placeholder="Enter Mobile Number"
                   value={data.mobile || ''}
                   onChange={(e) => handleChange('mobile', e.target.value)}
                 />
@@ -351,14 +352,14 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
             {/* Office Phone */}
             <div className={styles.formRow}>
               <label htmlFor="office-phone" className={styles.rowLabel}>
-                <span>Office Phone</span>
+                <span>Official Phone Number</span>
               </label>
               <div className={styles.rowControl}>
                 <input
                   id="office-phone"
                   type="tel"
                   className={styles.input}
-                  placeholder="e.g. 01122658779"
+                  placeholder="Enter Official Phone Number"
                   value={data.officePhone || ''}
                   onChange={(e) => handleChange('officePhone', e.target.value)}
                 />
@@ -375,7 +376,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="official-email"
                   type="email"
                   className={styles.input}
-                  placeholder="office.rrsf@gmail.com"
+                  placeholder="Enter Mail"
                   value={data.email || ''}
                   onChange={(e) => handleChange('email', e.target.value)}
                 />
@@ -392,7 +393,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="emp-code"
                   type="text"
                   className={`${styles.input} ${styles.readOnlyInput}`}
-                  placeholder="RRS001"
+                  placeholder="Code"
                   value={data.employeeCode || data.employeeId || ''}
                   readOnly
                   disabled
@@ -413,7 +414,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="biometric-code"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. BIO001"
+                  placeholder="Code"
                   value={data.biometricCode || ''}
                   onChange={(e) => handleChange('biometricCode', e.target.value)}
                 />
@@ -467,7 +468,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
               <label className={styles.rowLabel}>
                 <span>Gender</span>
               </label>
-              <div className={styles.rowControl}>
+              <div className={`${styles.rowControl} ${styles.radioRowControl}`}>
                 <div className={styles.radioGroup}>
                   <label className={styles.radioLabel}>
                     <input
@@ -511,7 +512,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
               <label className={styles.rowLabel}>
                 <span>Marital Status</span>
               </label>
-              <div className={styles.rowControl}>
+              <div className={`${styles.rowControl} ${styles.radioRowControl}`}>
                 <div className={styles.radioGroup}>
                   <label className={styles.radioLabel}>
                     <input
@@ -535,32 +536,49 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                     />
                     <span>Married</span>
                   </label>
-                  <input
-                    type="date"
-                    className={styles.anniversaryDateInput}
-                    placeholder="mm/dd/yyyy"
-                    value={data.marriageDate || ''}
-                    onChange={(e) => handleChange('marriageDate', e.target.value)}
-                    title="Marriage Date / Anniversary"
-                  />
+                  <label className={styles.radioLabel}>
+                    <input
+                      type="radio"
+                      name="maritalStatus"
+                      value="Divorced"
+                      checked={data.maritalStatus === 'Divorced'}
+                      onChange={() => handleChange('maritalStatus', 'Divorced')}
+                      className={styles.radioInput}
+                    />
+                    <span>Divorced</span>
+                  </label>
+                  <label className={styles.radioLabel}>
+                    <input
+                      type="radio"
+                      name="maritalStatus"
+                      value="Widow"
+                      checked={data.maritalStatus === 'Widow' || data.maritalStatus === 'Widowed' || data.maritalStatus === 'Window'}
+                      onChange={() => handleChange('maritalStatus', 'Widow')}
+                      className={styles.radioInput}
+                    />
+                    <span>Widow</span>
+                  </label>
                 </div>
               </div>
             </div>
 
-            {/* Spouse Name (Shown when Married) */}
+            {/* Married Date (Shown when Married) */}
             {data.maritalStatus === 'Married' && (
               <div className={styles.formRow}>
-                <label htmlFor="emp-spouse" className={styles.rowLabel}>
-                  <span>Spouse Name</span>
+                <label htmlFor="emp-married-date" className={styles.rowLabel}>
+                  <span>Married Date</span>
                 </label>
                 <div className={styles.rowControl}>
                   <input
-                    id="emp-spouse"
-                    type="text"
+                    id="emp-married-date"
+                    type="date"
                     className={styles.input}
-                    placeholder="Enter spouse name"
-                    value={data.spouseName || ''}
-                    onChange={(e) => handleChange('spouseName', e.target.value)}
+                    value={data.marriedDate || data.marriageDate || ''}
+                    onChange={(e) => {
+                      handleChange('marriedDate', e.target.value);
+                      handleChange('marriageDate', e.target.value);
+                    }}
+                    title="Married Date"
                   />
                 </div>
               </div>
@@ -576,7 +594,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="personal-email"
                   type="email"
                   className={styles.input}
-                  placeholder="rrsecurity@gmail.com"
+                  placeholder="Enter Email"
                   value={data.personalEmail || ''}
                   onChange={(e) => handleChange('personalEmail', e.target.value)}
                 />
@@ -593,7 +611,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="personal-phone"
                   type="tel"
                   className={styles.input}
-                  placeholder="9978798978"
+                  placeholder="Enter Personal Phone Number"
                   value={data.emergencyMobile || data.alternateMobile || ''}
                   onChange={(e) => {
                     handleChange('emergencyMobile', e.target.value);
@@ -603,45 +621,46 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
               </div>
             </div>
 
-            {/* Father/Husband Name */}
-            <div className={styles.formRow}>
-              <label htmlFor="emp-father" className={styles.rowLabel}>
-                <span>Father/Husband Name</span>
-              </label>
-              <div className={styles.rowControl}>
-                <input
-                  id="emp-father"
-                  type="text"
-                  className={styles.input}
-                  placeholder="Enter father or husband name"
-                  value={data.fatherHusbandName || ''}
-                  onChange={(e) => handleChange('fatherHusbandName', e.target.value)}
-                />
+            {/* Father Name (when Unmarried/Divorced/Widow) or Spouse Name (when Married) */}
+            {data.maritalStatus === 'Married' ? (
+              <div className={styles.formRow}>
+                <label htmlFor="emp-spouse" className={styles.rowLabel}>
+                  <span>Spouse Name</span>
+                </label>
+                <div className={styles.rowControl}>
+                  <input
+                    id="emp-spouse"
+                    type="text"
+                    className={styles.input}
+                    placeholder="Enter Spouse Name"
+                    value={data.spouseName || (data.maritalStatus === 'Married' ? data.fatherHusbandName : '') || ''}
+                    onChange={(e) => {
+                      handleChange('spouseName', e.target.value);
+                      handleChange('fatherHusbandName', e.target.value);
+                    }}
+                  />
+                </div>
               </div>
-            </div>
-
-            {/* Relation */}
-            <div className={styles.formRow}>
-              <label htmlFor="emp-father-relation" className={styles.rowLabel}>
-                <span>Relation</span>
-              </label>
-              <div className={styles.rowControl}>
-                <select
-                  id="emp-father-relation"
-                  className={styles.select}
-                  value={data.fatherHusbandRelation || ''}
-                  onChange={(e) => handleChange('fatherHusbandRelation', e.target.value)}
-                >
-                  <option value="">Select Relation</option>
-                  <option value="Father">Father</option>
-                  <option value="Husband">Husband</option>
-                  <option value="Mother">Mother</option>
-                  <option value="Spouse">Spouse</option>
-                  <option value="Guardian">Guardian</option>
-                  <option value="Other">Other</option>
-                </select>
+            ) : (
+              <div className={styles.formRow}>
+                <label htmlFor="emp-father" className={styles.rowLabel}>
+                  <span>Father Name</span>
+                </label>
+                <div className={styles.rowControl}>
+                  <input
+                    id="emp-father"
+                    type="text"
+                    className={styles.input}
+                    placeholder="Enter Father Name"
+                    value={data.fatherName || data.fatherHusbandName || ''}
+                    onChange={(e) => {
+                      handleChange('fatherName', e.target.value);
+                      handleChange('fatherHusbandName', e.target.value);
+                    }}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Blood Group */}
             <div className={styles.formRow}>
@@ -683,7 +702,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="emp-aadhaar"
                   type="text"
                   className={styles.input}
-                  placeholder="12-digit Aadhaar No."
+                  placeholder="Enter Aadhaar Number"
                   value={data.aadhaar || ''}
                   onChange={(e) => handleChange('aadhaar', e.target.value)}
                 />
@@ -700,7 +719,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="emp-pan"
                   type="text"
                   className={styles.input}
-                  placeholder="10-digit PAN No."
+                  placeholder="Enter Pan Number"
                   value={data.pan || ''}
                   onChange={(e) => handleChange('pan', e.target.value.toUpperCase())}
                 />
@@ -741,7 +760,7 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
                   id="emp-nationality"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. Indian"
+                  placeholder="Enter Nationality"
                   value={data.nationality ?? 'Indian'}
                   onChange={(e) => handleChange('nationality', e.target.value)}
                 />

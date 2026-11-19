@@ -311,7 +311,7 @@ function EmployeeSummaryStep({ data }) {
               <span className={styles.managerLabel}>REPORTING MANAGER</span>
               <div className={styles.managerValueBox}>
                 <span className={styles.questionBadge}>?</span>
-                <span>{data.reportingSupervisor || 'Not Defined'}</span>
+                <span>{data.reportingManager || data.reportingSupervisor || 'Not Defined'}</span>
               </div>
             </div>
 

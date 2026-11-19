@@ -103,13 +103,17 @@ function EmployeeReview({ data, onEditStep }) {
           </div>
           <div className={styles.reviewBody}>
             <ReviewRow label="Employee Name" value={data.name || '—'} />
-            <ReviewRow label="Father/Husband Name" value={`${data.fatherHusbandName || '—'}${data.fatherHusbandRelation ? ` (${data.fatherHusbandRelation})` : ''}`} />
+            {data.maritalStatus === 'Married' ? (
+              <ReviewRow label="Spouse Name" value={data.spouseName || (data.maritalStatus === 'Married' ? data.fatherHusbandName : '') || '—'} />
+            ) : (
+              <ReviewRow label="Father Name" value={data.fatherName || data.fatherHusbandName || '—'} />
+            )}
             <ReviewRow label="Gender" value={data.gender || '—'} />
             <ReviewRow label="Date of Birth" value={data.dob || '—'} />
             <ReviewRow label="Blood Group" value={data.bloodGroup || '—'} />
             <ReviewRow label="Marital Status" value={data.maritalStatus || '—'} />
-            {data.maritalStatus === 'Married' && (
-              <ReviewRow label="Spouse Name" value={data.spouseName || '—'} />
+            {data.maritalStatus === 'Married' && (data.marriedDate || data.marriageDate) && (
+              <ReviewRow label="Married Date" value={data.marriedDate || data.marriageDate || '—'} />
             )}
             <ReviewRow label="Aadhaar No." value={data.aadhaar || '—'} />
             <ReviewRow label="PAN No." value={data.pan || '—'} />
@@ -161,10 +165,14 @@ function EmployeeReview({ data, onEditStep }) {
             <ReviewRow label="Employee Type" value={data.employeeType || '—'} />
             <ReviewRow label="Designation" value={data.designation || '—'} />
             <ReviewRow label="Department" value={data.department || '—'} />
-            <ReviewRow label="Client Site" value={data.site || data.siteLocation || data.clientAddress || '—'} />
-            <ReviewRow label="Duty Post" value={data.dutyPost || '—'} />
-            <ReviewRow label="Shift" value={data.shift || '—'} />
+            <ReviewRow label="Client Location" value={data.siteLocation || data.site || data.clientAddress || '—'} />
+            {data.clientAddress && (data.siteLocation || data.site) && (
+              <ReviewRow label="Client Address" value={data.clientAddress} />
+            )}
+            <ReviewRow label="Shift Policy" value={data.shiftPolicy || data.shift || '—'} />
+            <ReviewRow label="Weekoff Policy" value={data.weekOffPolicy || 'Sunday Fixed'} />
             <ReviewRow label="Reporting Supervisor" value={data.reportingSupervisor || '—'} />
+            <ReviewRow label="Reporting Manager" value={data.reportingManager || '—'} />
             <ReviewRow label="Joining Location" value={data.joiningLocation || '—'} />
             <ReviewRow label="Previous Experience" value={data.previousExperience || '—'} />
             <ReviewRow label="Language (Read + Write)" value={data.language || '—'} />
@@ -255,7 +263,7 @@ function EmployeeReview({ data, onEditStep }) {
           </div>
           <div className={styles.reviewBody}>
             <ReviewRow label="Bank Name" value={data.bankName || '—'} />
-            <ReviewRow label="Branch Name" value={data.branchName || '—'} />
+            {data.branchName && <ReviewRow label="Branch Name" value={data.branchName} />}
             <ReviewRow label="Account Holder" value={data.accountHolder || '—'} />
             <ReviewRow label="Account Number" value={data.accountNumber || '—'} />
             <ReviewRow label="IFSC Code" value={data.ifsc || '—'} />

@@ -491,11 +491,18 @@
 }
 
 /* Radio Group for Gender & Marital Status */
+.radioRowControl {
+  flex: 1 1 auto;
+  width: auto;
+  max-width: none;
+}
+
 .radioGroup {
   display: flex;
   align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+  gap: 14px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .radioLabel {

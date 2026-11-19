@@ -318,7 +318,7 @@ function LoginAccessStep({ data, onChange, isEditMode = false }) {
                   id="login-email"
                   type="email"
                   className={styles.input}
-                  placeholder="e.g. employee@company.com"
+                  placeholder="Enter Corporate Email"
                   value={data.email || ''}
                   onChange={(e) => handleFieldChange('email', e.target.value)}
                 />
