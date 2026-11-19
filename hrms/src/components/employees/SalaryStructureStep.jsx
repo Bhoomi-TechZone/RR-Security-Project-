@@ -189,7 +189,7 @@ function SalaryStructureStep({ data, onChange }) {
                   id="salary-min-wage"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. Skilled, Semi-Skilled, Unskilled"
+                  placeholder="Enter Minimum Wage Category"
                   value={data.minimumWageCategory || ''}
                   onChange={(e) => handleChange('minimumWageCategory', e.target.value)}
                 />
@@ -454,7 +454,7 @@ function SalaryStructureStep({ data, onChange }) {
                       id="emp-uan"
                       type="text"
                       className={styles.input}
-                      placeholder="12-digit UAN"
+                      placeholder="Enter UAN Number"
                       value={data.uan || ''}
                       onChange={(e) => handleChange('uan', e.target.value)}
                     />
@@ -470,7 +470,7 @@ function SalaryStructureStep({ data, onChange }) {
                       id="emp-pf-no"
                       type="text"
                       className={styles.input}
-                      placeholder="PF Account Number"
+                      placeholder="Enter PF Account Number"
                       value={data.pfNo || ''}
                       onChange={(e) => handleChange('pfNo', e.target.value)}
                     />
@@ -510,7 +510,7 @@ function SalaryStructureStep({ data, onChange }) {
                       id="emp-esic"
                       type="text"
                       className={styles.input}
-                      placeholder="17-digit ESIC Number"
+                      placeholder="Enter ESI Number"
                       value={data.esicNo || ''}
                       onChange={(e) => handleChange('esicNo', e.target.value)}
                     />
@@ -565,7 +565,7 @@ function SalaryStructureStep({ data, onChange }) {
                     id="emp-tds-pan"
                     type="text"
                     className={styles.input}
-                    placeholder="10-digit PAN (e.g. ABCDE1234F)"
+                    placeholder="Enter PAN Number"
                     value={data.pan || ''}
                     onChange={(e) => handleChange('pan', e.target.value.toUpperCase())}
                   />

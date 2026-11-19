@@ -1,4 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { useCompany } from '../../context/CompanyContext';
+import { userService } from '../../services/userService';
+import roleService from '../../services/roleService';
 import styles from './EmploymentStep.module.css';
 
 export const ATTENDANCE_METHODS_LIST = [
@@ -10,6 +13,19 @@ export const ATTENDANCE_METHODS_LIST = [
   'Face Scan Terminal'
 ];
 
+export const DEFAULT_WEEK_OFFS = [
+  'Sunday Fixed',
+  'Rotational (6 Days Working)',
+  'Saturday & Sunday (5 Days Working)',
+  'Monday Fixed',
+  'Tuesday Fixed',
+  'Wednesday Fixed',
+  'Thursday Fixed',
+  'Friday Fixed',
+  'Saturday Fixed',
+  'No Week Off'
+];
+
 function EmploymentStep({
   data,
   onChange,
@@ -19,10 +35,110 @@ function EmploymentStep({
   designations = [],
   employeeTypes = [],
   sites = [],
-  posts = [],
   shifts = [],
   workLocations = []
 }) {
+  const { activeCompany } = useCompany();
+  const companyId = data.companyId || activeCompany?.companyId || activeCompany?.id || '';
+
+  const [managerOptions, setManagerOptions] = useState([]);
+  const [supervisorOptions, setSupervisorOptions] = useState([]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const fetchReportingUsers = async () => {
+      if (!companyId) return;
+      try {
+        const [usersRes, rolesRes] = await Promise.allSettled([
+          userService.getUsers(companyId),
+          roleService.getRoles(companyId)
+        ]);
+
+        if (isCancelled) return;
+
+        const userList = usersRes.status === 'fulfilled' && Array.isArray(usersRes.value) ? usersRes.value : [];
+        const roleList = rolesRes.status === 'fulfilled' && Array.isArray(rolesRes.value) ? rolesRes.value : [];
+
+        // Build role lookup map by ID and Name
+        const roleMap = new Map();
+        roleList.forEach(r => {
+          const rId = String(r.id || r._id || r.roleId || '').trim();
+          if (rId) roleMap.set(rId, String(r.name || '').toLowerCase());
+        });
+
+        const managers = [];
+        const supervisors = [];
+        const seenMgr = new Set();
+        const seenSup = new Set();
+
+        userList.forEach(u => {
+          const name = (u.name || u.fullName || u.username || '').trim();
+          if (!name) return;
+
+          // Check role name from user directly or via role lookup
+          const directRole = String(u.roleName || u.role || u.assignedRole || '').toLowerCase().trim();
+          const mappedRole = u.roleId ? (roleMap.get(String(u.roleId).trim()) || '') : '';
+          const roleCombined = `${directRole} ${mappedRole}`;
+
+          const isSupervisor = (roleCombined.includes('supervisor') || roleCombined.includes('superviser')) && !roleCombined.includes('manager');
+          const isManager = (roleCombined.includes('manager') || roleCombined.includes('mgr')) && !roleCombined.includes('supervisor');
+
+          const userId = u.userId || u.id || u.user_id || '';
+          const label = userId ? `${name} (${userId})` : name;
+
+          if (isManager && !seenMgr.has(name.toLowerCase())) {
+            seenMgr.add(name.toLowerCase());
+            managers.push({
+              key: `mgr-${u._id || u.id || userId || name}`,
+              name: name,
+              userId: userId,
+              label: label,
+              role: u.roleName || 'Manager'
+            });
+          }
+
+          if (isSupervisor && !seenSup.has(name.toLowerCase())) {
+            seenSup.add(name.toLowerCase());
+            supervisors.push({
+              key: `sup-${u._id || u.id || userId || name}`,
+              name: name,
+              userId: userId,
+              label: label,
+              role: u.roleName || 'Supervisor'
+            });
+          }
+        });
+
+        setManagerOptions(managers);
+        setSupervisorOptions(supervisors);
+      } catch (err) {
+        console.error('Error fetching reporting users:', err);
+      }
+    };
+
+    fetchReportingUsers();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [companyId]);
+
+  const currentMgrValue = useMemo(() => {
+    if (!data.reportingManager) return '';
+    const match = managerOptions.find(
+      m => m.name === data.reportingManager || m.label === data.reportingManager || m.userId === data.reportingManager
+    );
+    return match ? match.label : data.reportingManager;
+  }, [data.reportingManager, managerOptions]);
+
+  const currentSupValue = useMemo(() => {
+    if (!data.reportingSupervisor) return '';
+    const match = supervisorOptions.find(
+      s => s.name === data.reportingSupervisor || s.label === data.reportingSupervisor || s.userId === data.reportingSupervisor
+    );
+    return match ? match.label : data.reportingSupervisor;
+  }, [data.reportingSupervisor, supervisorOptions]);
+
   const handleChange = (field, value) => {
     onChange({ ...data, [field]: value });
   };
@@ -43,19 +159,19 @@ function EmploymentStep({
              (selName && (cName === selName || cName.includes(selName) || selName.includes(cName)));
     });
 
-    const defaultSite = matchingSites.length === 1 ? (matchingSites[0].name || matchingSites[0].siteName || '') : '';
-    const defaultSiteAddress = matchingSites.length === 1 && (matchingSites[0].address || matchingSites[0].city)
-      ? [matchingSites[0].address, matchingSites[0].city, matchingSites[0].state].filter(Boolean).join(', ')
-      : clientAddress;
+    const siteWithAddr = matchingSites.find(s => s.address || s.city);
+    const resolvedAddress = clientAddress || (siteWithAddr && (siteWithAddr.address || siteWithAddr.city)
+      ? [siteWithAddr.address, siteWithAddr.city, siteWithAddr.state, siteWithAddr.pinCode].filter(Boolean).join(', ')
+      : '');
 
     onChange({
       ...data,
       clientId: selectedClientId,
       clientName: clientName,
       companyName: clientName,
-      site: defaultSite,
-      siteLocation: defaultSite,
-      clientAddress: defaultSiteAddress
+      site: resolvedAddress || clientAddress,
+      siteLocation: resolvedAddress || clientAddress,
+      clientAddress: resolvedAddress || clientAddress
     });
   };
 
@@ -76,6 +192,15 @@ function EmploymentStep({
       return isActive || isCurrent;
     });
   }, [clients, data.clientId, data.clientName, data.companyName]);
+
+  const selectedClient = useMemo(() => {
+    return (clients || []).find(
+      c => (c.clientId && (c.clientId === selectedClientId || c.clientId === data.clientId)) ||
+           (c.id && (c.id === selectedClientId || c.id === data.clientId)) ||
+           (c._id && (c._id === selectedClientId || c._id === data.clientId)) ||
+           (c.name && (c.name === data.clientName || c.name === data.companyName))
+    );
+  }, [clients, selectedClientId, data.clientId, data.clientName, data.companyName]);
 
   const deptList = useMemo(() => {
     if (departments && departments.length > 0) {
@@ -117,15 +242,6 @@ function EmploymentStep({
     return [];
   }, [shifts, data.shift]);
 
-  const postList = useMemo(() => {
-    if (posts && posts.length > 0) {
-      return posts
-        .filter(p => typeof p === 'string' || !p.status || p.status === 'active' || p.name === data.dutyPost)
-        .map(p => (typeof p === 'string' ? p : p.name || p.label || p));
-    }
-    return [];
-  }, [posts, data.dutyPost]);
-
   const siteList = useMemo(() => {
     if (!sites || sites.length === 0) return [];
 
@@ -154,6 +270,36 @@ function EmploymentStep({
 
     return activeSites;
   }, [sites, selectedClientId, data.clientId, data.clientName, data.companyName, data.siteLocation, data.site]);
+
+  // Current client location address derived from selected client
+  const clientLocationAddress = useMemo(() => {
+    // 1. If selected client has address, prioritize that
+    if (selectedClient?.address) {
+      return selectedClient.address;
+    }
+    // 2. If data has clientAddress (and it's not a dummy site name like 'Branch Office' or 'Main Site')
+    if (data.clientAddress && data.clientAddress !== 'Branch Office' && data.clientAddress !== 'Main Site') {
+      return data.clientAddress;
+    }
+    // 3. Try matching site address for the selected client
+    const siteWithAddr = (sites || []).find(s => {
+      if (typeof s !== 'object' || !s) return false;
+      const cId = String(s.clientId || s.client || '').trim();
+      const cName = String(s.clientName || '').trim().toLowerCase();
+      const selName = String(data.clientName || data.companyName || '').trim().toLowerCase();
+      const selId = String(selectedClientId || data.clientId || '').trim();
+      return (selId && cId === selId) || (selName && cName && (cName === selName || cName.includes(selName)));
+    });
+    if (siteWithAddr?.address) {
+      const full = [siteWithAddr.address, siteWithAddr.city, siteWithAddr.state, siteWithAddr.pinCode].filter(Boolean).join(', ');
+      if (full) return full;
+      return siteWithAddr.address;
+    }
+    if (data.siteLocation && data.siteLocation !== 'Branch Office' && data.siteLocation !== 'Main Site') {
+      return data.siteLocation;
+    }
+    return '';
+  }, [selectedClient, data.clientAddress, data.siteLocation, sites, selectedClientId, data.clientName, data.companyName]);
 
   const locList = useMemo(() => {
     if (workLocations && workLocations.length > 0) {
@@ -217,57 +363,29 @@ function EmploymentStep({
               </div>
             </div>
 
-            {/* Client Site */}
+            {/* Client Location */}
             <div className={styles.formRow}>
-              <label htmlFor="emp-client-site" className={styles.rowLabel}>
-                <span>Client Site</span>
+              <label className={styles.rowLabel}>
+                <span>Client Location</span>
               </label>
               <div className={styles.rowControl}>
-                <select
-                  id="emp-client-site"
-                  className={styles.select}
-                  value={data.site || data.siteLocation || ''}
-                  onChange={(e) => {
-                    const selectedVal = e.target.value;
-                    const matchedSite = siteList.find(s => (typeof s === 'string' ? s : s.name || s.siteName) === selectedVal);
-                    const siteName = matchedSite ? (typeof matchedSite === 'string' ? matchedSite : matchedSite.name || matchedSite.siteName) : selectedVal;
-                    const siteAddress = (matchedSite && typeof matchedSite === 'object' && (matchedSite.address || matchedSite.city))
-                      ? [matchedSite.address, matchedSite.city, matchedSite.state].filter(Boolean).join(', ')
-                      : '';
-                    onChange({
-                      ...data,
-                      site: siteName,
-                      siteLocation: siteName,
-                      clientAddress: siteAddress || data.clientAddress || ''
-                    });
+                <input
+                  id="emp-client-location"
+                  type="text"
+                  className={styles.input}
+                  readOnly
+                  disabled
+                  tabIndex={-1}
+                  placeholder={selectedClientId || data.clientName ? 'No address specified for selected client' : 'Select Client Company to view address'}
+                  value={clientLocationAddress || ''}
+                  style={{
+                    backgroundColor: '#f8fafc',
+                    color: clientLocationAddress ? '#334155' : '#94a3b8',
+                    cursor: 'not-allowed',
+                    pointerEvents: 'none',
+                    userSelect: 'none'
                   }}
-                >
-                  <option value="">
-                    {!selectedClientId
-                      ? 'Select Client Company first'
-                      : siteList.length > 0
-                        ? 'Select Client Site'
-                        : 'No sites found for this client'}
-                  </option>
-                  {siteList.map((site) => {
-                    const siteName = typeof site === 'string' ? site : site.name || site.siteName || '';
-                    const siteCode = typeof site === 'object' && site.code ? ` (${site.code})` : '';
-                    const siteBranch = typeof site === 'object' && (site.workLocationName || site.city)
-                      ? ` - ${site.workLocationName || site.city}`
-                      : '';
-                    return (
-                      <option key={typeof site === 'object' ? (site._id || site.id || site.code || siteName) : site} value={siteName}>
-                        {siteName}{siteCode}{siteBranch}
-                      </option>
-                    );
-                  })}
-                  {(data.site || data.siteLocation) &&
-                    !siteList.some(s => (typeof s === 'string' ? s : s.name || s.siteName) === (data.site || data.siteLocation)) && (
-                      <option value={data.site || data.siteLocation}>
-                        {data.site || data.siteLocation}
-                      </option>
-                  )}
-                </select>
+                />
               </div>
             </div>
 
@@ -316,31 +434,6 @@ function EmploymentStep({
                   ))}
                   {data.department && !deptList.includes(data.department) && (
                     <option value={data.department}>{data.department}</option>
-                  )}
-                </select>
-              </div>
-            </div>
-
-            {/* Duty Post */}
-            <div className={styles.formRow}>
-              <label htmlFor="emp-duty-post" className={styles.rowLabel}>
-                <span>Duty Post</span>
-              </label>
-              <div className={styles.rowControl}>
-                <select
-                  id="emp-duty-post"
-                  className={styles.select}
-                  value={data.dutyPost || ''}
-                  onChange={(e) => handleChange('dutyPost', e.target.value)}
-                >
-                  <option value="">
-                    {postList.length > 0 ? 'Select Duty Post' : 'No active posts in Masters'}
-                  </option>
-                  {postList.map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                  {data.dutyPost && !postList.includes(data.dutyPost) && (
-                    <option value={data.dutyPost}>{data.dutyPost}</option>
                   )}
                 </select>
               </div>
@@ -428,18 +521,55 @@ function EmploymentStep({
 
             {/* Reporting Supervisor */}
             <div className={styles.formRow}>
-              <label htmlFor="emp-reporting" className={styles.rowLabel}>
+              <label htmlFor="emp-reporting-supervisor" className={styles.rowLabel}>
                 <span>Reporting Supervisor</span>
               </label>
               <div className={styles.rowControl}>
-                <input
-                  id="emp-reporting"
-                  type="text"
-                  className={styles.input}
-                  placeholder="Supervisor name"
-                  value={data.reportingSupervisor || ''}
+                <select
+                  id="emp-reporting-supervisor"
+                  className={styles.select}
+                  value={currentSupValue}
                   onChange={(e) => handleChange('reportingSupervisor', e.target.value)}
-                />
+                >
+                  <option value="">
+                    {supervisorOptions.length > 0 ? 'Select Reporting Supervisor' : 'No users with Supervisor role found'}
+                  </option>
+                  {supervisorOptions.map((sup) => (
+                    <option key={sup.key} value={sup.label}>
+                      {sup.label}
+                    </option>
+                  ))}
+                  {currentSupValue && !supervisorOptions.some(s => s.label === currentSupValue) && (
+                    <option value={currentSupValue}>{currentSupValue}</option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {/* Reporting Manager */}
+            <div className={styles.formRow}>
+              <label htmlFor="emp-reporting-manager" className={styles.rowLabel}>
+                <span>Reporting Manager</span>
+              </label>
+              <div className={styles.rowControl}>
+                <select
+                  id="emp-reporting-manager"
+                  className={styles.select}
+                  value={currentMgrValue}
+                  onChange={(e) => handleChange('reportingManager', e.target.value)}
+                >
+                  <option value="">
+                    {managerOptions.length > 0 ? 'Select Reporting Manager' : 'No users with Manager role found'}
+                  </option>
+                  {managerOptions.map((mgr) => (
+                    <option key={mgr.key} value={mgr.label}>
+                      {mgr.label}
+                    </option>
+                  ))}
+                  {currentMgrValue && !managerOptions.some(m => m.label === currentMgrValue) && (
+                    <option value={currentMgrValue}>{currentMgrValue}</option>
+                  )}
+                </select>
               </div>
             </div>
           </div>
@@ -458,14 +588,14 @@ function EmploymentStep({
                   id="emp-prev-exp"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. 2 years"
+                  placeholder="Enter Previous Experience"
                   value={data.previousExperience || ''}
                   onChange={(e) => handleChange('previousExperience', e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Language */}
+            {/* Language (Read + Write) */}
             <div className={styles.formRow}>
               <label htmlFor="emp-language" className={styles.rowLabel}>
                 <span>Language (Read + Write)</span>
@@ -475,24 +605,24 @@ function EmploymentStep({
                   id="emp-language"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. Hindi, English"
+                  placeholder="Enter Languages Known"
                   value={data.language || ''}
                   onChange={(e) => handleChange('language', e.target.value)}
                 />
               </div>
             </div>
 
-            {/* Qualification */}
+            {/* Highest Qualification */}
             <div className={styles.formRow}>
               <label htmlFor="emp-qualification" className={styles.rowLabel}>
-                <span>Qualification</span>
+                <span>Highest Qualification</span>
               </label>
               <div className={styles.rowControl}>
                 <input
                   id="emp-qualification"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. 10th, 12th, Graduate"
+                  placeholder="Enter Highest Qualification"
                   value={data.qualification || ''}
                   onChange={(e) => handleChange('qualification', e.target.value)}
                 />
@@ -509,7 +639,7 @@ function EmploymentStep({
                   id="emp-tech-qualification"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. ITI, Diploma, Computer"
+                  placeholder="Enter Technical Qualification"
                   value={data.technicalQualification || ''}
                   onChange={(e) => handleChange('technicalQualification', e.target.value)}
                 />
@@ -517,9 +647,9 @@ function EmploymentStep({
             </div>
           </div>
 
-          {/* Section 4: Employment Status & Separation */}
+          {/* Section 4: Employment Status & Policies */}
           <div className={styles.sectionGroup}>
-            <h4 className={styles.sectionTitle}>Employment Status & Exit</h4>
+            <h4 className={styles.sectionTitle}>Employment Status & Policies</h4>
 
             {/* Employee Status */}
             <div className={styles.formRow}>
@@ -541,36 +671,56 @@ function EmploymentStep({
               </div>
             </div>
 
-            {/* Exit Date */}
+            {/* Shift Policy */}
             <div className={styles.formRow}>
-              <label htmlFor="emp-exit-date" className={styles.rowLabel}>
-                <span>Exit Date</span>
+              <label htmlFor="emp-shift-policy" className={styles.rowLabel}>
+                <span>Shift Policy</span>
               </label>
               <div className={styles.rowControl}>
-                <input
-                  id="emp-exit-date"
-                  type="date"
-                  className={styles.input}
-                  value={data.exitDate || ''}
-                  onChange={(e) => handleChange('exitDate', e.target.value)}
-                />
+                <select
+                  id="emp-shift-policy"
+                  className={styles.select}
+                  value={data.shiftPolicy || data.shift || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    onChange({
+                      ...data,
+                      shiftPolicy: val,
+                      shift: val
+                    });
+                  }}
+                >
+                  <option value="">Select Shift Policy</option>
+                  {shiftList.map(s => (
+                    <option key={s.name} value={s.name}>{s.label}</option>
+                  ))}
+                  {data.shiftPolicy && !shiftList.some(s => s.name === data.shiftPolicy) && (
+                    <option value={data.shiftPolicy}>{data.shiftPolicy}</option>
+                  )}
+                </select>
               </div>
             </div>
 
-            {/* Exit Reason */}
+            {/* Weekoff Policy */}
             <div className={styles.formRow}>
-              <label htmlFor="emp-exit-reason" className={styles.rowLabel}>
-                <span>Exit Reason</span>
+              <label htmlFor="emp-weekoff-policy" className={styles.rowLabel}>
+                <span>Weekoff Policy</span>
               </label>
               <div className={styles.rowControl}>
-                <input
-                  id="emp-exit-reason"
-                  type="text"
-                  className={styles.input}
-                  placeholder="Enter reason for exit"
-                  value={data.exitReason || ''}
-                  onChange={(e) => handleChange('exitReason', e.target.value)}
-                />
+                <select
+                  id="emp-weekoff-policy"
+                  className={styles.select}
+                  value={data.weekOffPolicy || ''}
+                  onChange={(e) => handleChange('weekOffPolicy', e.target.value)}
+                >
+                  <option value="">Select Weekoff Policy</option>
+                  {DEFAULT_WEEK_OFFS.map(wo => (
+                    <option key={wo} value={wo}>{wo}</option>
+                  ))}
+                  {data.weekOffPolicy && !DEFAULT_WEEK_OFFS.includes(data.weekOffPolicy) && (
+                    <option value={data.weekOffPolicy}>{data.weekOffPolicy}</option>
+                  )}
+                </select>
               </div>
             </div>
           </div>
@@ -595,9 +745,9 @@ function EmploymentStep({
                 </span>
               </div>
               <div className={styles.summaryRow}>
-                <span className={styles.summaryLabel}>Site</span>
-                <span className={styles.summaryValue} title={data.site || data.siteLocation}>
-                  {data.site || data.siteLocation || 'Not Assigned'}
+                <span className={styles.summaryLabel}>Location</span>
+                <span className={styles.summaryValue} title={clientLocationAddress || 'Not Assigned'}>
+                  {clientLocationAddress || 'Not Assigned'}
                 </span>
               </div>
               <div className={styles.summaryRow}>
@@ -653,24 +803,25 @@ function EmploymentStep({
                       });
                     }}
                   >
-                    <span>{method}</span>
-                    <span className={`${styles.methodCheck} ${isSelected ? styles.methodCheckSelected : ''}`}>
-                      {isSelected ? '✓' : ''}
-                    </span>
+                    <div className={`${styles.checkboxBox} ${isSelected ? styles.checkboxChecked : ''}`}>
+                      {isSelected && (
+                        <svg viewBox="0 0 16 16" fill="none" className={styles.checkIcon}>
+                          <path d="M3.5 8.5L6.5 11.5L12.5 4.5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      )}
+                    </div>
+                    <span className={styles.methodName}>{method}</span>
                   </div>
                 );
               })}
             </div>
-            <p className={styles.helperText}>
-              Select authorized attendance punch channels for this employee.
-            </p>
+            <p className={styles.helpText}>Select authorized attendance punch channels for this employee profile.</p>
           </div>
 
-          {/* Card 3: Attendance & Access Rules */}
+          {/* Card 3: Shift Timings & Rules */}
           <div className={styles.sideCard}>
             <div className={styles.sideCardHeader}>
-              <h4 className={styles.sideCardTitle}>Attendance Rules</h4>
-              <span className={styles.sideCardSubtitle}>Permissions</span>
+              <h4 className={styles.sideCardTitle}>Shift Timings & Rules</h4>
             </div>
 
             <div className={styles.rulesList}>

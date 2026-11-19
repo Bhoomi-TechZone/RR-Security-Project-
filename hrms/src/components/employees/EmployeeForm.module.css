@@ -291,9 +291,18 @@
 }
 
 .roundNavBtn:hover:not(:disabled) {
-  background-color: #e2e8f0;
-  color: #0f172a;
-  border-color: #94a3b8;
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #93c5fd;
+}
+
+.roundNavBtn:active:not(:disabled),
+.roundNavBtnActive {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25) !important;
+  transform: scale(0.92);
 }
 
 .roundNavBtn:disabled {

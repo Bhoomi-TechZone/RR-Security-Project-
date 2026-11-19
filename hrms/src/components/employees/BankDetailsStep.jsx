@@ -36,14 +36,9 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
   }, [selectedBankObj]);
 
   const handleBankChange = (newBankName) => {
-    const matchedBank = banks.find(b => (typeof b === 'object' && (b.name || b.bankName) === newBankName));
-    const firstBranch = matchedBank?.branchList?.[0] || '';
     onChange({
       ...data,
-      bankName: newBankName,
-      branchName: matchedBank?.branchList?.length > 0
-        ? (data.branchName && matchedBank.branchList.includes(data.branchName) ? data.branchName : firstBranch)
-        : ''
+      bankName: newBankName
     });
   };
 
@@ -132,38 +127,6 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
               </div>
             </div>
 
-            {/* Branch Name Dropdown */}
-            <div className={styles.formRow}>
-              <label htmlFor="bank-branch" className={styles.rowLabel}>
-                <span>Branch Name</span>
-              </label>
-              <div className={styles.rowControl}>
-                <select
-                  id="bank-branch"
-                  className={styles.select}
-                  value={data.branchName || ''}
-                  onChange={(e) => handleChange('branchName', e.target.value)}
-                  disabled={!data.bankName}
-                >
-                  <option value="">
-                    {!data.bankName
-                      ? 'Select a Bank first'
-                      : availableBranches.length > 0
-                      ? 'Select Branch'
-                      : 'No branches added for this bank in Masters'}
-                  </option>
-                  {availableBranches.map((branch) => (
-                    <option key={branch} value={branch}>
-                      {branch}
-                    </option>
-                  ))}
-                  {data.branchName && !availableBranches.includes(data.branchName) && (
-                    <option value={data.branchName}>{data.branchName}</option>
-                  )}
-                </select>
-              </div>
-            </div>
-
             {/* Account Holder Name */}
             <div className={styles.formRow}>
               <label htmlFor="bank-holder" className={styles.rowLabel}>
@@ -175,7 +138,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                   id="bank-holder"
                   type="text"
                   className={styles.input}
-                  placeholder="Name as in Bank Account"
+                  placeholder="Enter Account Holder Name"
                   value={data.accountHolder || ''}
                   onChange={(e) => handleChange('accountHolder', e.target.value)}
                 />
@@ -193,7 +156,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                   id="bank-account"
                   type="text"
                   className={styles.input}
-                  placeholder="Bank Account Number"
+                  placeholder="Enter Account Number"
                   value={data.accountNumber || ''}
                   onChange={(e) => handleChange('accountNumber', e.target.value)}
                 />
@@ -211,7 +174,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                   id="bank-ifsc"
                   type="text"
                   className={styles.input}
-                  placeholder="e.g. SBIN0001234"
+                  placeholder="Enter IFSC Code"
                   value={data.ifsc || ''}
                   onChange={(e) => handleChange('ifsc', e.target.value.toUpperCase())}
                 />
@@ -279,10 +242,12 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                 <span className={styles.summaryLabel}>Bank Name</span>
                 <span className={styles.summaryValue}>{data.bankName || '—'}</span>
               </div>
-              <div className={styles.summaryRow}>
-                <span className={styles.summaryLabel}>Branch</span>
-                <span className={styles.summaryValue}>{data.branchName || '—'}</span>
-              </div>
+              {data.branchName && (
+                <div className={styles.summaryRow}>
+                  <span className={styles.summaryLabel}>Branch</span>
+                  <span className={styles.summaryValue}>{data.branchName}</span>
+                </div>
+              )}
               <div className={styles.summaryRow}>
                 <span className={styles.summaryLabel}>IFSC Code</span>
                 <span className={styles.summaryValue}>{data.ifsc || '—'}</span>

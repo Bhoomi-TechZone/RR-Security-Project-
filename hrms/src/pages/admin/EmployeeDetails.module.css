@@ -104,6 +104,7 @@
   height: 80px;
   border-radius: var(--radius-full);
   object-fit: cover;
+  object-position: top center;
   flex-shrink: 0;
 }
 
