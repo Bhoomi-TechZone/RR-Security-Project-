@@ -1,23 +1,230 @@
-import React, { useMemo } from 'react';
-import { Download, HelpCircle, CheckCircle2, MinusCircle, ShieldCheck, Info } from 'lucide-react';
+import React, { useMemo, useState, useEffect } from 'react';
+import { Download, HelpCircle } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
+import masterService from '../../services/masterService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 import styles from './SalaryStructureStep.module.css';
 
 const INR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
-function SalaryStructureStep({ data, onChange }) {
-  const { activeCompany } = useCompany();
+const DEFAULT_FALLBACK_EARNINGS = [
+  { name: 'Basic Salary', code: 'Basic', type: 'earning', status: 'active' },
+  { name: 'Dearness Allowance', code: 'DA', type: 'earning', status: 'active' },
+  { name: 'House Rent Allowance', code: 'HRA', type: 'earning', status: 'active' },
+  { name: 'Conveyance Allowance', code: 'Conv', type: 'earning', status: 'active' },
+  { name: 'Special Allowance', code: 'Spl Allo', type: 'earning', status: 'active' },
+  { name: 'Other Allowance', code: 'Other Allo', type: 'earning', status: 'active' }
+];
 
-  const calculateGross = (updated) => {
-    return (
-      (Number(updated.basic) || 0) +
-      (Number(updated.hra) || 0) +
-      (Number(updated.conveyance) || 0) +
-      (Number(updated.otherAllowance) || 0) +
-      (Number(updated.specialAllowance) || 0) +
-      (Number(updated.vda) || 0)
-    );
+const DEFAULT_FALLBACK_DEDUCTIONS = [
+  { name: 'Uniform', code: 'UF', type: 'deduction', status: 'active' },
+  { name: 'Advance', code: 'Adv', type: 'deduction', status: 'active' },
+  { name: 'Loan', code: 'Loan', type: 'deduction', status: 'active' }
+];
+
+function getComponentFieldKey(comp) {
+  const name = (comp.name || '').toLowerCase().trim();
+  const code = (comp.code || comp.shortName || '').toLowerCase().trim();
+
+  if (name.includes('basic') || code === 'basic') return 'basic';
+  if (name.includes('dearness') || name.includes('vda') || code === 'da' || code === 'vda') return 'vda';
+  if (name.includes('house rent') || code === 'hra') return 'hra';
+  if (name.includes('conveyance') || code === 'conv') return 'conveyance';
+  if (name.includes('special') || code.includes('spl')) return 'specialAllowance';
+  if (name.includes('other') || code.includes('other')) return 'otherAllowance';
+
+  const cleanName = (comp.name || comp.code || 'allowance')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .split(' ')
+    .filter(Boolean)
+    .map((w, idx) => (idx === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join('');
+
+  return cleanName || `earning_${comp.id || comp._id}`;
+}
+
+function getDeductionFieldKey(comp) {
+  const name = (comp.name || '').toLowerCase().trim();
+  const code = (comp.code || comp.shortName || '').toLowerCase().trim();
+
+  if (name.includes('uniform') || code === 'uf') return 'uniformDeduction';
+  if (name.includes('advance') || code === 'adv') return 'advanceDeduction';
+  if (name.includes('loan')) return 'loanDeduction';
+
+  const cleanName = (comp.name || comp.code || 'deduction')
+    .replace(/[^a-zA-Z0-9 ]/g, '')
+    .split(' ')
+    .filter(Boolean)
+    .map((w, idx) => (idx === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join('');
+
+  return cleanName.endsWith('Deduction') ? cleanName : `${cleanName}Deduction`;
+}
+
+const INDIAN_STATES = [
+  'Delhi',
+  'Andhra Pradesh',
+  'Assam',
+  'Bihar',
+  'Chandigarh',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jammu & Kashmir',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Tamil Nadu',
+  'Telangana',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal'
+];
+
+function SalaryStructureStep({ data, onChange }) {
+  const { activeCompany, activeCompanyId } = useCompany();
+  const companyId = data.companyId || activeCompanyId || activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+
+  const [earningComponents, setEarningComponents] = useState([]);
+  const [deductionComponents, setDeductionComponents] = useState([]);
+  const [loadingComponents, setLoadingComponents] = useState(true);
+  const [hasConfiguredMasters, setHasConfiguredMasters] = useState(false);
+
+  // Dynamically load company-isolated active earning & deduction components from Masters API
+  useEffect(() => {
+    let isMounted = true;
+    async function loadSalaryComponents() {
+      try {
+        setLoadingComponents(true);
+        const allComponents = await masterService.getMasters('salary-components', companyId, true);
+        if (isMounted) {
+          const compsList = Array.isArray(allComponents) ? allComponents : [];
+
+          // Only show active components
+          const activeOnly = compsList.filter((c) => {
+            const status = (c.status || 'active').toLowerCase().trim();
+            return status === 'active';
+          });
+
+          const earningsOnly = activeOnly.filter((c) => {
+            const kind = (c.type || c.type_kind || 'earning').toLowerCase().trim();
+            return kind === 'earning';
+          });
+
+          const deductionsOnly = activeOnly.filter((c) => {
+            const kind = (c.type || c.type_kind || '').toLowerCase().trim();
+            return kind === 'deduction';
+          });
+
+          if (compsList.length > 0) {
+            setHasConfiguredMasters(true);
+            setEarningComponents(earningsOnly);
+            setDeductionComponents(deductionsOnly);
+          } else {
+            setHasConfiguredMasters(false);
+            setEarningComponents(DEFAULT_FALLBACK_EARNINGS);
+            setDeductionComponents(DEFAULT_FALLBACK_DEDUCTIONS);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load company salary components:', err);
+      } finally {
+        if (isMounted) setLoadingComponents(false);
+      }
+    }
+
+    if (companyId) {
+      loadSalaryComponents();
+    }
+
+    // Live update when salary components are added/edited in Masters
+    const handleSync = () => loadSalaryComponents();
+    window.addEventListener('salary-components-updated', handleSync);
+    return () => {
+      isMounted = false;
+      window.removeEventListener('salary-components-updated', handleSync);
+    };
+  }, [companyId]);
+
+  const dynamicComponentsList = hasConfiguredMasters
+    ? earningComponents
+    : (earningComponents.length > 0 ? earningComponents : DEFAULT_FALLBACK_EARNINGS);
+
+  const dynamicDeductionsList = hasConfiguredMasters
+    ? deductionComponents
+    : (deductionComponents.length > 0 ? deductionComponents : DEFAULT_FALLBACK_DEDUCTIONS);
+
+  const calculateDynamicGross = (currentData, components) => {
+    const comps = components && components.length > 0 ? components : dynamicComponentsList;
+    let total = 0;
+    comps.forEach((comp) => {
+      const key = getComponentFieldKey(comp);
+      const val = currentData[key] ?? currentData.customEarnings?.[key] ?? currentData.customEarnings?.[comp.name] ?? 0;
+      total += Number(val) || 0;
+    });
+    return total;
+  };
+
+  const calculateDynamicTotalDeductions = (currentData, deductions) => {
+    const comps = deductions && deductions.length > 0 ? deductions : dynamicDeductionsList;
+    let total = 0;
+    comps.forEach((comp) => {
+      const key = getDeductionFieldKey(comp);
+      const val = currentData[key] ?? currentData.deductions?.[key] ?? currentData.deductions?.[comp.name] ?? 0;
+      total += Number(val) || 0;
+    });
+    return total;
+  };
+
+  const handleComponentChange = (comp, value) => {
+    const key = getComponentFieldKey(comp);
+    const numVal = value === '' ? '' : parseFloat(value) || 0;
+
+    const updatedData = {
+      ...data,
+      [key]: numVal,
+      customEarnings: {
+        ...(data.customEarnings || {}),
+        [key]: numVal,
+        [comp.name]: numVal
+      }
+    };
+
+    const newGross = calculateDynamicGross(updatedData, dynamicComponentsList);
+    const currentDeductions = calculateDynamicTotalDeductions(updatedData, dynamicDeductionsList);
+    updatedData.grossSalary = newGross;
+    updatedData.totalSalary = newGross;
+    updatedData.netSalary = Math.max(0, newGross - currentDeductions);
+    onChange(updatedData);
+  };
+
+  const handleDeductionChange = (comp, value) => {
+    const key = getDeductionFieldKey(comp);
+    const numVal = value === '' ? '' : parseFloat(value) || 0;
+
+    const updatedData = {
+      ...data,
+      [key]: numVal,
+      deductions: {
+        ...(data.deductions || {}),
+        [key]: numVal,
+        [comp.name]: numVal
+      }
+    };
+
+    const currentGross = updatedData.grossSalary !== undefined && updatedData.grossSalary !== ''
+      ? Number(updatedData.grossSalary) || 0
+      : calculateDynamicGross(updatedData, dynamicComponentsList);
+    const currentDeductions = calculateDynamicTotalDeductions(updatedData, dynamicDeductionsList);
+    updatedData.netSalary = Math.max(0, currentGross - currentDeductions);
+    onChange(updatedData);
   };
 
   const handleChange = (field, value) => {
@@ -37,37 +244,50 @@ function SalaryStructureStep({ data, onChange }) {
       'pfNo',
       'esicNo',
       'dispensaryNo',
-      'pan'
+      'pan',
+      'ptTaxState',
+      'lwfTaxState'
     ].includes(field);
 
-    const formattedValue = isStringField ? value : (value === '' ? '' : parseFloat(value) || 0);
+    const isBooleanField = [
+      'isIncrement',
+      'doNotDeductEsi',
+      'deductEsiAboveCeiling',
+      'doNotDeductPf',
+      'doNotDeductPension',
+      'deductPfAboveCeilingEmployee',
+      'deductPfAboveCeilingEmployer',
+      'deductPfOnGrossSalary',
+      'deductPfExtraContribution',
+      'doNotDeductPt',
+      'doNotDeductTds',
+      'metroCityResident',
+      'doNotDeductLwf'
+    ].includes(field);
+
+    const formattedValue = isBooleanField
+      ? Boolean(value)
+      : isStringField
+      ? value
+      : (value === '' ? '' : parseFloat(value) || 0);
+
     const updatedData = { ...data, [field]: formattedValue };
 
-    // Auto-calculate gross salary when any earning component changes
-    if (['basic', 'hra', 'conveyance', 'otherAllowance', 'specialAllowance', 'vda'].includes(field)) {
-      updatedData.grossSalary = calculateGross(updatedData);
+    // Auto-calculate gross salary when gross salary is not explicitly overridden
+    if (field === 'grossSalary') {
+      updatedData.grossSalary = formattedValue;
     }
 
     onChange(updatedData);
   };
 
-  const totalEarnings = useMemo(() => {
-    return (
-      (Number(data.basic) || 0) +
-      (Number(data.hra) || 0) +
-      (Number(data.conveyance) || 0) +
-      (Number(data.otherAllowance) || 0) +
-      (Number(data.specialAllowance) || 0) +
-      (Number(data.vda) || 0)
-    );
-  }, [data.basic, data.hra, data.conveyance, data.otherAllowance, data.specialAllowance, data.vda]);
-
   const displayGross =
     data.grossSalary !== undefined && data.grossSalary !== '' && data.grossSalary !== 0
       ? data.grossSalary
-      : (totalEarnings || '');
+      : (calculateDynamicGross(data, dynamicComponentsList) || '');
 
-  const annualCtcEstimate = (Number(displayGross) || 0) * 12;
+  const totalDeductions = calculateDynamicTotalDeductions(data, dynamicDeductionsList);
+  const displayNet = Math.max(0, (Number(displayGross) || 0) - totalDeductions);
 
   const isPfActive = Boolean(data.pfApplicable === true || data.pfApplicable === 'Yes');
   const isEsiActive = Boolean(data.esiApplicable === true || data.esiApplicable === 'Yes');
@@ -196,223 +416,131 @@ function SalaryStructureStep({ data, onChange }) {
               </div>
             </div>
 
-            {/* Basic Salary */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-basic" className={styles.rowLabel}>
-                <span>Basic Salary</span>
-                <span className={styles.requiredStar}>*</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-basic"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="0"
-                    value={data.basic === 0 ? '0' : (data.basic || '')}
-                    onChange={(e) => handleChange('basic', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
+            {/* Dynamic Earning Components Loaded from Masters for Current Company */}
+            {loadingComponents && dynamicComponentsList.length === 0 ? (
+              <div className={styles.loadingRow}>
+                <span className={styles.loadingText}>Loading earning components...</span>
               </div>
-            </div>
+            ) : (
+              dynamicComponentsList.map((comp) => {
+                const key = getComponentFieldKey(comp);
+                const isRequired = key === 'basic' || (comp.name || '').toLowerCase().includes('basic');
+                const rawVal = data[key] ?? data.customEarnings?.[key] ?? data.customEarnings?.[comp.name];
+                const displayVal = rawVal === 0 ? '0' : (rawVal || '');
 
-            {/* VDA (Variable Dearness Allowance) */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-vda" className={styles.rowLabel}>
-                <span>VDA</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-vda"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="0"
-                    value={data.vda === 0 ? '0' : (data.vda || '')}
-                    onChange={(e) => handleChange('vda', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
-              </div>
-            </div>
+                return (
+                  <div key={comp.id || comp._id || comp.code || comp.name} className={styles.formRow}>
+                    <label htmlFor={`salary-${key}`} className={styles.rowLabel}>
+                      <span>{comp.name}</span>
+                      {isRequired && <span className={styles.requiredStar}>*</span>}
+                    </label>
+                    <div className={styles.rowControl}>
+                      <div className={styles.currencyWrapper}>
+                        <span className={styles.currencySymbol}>₹</span>
+                        <input
+                          id={`salary-${key}`}
+                          type="number"
+                          min="0"
+                          className={styles.currencyInput}
+                          placeholder="0"
+                          value={displayVal}
+                          onChange={(e) => handleComponentChange(comp, e.target.value)}
+                          onWheel={(e) => e.target.blur()}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
 
-            {/* HRA */}
+            {/* Gross Salary (Non-clickable) */}
             <div className={styles.formRow}>
-              <label htmlFor="salary-hra" className={styles.rowLabel}>
-                <span>HRA</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-hra"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="0"
-                    value={data.hra === 0 ? '0' : (data.hra || '')}
-                    onChange={(e) => handleChange('hra', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Conveyance */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-conveyance" className={styles.rowLabel}>
-                <span>Conveyance</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-conveyance"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="0"
-                    value={data.conveyance === 0 ? '0' : (data.conveyance || '')}
-                    onChange={(e) => handleChange('conveyance', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Special Allowance */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-special" className={styles.rowLabel}>
-                <span>Special Allowance</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-special"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="0"
-                    value={data.specialAllowance === 0 ? '0' : (data.specialAllowance || '')}
-                    onChange={(e) => handleChange('specialAllowance', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Other Allowance */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-other" className={styles.rowLabel}>
-                <span>Other Allowance</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-other"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="0"
-                    value={data.otherAllowance === 0 ? '0' : (data.otherAllowance || '')}
-                    onChange={(e) => handleChange('otherAllowance', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Gross Salary */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-gross" className={styles.rowLabel}>
+              <label htmlFor="salary-gross" className={styles.boldRowLabel}>
                 <span>Gross Salary</span>
-                <span className={styles.autoCalcBadge}>Auto</span>
               </label>
               <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
+                <div className={`${styles.currencyWrapper} ${styles.readOnlyWrapper}`}>
                   <span className={styles.currencySymbol}>₹</span>
                   <input
                     id="salary-gross"
                     type="number"
-                    min="0"
-                    className={styles.currencyInput}
+                    readOnly
+                    tabIndex={-1}
+                    className={`${styles.currencyInput} ${styles.readOnlyInput}`}
                     placeholder="0"
                     value={displayGross === 0 ? '0' : (displayGross || '')}
-                    onChange={(e) => handleChange('grossSalary', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Overtime Rate */}
+            {/* Total Salary (Non-clickable) */}
             <div className={styles.formRow}>
-              <label htmlFor="salary-ot" className={styles.rowLabel}>
-                <span>Overtime Rate</span>
+              <label htmlFor="salary-total" className={styles.boldRowLabel}>
+                <span>Total Salary</span>
               </label>
               <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
+                <div className={`${styles.currencyWrapper} ${styles.readOnlyWrapper}`}>
                   <span className={styles.currencySymbol}>₹</span>
                   <input
-                    id="salary-ot"
+                    id="salary-total"
                     type="number"
-                    min="0"
-                    className={styles.currencyInput}
-                    placeholder="₹ / Hour"
-                    value={data.overtimeRate === 0 ? '0' : (data.overtimeRate || '')}
-                    onChange={(e) => handleChange('overtimeRate', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Bonus */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-bonus" className={styles.rowLabel}>
-                <span>Annual / Periodic Bonus</span>
-              </label>
-              <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
-                  <span className={styles.currencySymbol}>₹</span>
-                  <input
-                    id="salary-bonus"
-                    type="number"
-                    min="0"
-                    className={styles.currencyInput}
+                    readOnly
+                    tabIndex={-1}
+                    className={`${styles.currencyInput} ${styles.readOnlyInput}`}
                     placeholder="0"
-                    value={data.bonus === 0 ? '0' : (data.bonus || '')}
-                    onChange={(e) => handleChange('bonus', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
+                    value={displayGross === 0 ? '0' : (displayGross || '')}
                   />
                 </div>
               </div>
             </div>
 
-            {/* Gratuity */}
+            {/* Dynamic Active Deductions (Rendered after Total Salary - Non-editable) */}
+            {dynamicDeductionsList.map((comp) => {
+              const key = getDeductionFieldKey(comp);
+              const rawVal = data[key] ?? data.deductions?.[key] ?? data.deductions?.[comp.name];
+              const displayVal = rawVal === 0 ? '0' : (rawVal || '');
+
+              return (
+                <div key={comp.id || comp._id || comp.code || comp.name} className={styles.formRow}>
+                  <label htmlFor={`deduction-${key}`} className={styles.rowLabel}>
+                    <span>{comp.name}</span>
+                  </label>
+                  <div className={styles.rowControl}>
+                    <div className={`${styles.currencyWrapper} ${styles.readOnlyWrapper}`}>
+                      <span className={styles.currencySymbol}>₹</span>
+                      <input
+                        id={`deduction-${key}`}
+                        type="number"
+                        readOnly
+                        tabIndex={-1}
+                        className={`${styles.currencyInput} ${styles.readOnlyInput}`}
+                        placeholder="0"
+                        value={displayVal}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Net Salary (Non-clickable, Auto-calculated, Bolder label) */}
             <div className={styles.formRow}>
-              <label htmlFor="salary-gratuity" className={styles.rowLabel}>
-                <span>Gratuity</span>
+              <label htmlFor="salary-net" className={styles.boldRowLabel}>
+                <span>Net Salary</span>
               </label>
               <div className={styles.rowControl}>
-                <div className={styles.currencyWrapper}>
+                <div className={`${styles.currencyWrapper} ${styles.readOnlyWrapper}`}>
                   <span className={styles.currencySymbol}>₹</span>
                   <input
-                    id="salary-gratuity"
+                    id="salary-net"
                     type="number"
-                    min="0"
-                    className={styles.currencyInput}
+                    readOnly
+                    tabIndex={-1}
+                    className={`${styles.currencyInput} ${styles.readOnlyInput}`}
                     placeholder="0"
-                    value={data.gratuity === 0 ? '0' : (data.gratuity || '')}
-                    onChange={(e) => handleChange('gratuity', e.target.value)}
-                    onWheel={(e) => e.target.blur()}
+                    value={displayNet === 0 ? '0' : (displayNet || '')}
                   />
                 </div>
               </div>
@@ -639,174 +767,224 @@ function SalaryStructureStep({ data, onChange }) {
           </div>
         </div>
 
-        {/* Right Sidebar Cards */}
+        {/* Right Column: Salary & Statutory Options Panel (Matching Screenshot Exactly) */}
         <aside className={styles.rightSidebar}>
-          {/* Card 1: Salary Overview Breakdown */}
-          <div className={styles.sideCard}>
-            <div className={styles.sideCardHeader}>
-              <div>
-                <h4 className={styles.sideCardTitle}>Salary Overview</h4>
-                <div className={styles.sideCardSubtitle}>Monthly pay structure breakdown</div>
-              </div>
-            </div>
+          {/* Top Header: Salary Options */}
+          <div className={styles.optionsHeader}>
+            <h4 className={styles.optionsTitle}>Salary Options</h4>
+            <p className={styles.optionsSubtitle}>Select options for the selected salary revision.</p>
+          </div>
 
-            {/* Gross Pay Banner */}
-            <div className={styles.grossBanner}>
-              <div className={styles.grossBannerInfo}>
-                <span className={styles.grossBannerLabel}>Gross Salary</span>
-                <span className={styles.grossBannerAmount}>{INR(displayGross)}</span>
-              </div>
-              <span className={styles.grossBannerBadge}>{data.salaryType || 'Monthly'}</span>
-            </div>
+          {/* Increment Toggle */}
+          <div className={styles.toggleRow} onClick={() => handleChange('isIncrement', !data.isIncrement)}>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={Boolean(data.isIncrement)}
+              className={`${styles.toggleSwitch} ${data.isIncrement ? styles.toggleSwitchBlue : ''}`}
+            >
+              <span className={`${styles.toggleKnob} ${data.isIncrement ? styles.toggleKnobActive : ''}`} />
+            </button>
+            <span className={styles.toggleLabel}>This is an Increment</span>
+          </div>
 
-            <div className={styles.summaryList}>
-              <div className={styles.summaryRow}>
-                <span className={styles.summaryLabel}>Basic Pay</span>
-                <span className={styles.summaryValue}>{INR(data.basic)}</span>
-              </div>
-              <div className={styles.summaryRow}>
-                <span className={styles.summaryLabel}>HRA</span>
-                <span className={styles.summaryValue}>{INR(data.hra)}</span>
-              </div>
-              <div className={styles.summaryRow}>
-                <span className={styles.summaryLabel}>Conveyance</span>
-                <span className={styles.summaryValue}>{INR(data.conveyance)}</span>
-              </div>
-              {(Number(data.vda) > 0) && (
-                <div className={styles.summaryRow}>
-                  <span className={styles.summaryLabel}>VDA</span>
-                  <span className={styles.summaryValue}>{INR(data.vda)}</span>
-                </div>
-              )}
-              {((Number(data.specialAllowance) > 0) || (Number(data.otherAllowance) > 0)) && (
-                <div className={styles.summaryRow}>
-                  <span className={styles.summaryLabel}>Other Allowances</span>
-                  <span className={styles.summaryValue}>
-                    {INR((Number(data.specialAllowance) || 0) + (Number(data.otherAllowance) || 0))}
-                  </span>
-                </div>
-              )}
-              <div className={styles.summaryDivider} />
-              <div className={styles.summaryRow}>
-                <span className={styles.summaryLabel}>Annual CTC (Est.)</span>
-                <span className={styles.summaryValue}>{INR(annualCtcEstimate)}</span>
-              </div>
-              {data.salaryEffectiveFrom && (
-                <div className={styles.summaryRow}>
-                  <span className={styles.summaryLabel}>Effective Date</span>
-                  <span className={styles.summaryValue}>{data.salaryEffectiveFrom}</span>
-                </div>
-              )}
+          {/* Card 1: Employee's State Insurance (ESI) */}
+          <div className={styles.optionCard}>
+            <h5 className={styles.optionCardTitle}>Employee's State Insurance (ESI)</h5>
+            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductEsi', !data.doNotDeductEsi)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.doNotDeductEsi)}
+                className={`${styles.toggleSwitch} ${data.doNotDeductEsi ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.doNotDeductEsi ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>DO NOT Deduct ESI</span>
+            </div>
+            <div className={styles.toggleRow} onClick={() => handleChange('deductEsiAboveCeiling', data.deductEsiAboveCeiling !== false ? !data.deductEsiAboveCeiling : true)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={data.deductEsiAboveCeiling !== false}
+                className={`${styles.toggleSwitch} ${data.deductEsiAboveCeiling !== false ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.deductEsiAboveCeiling !== false ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>Deduct ESI Above Ceiling</span>
             </div>
           </div>
 
-          {/* Card 2: Statutory Compliance Overview */}
-          <div className={styles.sideCard}>
-            <div className={styles.sideCardHeader}>
-              <div>
-                <h4 className={styles.sideCardTitle}>Statutory Status</h4>
-                <div className={styles.sideCardSubtitle}>Compliance registration overview</div>
-              </div>
-              <ShieldCheck size={18} color="#2563eb" />
+          {/* Card 2: Provident Fund (PF) */}
+          <div className={styles.optionCard}>
+            <h5 className={styles.optionCardTitle}>Provident Fund (PF)</h5>
+            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductPf', !data.doNotDeductPf)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.doNotDeductPf)}
+                className={`${styles.toggleSwitch} ${data.doNotDeductPf ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.doNotDeductPf ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>DO NOT Deduct PF</span>
             </div>
-
-            <div className={styles.statutoryList}>
-              {/* PF */}
-              <div className={`${styles.statutoryItem} ${isPfActive ? styles.statutoryItemActive : ''}`}>
-                <div className={styles.statutoryInfo}>
-                  <span className={styles.statutoryName}>Provident Fund (PF)</span>
-                  <span className={styles.statutoryDetail}>
-                    {isPfActive ? (data.uan ? `UAN: ${data.uan}` : data.pfNo ? `PF: ${data.pfNo}` : 'Enrolled') : 'Not Applicable'}
-                  </span>
-                </div>
-                {isPfActive ? (
-                  <span className={styles.badgeSuccess}>
-                    <CheckCircle2 size={11} />
-                    <span>Active</span>
-                  </span>
-                ) : (
-                  <span className={styles.badgeMuted}>No</span>
-                )}
+            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductPension', !data.doNotDeductPension)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.doNotDeductPension)}
+                className={`${styles.toggleSwitch} ${data.doNotDeductPension ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.doNotDeductPension ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>DO NOT Deduct Pension (PF)</span>
+            </div>
+            <div className={styles.toggleRow} onClick={() => handleChange('deductPfAboveCeilingEmployee', !data.deductPfAboveCeilingEmployee)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.deductPfAboveCeilingEmployee)}
+                className={`${styles.toggleSwitch} ${data.deductPfAboveCeilingEmployee ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.deductPfAboveCeilingEmployee ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>Deduct PF Above Ceiling (Employee)</span>
+            </div>
+            <div className={styles.toggleRow} onClick={() => handleChange('deductPfAboveCeilingEmployer', !data.deductPfAboveCeilingEmployer)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.deductPfAboveCeilingEmployer)}
+                className={`${styles.toggleSwitch} ${data.deductPfAboveCeilingEmployer ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.deductPfAboveCeilingEmployer ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>Deduct PF Above Ceiling (Employer)</span>
+            </div>
+            <div className={styles.toggleRow} onClick={() => handleChange('deductPfOnGrossSalary', !data.deductPfOnGrossSalary)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.deductPfOnGrossSalary)}
+                className={`${styles.toggleSwitch} ${data.deductPfOnGrossSalary ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.deductPfOnGrossSalary ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>Deduct PF on Gross Salary</span>
+            </div>
+            <div className={styles.toggleRow} onClick={() => handleChange('deductPfExtraContribution', !data.deductPfExtraContribution)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.deductPfExtraContribution)}
+                className={`${styles.toggleSwitch} ${data.deductPfExtraContribution ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.deductPfExtraContribution ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>Deduct PF Extra Contribution</span>
+              <span className={styles.infoBadge} title="Extra PF contribution details">i</span>
+            </div>
+            <div className={styles.optionInlineRow}>
+              <div className={styles.optionInlineLabel}>
+                <span>Min. Deduction</span>
+                <span className={styles.infoBadge} title="Minimum deduction amount">i</span>
               </div>
-
-              {/* ESI */}
-              <div className={`${styles.statutoryItem} ${isEsiActive ? styles.statutoryItemActive : ''}`}>
-                <div className={styles.statutoryInfo}>
-                  <span className={styles.statutoryName}>ESIC</span>
-                  <span className={styles.statutoryDetail}>
-                    {isEsiActive ? (data.esicNo ? `No: ${data.esicNo}` : 'Covered') : 'Not Applicable'}
-                  </span>
-                </div>
-                {isEsiActive ? (
-                  <span className={styles.badgeSuccess}>
-                    <CheckCircle2 size={11} />
-                    <span>Active</span>
-                  </span>
-                ) : (
-                  <span className={styles.badgeMuted}>No</span>
-                )}
-              </div>
-
-              {/* TDS */}
-              <div className={`${styles.statutoryItem} ${isTdsActive ? styles.statutoryItemActive : ''}`}>
-                <div className={styles.statutoryInfo}>
-                  <span className={styles.statutoryName}>TDS / Income Tax</span>
-                  <span className={styles.statutoryDetail}>
-                    {isTdsActive ? (data.pan ? `PAN: ${data.pan}` : 'Applicable') : 'Exempt'}
-                  </span>
-                </div>
-                {isTdsActive ? (
-                  <span className={styles.badgeSuccess}>
-                    <CheckCircle2 size={11} />
-                    <span>Active</span>
-                  </span>
-                ) : (
-                  <span className={styles.badgeMuted}>Exempt</span>
-                )}
-              </div>
-
-              {/* PT */}
-              <div className={`${styles.statutoryItem} ${isPtActive ? styles.statutoryItemActive : ''}`}>
-                <div className={styles.statutoryInfo}>
-                  <span className={styles.statutoryName}>Professional Tax</span>
-                  <span className={styles.statutoryDetail}>{isPtActive ? 'State Applicable' : 'Exempt'}</span>
-                </div>
-                {isPtActive ? (
-                  <span className={styles.badgeSuccess}>
-                    <CheckCircle2 size={11} />
-                    <span>Active</span>
-                  </span>
-                ) : (
-                  <span className={styles.badgeMuted}>No</span>
-                )}
-              </div>
-
-              {/* LWF */}
-              <div className={`${styles.statutoryItem} ${isLwfActive ? styles.statutoryItemActive : ''}`}>
-                <div className={styles.statutoryInfo}>
-                  <span className={styles.statutoryName}>Labour Welfare (LWF)</span>
-                  <span className={styles.statutoryDetail}>
-                    {isLwfActive ? (data.lwfNo ? `No: ${data.lwfNo}` : 'Applicable') : 'Exempt'}
-                  </span>
-                </div>
-                {isLwfActive ? (
-                  <span className={styles.badgeSuccess}>
-                    <CheckCircle2 size={11} />
-                    <span>Active</span>
-                  </span>
-                ) : (
-                  <span className={styles.badgeMuted}>No</span>
-                )}
-              </div>
+              <input
+                type="number"
+                min="0"
+                className={styles.smallInput}
+                value={data.minPfDeduction === 0 ? '0' : (data.minPfDeduction || '0')}
+                onChange={(e) => handleChange('minPfDeduction', e.target.value)}
+                onWheel={(e) => e.target.blur()}
+              />
             </div>
           </div>
 
-          {/* Card 3: Compliance Notice Card */}
-          <div className={styles.noticeCard}>
-            <Info size={16} className={styles.noticeIcon} />
-            <span>
-              Statutory deductions (PF 12%, ESI 0.75%, PT, LWF) are calculated dynamically during monthly payroll runs as per state regulations and compliance thresholds.
-            </span>
+          {/* Card 3: Professional Tax */}
+          <div className={styles.optionCard}>
+            <h5 className={styles.optionCardTitle}>Professional Tax</h5>
+            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductPt', !data.doNotDeductPt)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.doNotDeductPt)}
+                className={`${styles.toggleSwitch} ${data.doNotDeductPt ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.doNotDeductPt ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>DO NOT Deduct</span>
+              <span className={styles.infoBadge} title="Professional Tax exemption">i</span>
+            </div>
+            <div className={styles.optionInlineRow}>
+              <span className={styles.optionInlineLabel}>Tax State</span>
+              <select
+                className={styles.smallSelect}
+                value={data.ptTaxState || 'Delhi'}
+                onChange={(e) => handleChange('ptTaxState', e.target.value)}
+              >
+                {INDIAN_STATES.map((state) => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Card 4: Income Tax (TDS) */}
+          <div className={styles.optionCard}>
+            <h5 className={styles.optionCardTitle}>Income Tax (TDS)</h5>
+            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductTds', !data.doNotDeductTds)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.doNotDeductTds)}
+                className={`${styles.toggleSwitch} ${data.doNotDeductTds ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.doNotDeductTds ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>DO NOT Deduct</span>
+              <span className={styles.infoBadge} title="TDS deduction exemption">i</span>
+            </div>
+            <div className={styles.toggleRow} onClick={() => handleChange('metroCityResident', !data.metroCityResident)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.metroCityResident)}
+                className={`${styles.toggleSwitch} ${data.metroCityResident ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.metroCityResident ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>Metro City Resident (HRA Exemption)</span>
+            </div>
+          </div>
+
+          {/* Card 5: Labour Welfare Fund (LWF) */}
+          <div className={styles.optionCard}>
+            <h5 className={styles.optionCardTitle}>Labour Welfare Fund (LWF)</h5>
+            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductLwf', !data.doNotDeductLwf)}>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(data.doNotDeductLwf)}
+                className={`${styles.toggleSwitch} ${data.doNotDeductLwf ? styles.toggleSwitchBlue : ''}`}
+              >
+                <span className={`${styles.toggleKnob} ${data.doNotDeductLwf ? styles.toggleKnobActive : ''}`} />
+              </button>
+              <span className={styles.toggleLabel}>DO NOT Deduct</span>
+              <span className={styles.infoBadge} title="Labour Welfare Fund exemption">i</span>
+            </div>
+            <div className={styles.optionInlineRow}>
+              <span className={styles.optionInlineLabel}>Tax State</span>
+              <select
+                className={styles.smallSelect}
+                value={data.lwfTaxState || 'Delhi'}
+                onChange={(e) => handleChange('lwfTaxState', e.target.value)}
+              >
+                {INDIAN_STATES.map((state) => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </aside>
       </div>

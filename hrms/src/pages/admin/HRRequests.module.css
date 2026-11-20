@@ -108,24 +108,30 @@
 /* Cards Grid */
 .cardsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
   width: 100%;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1280px) {
+  .cardsGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
   .cardsGrid {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 860px) {
+@media (max-width: 720px) {
   .cardsGrid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 520px) {
+@media (max-width: 480px) {
   .cardsGrid {
     grid-template-columns: 1fr;
   }
@@ -136,7 +142,7 @@
   background: #ffffff;
   border: 1px solid #edf0f5;
   border-radius: 12px;
-  padding: 36px 20px 30px;
+  padding: 24px 16px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -147,13 +153,13 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
   user-select: none;
   position: relative;
-  min-height: 140px;
+  min-height: 115px;
 }
 
 .requestCard:hover {
-  transform: translateY(-4px);
+  transform: translateY(-3px);
   border-color: #cbd5e1;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.07), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.06), 0 6px 8px -4px rgba(0, 0, 0, 0.03);
 }
 
 .requestCard:active {
@@ -162,7 +168,7 @@
 
 .cardIcon {
   color: #1e293b;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   transition: color 0.2s ease, transform 0.2s ease;
 }
 
@@ -172,7 +178,7 @@
 }
 
 .cardLabel {
-  font-size: 15px;
+  font-size: 13.5px;
   font-weight: 600;
   color: #1e293b;
   margin: 0;

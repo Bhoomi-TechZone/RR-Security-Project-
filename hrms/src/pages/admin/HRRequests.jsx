@@ -135,7 +135,7 @@ function HRRequests() {
                 }}
                 title={card.description}
               >
-                <Icon size={32} strokeWidth={1.6} className={styles.cardIcon} />
+                <Icon size={26} strokeWidth={1.6} className={styles.cardIcon} />
                 <h3 className={styles.cardLabel}>{card.title}</h3>
               </div>
             );
