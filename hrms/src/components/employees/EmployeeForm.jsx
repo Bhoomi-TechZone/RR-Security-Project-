@@ -594,6 +594,9 @@ function EmployeeForm({
         } : {})
       };
       await onSubmit(payload);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('employee-saved'));
+      }
     } catch (err) {
       console.error('Error saving employee:', err);
     } finally {
