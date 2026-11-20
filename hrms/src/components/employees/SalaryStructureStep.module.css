@@ -42,13 +42,13 @@
 .statementBtn {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
+  gap: 5px;
+  padding: 5px 11px;
   background-color: #2563eb;
   color: #ffffff;
   border: none;
   border-radius: 6px;
-  font-size: 12.5px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -79,6 +79,266 @@
 }
 
 /* ========================================================
+   Salary Revisions Card
+   ======================================================== */
+.revisionsCard {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.revisionsCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f1f5f9;
+  flex-wrap: wrap;
+}
+
+.revisionsTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.revisionsHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.revisionsList {
+  display: flex;
+  flex-direction: column;
+}
+
+.revisionRow {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1.3fr 1.3fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: all 0.15s ease;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.revisionRow:last-child {
+  border-bottom: none;
+}
+
+.revisionRow:hover {
+  background-color: #f8fafc;
+}
+
+.revisionRowActive {
+  background-color: #f0f7ff;
+}
+
+.tableCol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.colHeader {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.colValue {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.unitSuffix {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-left: 4px;
+}
+
+.tableActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.actionBtnEdit {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #bfdbfe;
+  background-color: #2563eb;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.actionBtnEdit:hover {
+  background-color: #1d4ed8;
+  transform: scale(1.06);
+}
+
+.actionBtnDelete {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #fecaca;
+  background-color: #ef4444;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(239, 68, 68, 0.2);
+}
+
+.actionBtnDelete:hover {
+  background-color: #dc2626;
+  transform: scale(1.06);
+}
+
+@media (max-width: 768px) {
+  .revisionRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .tableActions {
+    grid-column: span 2;
+    justify-content: flex-end;
+  }
+}
+
+/* ========================================================
+   Active Revision Editor Card
+   ======================================================== */
+.editorCard {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.editorHeaderBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.editorHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.editorTitle {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.editorDateText {
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.editorHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.unsavedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background-color: #ffe4e6;
+  border: 1px solid #fecdd3;
+  color: #e11d48;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 9999px;
+}
+
+.recalcBtnRow {
+  display: flex;
+  align-items: center;
+  gap: 34px;
+  margin-top: -12px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 640px) {
+  .recalcBtnRow {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-top: 0;
+  }
+}
+
+.recalcBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 32px;
+  padding: 0 12px;
+  background-color: #64748b;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.recalcBtn:hover {
+  background-color: #475569;
+}
+
+.previewNotice {
+  font-size: 12px;
+  color: #e11d48;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* ========================================================
    2. Two-Column Full-Width Layout
    ======================================================== */
 .mainLayout {
@@ -99,7 +359,7 @@
 /* Left Form Column */
 .mainForm {
   flex: 1;
-  max-width: 520px;
+  max-width: 560px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -130,7 +390,7 @@
 .formRow {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 34px;
   min-height: 40px;
 }
 
@@ -143,7 +403,7 @@
 }
 
 .rowLabel {
-  width: 170px;
+  width: 180px;
   flex-shrink: 0;
   font-size: 13px;
   font-weight: 500;
@@ -154,7 +414,7 @@
 }
 
 .boldRowLabel {
-  width: 170px;
+  width: 180px;
   flex-shrink: 0;
   font-size: 13.5px;
   font-weight: 700;
@@ -254,6 +514,11 @@
   pointer-events: none;
   user-select: none;
   border-color: #e2e8f0;
+}
+
+.boldInput {
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .autoCalcBadge {
@@ -411,6 +676,40 @@
   justify-content: space-between;
   gap: 12px;
   margin-top: 3px;
+}
+
+.cardFieldsWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 5px;
+  padding-top: 9px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.optionTextInput {
+  height: 28px;
+  width: 180px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #0f172a;
+  background-color: #ffffff;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: all 0.15s ease;
+}
+
+.optionTextInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.optionTextInput::placeholder {
+  color: #94a3b8;
+  font-size: 11px;
 }
 
 .optionInlineLabel {
