@@ -99,7 +99,7 @@
 /* Left Form Column */
 .mainForm {
   flex: 1;
-  max-width: 600px;
+  max-width: 520px;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -153,14 +153,25 @@
   gap: 6px;
 }
 
+.boldRowLabel {
+  width: 170px;
+  flex-shrink: 0;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .requiredStar {
   color: #ef4444;
   font-weight: 600;
 }
 
 .rowControl {
-  flex: 0 0 290px;
-  width: 290px;
+  flex: 0 0 220px;
+  width: 220px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -232,6 +243,19 @@
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
+.readOnlyWrapper {
+  cursor: not-allowed;
+}
+
+.readOnlyInput {
+  background-color: #f8fafc;
+  color: #334155;
+  cursor: not-allowed;
+  pointer-events: none;
+  user-select: none;
+  border-color: #e2e8f0;
+}
+
 .autoCalcBadge {
   font-size: 10.5px;
   font-weight: 600;
@@ -243,23 +267,197 @@
   white-space: nowrap;
 }
 
+.loadingRow {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.loadingText {
+  font-size: 13px;
+  color: #64748b;
+  font-style: italic;
+}
+
 /* ========================================================
-   3. Right Column Cards (Pinned Right)
+   3. Right Column: Salary & Statutory Options Panel
    ======================================================== */
 .rightSidebar {
-  width: 300px;
+  width: 410px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
+  margin-right: 40px;
 }
 
 @media (max-width: 960px) {
   .rightSidebar {
     width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
+    margin-right: 0;
   }
+}
+
+.optionsHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 2px;
+}
+
+.optionsTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.optionsSubtitle {
+  font-size: 11.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+.optionCard {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box;
+}
+
+.optionCardTitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 2px 0;
+}
+
+.toggleRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.toggleSwitch {
+  width: 34px;
+  height: 18px;
+  background-color: #cbd5e1;
+  border-radius: 9999px;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggleSwitchBlue {
+  background-color: #2563eb;
+}
+
+.toggleSwitchRed {
+  background-color: #2563eb;
+}
+
+.toggleKnob {
+  width: 14px;
+  height: 14px;
+  background-color: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+  transform: translateX(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.toggleKnobActive {
+  transform: translateX(16px);
+}
+
+.toggleLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.3;
+}
+
+.infoBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background-color: #94a3b8;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+  flex-shrink: 0;
+  cursor: help;
+}
+
+.optionInlineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 3px;
+}
+
+.optionInlineLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.smallInput {
+  height: 28px;
+  width: 100px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #0f172a;
+  text-align: right;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.smallInput:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.smallSelect {
+  height: 30px;
+  width: 160px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #0f172a;
+  background-color: #ffffff;
+  outline: none;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.smallSelect:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
 .sideCard {

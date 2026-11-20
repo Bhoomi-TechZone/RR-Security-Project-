@@ -27,6 +27,7 @@ const DEFAULT_MEMBER = {
   dobAge: '',
   residentWith: 'Yes',
   residingWith: 'Yes',
+  isDependent: false,
   aadhaarNumber: '',
   aadhaarPhoto: ''
 };
@@ -43,6 +44,7 @@ function FamilyStep({ data, onChange }) {
         dobAge: data.dobAge || data.dob || '',
         residentWith: data.residentWith || data.residingWith || 'Yes',
         residingWith: data.residentWith || data.residingWith || 'Yes',
+        isDependent: Boolean(data.isDependent),
         aadhaarNumber: data.aadhaarNumber || '',
         aadhaarPhoto: data.aadhaarPhoto || ''
       }] : []);
@@ -77,6 +79,7 @@ function FamilyStep({ data, onChange }) {
       dobAge: m.dobAge || m.dob || '',
       residentWith: m.residentWith || m.residingWith || 'Yes',
       residingWith: m.residingWith || m.residentWith || 'Yes',
+      isDependent: Boolean(m.isDependent),
       aadhaarNumber: m.aadhaarNumber || '',
       aadhaarPhoto: m.aadhaarPhoto || ''
     });
@@ -92,10 +95,10 @@ function FamilyStep({ data, onChange }) {
 
     let updated;
     if (modalMode === 'add') {
-      updated = [...activeMembers, { ...formMember, residingWith: formMember.residentWith }];
+      updated = [...activeMembers, { ...formMember, isDependent: Boolean(formMember.isDependent), residingWith: formMember.residentWith }];
     } else {
       updated = [...activeMembers];
-      updated[editingIndex] = { ...formMember, residingWith: formMember.residentWith };
+      updated[editingIndex] = { ...formMember, isDependent: Boolean(formMember.isDependent), residingWith: formMember.residentWith };
     }
 
     const first = updated[0] || {};
@@ -171,10 +174,11 @@ function FamilyStep({ data, onChange }) {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th style={{ width: '28%' }}>RELATION & NAME</th>
-              <th style={{ width: '22%' }}>DATE OF BIRTH</th>
-              <th style={{ width: '24%' }}>AADHAAR NUMBER</th>
+              <th style={{ width: '26%' }}>NAME & RELATION</th>
+              <th style={{ width: '16%' }}>DATE OF BIRTH</th>
+              <th style={{ width: '18%' }}>AADHAAR NUMBER</th>
               <th style={{ width: '14%' }}>RESIDENT WITH</th>
+              <th style={{ width: '14%' }}>DEPENDENT</th>
               <th style={{ width: '12%', textAlign: 'center' }}>ACTIONS</th>
             </tr>
           </thead>
@@ -182,21 +186,18 @@ function FamilyStep({ data, onChange }) {
             {activeMembers.length > 0 ? (
               activeMembers.map((member, idx) => (
                 <tr key={idx}>
-                  {/* Column 1: Relation Badges & Name */}
+                  {/* Column 1: Name & Relation */}
                   <td>
                     <div className={styles.relationCol}>
+                      <div className={styles.memberName}>
+                        {member.name || 'Unnamed Member'}
+                      </div>
                       <div className={styles.badgesRow}>
                         {member.relation && (
                           <span className={styles.badgeRelation}>
                             {member.relation}
                           </span>
                         )}
-                        <span className={member.residentWith === 'No' ? styles.badgeNonResident : styles.badgeResident}>
-                          {member.residentWith === 'No' ? 'Non-Resident' : 'Resident'}
-                        </span>
-                      </div>
-                      <div className={styles.memberName}>
-                        {member.name || 'Unnamed Member'}
                       </div>
                     </div>
                   </td>
@@ -230,12 +231,19 @@ function FamilyStep({ data, onChange }) {
 
                   {/* Column 4: Resident With */}
                   <td>
-                    <span className={member.residentWith === 'No' ? styles.residentBadgeNo : styles.residentBadgeCol}>
-                      {member.residentWith || 'Yes'}
+                    <span className={(member.residentWith === 'No' || member.residingWith === 'No') ? styles.badgeNonResident : styles.badgeResident}>
+                      {(member.residentWith === 'No' || member.residingWith === 'No') ? 'No' : 'Yes'}
                     </span>
                   </td>
 
-                  {/* Column 5: Action Icons (Edit / Delete) */}
+                  {/* Column 5: Dependent Field (After Resident With) */}
+                  <td>
+                    <span className={member.isDependent ? styles.badgeDependent : styles.badgeNonDependent}>
+                      {member.isDependent ? 'Dependent' : 'Non-Dependent'}
+                    </span>
+                  </td>
+
+                  {/* Column 6: Action Icons (Edit / Delete) */}
                   <td style={{ textAlign: 'center' }}>
                     <div className={styles.actionsCell} style={{ justifyContent: 'center' }}>
                       <button
@@ -260,7 +268,7 @@ function FamilyStep({ data, onChange }) {
               ))
             ) : (
               <tr>
-                <td colSpan={5}>
+                <td colSpan={6}>
                   <div className={styles.emptyState}>
                     <p style={{ margin: 0, fontWeight: 500 }}>No family members recorded yet.</p>
                   </div>
@@ -389,35 +397,55 @@ function FamilyStep({ data, onChange }) {
                   />
                 </div>
 
-                {/* Row 4: Aadhaar Photo */}
-                <div className={styles.formGroup}>
-                  <label className={styles.formLabel}>
-                    <span>Aadhaar Photo / Document</span>
-                  </label>
-                  <div className={styles.fileUploadBox}>
-                    <label className={styles.fileUploadBtn} htmlFor="fam-modal-photo">
-                      <Upload size={14} />
-                      <span>{formMember.aadhaarPhoto ? 'Change Photo' : 'Upload Photo'}</span>
+                {/* Row 4: Dependent & Aadhaar Photo (Side by Side) */}
+                <div className={styles.formGrid2}>
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      <span>Dependent</span>
                     </label>
-                    {formMember.aadhaarPhoto && (
-                      <span className={styles.fileStatusText}>✓ Photo Attached</span>
-                    )}
-                    <input
-                      id="fam-modal-photo"
-                      type="file"
-                      accept="image/*,.pdf"
-                      className={styles.fileInputHidden}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setFormMember({ ...formMember, aadhaarPhoto: reader.result });
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
+                    <div className={styles.toggleRow}>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={Boolean(formMember.isDependent)}
+                        className={`${styles.toggleSwitch} ${formMember.isDependent ? styles.toggleSwitchActive : ''}`}
+                        onClick={() => setFormMember(prev => ({ ...prev, isDependent: !prev.isDependent }))}
+                        title={formMember.isDependent ? 'Dependent: ON' : 'Dependent: OFF'}
+                      >
+                        <span className={`${styles.toggleKnob} ${formMember.isDependent ? styles.toggleKnobActive : ''}`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>
+                      <span>Aadhaar Photo / Document</span>
+                    </label>
+                    <div className={styles.fileUploadBox}>
+                      <label className={styles.fileUploadBtn} htmlFor="fam-modal-photo">
+                        <Upload size={14} />
+                        <span>{formMember.aadhaarPhoto ? 'Change Photo' : 'Upload Photo'}</span>
+                      </label>
+                      {formMember.aadhaarPhoto && (
+                        <span className={styles.fileStatusText}>✓ Photo Attached</span>
+                      )}
+                      <input
+                        id="fam-modal-photo"
+                        type="file"
+                        accept="image/*,.pdf"
+                        className={styles.fileInputHidden}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormMember({ ...formMember, aadhaarPhoto: reader.result });
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>

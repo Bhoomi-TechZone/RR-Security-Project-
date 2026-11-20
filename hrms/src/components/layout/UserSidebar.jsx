@@ -121,7 +121,6 @@ const USER_NAV_GROUPS = [
         subItems: [
           { path: '/user/attendance', name: 'Manual Attendance' },
           { path: '/user/biometric-attendance', name: 'Biometric Attendance' },
-          { path: '/user/attendance?tab=corrections', name: 'Correction Requests' },
         ]
       },
       { 
@@ -197,9 +196,6 @@ const USER_NAV_GROUPS = [
         moduleKey: 'advances_loans',
         hasDropdown: true,
         subItems: [
-          { path: '/user/advances-loans', name: 'All Requests' },
-          { path: '/user/advances-loans?tab=advances', name: 'Advances' },
-          { path: '/user/advances-loans?tab=loans', name: 'Loans' },
           { path: '/user/advances-loans?tab=schedule', name: 'Deduction Schedule' },
           { path: '/user/advances-loans?tab=history', name: 'Deduction History' },
         ]
@@ -212,7 +208,6 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/reimbursements', name: 'All Claims' },
-          { path: '/user/reimbursements?status=pending', name: 'Pending Approvals' },
           { path: '/user/reimbursements?tab=expense-types', name: 'Expense Types Master' },
           { path: '/user/reimbursements?tab=reports', name: 'Reports & Analytics' },
         ]
@@ -255,7 +250,6 @@ const USER_NAV_GROUPS = [
         moduleKey: 'leave',
         hasDropdown: true,
         subItems: [
-          { path: '/user/leave', name: 'Leave Requests' },
           { path: '/user/leave?tab=balances', name: 'Employee Balances' },
           { path: '/user/leave?tab=master', name: 'Leave Master' },
           { path: '/user/leave?tab=calendar', name: 'Roster & Calendar' },
@@ -270,7 +264,6 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/inventory', name: 'Inventory Stock' },
-          { path: '/user/inventory?tab=requests', name: 'Uniform Requisitions' },
           { path: '/user/inventory?tab=issued', name: 'Issued Items' },
           { path: '/user/inventory?tab=returns', name: 'Return History' },
           { path: '/user/inventory?tab=movement', name: 'Stock Movements' },
