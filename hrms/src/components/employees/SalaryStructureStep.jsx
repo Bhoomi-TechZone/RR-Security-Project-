@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { Download, HelpCircle, Plus, Edit2, Trash2, AlertCircle, RotateCcw } from 'lucide-react';
+import { Download, HelpCircle, Plus, Edit2, Trash2, AlertCircle, RotateCcw, X } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import masterService from '../../services/masterService';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
@@ -8,7 +8,7 @@ import styles from './SalaryStructureStep.module.css';
 const INR = (val) => `₹${Number(val || 0).toLocaleString('en-IN')}`;
 
 const formatRevisionDate = (dateVal) => {
-  if (!dateVal) return '01-NOV-2026';
+  if (!dateVal) return '—';
   const str = String(dateVal).trim();
   if (/^\d{2}-[A-Z]{3}-\d{4}$/i.test(str)) {
     return str.toUpperCase();
@@ -25,7 +25,7 @@ const formatRevisionDate = (dateVal) => {
 };
 
 const formatHeaderMonthYear = (dateVal) => {
-  if (!dateVal) return 'JAN-2026';
+  if (!dateVal) return '—';
   const str = String(dateVal).trim();
   try {
     const d = new Date(str);
@@ -90,6 +90,8 @@ function getDeductionFieldKey(comp) {
 
   return cleanName.endsWith('Deduction') ? cleanName : `${cleanName}Deduction`;
 }
+
+const MONTH_OPTIONS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
 const INDIAN_STATES = [
   'Delhi',
@@ -204,13 +206,240 @@ function SalaryStructureStep({ data, onChange }) {
 
   const calculateDynamicTotalDeductions = (currentData, deductions) => {
     const comps = deductions && deductions.length > 0 ? deductions : dynamicDeductionsList;
+    const esiActive = currentData?.doNotDeductEsi !== undefined ? !currentData.doNotDeductEsi : (currentData?.deductEsi !== undefined ? Boolean(currentData.deductEsi) : (currentData?.esiApplicable !== false && currentData?.esiApplicable !== 'No'));
+    const pfActive = currentData?.doNotDeductPf !== undefined ? !currentData.doNotDeductPf : (currentData?.deductPf !== undefined ? Boolean(currentData.deductPf) : (currentData?.pfApplicable !== false && currentData?.pfApplicable !== 'No'));
+    const ptActive = currentData?.doNotDeductPt !== undefined ? !currentData.doNotDeductPt : (currentData?.deductPt !== undefined ? Boolean(currentData.deductPt) : (currentData?.ptApplicable !== false && currentData?.ptApplicable !== 'No'));
+    const lwfActive = currentData?.doNotDeductLwf !== undefined ? !currentData.doNotDeductLwf : (currentData?.deductLwf !== undefined ? Boolean(currentData.deductLwf) : (currentData?.lwfApplicable !== false && currentData?.lwfApplicable !== 'No'));
+    const tdsActive = currentData?.doNotDeductTds !== undefined ? !currentData.doNotDeductTds : (currentData?.deductTds !== undefined ? Boolean(currentData.deductTds) : (currentData?.tdsApplicable !== false && currentData?.tdsApplicable !== 'No'));
+
     let total = 0;
     comps.forEach((comp) => {
+      const name = (comp.name || '').toLowerCase();
+      const code = (comp.code || '').toLowerCase();
+      if ((name.includes('esi') || code.includes('esi')) && !esiActive) return;
+      if ((name.includes('pf') || name.includes('provident') || code.includes('pf')) && !pfActive) return;
+      if ((name.includes('pt') || name.includes('professional') || code.includes('pt')) && !ptActive) return;
+      if ((name.includes('lwf') || name.includes('welfare') || code.includes('lwf')) && !lwfActive) return;
+      if ((name.includes('tds') || name.includes('tax') || code.includes('tds')) && !tdsActive) return;
+
       const key = getDeductionFieldKey(comp);
       const val = currentData[key] ?? currentData.deductions?.[key] ?? currentData.deductions?.[comp.name] ?? 0;
       total += Number(val) || 0;
     });
     return total;
+  };
+
+  /**
+   * Unified comprehensive salary & statutory calculation engine for frontend preview
+   */
+  const calculateComprehensiveSalary = (currentData = {}) => {
+    const basic = Number(currentData.basic) || 0;
+    const vda = Number(currentData.vda) || 0;
+    const hra = Number(currentData.hra) || 0;
+    const conveyance = Number(currentData.conveyance) || 0;
+    const specialAllowance = Number(currentData.specialAllowance) || 0;
+    const otherAllowance = Number(currentData.otherAllowance) || 0;
+
+    let customGross = 0;
+    dynamicComponentsList.forEach((comp) => {
+      const key = getComponentFieldKey(comp);
+      if (!['basic', 'vda', 'hra', 'conveyance', 'specialAllowance', 'otherAllowance'].includes(key)) {
+        const val = Number(currentData[key] ?? currentData.customEarnings?.[key] ?? currentData.customEarnings?.[comp.name] ?? 0) || 0;
+        customGross += val;
+      }
+    });
+
+    const grossSalary = basic + vda + hra + conveyance + specialAllowance + otherAllowance + customGross;
+
+    // Statutory switches
+    const doNotDeductEsi = currentData.doNotDeductEsi !== undefined
+      ? Boolean(currentData.doNotDeductEsi)
+      : (currentData.deductEsi !== undefined ? !currentData.deductEsi : (currentData.esiApplicable === false || currentData.esiApplicable === 'No'));
+    const isEsiDeduct = !doNotDeductEsi;
+
+    const doNotDeductPf = currentData.doNotDeductPf !== undefined
+      ? Boolean(currentData.doNotDeductPf)
+      : (currentData.deductPf !== undefined ? !currentData.deductPf : (currentData.pfApplicable === false || currentData.pfApplicable === 'No'));
+    const isPfDeduct = !doNotDeductPf;
+
+    const doNotDeductPt = currentData.doNotDeductPt !== undefined
+      ? Boolean(currentData.doNotDeductPt)
+      : (currentData.deductPt !== undefined ? !currentData.deductPt : (currentData.ptApplicable === false || currentData.ptApplicable === 'No'));
+    const isPtDeduct = !doNotDeductPt;
+
+    const doNotDeductLwf = currentData.doNotDeductLwf !== undefined
+      ? Boolean(currentData.doNotDeductLwf)
+      : (currentData.deductLwf !== undefined ? !currentData.deductLwf : (currentData.lwfApplicable === false || currentData.lwfApplicable === 'No' || currentData.lwf === 'No'));
+    const isLwfDeduct = !doNotDeductLwf;
+
+    const doNotDeductTds = currentData.doNotDeductTds !== undefined
+      ? Boolean(currentData.doNotDeductTds)
+      : (currentData.deductTds !== undefined ? !currentData.deductTds : (currentData.tdsApplicable === false || currentData.tdsApplicable === 'No'));
+    const isTdsDeduct = !doNotDeductTds;
+
+    // 1. PF Calculations
+    let employeePf = 0;
+    let employerPf = 0;
+    let epsPension = 0;
+    let edliAndAdmin = 0;
+
+    if (isPfDeduct) {
+      const pfWageBase = Boolean(currentData.deductPfOnGrossSalary)
+        ? grossSalary
+        : ((basic + vda) > 0 ? (basic + vda) : Math.min(grossSalary, 15000));
+
+      const isEmployeeAboveCeiling = Boolean(currentData.deductPfAboveCeilingEmployee);
+      const isEmployerAboveCeiling = Boolean(currentData.deductPfAboveCeilingEmployer);
+
+      const pfWageEmployee = isEmployeeAboveCeiling ? pfWageBase : Math.min(pfWageBase, 15000);
+      const pfWageEmployer = isEmployerAboveCeiling ? pfWageBase : Math.min(pfWageBase, 15000);
+      const epsWage = Math.min(pfWageBase, 15000);
+
+      employeePf = Math.round(pfWageEmployee * 0.12);
+      if (currentData.minPfDeduction && Number(currentData.minPfDeduction) > 0 && employeePf < Number(currentData.minPfDeduction)) {
+        employeePf = Number(currentData.minPfDeduction);
+      }
+
+      if (currentData.doNotDeductPension) {
+        epsPension = 0;
+        employerPf = Math.round(pfWageEmployer * 0.12);
+      } else {
+        epsPension = Math.round(epsWage * 0.0833);
+        employerPf = Math.max(0, Math.round(pfWageEmployer * 0.12) - epsPension);
+      }
+
+      const edli = Math.round(epsWage * 0.005);
+      const admin = Math.round(pfWageEmployer * 0.005);
+      edliAndAdmin = edli + admin;
+    }
+
+    // 2. ESI Calculations
+    let employeeEsi = 0;
+    let employerEsi = 0;
+    if (isEsiDeduct) {
+      const allowAboveCeiling = currentData.deductEsiAboveCeiling !== false;
+      if (grossSalary <= 21000 || allowAboveCeiling) {
+        employeeEsi = Math.round(grossSalary * 0.0075);
+        employerEsi = Math.round(grossSalary * 0.0325);
+      }
+    }
+
+    // 3. PT Calculations
+    let ptDeduction = 0;
+    if (isPtDeduct) {
+      const ptState = String(currentData.ptTaxState || 'Delhi').toLowerCase();
+      if (ptState.includes('maharashtra')) {
+        ptDeduction = grossSalary > 10000 ? 200 : (grossSalary > 7500 ? 175 : 0);
+      } else if (ptState.includes('karnataka')) {
+        ptDeduction = grossSalary > 15000 ? 200 : 0;
+      } else if (ptState.includes('gujarat')) {
+        ptDeduction = grossSalary > 12000 ? 200 : (grossSalary > 9000 ? 150 : (grossSalary > 6000 ? 80 : 0));
+      } else if (ptState.includes('west bengal') || ptState.includes('bengal')) {
+        ptDeduction = grossSalary > 40000 ? 200 : (grossSalary > 25000 ? 150 : (grossSalary > 15000 ? 130 : 0));
+      } else if (ptState.includes('delhi')) {
+        ptDeduction = 0;
+      } else if (ptState.includes('telangana') || ptState.includes('andhra')) {
+        ptDeduction = grossSalary > 20000 ? 200 : (grossSalary > 15000 ? 150 : 0);
+      } else if (ptState.includes('tamil')) {
+        ptDeduction = grossSalary > 15000 ? 208 : 0;
+      } else if (ptState.includes('madhya')) {
+        ptDeduction = grossSalary > 18750 ? 208 : 0;
+      } else {
+        ptDeduction = grossSalary > 15000 ? 200 : 0;
+      }
+    }
+
+    // 4. LWF Calculations
+    let employeeLwf = 0;
+    let employerLwf = 0;
+    if (isLwfDeduct) {
+      const lwfState = String(currentData.lwfTaxState || 'Delhi').toLowerCase();
+      if (lwfState.includes('delhi')) {
+        employeeLwf = 0.75;
+        employerLwf = 2.25;
+      } else if (lwfState.includes('maharashtra')) {
+        employeeLwf = 12;
+        employerLwf = 36;
+      } else if (lwfState.includes('gujarat')) {
+        employeeLwf = 6;
+        employerLwf = 12;
+      } else if (lwfState.includes('karnataka')) {
+        employeeLwf = 20;
+        employerLwf = 40;
+      } else {
+        employeeLwf = 5;
+        employerLwf = 15;
+      }
+    }
+
+    // 5. TDS Calculations
+    let tdsDeduction = 0;
+    if (isTdsDeduct && Number(currentData.tdsAmount) > 0) {
+      tdsDeduction = Number(currentData.tdsAmount);
+    }
+
+    // 6. Manual Deductions
+    let customDeductions = 0;
+    dynamicDeductionsList.forEach((comp) => {
+      const key = getDeductionFieldKey(comp);
+      const val = Number(currentData[key] ?? currentData.deductions?.[key] ?? currentData.deductions?.[comp.name] ?? 0) || 0;
+      customDeductions += val;
+    });
+
+    const totalDeductions = Math.round(employeePf + employeeEsi + ptDeduction + employeeLwf + tdsDeduction + customDeductions);
+    const netSalary = Math.max(0, grossSalary - totalDeductions);
+
+    const totalEmployerContributions = Math.round(employerPf + epsPension + edliAndAdmin + employerEsi + employerLwf);
+    const totalCtc = grossSalary + totalEmployerContributions;
+
+    return {
+      grossSalary,
+      totalSalary: grossSalary,
+      netSalary,
+      totalDeductions,
+      employeePf,
+      employeeEsi,
+      ptDeduction,
+      employeeLwf,
+      tdsDeduction,
+      customDeductions,
+      employerContributions: {
+        pfEmployer: employerPf,
+        pensionEmployer: epsPension,
+        eps: epsPension,
+        epfEmployer: employerPf,
+        edliAndAdmin,
+        esiEmployer: employerEsi,
+        lwfEmployer: employerLwf,
+        totalEmployerContributions,
+        totalCtc
+      },
+      ctc: totalCtc,
+      totalCtc
+    };
+  };
+
+  const syncRevisionsWithData = (updatedData, calc) => {
+    if (!activeRevisionId || revisions.length === 0) {
+      return revisions;
+    }
+    const updated = revisions.map((r) => {
+      if (r.id === activeRevisionId) {
+        return {
+          ...r,
+          ...updatedData,
+          grossSalary: calc.grossSalary,
+          totalSalary: calc.grossSalary,
+          netSalary: calc.netSalary,
+          ctc: calc.totalCtc,
+          totalCtc: calc.totalCtc,
+          employerContributions: calc.employerContributions
+        };
+      }
+      return r;
+    });
+    setRevisions(updated);
+    return updated;
   };
 
   const handleComponentChange = (comp, value) => {
@@ -227,11 +456,17 @@ function SalaryStructureStep({ data, onChange }) {
       }
     };
 
-    const newGross = calculateDynamicGross(updatedData, dynamicComponentsList);
-    const currentDeductions = calculateDynamicTotalDeductions(updatedData, dynamicDeductionsList);
-    updatedData.grossSalary = newGross;
-    updatedData.totalSalary = newGross;
-    updatedData.netSalary = Math.max(0, newGross - currentDeductions);
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
     setHasUnsavedChanges(true);
     onChange(updatedData);
   };
@@ -250,11 +485,17 @@ function SalaryStructureStep({ data, onChange }) {
       }
     };
 
-    const currentGross = updatedData.grossSalary !== undefined && updatedData.grossSalary !== ''
-      ? Number(updatedData.grossSalary) || 0
-      : calculateDynamicGross(updatedData, dynamicComponentsList);
-    const currentDeductions = calculateDynamicTotalDeductions(updatedData, dynamicDeductionsList);
-    updatedData.netSalary = Math.max(0, currentGross - currentDeductions);
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.netSalary = calc.netSalary;
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
     setHasUnsavedChanges(true);
     onChange(updatedData);
   };
@@ -277,6 +518,8 @@ function SalaryStructureStep({ data, onChange }) {
       'esicNo',
       'dispensaryNo',
       'pan',
+      'ptNo',
+      'ptNumber',
       'ptTaxState',
       'lwfTaxState'
     ].includes(field);
@@ -310,42 +553,49 @@ function SalaryStructureStep({ data, onChange }) {
 
     const updatedData = { ...data, [field]: formattedValue };
 
-    // Auto-calculate gross salary when gross salary is not explicitly overridden
     if (field === 'grossSalary') {
       updatedData.grossSalary = formattedValue;
     }
+
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
 
     setHasUnsavedChanges(true);
     onChange(updatedData);
   };
 
-  const displayGross =
-    data.grossSalary !== undefined && data.grossSalary !== '' && data.grossSalary !== 0
-      ? data.grossSalary
-      : (calculateDynamicGross(data, dynamicComponentsList) || '');
+  const doNotDeductEsi = data.doNotDeductEsi !== undefined
+    ? Boolean(data.doNotDeductEsi)
+    : (data.deductEsi !== undefined ? !data.deductEsi : (data.esiApplicable === false || data.esiApplicable === 'No'));
+  const isEsiDeduct = !doNotDeductEsi;
 
-  const totalDeductions = calculateDynamicTotalDeductions(data, dynamicDeductionsList);
-  const displayNet = Math.max(0, (Number(displayGross) || 0) - totalDeductions);
+  const doNotDeductPf = data.doNotDeductPf !== undefined
+    ? Boolean(data.doNotDeductPf)
+    : (data.deductPf !== undefined ? !data.deductPf : (data.pfApplicable === false || data.pfApplicable === 'No'));
+  const isPfDeduct = !doNotDeductPf;
 
-  const isEsiDeduct = data.deductEsi !== undefined
-    ? Boolean(data.deductEsi)
-    : (data.doNotDeductEsi !== undefined ? !data.doNotDeductEsi : Boolean(data.esiApplicable === true || data.esiApplicable === 'Yes'));
+  const doNotDeductTds = data.doNotDeductTds !== undefined
+    ? Boolean(data.doNotDeductTds)
+    : (data.deductTds !== undefined ? !data.deductTds : (data.tdsApplicable === false || data.tdsApplicable === 'No'));
+  const isTdsDeduct = !doNotDeductTds;
 
-  const isPfDeduct = data.deductPf !== undefined
-    ? Boolean(data.deductPf)
-    : (data.doNotDeductPf !== undefined ? !data.doNotDeductPf : Boolean(data.pfApplicable === true || data.pfApplicable === 'Yes'));
+  const doNotDeductLwf = data.doNotDeductLwf !== undefined
+    ? Boolean(data.doNotDeductLwf)
+    : (data.deductLwf !== undefined ? !data.deductLwf : (data.lwfApplicable === false || data.lwfApplicable === 'No' || data.lwf === 'No'));
+  const isLwfDeduct = !doNotDeductLwf;
 
-  const isTdsDeduct = data.deductTds !== undefined
-    ? Boolean(data.deductTds)
-    : (data.doNotDeductTds !== undefined ? !data.doNotDeductTds : Boolean(data.tdsApplicable === true || data.tdsApplicable === 'Yes'));
-
-  const isLwfDeduct = data.deductLwf !== undefined
-    ? Boolean(data.deductLwf)
-    : (data.doNotDeductLwf !== undefined ? !data.doNotDeductLwf : Boolean(data.lwfApplicable === true || data.lwfApplicable === 'Yes' || (data.lwf && data.lwf !== 'No')));
-
-  const isPtDeduct = data.deductPt !== undefined
-    ? Boolean(data.deductPt)
-    : (data.doNotDeductPt !== undefined ? !data.doNotDeductPt : Boolean(data.ptApplicable === true || data.ptApplicable === 'Yes'));
+  const doNotDeductPt = data.doNotDeductPt !== undefined
+    ? Boolean(data.doNotDeductPt)
+    : (data.deductPt !== undefined ? !data.deductPt : (data.ptApplicable === false || data.ptApplicable === 'No'));
+  const isPtDeduct = !doNotDeductPt;
 
   const isPfActive = isPfDeduct;
   const isEsiActive = isEsiDeduct;
@@ -353,225 +603,207 @@ function SalaryStructureStep({ data, onChange }) {
   const isLwfActive = isLwfDeduct;
   const isPtActive = isPtDeduct;
 
-  const handleToggleEsiDeduct = () => {
-    const nextVal = !isEsiDeduct;
-    setHasUnsavedChanges(true);
-    onChange({
-      ...data,
-      deductEsi: nextVal,
-      doNotDeductEsi: !nextVal,
-      esiApplicable: nextVal
-    });
-  };
-
-  const handleTogglePfDeduct = () => {
-    const nextVal = !isPfDeduct;
-    setHasUnsavedChanges(true);
-    onChange({
-      ...data,
-      deductPf: nextVal,
-      doNotDeductPf: !nextVal,
-      pfApplicable: nextVal
-    });
-  };
-
-  const handleToggleTdsDeduct = () => {
-    const nextVal = !isTdsDeduct;
-    setHasUnsavedChanges(true);
-    onChange({
-      ...data,
-      deductTds: nextVal,
-      doNotDeductTds: !nextVal,
-      tdsApplicable: nextVal
-    });
-  };
-
-  const handleToggleLwfDeduct = () => {
-    const nextVal = !isLwfDeduct;
-    setHasUnsavedChanges(true);
-    onChange({
-      ...data,
-      deductLwf: nextVal,
-      doNotDeductLwf: !nextVal,
-      lwfApplicable: nextVal
-    });
-  };
-
-  const handleTogglePtDeduct = () => {
-    const nextVal = !isPtDeduct;
-    setHasUnsavedChanges(true);
-    onChange({
-      ...data,
-      deductPt: nextVal,
-      doNotDeductPt: !nextVal,
-      ptApplicable: nextVal
-    });
-  };
-
-  // Employer Contributions & CTC Calculations (All Non-Editable)
-  const calculatedContributions = useMemo(() => {
-    const gross = Number(displayGross) || 0;
-    const basic = Number(data.basic) || 0;
-    const vda = Number(data.vda) || 0;
-    const pfWageBase = basic + vda > 0 ? (basic + vda) : (gross > 0 ? Math.min(gross, 15000) : 0);
-
-    // ESI Contribution (Employer 3.25%)
-    let esiContribution = 0;
-    if (isEsiDeduct) {
-      const allowAboveCeiling = data.deductEsiAboveCeiling !== false;
-      if (gross <= 21000 || allowAboveCeiling) {
-        esiContribution = Math.round(gross * 0.0325);
-      }
-    }
-
-    // PF Contribution, Pension Contribution, EDLI & Admin Charges
-    let pfContribution = 0;
-    let pensionContribution = 0;
-    let edliAndAdmin = 0;
-
-    if (isPfDeduct && pfWageBase > 0) {
-      const isEmployerAboveCeiling = Boolean(data.deductPfAboveCeilingEmployer);
-      const pfWage = isEmployerAboveCeiling ? pfWageBase : Math.min(pfWageBase, 15000);
-      const epsWage = Math.min(pfWageBase, 15000);
-
-      if (data.doNotDeductPension) {
-        pensionContribution = 0;
-        pfContribution = Math.round(pfWage * 0.12);
-      } else {
-        pensionContribution = Math.round(epsWage * 0.0833);
-        pfContribution = Math.max(0, Math.round(pfWage * 0.12) - pensionContribution);
-      }
-
-      const edli = Math.round(epsWage * 0.005);
-      const admin = Math.round(pfWage * 0.005);
-      edliAndAdmin = edli + admin;
-    }
-
-    const totalCtc = Math.round(gross + esiContribution + pfContribution + pensionContribution + edliAndAdmin);
-
-    return {
-      esiContribution,
-      pfContribution,
-      pensionContribution,
-      edliAndAdmin,
-      totalCtc
-    };
+  const currentCalc = useMemo(() => {
+    return calculateComprehensiveSalary(data);
   }, [
-    displayGross,
-    data.basic,
-    data.vda,
+    data,
+    dynamicComponentsList,
+    dynamicDeductionsList,
     isEsiDeduct,
     data.deductEsiAboveCeiling,
     isPfDeduct,
+    data.deductPfAboveCeilingEmployee,
     data.deductPfAboveCeilingEmployer,
-    data.doNotDeductPension
+    data.deductPfOnGrossSalary,
+    data.doNotDeductPension,
+    data.minPfDeduction,
+    isPtDeduct,
+    data.ptTaxState,
+    isLwfDeduct,
+    data.lwfTaxState,
+    isTdsDeduct,
+    data.tdsAmount
   ]);
+
+  const displayGross = currentCalc.grossSalary;
+  const displayNet = currentCalc.netSalary;
+  const calculatedContributions = useMemo(() => ({
+    esiContribution: currentCalc.employerContributions.esiEmployer,
+    pfContribution: currentCalc.employerContributions.pfEmployer,
+    pensionContribution: currentCalc.employerContributions.pensionEmployer,
+    edliAndAdmin: currentCalc.employerContributions.edliAndAdmin,
+    totalCtc: currentCalc.totalCtc
+  }), [currentCalc]);
+
+  const handleToggleEsiDeduct = () => {
+    const nextDoNotDeduct = !doNotDeductEsi;
+    const nextDeduct = !nextDoNotDeduct;
+    const updatedData = {
+      ...data,
+      doNotDeductEsi: nextDoNotDeduct,
+      deductEsi: nextDeduct,
+      esiApplicable: nextDeduct
+    };
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
+    setHasUnsavedChanges(true);
+    onChange(updatedData);
+  };
+
+  const handleTogglePfDeduct = () => {
+    const nextDoNotDeduct = !doNotDeductPf;
+    const nextDeduct = !nextDoNotDeduct;
+    const updatedData = {
+      ...data,
+      doNotDeductPf: nextDoNotDeduct,
+      deductPf: nextDeduct,
+      pfApplicable: nextDeduct
+    };
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
+    setHasUnsavedChanges(true);
+    onChange(updatedData);
+  };
+
+  const handleToggleTdsDeduct = () => {
+    const nextDoNotDeduct = !doNotDeductTds;
+    const nextDeduct = !nextDoNotDeduct;
+    const updatedData = {
+      ...data,
+      doNotDeductTds: nextDoNotDeduct,
+      deductTds: nextDeduct,
+      tdsApplicable: nextDeduct
+    };
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
+    setHasUnsavedChanges(true);
+    onChange(updatedData);
+  };
+
+  const handleToggleLwfDeduct = () => {
+    const nextDoNotDeduct = !doNotDeductLwf;
+    const nextDeduct = !nextDoNotDeduct;
+    const updatedData = {
+      ...data,
+      doNotDeductLwf: nextDoNotDeduct,
+      deductLwf: nextDeduct,
+      lwfApplicable: nextDeduct
+    };
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
+    setHasUnsavedChanges(true);
+    onChange(updatedData);
+  };
+
+  const handleTogglePtDeduct = () => {
+    const nextDoNotDeduct = !doNotDeductPt;
+    const nextDeduct = !nextDoNotDeduct;
+    const updatedData = {
+      ...data,
+      doNotDeductPt: nextDoNotDeduct,
+      deductPt: nextDeduct,
+      ptApplicable: nextDeduct
+    };
+    const calc = calculateComprehensiveSalary(updatedData);
+    updatedData.grossSalary = calc.grossSalary;
+    updatedData.totalSalary = calc.grossSalary;
+    updatedData.netSalary = calc.netSalary;
+    updatedData.ctc = calc.totalCtc;
+    updatedData.totalCtc = calc.totalCtc;
+    updatedData.employerContributions = calc.employerContributions;
+
+    const updatedRevisions = syncRevisionsWithData(updatedData, calc);
+    updatedData.salaryRevisions = updatedRevisions;
+
+    setHasUnsavedChanges(true);
+    onChange(updatedData);
+  };
 
   const handleDownloadStatement = () => {
     downloadEmployeeProfile(data, activeCompany);
   };
 
-  // Revisions State & Handlers
-  const defaultRevisions = useMemo(() => {
-    if (Array.isArray(data.salaryRevisions) && data.salaryRevisions.length > 0) {
-      return data.salaryRevisions;
-    }
-    const currentGross = Number(displayGross) || 22000;
-    const currentNet = Number(displayNet) || 19592;
-    const currentCtc = Number(calculatedContributions.totalCtc) || 24927;
-    return [
-      {
-        id: 'rev-1',
-        effectiveFrom: data.salaryEffectiveFrom || '2026-11-01',
-        salaryType: data.salaryType || 'Monthly',
-        salaryStructureType: data.salaryStructureType || 'Regular',
-        minimumWageCategory: data.minimumWageCategory || '',
-        basic: Number(data.basic) || 17000,
-        vda: Number(data.vda) || 2000,
-        hra: Number(data.hra) || 1500,
-        conveyance: Number(data.conveyance) || 1000,
-        specialAllowance: Number(data.specialAllowance) || 500,
-        grossSalary: currentGross,
-        totalSalary: currentGross,
-        netSalary: currentNet,
-        ctc: currentCtc,
-        isIncrement: Boolean(data.isIncrement)
-      },
-      {
-        id: 'rev-2',
-        effectiveFrom: '2026-01-01',
-        salaryType: 'Monthly',
-        salaryStructureType: 'Regular',
-        minimumWageCategory: '',
-        basic: 15000,
-        vda: 2000,
-        hra: 1500,
-        conveyance: 1000,
-        specialAllowance: 500,
-        grossSalary: 20000,
-        totalSalary: 20000,
-        netSalary: 22000,
-        ctc: 22000,
-        isIncrement: false
-      }
-    ];
-  }, []);
-
+  // Revisions State & Dynamic Initialization (Loaded strictly from this employee's live record)
   const [revisions, setRevisions] = useState(() => {
     if (Array.isArray(data.salaryRevisions) && data.salaryRevisions.length > 0) {
       return data.salaryRevisions;
     }
-    return defaultRevisions;
+    return [];
   });
 
   const [activeRevisionId, setActiveRevisionId] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isAddRevisionOpen, setIsAddRevisionOpen] = useState(false);
+  const [revisionMonth, setRevisionMonth] = useState(() => {
+    return MONTH_OPTIONS[new Date().getMonth()] || 'JAN';
+  });
+  const [revisionYear, setRevisionYear] = useState(() => {
+    return String(new Date().getFullYear());
+  });
+  const [newRevisionRate, setNewRevisionRate] = useState('');
+
+  // Sync revisions strictly when employee record loads from database
+  useEffect(() => {
+    setHasUnsavedChanges(false);
+    setActiveRevisionId(null);
+    setShowEditor(false);
+    if (Array.isArray(data.salaryRevisions) && data.salaryRevisions.length > 0) {
+      setRevisions(data.salaryRevisions);
+    } else {
+      setRevisions([]);
+    }
+  }, [data._id, data.id, data.employeeId, data.employeeCode]);
 
   useEffect(() => {
     const handleSaved = () => setHasUnsavedChanges(false);
     window.addEventListener('employee-saved', handleSaved);
-    return () => window.removeEventListener('employee-saved', handleSaved);
+    window.addEventListener('employees-updated', handleSaved);
+    return () => {
+      window.removeEventListener('employee-saved', handleSaved);
+      window.removeEventListener('employees-updated', handleSaved);
+    };
   }, []);
 
   const activeRevision = useMemo(() => {
     return revisions.find((r) => r.id === activeRevisionId) || revisions[0] || null;
   }, [revisions, activeRevisionId]);
-
-  // Keep active revision in sync with current form inputs
-  useEffect(() => {
-    if (!activeRevisionId) return;
-    setRevisions((prevRevisions) => {
-      let hasChange = false;
-      const next = prevRevisions.map((r) => {
-        if (r.id === activeRevisionId) {
-          const newGross = Number(displayGross) || 0;
-          const newNet = Number(displayNet) || 0;
-          const newCtc = Number(calculatedContributions.totalCtc) || 0;
-          const newEff = data.salaryEffectiveFrom || r.effectiveFrom;
-          if (
-            r.grossSalary !== newGross ||
-            r.netSalary !== newNet ||
-            r.ctc !== newCtc ||
-            r.effectiveFrom !== newEff
-          ) {
-            hasChange = true;
-            return {
-              ...r,
-              ...data,
-              effectiveFrom: newEff,
-              grossSalary: newGross,
-              totalSalary: newGross,
-              netSalary: newNet,
-              ctc: newCtc
-            };
-          }
-        }
-        return r;
-      });
-      return hasChange ? next : prevRevisions;
-    });
-  }, [activeRevisionId, data, displayGross, displayNet, calculatedContributions.totalCtc]);
 
   const handleEditRevision = (rev) => {
     setActiveRevisionId(rev.id);
@@ -588,48 +820,129 @@ function SalaryStructureStep({ data, onChange }) {
     });
   };
 
-  const handleAddRevision = () => {
+  const handleToggleAddRevisionCard = () => {
+    setIsAddRevisionOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setRevisionMonth(MONTH_OPTIONS[new Date().getMonth()] || 'JAN');
+        setRevisionYear(String(new Date().getFullYear()));
+        setNewRevisionRate('');
+      }
+      return next;
+    });
+  };
+
+  const handleConfirmAddRevision = () => {
+    const monthIdx = MONTH_OPTIONS.indexOf(revisionMonth);
+    const mStr = String(monthIdx >= 0 ? monthIdx + 1 : 1).padStart(2, '0');
+    const yStr = String(revisionYear || new Date().getFullYear()).trim();
+    const effectiveFromIso = `${yStr}-${mStr}-01`;
+
+    const rateNum = Number(newRevisionRate);
+    if (!newRevisionRate || isNaN(rateNum) || rateNum <= 0) {
+      alert('Please enter a valid New Monthly Rate.');
+      return;
+    }
+
     const newRevId = `rev-${Date.now()}`;
-    const today = new Date().toISOString().split('T')[0];
+    const oldGross = Number(displayGross) || 0;
+
+    let newBasic = 0;
+    let newVda = 0;
+    let newHra = 0;
+    let newConveyance = 0;
+    let newSpecialAllowance = 0;
+
+    if (oldGross > 0) {
+      const ratio = rateNum / oldGross;
+      newBasic = Math.round((Number(data.basic) || 0) * ratio);
+      newVda = Math.round((Number(data.vda) || 0) * ratio);
+      newHra = Math.round((Number(data.hra) || 0) * ratio);
+      newConveyance = Math.round((Number(data.conveyance) || 0) * ratio);
+      newSpecialAllowance = Math.max(0, rateNum - (newBasic + newVda + newHra + newConveyance));
+    } else {
+      newBasic = Math.round(rateNum * 0.6);
+      newVda = Math.round(rateNum * 0.1);
+      newHra = Math.round(rateNum * 0.15);
+      newConveyance = Math.round(rateNum * 0.05);
+      newSpecialAllowance = Math.max(0, rateNum - (newBasic + newVda + newHra + newConveyance));
+    }
+
+    const calc = calculateComprehensiveSalary({
+      ...data,
+      basic: newBasic,
+      vda: newVda,
+      hra: newHra,
+      conveyance: newConveyance,
+      specialAllowance: newSpecialAllowance,
+      grossSalary: rateNum,
+      totalSalary: rateNum
+    });
+
     const newRev = {
       ...data,
       id: newRevId,
-      effectiveFrom: today,
-      isIncrement: true,
-      grossSalary: Number(displayGross) || 0,
-      totalSalary: Number(displayGross) || 0,
-      netSalary: Number(displayNet) || 0,
-      ctc: Number(calculatedContributions.totalCtc) || 0
+      effectiveFrom: effectiveFromIso,
+      salaryEffectiveFrom: effectiveFromIso,
+      grossSalary: rateNum,
+      totalSalary: rateNum,
+      basic: newBasic,
+      vda: newVda,
+      hra: newHra,
+      conveyance: newConveyance,
+      specialAllowance: newSpecialAllowance,
+      netSalary: calc.netSalary,
+      ctc: calc.totalCtc,
+      totalCtc: calc.totalCtc,
+      employerContributions: calc.employerContributions,
+      isIncrement: true
     };
+
     const updated = [newRev, ...revisions];
     setRevisions(updated);
     setActiveRevisionId(newRevId);
     setShowEditor(true);
+    setIsAddRevisionOpen(false);
+    setNewRevisionRate('');
     setHasUnsavedChanges(true);
+
     onChange({
       ...data,
       ...newRev,
-      salaryEffectiveFrom: today,
+      salaryEffectiveFrom: effectiveFromIso,
+      grossSalary: rateNum,
+      totalSalary: rateNum,
+      basic: newBasic,
+      vda: newVda,
+      hra: newHra,
+      conveyance: newConveyance,
+      specialAllowance: newSpecialAllowance,
+      netSalary: calc.netSalary,
+      ctc: calc.totalCtc,
+      totalCtc: calc.totalCtc,
+      employerContributions: calc.employerContributions,
       salaryRevisions: updated
     });
   };
 
   const handleDeleteRevision = (revId, e) => {
     if (e && e.stopPropagation) e.stopPropagation();
-    if (revisions.length <= 1) {
-      alert('At least one salary revision record must be maintained.');
-      return;
-    }
     const updated = revisions.filter((r) => r.id !== revId);
     setRevisions(updated);
     if (activeRevisionId === revId) {
       const nextRev = updated[0];
       setActiveRevisionId(nextRev?.id || null);
+      setShowEditor(Boolean(nextRev));
       if (nextRev) {
         onChange({
           ...data,
           ...nextRev,
           salaryRevisions: updated
+        });
+      } else {
+        onChange({
+          ...data,
+          salaryRevisions: []
         });
       }
     } else {
@@ -638,42 +951,75 @@ function SalaryStructureStep({ data, onChange }) {
         salaryRevisions: updated
       });
     }
+    setHasUnsavedChanges(true);
   };
 
   const handleRecalculate = () => {
-    const newGross = calculateDynamicGross(data, dynamicComponentsList);
-    const newDeductions = calculateDynamicTotalDeductions(data, dynamicDeductionsList);
-    const newNet = Math.max(0, newGross - newDeductions);
-    setHasUnsavedChanges(true);
-    onChange({
-      ...data,
-      grossSalary: newGross,
-      totalSalary: newGross,
-      netSalary: newNet,
-      ctc: calculatedContributions.totalCtc,
-      totalCtc: calculatedContributions.totalCtc
-    });
-  };
+    const calc = calculateComprehensiveSalary(data);
+    const targetRevId = activeRevisionId || (revisions[0] ? revisions[0].id : null);
 
-  const handleSaveRevision = () => {
-    const updated = revisions.map((r) => {
-      if (r.id === activeRevisionId) {
-        return {
-          ...r,
-          ...data,
-          effectiveFrom: data.salaryEffectiveFrom || r.effectiveFrom,
-          grossSalary: Number(displayGross) || 0,
-          totalSalary: Number(displayGross) || 0,
-          netSalary: Number(displayNet) || 0,
-          ctc: Number(calculatedContributions.totalCtc) || 0
-        };
-      }
-      return r;
-    });
-    setRevisions(updated);
+    let updatedRevisions = revisions;
+    if (revisions.length > 0) {
+      updatedRevisions = revisions.map((r) => {
+        if (!targetRevId || r.id === targetRevId) {
+          return {
+            ...r,
+            ...data,
+            effectiveFrom: data.salaryEffectiveFrom || r.effectiveFrom,
+            grossSalary: calc.grossSalary,
+            totalSalary: calc.grossSalary,
+            basic: Number(data.basic) || 0,
+            vda: Number(data.vda) || 0,
+            hra: Number(data.hra) || 0,
+            conveyance: Number(data.conveyance) || 0,
+            specialAllowance: Number(data.specialAllowance) || 0,
+            otherAllowance: Number(data.otherAllowance) || 0,
+            netSalary: calc.netSalary,
+            ctc: calc.totalCtc,
+            totalCtc: calc.totalCtc,
+            employerContributions: calc.employerContributions
+          };
+        }
+        return r;
+      });
+    } else {
+      updatedRevisions = [
+        {
+          id: `rev-${Date.now()}`,
+          effectiveFrom: data.salaryEffectiveFrom || new Date().toISOString().split('T')[0],
+          salaryType: data.salaryType || 'Monthly',
+          salaryStructureType: data.salaryStructureType || 'Regular',
+          grossSalary: calc.grossSalary,
+          totalSalary: calc.grossSalary,
+          basic: Number(data.basic) || 0,
+          vda: Number(data.vda) || 0,
+          hra: Number(data.hra) || 0,
+          conveyance: Number(data.conveyance) || 0,
+          specialAllowance: Number(data.specialAllowance) || 0,
+          otherAllowance: Number(data.otherAllowance) || 0,
+          netSalary: calc.netSalary,
+          ctc: calc.totalCtc,
+          totalCtc: calc.totalCtc,
+          employerContributions: calc.employerContributions
+        }
+      ];
+    }
+
+    setRevisions(updatedRevisions);
+    if (!activeRevisionId && updatedRevisions[0]) {
+      setActiveRevisionId(updatedRevisions[0].id);
+    }
+    setHasUnsavedChanges(true);
+
     onChange({
       ...data,
-      salaryRevisions: updated
+      grossSalary: calc.grossSalary,
+      totalSalary: calc.grossSalary,
+      netSalary: calc.netSalary,
+      ctc: calc.totalCtc,
+      totalCtc: calc.totalCtc,
+      employerContributions: calc.employerContributions,
+      salaryRevisions: updatedRevisions
     });
   };
 
@@ -719,7 +1065,7 @@ function SalaryStructureStep({ data, onChange }) {
             <button
               type="button"
               className={styles.statementBtn}
-              onClick={handleAddRevision}
+              onClick={handleToggleAddRevisionCard}
               title="Add new salary revision"
             >
               <Plus size={12} />
@@ -728,70 +1074,164 @@ function SalaryStructureStep({ data, onChange }) {
           </div>
         </div>
 
-        <div className={styles.revisionsList}>
-          {revisions.map((rev) => {
-            const isActive = rev.id === activeRevisionId;
-            const revEff = formatRevisionDate(rev.effectiveFrom);
-            const netVal = rev.netSalary !== undefined ? rev.netSalary : (isActive ? displayNet : 0);
-            const ctcVal = rev.ctc !== undefined ? rev.ctc : (isActive ? calculatedContributions.totalCtc : 0);
-            const annualCtc = (Number(ctcVal) || 0) * 12;
+        {/* Add Salary Revision Modal (Popup Dialog with Blue Buttons) */}
+        {isAddRevisionOpen && (
+          <div className={styles.modalOverlay} onClick={() => setIsAddRevisionOpen(false)}>
+            <div className={styles.revisionModal} onClick={(e) => e.stopPropagation()}>
+              <div className={styles.modalHeader}>
+                <h4 className={styles.modalTitle}>Add Salary Revision</h4>
+                <button
+                  type="button"
+                  className={styles.modalCloseBtn}
+                  onClick={() => setIsAddRevisionOpen(false)}
+                  title="Close"
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-            return (
-              <div
-                key={rev.id}
-                className={`${styles.revisionRow} ${isActive ? styles.revisionRowActive : ''}`}
-                onClick={() => handleEditRevision(rev)}
-              >
-                <div className={styles.tableCol}>
-                  <div className={styles.colHeader}>Effective From</div>
-                  <div className={styles.colValue}>{revEff}</div>
-                </div>
-
-                <div className={styles.tableCol}>
-                  <div className={styles.colHeader}>Net Salary (In-Hand)</div>
-                  <div className={styles.colValue}>
-                    <span>{Number(netVal).toLocaleString('en-IN')}</span>
-                    <span className={styles.unitSuffix}>/m</span>
+              <div className={styles.modalBody}>
+                {/* Effective From */}
+                <div className={styles.modalRow}>
+                  <label className={styles.modalLabel}>Effective From</label>
+                  <div className={styles.effectiveFromGroup}>
+                    <select
+                      className={styles.modalMonthSelect}
+                      value={revisionMonth}
+                      onChange={(e) => setRevisionMonth(e.target.value)}
+                    >
+                      {MONTH_OPTIONS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="number"
+                      className={styles.modalYearInput}
+                      value={revisionYear}
+                      onChange={(e) => setRevisionYear(e.target.value)}
+                      min="2000"
+                      max="2099"
+                    />
                   </div>
                 </div>
 
-                <div className={styles.tableCol}>
-                  <div className={styles.colHeader}>CTC</div>
-                  <div className={styles.colValue}>
-                    <span>{Number(ctcVal).toLocaleString('en-IN')}</span>
-                    <span className={styles.unitSuffix}>/m</span>
+                {/* New Monthly Rate */}
+                <div className={styles.modalRow}>
+                  <label className={styles.modalLabel}>New Monthly Rate</label>
+                  <div className={styles.modalInputWrapper}>
+                    <div className={styles.currencyWrapper}>
+                      <span className={styles.currencySymbol}>₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        placeholder="Enter New Monthly Rate"
+                        className={styles.currencyInput}
+                        value={newRevisionRate}
+                        onChange={(e) => setNewRevisionRate(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleConfirmAddRevision();
+                          }
+                        }}
+                        autoFocus
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div className={styles.tableCol}>
-                  <div className={styles.colHeader}>CTC</div>
-                  <div className={styles.colValue}>
-                    <span>{Number(annualCtc).toLocaleString('en-IN')}</span>
-                    <span className={styles.unitSuffix}>/y</span>
-                  </div>
-                </div>
-
-                <div className={styles.tableActions} onClick={(e) => e.stopPropagation()}>
-                  <button
-                    type="button"
-                    className={styles.actionBtnEdit}
-                    onClick={() => handleEditRevision(rev)}
-                    title="Edit Revision"
-                  >
-                    <Edit2 size={13} />
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.actionBtnDelete}
-                    onClick={(e) => handleDeleteRevision(rev.id, e)}
-                    title="Delete Revision"
-                  >
-                    <Trash2 size={13} />
-                  </button>
                 </div>
               </div>
-            );
-          })}
+
+              <div className={styles.modalFooter}>
+                <button
+                  type="button"
+                  className={styles.modalCloseTextBtn}
+                  onClick={() => setIsAddRevisionOpen(false)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className={styles.modalAddBtn}
+                  onClick={handleConfirmAddRevision}
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={styles.revisionsList}>
+          {revisions.length === 0 ? (
+            <div className={styles.emptyRevisionsBox}>
+              <p className={styles.emptyRevisionsText}>No salary revisions recorded yet.</p>
+            </div>
+          ) : (
+            revisions.map((rev) => {
+              const isActive = rev.id === activeRevisionId;
+              const revEff = formatRevisionDate(rev.effectiveFrom);
+              const netVal = rev.netSalary !== undefined ? rev.netSalary : (isActive ? displayNet : 0);
+              const ctcVal = rev.ctc !== undefined ? rev.ctc : (isActive ? calculatedContributions.totalCtc : 0);
+              const annualCtc = (Number(ctcVal) || 0) * 12;
+
+              return (
+                <div
+                  key={rev.id}
+                  className={`${styles.revisionRow} ${isActive ? styles.revisionRowActive : ''}`}
+                >
+                  <div className={styles.tableCol}>
+                    <div className={styles.colHeader}>Effective From</div>
+                    <div className={styles.colValue}>{revEff}</div>
+                  </div>
+
+                  <div className={styles.tableCol}>
+                    <div className={styles.colHeader}>Net Salary (In-Hand)</div>
+                    <div className={styles.colValue}>
+                      <span>{Number(netVal).toLocaleString('en-IN')}</span>
+                      <span className={styles.unitSuffix}>/m</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.tableCol}>
+                    <div className={styles.colHeader}>CTC</div>
+                    <div className={styles.colValue}>
+                      <span>{Number(ctcVal).toLocaleString('en-IN')}</span>
+                      <span className={styles.unitSuffix}>/m</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.tableCol}>
+                    <div className={styles.colHeader}>CTC</div>
+                    <div className={styles.colValue}>
+                      <span>{Number(annualCtc).toLocaleString('en-IN')}</span>
+                      <span className={styles.unitSuffix}>/y</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.tableActions} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className={styles.actionBtnEdit}
+                      onClick={() => handleEditRevision(rev)}
+                      title="Edit Revision"
+                    >
+                      <Edit2 size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.actionBtnDelete}
+                      onClick={(e) => handleDeleteRevision(rev.id, e)}
+                      title="Delete Revision"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 
@@ -898,23 +1338,6 @@ function SalaryStructureStep({ data, onChange }) {
               </div>
             </div>
 
-            {/* Minimum Wage Category */}
-            <div className={styles.formRow}>
-              <label htmlFor="salary-min-wage" className={styles.rowLabel}>
-                <span>Minimum Wage Category</span>
-              </label>
-              <div className={styles.rowControl}>
-                <input
-                  id="salary-min-wage"
-                  type="text"
-                  className={styles.input}
-                  placeholder="Enter Minimum Wage Category"
-                  value={data.minimumWageCategory || ''}
-                  onChange={(e) => handleChange('minimumWageCategory', e.target.value)}
-                />
-              </div>
-            </div>
-
             {/* Dynamic Earning Components Loaded from Masters for Current Company */}
             {loadingComponents && dynamicComponentsList.length === 0 ? (
               <div className={styles.loadingRow}>
@@ -996,7 +1419,16 @@ function SalaryStructureStep({ data, onChange }) {
             </div>
 
             {/* Dynamic Active Deductions (Rendered after Total Salary - Non-editable) */}
-            {dynamicDeductionsList.map((comp) => {
+            {dynamicDeductionsList.filter((comp) => {
+              const name = (comp.name || '').toLowerCase();
+              const code = (comp.code || '').toLowerCase();
+              if ((name.includes('esi') || code.includes('esi')) && !isEsiDeduct) return false;
+              if ((name.includes('pf') || name.includes('provident') || code.includes('pf')) && !isPfDeduct) return false;
+              if ((name.includes('pt') || name.includes('professional') || code.includes('pt')) && !isPtDeduct) return false;
+              if ((name.includes('lwf') || name.includes('welfare') || code.includes('lwf')) && !isLwfDeduct) return false;
+              if ((name.includes('tds') || name.includes('tax') || code.includes('tds')) && !isTdsDeduct) return false;
+              return true;
+            }).map((comp) => {
               const key = getDeductionFieldKey(comp);
               const rawVal = data[key] ?? data.deductions?.[key] ?? data.deductions?.[comp.name];
               const displayVal = rawVal === 0 ? '0' : (rawVal || '');
@@ -1181,50 +1613,51 @@ function SalaryStructureStep({ data, onChange }) {
               <button
                 type="button"
                 role="switch"
-                aria-checked={Boolean(isEsiDeduct)}
-                className={`${styles.toggleSwitch} ${isEsiDeduct ? styles.toggleSwitchBlue : ''}`}
+                aria-checked={Boolean(doNotDeductEsi)}
+                className={`${styles.toggleSwitch} ${doNotDeductEsi ? styles.toggleSwitchBlue : ''}`}
               >
-                <span className={`${styles.toggleKnob} ${isEsiDeduct ? styles.toggleKnobActive : ''}`} />
+                <span className={`${styles.toggleKnob} ${doNotDeductEsi ? styles.toggleKnobActive : ''}`} />
               </button>
-              <span className={styles.toggleLabel}>
-                {isEsiDeduct ? 'Deduct ESI' : 'DO NOT Deduct ESI'}
-              </span>
-            </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('deductEsiAboveCeiling', data.deductEsiAboveCeiling !== false ? !data.deductEsiAboveCeiling : true)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={data.deductEsiAboveCeiling !== false}
-                className={`${styles.toggleSwitch} ${data.deductEsiAboveCeiling !== false ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.deductEsiAboveCeiling !== false ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>Deduct ESI Above Ceiling</span>
+              <span className={styles.toggleLabel}>DO NOT Deduct ESI</span>
             </div>
 
-            {isEsiDeduct && (
-              <div className={styles.cardFieldsWrapper}>
-                <div className={styles.optionInlineRow}>
-                  <span className={styles.optionInlineLabel}>ESI Number</span>
-                  <input
-                    type="text"
-                    className={styles.optionTextInput}
-                    placeholder="Enter ESI Number"
-                    value={data.esicNo || ''}
-                    onChange={(e) => handleChange('esicNo', e.target.value)}
-                  />
+            {!doNotDeductEsi && (
+              <>
+                <div className={styles.toggleRow} onClick={() => handleChange('deductEsiAboveCeiling', data.deductEsiAboveCeiling !== false ? !data.deductEsiAboveCeiling : true)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={data.deductEsiAboveCeiling !== false}
+                    className={`${styles.toggleSwitch} ${data.deductEsiAboveCeiling !== false ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.deductEsiAboveCeiling !== false ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>Deduct ESI Above Ceiling</span>
                 </div>
-                <div className={styles.optionInlineRow}>
-                  <span className={styles.optionInlineLabel}>Dispensary Name</span>
-                  <input
-                    type="text"
-                    className={styles.optionTextInput}
-                    placeholder="Enter Dispensary Name"
-                    value={data.dispensaryNo || ''}
-                    onChange={(e) => handleChange('dispensaryNo', e.target.value)}
-                  />
+
+                <div className={styles.cardFieldsWrapper}>
+                  <div className={styles.optionInlineRow}>
+                    <span className={styles.optionInlineLabel}>ESI Number</span>
+                    <input
+                      type="text"
+                      className={styles.optionTextInput}
+                      placeholder="Enter ESI Number"
+                      value={data.esicNo || ''}
+                      onChange={(e) => handleChange('esicNo', e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.optionInlineRow}>
+                    <span className={styles.optionInlineLabel}>Dispensary Name</span>
+                    <input
+                      type="text"
+                      className={styles.optionTextInput}
+                      placeholder="Enter Dispensary Name"
+                      value={data.dispensaryNo || ''}
+                      onChange={(e) => handleChange('dispensaryNo', e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
+              </>
             )}
           </div>
 
@@ -1235,109 +1668,110 @@ function SalaryStructureStep({ data, onChange }) {
               <button
                 type="button"
                 role="switch"
-                aria-checked={Boolean(isPfDeduct)}
-                className={`${styles.toggleSwitch} ${isPfDeduct ? styles.toggleSwitchBlue : ''}`}
+                aria-checked={Boolean(doNotDeductPf)}
+                className={`${styles.toggleSwitch} ${doNotDeductPf ? styles.toggleSwitchBlue : ''}`}
               >
-                <span className={`${styles.toggleKnob} ${isPfDeduct ? styles.toggleKnobActive : ''}`} />
+                <span className={`${styles.toggleKnob} ${doNotDeductPf ? styles.toggleKnobActive : ''}`} />
               </button>
-              <span className={styles.toggleLabel}>
-                {isPfDeduct ? 'Deduct PF' : 'DO NOT Deduct PF'}
-              </span>
-            </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductPension', !data.doNotDeductPension)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(data.doNotDeductPension)}
-                className={`${styles.toggleSwitch} ${data.doNotDeductPension ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.doNotDeductPension ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>DO NOT Deduct Pension (PF)</span>
-            </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('deductPfAboveCeilingEmployee', !data.deductPfAboveCeilingEmployee)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(data.deductPfAboveCeilingEmployee)}
-                className={`${styles.toggleSwitch} ${data.deductPfAboveCeilingEmployee ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.deductPfAboveCeilingEmployee ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>Deduct PF Above Ceiling (Employee)</span>
-            </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('deductPfAboveCeilingEmployer', !data.deductPfAboveCeilingEmployer)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(data.deductPfAboveCeilingEmployer)}
-                className={`${styles.toggleSwitch} ${data.deductPfAboveCeilingEmployer ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.deductPfAboveCeilingEmployer ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>Deduct PF Above Ceiling (Employer)</span>
-            </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('deductPfOnGrossSalary', !data.deductPfOnGrossSalary)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(data.deductPfOnGrossSalary)}
-                className={`${styles.toggleSwitch} ${data.deductPfOnGrossSalary ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.deductPfOnGrossSalary ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>Deduct PF on Gross Salary</span>
-            </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('deductPfExtraContribution', !data.deductPfExtraContribution)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(data.deductPfExtraContribution)}
-                className={`${styles.toggleSwitch} ${data.deductPfExtraContribution ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.deductPfExtraContribution ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>Deduct PF Extra Contribution</span>
-              <span className={styles.infoBadge} title="Extra PF contribution details">i</span>
-            </div>
-            <div className={styles.optionInlineRow}>
-              <div className={styles.optionInlineLabel}>
-                <span>Min. Deduction</span>
-                <span className={styles.infoBadge} title="Minimum deduction amount">i</span>
-              </div>
-              <input
-                type="number"
-                min="0"
-                className={styles.smallInput}
-                value={data.minPfDeduction === 0 ? '0' : (data.minPfDeduction || '0')}
-                onChange={(e) => handleChange('minPfDeduction', e.target.value)}
-                onWheel={(e) => e.target.blur()}
-              />
+              <span className={styles.toggleLabel}>DO NOT Deduct PF</span>
             </div>
 
-            {isPfDeduct && (
-              <div className={styles.cardFieldsWrapper}>
-                <div className={styles.optionInlineRow}>
-                  <span className={styles.optionInlineLabel}>UAN Number</span>
-                  <input
-                    type="text"
-                    className={styles.optionTextInput}
-                    placeholder="Enter UAN Number"
-                    value={data.uan || ''}
-                    onChange={(e) => handleChange('uan', e.target.value)}
-                  />
+            {!doNotDeductPf && (
+              <>
+                <div className={styles.toggleRow} onClick={() => handleChange('doNotDeductPension', !data.doNotDeductPension)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(data.doNotDeductPension)}
+                    className={`${styles.toggleSwitch} ${data.doNotDeductPension ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.doNotDeductPension ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>DO NOT Deduct Pension (PF)</span>
+                </div>
+                <div className={styles.toggleRow} onClick={() => handleChange('deductPfAboveCeilingEmployee', !data.deductPfAboveCeilingEmployee)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(data.deductPfAboveCeilingEmployee)}
+                    className={`${styles.toggleSwitch} ${data.deductPfAboveCeilingEmployee ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.deductPfAboveCeilingEmployee ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>Deduct PF Above Ceiling (Employee)</span>
+                </div>
+                <div className={styles.toggleRow} onClick={() => handleChange('deductPfAboveCeilingEmployer', !data.deductPfAboveCeilingEmployer)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(data.deductPfAboveCeilingEmployer)}
+                    className={`${styles.toggleSwitch} ${data.deductPfAboveCeilingEmployer ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.deductPfAboveCeilingEmployer ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>Deduct PF Above Ceiling (Employer)</span>
+                </div>
+                <div className={styles.toggleRow} onClick={() => handleChange('deductPfOnGrossSalary', !data.deductPfOnGrossSalary)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(data.deductPfOnGrossSalary)}
+                    className={`${styles.toggleSwitch} ${data.deductPfOnGrossSalary ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.deductPfOnGrossSalary ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>Deduct PF on Gross Salary</span>
+                </div>
+                <div className={styles.toggleRow} onClick={() => handleChange('deductPfExtraContribution', !data.deductPfExtraContribution)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(data.deductPfExtraContribution)}
+                    className={`${styles.toggleSwitch} ${data.deductPfExtraContribution ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.deductPfExtraContribution ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>Deduct PF Extra Contribution</span>
+                  <span className={styles.infoBadge} title="Extra PF contribution details">i</span>
                 </div>
                 <div className={styles.optionInlineRow}>
-                  <span className={styles.optionInlineLabel}>PF Number</span>
+                  <div className={styles.optionInlineLabel}>
+                    <span>Min. Deduction</span>
+                    <span className={styles.infoBadge} title="Minimum deduction amount">i</span>
+                  </div>
                   <input
-                    type="text"
-                    className={styles.optionTextInput}
-                    placeholder="Enter PF Number"
-                    value={data.pfNo || ''}
-                    onChange={(e) => handleChange('pfNo', e.target.value)}
+                    type="number"
+                    min="0"
+                    className={styles.smallInput}
+                    value={data.minPfDeduction === 0 ? '0' : (data.minPfDeduction || '0')}
+                    onChange={(e) => handleChange('minPfDeduction', e.target.value)}
+                    onWheel={(e) => e.target.blur()}
                   />
                 </div>
-              </div>
+
+                <div className={styles.cardFieldsWrapper}>
+                  <div className={styles.optionInlineRow}>
+                    <span className={styles.optionInlineLabel}>UAN Number</span>
+                    <input
+                      type="text"
+                      className={styles.optionTextInput}
+                      placeholder="Enter UAN Number"
+                      value={data.uan || ''}
+                      onChange={(e) => handleChange('uan', e.target.value)}
+                    />
+                  </div>
+                  <div className={styles.optionInlineRow}>
+                    <span className={styles.optionInlineLabel}>PF Number</span>
+                    <input
+                      type="text"
+                      className={styles.optionTextInput}
+                      placeholder="Enter PF Number"
+                      value={data.pfNo || ''}
+                      onChange={(e) => handleChange('pfNo', e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
@@ -1348,28 +1782,41 @@ function SalaryStructureStep({ data, onChange }) {
               <button
                 type="button"
                 role="switch"
-                aria-checked={Boolean(isPtDeduct)}
-                className={`${styles.toggleSwitch} ${isPtDeduct ? styles.toggleSwitchBlue : ''}`}
+                aria-checked={Boolean(doNotDeductPt)}
+                className={`${styles.toggleSwitch} ${doNotDeductPt ? styles.toggleSwitchBlue : ''}`}
               >
-                <span className={`${styles.toggleKnob} ${isPtDeduct ? styles.toggleKnobActive : ''}`} />
+                <span className={`${styles.toggleKnob} ${doNotDeductPt ? styles.toggleKnobActive : ''}`} />
               </button>
-              <span className={styles.toggleLabel}>
-                {isPtDeduct ? 'Deduct PT' : 'DO NOT Deduct PT'}
-              </span>
+              <span className={styles.toggleLabel}>DO NOT Deduct PT</span>
               <span className={styles.infoBadge} title="Professional Tax exemption">i</span>
             </div>
-            <div className={styles.optionInlineRow}>
-              <span className={styles.optionInlineLabel}>Tax State</span>
-              <select
-                className={styles.smallSelect}
-                value={data.ptTaxState || 'Delhi'}
-                onChange={(e) => handleChange('ptTaxState', e.target.value)}
-              >
-                {INDIAN_STATES.map((state) => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
-            </div>
+
+            {!doNotDeductPt && (
+              <div className={styles.cardFieldsWrapper}>
+                <div className={styles.optionInlineRow}>
+                  <span className={styles.optionInlineLabel}>PT Number</span>
+                  <input
+                    type="text"
+                    className={styles.optionTextInput}
+                    placeholder="Enter PT Number"
+                    value={data.ptNo || data.ptNumber || ''}
+                    onChange={(e) => handleChange('ptNo', e.target.value)}
+                  />
+                </div>
+                <div className={styles.optionInlineRow}>
+                  <span className={styles.optionInlineLabel}>Tax State</span>
+                  <select
+                    className={styles.smallSelect}
+                    value={data.ptTaxState || 'Delhi'}
+                    onChange={(e) => handleChange('ptTaxState', e.target.value)}
+                  >
+                    {INDIAN_STATES.map((state) => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Card 4: Income Tax (TDS) */}
@@ -1379,42 +1826,43 @@ function SalaryStructureStep({ data, onChange }) {
               <button
                 type="button"
                 role="switch"
-                aria-checked={Boolean(isTdsDeduct)}
-                className={`${styles.toggleSwitch} ${isTdsDeduct ? styles.toggleSwitchBlue : ''}`}
+                aria-checked={Boolean(doNotDeductTds)}
+                className={`${styles.toggleSwitch} ${doNotDeductTds ? styles.toggleSwitchBlue : ''}`}
               >
-                <span className={`${styles.toggleKnob} ${isTdsDeduct ? styles.toggleKnobActive : ''}`} />
+                <span className={`${styles.toggleKnob} ${doNotDeductTds ? styles.toggleKnobActive : ''}`} />
               </button>
-              <span className={styles.toggleLabel}>
-                {isTdsDeduct ? 'Deduct TDS' : 'DO NOT Deduct TDS'}
-              </span>
+              <span className={styles.toggleLabel}>DO NOT Deduct TDS</span>
               <span className={styles.infoBadge} title="TDS deduction exemption">i</span>
             </div>
-            <div className={styles.toggleRow} onClick={() => handleChange('metroCityResident', !data.metroCityResident)}>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={Boolean(data.metroCityResident)}
-                className={`${styles.toggleSwitch} ${data.metroCityResident ? styles.toggleSwitchBlue : ''}`}
-              >
-                <span className={`${styles.toggleKnob} ${data.metroCityResident ? styles.toggleKnobActive : ''}`} />
-              </button>
-              <span className={styles.toggleLabel}>Metro City Resident (HRA Exemption)</span>
-            </div>
 
-            {isTdsDeduct && (
-              <div className={styles.cardFieldsWrapper}>
-                <div className={styles.optionInlineRow}>
-                  <span className={styles.optionInlineLabel}>PAN Number</span>
-                  <input
-                    type="text"
-                    className={styles.optionTextInput}
-                    placeholder="Enter PAN Number"
-                    maxLength={10}
-                    value={data.pan || ''}
-                    onChange={(e) => handleChange('pan', e.target.value.toUpperCase())}
-                  />
+            {!doNotDeductTds && (
+              <>
+                <div className={styles.toggleRow} onClick={() => handleChange('metroCityResident', !data.metroCityResident)}>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={Boolean(data.metroCityResident)}
+                    className={`${styles.toggleSwitch} ${data.metroCityResident ? styles.toggleSwitchBlue : ''}`}
+                  >
+                    <span className={`${styles.toggleKnob} ${data.metroCityResident ? styles.toggleKnobActive : ''}`} />
+                  </button>
+                  <span className={styles.toggleLabel}>Metro City Resident (HRA Exemption)</span>
                 </div>
-              </div>
+
+                <div className={styles.cardFieldsWrapper}>
+                  <div className={styles.optionInlineRow}>
+                    <span className={styles.optionInlineLabel}>PAN Number</span>
+                    <input
+                      type="text"
+                      className={styles.optionTextInput}
+                      placeholder="Enter PAN Number"
+                      maxLength={10}
+                      value={data.pan || ''}
+                      onChange={(e) => handleChange('pan', e.target.value.toUpperCase())}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
 
@@ -1425,45 +1873,46 @@ function SalaryStructureStep({ data, onChange }) {
               <button
                 type="button"
                 role="switch"
-                aria-checked={Boolean(isLwfDeduct)}
-                className={`${styles.toggleSwitch} ${isLwfDeduct ? styles.toggleSwitchBlue : ''}`}
+                aria-checked={Boolean(doNotDeductLwf)}
+                className={`${styles.toggleSwitch} ${doNotDeductLwf ? styles.toggleSwitchBlue : ''}`}
               >
-                <span className={`${styles.toggleKnob} ${isLwfDeduct ? styles.toggleKnobActive : ''}`} />
+                <span className={`${styles.toggleKnob} ${doNotDeductLwf ? styles.toggleKnobActive : ''}`} />
               </button>
-              <span className={styles.toggleLabel}>
-                {isLwfDeduct ? 'Deduct LWF' : 'DO NOT Deduct LWF'}
-              </span>
+              <span className={styles.toggleLabel}>DO NOT Deduct LWF</span>
               <span className={styles.infoBadge} title="Labour Welfare Fund exemption">i</span>
             </div>
-            <div className={styles.optionInlineRow}>
-              <span className={styles.optionInlineLabel}>Tax State</span>
-              <select
-                className={styles.smallSelect}
-                value={data.lwfTaxState || 'Delhi'}
-                onChange={(e) => handleChange('lwfTaxState', e.target.value)}
-              >
-                {INDIAN_STATES.map((state) => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
-            </div>
 
-            {isLwfDeduct && (
-              <div className={styles.cardFieldsWrapper}>
+            {!doNotDeductLwf && (
+              <>
                 <div className={styles.optionInlineRow}>
-                  <span className={styles.optionInlineLabel}>LWF Number</span>
-                  <input
-                    type="text"
-                    className={styles.optionTextInput}
-                    placeholder="Enter LWF Number"
-                    value={data.lwfNo || (typeof data.lwf === 'string' && data.lwf !== 'Yes' && data.lwf !== 'No' ? data.lwf : '')}
-                    onChange={(e) => {
-                      handleChange('lwfNo', e.target.value);
-                      handleChange('lwf', e.target.value);
-                    }}
-                  />
+                  <span className={styles.optionInlineLabel}>Tax State</span>
+                  <select
+                    className={styles.smallSelect}
+                    value={data.lwfTaxState || 'Delhi'}
+                    onChange={(e) => handleChange('lwfTaxState', e.target.value)}
+                  >
+                    {INDIAN_STATES.map((state) => (
+                      <option key={state} value={state}>{state}</option>
+                    ))}
+                  </select>
                 </div>
-              </div>
+
+                <div className={styles.cardFieldsWrapper}>
+                  <div className={styles.optionInlineRow}>
+                    <span className={styles.optionInlineLabel}>LWF Number</span>
+                    <input
+                      type="text"
+                      className={styles.optionTextInput}
+                      placeholder="Enter LWF Number"
+                      value={data.lwfNo || (typeof data.lwf === 'string' && data.lwf !== 'Yes' && data.lwf !== 'No' ? data.lwf : '')}
+                      onChange={(e) => {
+                        handleChange('lwfNo', e.target.value);
+                        handleChange('lwf', e.target.value);
+                      }}
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </aside>

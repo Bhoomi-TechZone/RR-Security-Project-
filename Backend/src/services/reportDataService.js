@@ -378,12 +378,17 @@ export const resolveReportPayrollAndAttendance = async ({
         netSalary: calc.netSalary,
         totalGross: calc.earnings?.totalGross ?? calc.earnedGross ?? 0,
         employerContributions: {
-          pfEmployer: calc.deductions?.pfEmployer ?? 0,
+          pfEmployer: calc.deductions?.pfEmployer ?? calc.employerContributions?.pfEmployer ?? 0,
+          pensionEmployer: calc.employerContributions?.pensionEmployer ?? calc.employerContributions?.eps ?? 0,
           eps: calc.employerContributions?.eps ?? 0,
           edli: calc.employerContributions?.edli ?? 0,
           admin: calc.employerContributions?.admin ?? 0,
-          esiEmployer: calc.deductions?.esiEmployer ?? 0,
+          edliAndAdmin: calc.employerContributions?.edliAndAdmin ?? ((calc.employerContributions?.edli ?? 0) + (calc.employerContributions?.admin ?? 0)),
+          esiEmployer: calc.deductions?.esiEmployer ?? calc.employerContributions?.esiEmployer ?? 0,
+          lwfEmployer: calc.employerContributions?.lwfEmployer ?? 0,
+          totalEmployerContributions: calc.employerContributions?.totalEmployerContributions ?? 0,
         },
+        totalCtc: calc.totalCtc ?? (calc.earnings?.totalGross ?? calc.earnedGross ?? 0),
         isFromSavedRun: false,
       };
     }

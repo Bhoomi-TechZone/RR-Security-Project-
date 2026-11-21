@@ -48,7 +48,14 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/dashboard')) return 'Dashboard';
     if (path.startsWith('/user/clients')) return 'Workforce / Clients';
     if (path.startsWith('/user/companies')) return 'Workforce / Clients';
+    if (path.startsWith('/user/employees/transfer')) return 'Workforce / HR Management / Employee Transfer';
     if (path.startsWith('/user/employees')) return 'Workforce / Employees';
+    if (path.startsWith('/user/hr-management')) return 'Workforce / HR Management';
+    if (path.startsWith('/user/letter-management') || path.startsWith('/user/letters')) return 'Workforce / HR Management / Letter Management';
+    if (path.startsWith('/user/greetings')) return 'Workforce / HR Management / Greetings';
+    if (path.startsWith('/user/notifications')) {
+      return location.search.includes('tab=announcements') ? 'Workforce / HR Management / Announcements' : 'Settings / Notifications';
+    }
     if (path.startsWith('/user/biometric-attendance')) return 'Workforce / Biometric Attendance';
     if (path.startsWith('/user/attendance')) return 'Workforce / Attendance';
     if (path.startsWith('/user/shifts')) return 'Workforce / Shift Management';
@@ -84,8 +91,6 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/preferences')) return 'System / Preferences';
     if (path.startsWith('/user/templates')) return 'System / Templates';
     if (path.startsWith('/user/document-compliance')) return 'System / Docs & Compliance';
-    if (path.startsWith('/user/greetings')) return 'Settings / Greetings';
-    if (path.startsWith('/user/notifications')) return 'System / Notifications';
     return 'User Portal';
   };
 

@@ -472,6 +472,41 @@ export const createEmployee = async (req, res) => {
       lwfApplicable: req.body.lwfApplicable,
       tdsApplicable: req.body.tdsApplicable,
 
+      // Salary Revisions & Contributions
+      netSalary: Number(req.body.netSalary) || 0,
+      totalSalary: Number(req.body.totalSalary) || computedGross,
+      ctc: Number(req.body.ctc) || Number(req.body.totalCtc) || 0,
+      totalCtc: Number(req.body.totalCtc) || Number(req.body.ctc) || 0,
+      isIncrement: Boolean(req.body.isIncrement),
+      salaryRevisions: Array.isArray(req.body.salaryRevisions) ? req.body.salaryRevisions : [],
+      customEarnings: req.body.customEarnings || {},
+      deductions: req.body.deductions || {},
+      employerContributions: req.body.employerContributions || {},
+
+      // Statutory Rules & Toggles
+      doNotDeductEsi: Boolean(req.body.doNotDeductEsi),
+      deductEsi: req.body.deductEsi !== undefined ? Boolean(req.body.deductEsi) : !req.body.doNotDeductEsi,
+      deductEsiAboveCeiling: req.body.deductEsiAboveCeiling !== false,
+      doNotDeductPf: Boolean(req.body.doNotDeductPf),
+      deductPf: req.body.deductPf !== undefined ? Boolean(req.body.deductPf) : !req.body.doNotDeductPf,
+      doNotDeductPension: Boolean(req.body.doNotDeductPension),
+      deductPfAboveCeilingEmployee: Boolean(req.body.deductPfAboveCeilingEmployee),
+      deductPfAboveCeilingEmployer: Boolean(req.body.deductPfAboveCeilingEmployer),
+      deductPfOnGrossSalary: Boolean(req.body.deductPfOnGrossSalary),
+      deductPfExtraContribution: Boolean(req.body.deductPfExtraContribution),
+      minPfDeduction: Number(req.body.minPfDeduction) || 0,
+      doNotDeductPt: Boolean(req.body.doNotDeductPt),
+      deductPt: req.body.deductPt !== undefined ? Boolean(req.body.deductPt) : !req.body.doNotDeductPt,
+      ptNo: req.body.ptNo || req.body.ptNumber || '',
+      ptTaxState: req.body.ptTaxState || 'Delhi',
+      doNotDeductTds: Boolean(req.body.doNotDeductTds),
+      deductTds: req.body.deductTds !== undefined ? Boolean(req.body.deductTds) : !req.body.doNotDeductTds,
+      metroCityResident: Boolean(req.body.metroCityResident),
+      doNotDeductLwf: Boolean(req.body.doNotDeductLwf),
+      deductLwf: req.body.deductLwf !== undefined ? Boolean(req.body.deductLwf) : !req.body.doNotDeductLwf,
+      lwfTaxState: req.body.lwfTaxState || 'Delhi',
+      lwfNo: req.body.lwfNo || '',
+
       // Licenses
       licenseList: req.body.licenseList || [],
       licenseType: req.body.licenseType || '',
@@ -684,6 +719,26 @@ export const updateEmployee = async (req, res) => {
     if (req.body.documents !== undefined) {
       employee.documents = req.body.documents;
       employee.markModified('documents');
+    }
+
+    if (req.body.salaryRevisions !== undefined) {
+      employee.salaryRevisions = Array.isArray(req.body.salaryRevisions) ? req.body.salaryRevisions : [];
+      employee.markModified('salaryRevisions');
+    }
+
+    if (req.body.customEarnings !== undefined) {
+      employee.customEarnings = req.body.customEarnings;
+      employee.markModified('customEarnings');
+    }
+
+    if (req.body.deductions !== undefined) {
+      employee.deductions = req.body.deductions;
+      employee.markModified('deductions');
+    }
+
+    if (req.body.employerContributions !== undefined) {
+      employee.employerContributions = req.body.employerContributions;
+      employee.markModified('employerContributions');
     }
 
     if (req.body.enablePortalAccess !== undefined) {

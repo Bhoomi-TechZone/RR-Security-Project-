@@ -130,6 +130,37 @@ const DEFAULT_FORM_DATA = {
   lwf: '',
   lwfApplicable: false,
   tdsApplicable: '',
+  salaryRevisions: [],
+  customEarnings: {},
+  deductions: {},
+  employerContributions: {},
+  netSalary: 0,
+  totalSalary: 0,
+  ctc: 0,
+  totalCtc: 0,
+  isIncrement: false,
+  doNotDeductEsi: false,
+  deductEsi: true,
+  deductEsiAboveCeiling: true,
+  doNotDeductPf: false,
+  deductPf: true,
+  doNotDeductPension: false,
+  deductPfAboveCeilingEmployee: false,
+  deductPfAboveCeilingEmployer: false,
+  deductPfOnGrossSalary: false,
+  deductPfExtraContribution: false,
+  minPfDeduction: 0,
+  doNotDeductPt: false,
+  deductPt: true,
+  ptNo: '',
+  ptTaxState: 'Delhi',
+  doNotDeductTds: true,
+  deductTds: false,
+  metroCityResident: false,
+  doNotDeductLwf: true,
+  deductLwf: false,
+  lwfTaxState: 'Delhi',
+  lwfNo: '',
   licenseList: [
     {
       licenseType: 'Driving License',
@@ -377,6 +408,37 @@ const normalizeEmployeeForForm = (employee) => {
     lwf: employee.lwf ?? employee.lwfNo ?? '',
     lwfApplicable: employee.lwfApplicable ?? false,
     tdsApplicable: employee.tdsApplicable ?? employee.tds ?? '',
+    salaryRevisions: Array.isArray(employee.salaryRevisions) ? employee.salaryRevisions : [],
+    customEarnings: employee.customEarnings || {},
+    deductions: employee.deductions || {},
+    employerContributions: employee.employerContributions || {},
+    netSalary: employee.netSalary ?? 0,
+    totalSalary: employee.totalSalary ?? employee.grossSalary ?? 0,
+    ctc: employee.ctc ?? employee.totalCtc ?? 0,
+    totalCtc: employee.totalCtc ?? employee.ctc ?? 0,
+    isIncrement: Boolean(employee.isIncrement),
+    doNotDeductEsi: employee.doNotDeductEsi ?? (employee.deductEsi !== undefined ? !employee.deductEsi : false),
+    deductEsi: employee.deductEsi ?? (employee.doNotDeductEsi !== undefined ? !employee.doNotDeductEsi : true),
+    deductEsiAboveCeiling: employee.deductEsiAboveCeiling !== undefined ? Boolean(employee.deductEsiAboveCeiling) : true,
+    doNotDeductPf: employee.doNotDeductPf ?? (employee.deductPf !== undefined ? !employee.deductPf : false),
+    deductPf: employee.deductPf ?? (employee.doNotDeductPf !== undefined ? !employee.doNotDeductPf : true),
+    doNotDeductPension: Boolean(employee.doNotDeductPension),
+    deductPfAboveCeilingEmployee: Boolean(employee.deductPfAboveCeilingEmployee),
+    deductPfAboveCeilingEmployer: Boolean(employee.deductPfAboveCeilingEmployer),
+    deductPfOnGrossSalary: Boolean(employee.deductPfOnGrossSalary),
+    deductPfExtraContribution: Boolean(employee.deductPfExtraContribution),
+    minPfDeduction: employee.minPfDeduction ?? 0,
+    doNotDeductPt: employee.doNotDeductPt ?? (employee.deductPt !== undefined ? !employee.deductPt : false),
+    deductPt: employee.deductPt ?? (employee.doNotDeductPt !== undefined ? !employee.doNotDeductPt : true),
+    ptNo: employee.ptNo ?? employee.ptNumber ?? '',
+    ptTaxState: employee.ptTaxState || 'Delhi',
+    doNotDeductTds: employee.doNotDeductTds ?? (employee.deductTds !== undefined ? !employee.deductTds : true),
+    deductTds: employee.deductTds ?? (employee.doNotDeductTds !== undefined ? !employee.doNotDeductTds : false),
+    metroCityResident: Boolean(employee.metroCityResident),
+    doNotDeductLwf: employee.doNotDeductLwf ?? (employee.deductLwf !== undefined ? !employee.deductLwf : true),
+    deductLwf: employee.deductLwf ?? (employee.doNotDeductLwf !== undefined ? !employee.doNotDeductLwf : false),
+    lwfTaxState: employee.lwfTaxState || 'Delhi',
+    lwfNo: employee.lwfNo ?? employee.lwf ?? '',
     licenseType: employee.licenseType ?? employee.drivingLicenseType ?? 'Driving License',
     drivingLicenseType: employee.drivingLicenseType ?? employee.licenseType ?? 'Driving License',
     drivingLicenseNo: employee.drivingLicenseNo ?? employee.dlNo ?? '',
@@ -778,7 +840,11 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-salary' ? 'block' : 'none' }}
             >
-              <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
+              <SalaryStructureStep
+                key={formData._id || formData.id || formData.employeeCode || formData.employeeId || 'salary-new'}
+                data={formData}
+                onChange={handleFormDataChange}
+              />
             </section>
 
             {/* 05. Bank Details */}
@@ -1006,7 +1072,11 @@ function EmployeeForm({
               />
             )}
             {currentStep === 3 && (
-              <SalaryStructureStep data={formData} onChange={handleFormDataChange} />
+              <SalaryStructureStep
+                key={formData._id || formData.id || formData.employeeCode || formData.employeeId || 'salary-new'}
+                data={formData}
+                onChange={handleFormDataChange}
+              />
             )}
             {currentStep === 4 && (
               <BankDetailsStep

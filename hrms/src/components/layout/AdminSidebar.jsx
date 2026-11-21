@@ -80,7 +80,6 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/employees', name: 'All Employees' },
-          { path: '/admin/employees/transfer', name: 'Transfer Employees' },
         ]
       },
       {
@@ -91,6 +90,10 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/hr-management/requests', name: 'Requests' },
+          { path: '/admin/employees/transfer', name: 'Employee Transfer' },
+          { path: '/admin/greetings', name: 'Greetings' },
+          { path: '/admin/notifications?tab=announcements', name: 'Announcements' },
+          { path: '/admin/letter-management', name: 'Letter Management' },
         ]
       },
       {
@@ -268,10 +271,10 @@ const NAV_GROUPS = [
         ]
       },
       {
-        path: '/admin/letter-management',
-        name: 'Letter Management',
-        icon: FileSignature,
-        moduleKey: 'letter_management'
+        path: '/admin/notifications?tab=notifications',
+        name: 'Notifications',
+        icon: Bell,
+        moduleKey: 'notifications'
       },
       {
         path: '/admin/document-compliance',
@@ -284,23 +287,6 @@ const NAV_GROUPS = [
           { path: '/admin/document-compliance?tab=verification-rules', name: 'Verification Rules' },
           { path: '/admin/document-compliance?tab=expiry-alert', name: 'Expiry Alert' },
           { path: '/admin/document-compliance?tab=police-verification', name: 'Police Verification' },
-        ]
-      },
-      {
-        path: '/admin/greetings',
-        name: 'Greetings',
-        icon: PartyPopper,
-        moduleKey: 'greetings'
-      },
-      {
-        path: '/admin/notifications',
-        name: 'Notifications',
-        icon: Bell,
-        moduleKey: 'notifications',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/notifications?tab=announcements', name: 'Announcements' },
-          { path: '/admin/notifications?tab=notifications', name: 'Notifications' },
         ]
       },
     ]
@@ -332,8 +318,8 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       location.pathname.startsWith('/admin/payroll/finalized-exits');
     return {
       '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients')),
-      '/admin/employees': location.pathname.startsWith('/admin/employees'),
-      '/admin/hr-management': location.pathname.startsWith('/admin/hr-management'),
+      '/admin/employees': location.pathname === '/admin/employees' || location.pathname.startsWith('/admin/employees/add') || (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer')),
+      '/admin/hr-management': location.pathname.startsWith('/admin/hr-management') || location.pathname.startsWith('/admin/employees/transfer') || location.pathname.startsWith('/admin/letter-management') || location.pathname.startsWith('/admin/letters') || location.pathname.startsWith('/admin/greetings') || (location.pathname.startsWith('/admin/notifications') && location.search.includes('tab=announcements')),
       '/admin/attendance': location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance'),
       '/admin/shifts': location.pathname.startsWith('/admin/shifts'),
       '/admin/payroll': (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) && !initialSep,
@@ -349,8 +335,7 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/users': location.pathname === '/admin/users' || location.pathname.startsWith('/admin/users/'),
       '/admin/preferences': location.pathname === '/admin/preferences' || location.pathname.startsWith('/admin/preferences/'),
       '/admin/templates': location.pathname === '/admin/templates' || location.pathname.startsWith('/admin/templates/'),
-      '/admin/document-compliance': location.pathname === '/admin/document-compliance' || location.pathname.startsWith('/admin/document-compliance/') || location.pathname === '/admin/settings/document-compliance',
-      '/admin/notifications': location.pathname === '/admin/notifications' || location.pathname.startsWith('/admin/notifications/')
+      '/admin/document-compliance': location.pathname === '/admin/document-compliance' || location.pathname.startsWith('/admin/document-compliance/') || location.pathname === '/admin/settings/document-compliance'
     };
   });
 
@@ -359,10 +344,17 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/clients': true }));
     }
-    if (location.pathname.startsWith('/admin/employees')) {
+    if (location.pathname === '/admin/employees' || location.pathname.startsWith('/admin/employees/add') || (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer'))) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/employees': true }));
     }
-    if (location.pathname.startsWith('/admin/hr-management')) {
+    if (
+      location.pathname.startsWith('/admin/hr-management') ||
+      location.pathname.startsWith('/admin/employees/transfer') ||
+      location.pathname.startsWith('/admin/letter-management') ||
+      location.pathname.startsWith('/admin/letters') ||
+      location.pathname.startsWith('/admin/greetings') ||
+      (location.pathname.startsWith('/admin/notifications') && location.search.includes('tab=announcements'))
+    ) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/hr-management': true }));
     }
     if (location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance')) {
@@ -505,6 +497,21 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                         location.pathname.startsWith('/admin/clients') ||
                         location.pathname.startsWith('/admin/companies')
                       )
+                    : item.path === '/admin/employees'
+                    ? (
+                        location.pathname === '/admin/employees' ||
+                        location.pathname.startsWith('/admin/employees/add') ||
+                        (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer'))
+                      )
+                    : item.path === '/admin/hr-management'
+                    ? (
+                        location.pathname.startsWith('/admin/hr-management') ||
+                        location.pathname.startsWith('/admin/employees/transfer') ||
+                        location.pathname.startsWith('/admin/letter-management') ||
+                        location.pathname.startsWith('/admin/letters') ||
+                        location.pathname.startsWith('/admin/greetings') ||
+                        (location.pathname.startsWith('/admin/notifications') && location.search.includes('tab=announcements'))
+                      )
                     : item.path === '/admin/payroll'
                     ? (
                         (location.pathname === item.path || location.pathname.startsWith(item.path + '/')) &&
@@ -612,7 +619,8 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                  (item.path === '/admin/company-setup' && location.pathname.startsWith('/admin/company-setup')) ||
                                  (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company'))) ||
                                  (item.path === '/admin/recruitment' && location.pathname.startsWith('/admin/recruitment')) ||
-                                 (item.path === '/admin/onboarding' && location.pathname.startsWith('/admin/onboarding'))
+                                 (item.path === '/admin/onboarding' && location.pathname.startsWith('/admin/onboarding')) ||
+                                 (item.path.startsWith('/admin/notifications') && location.pathname.startsWith('/admin/notifications') && !location.search.includes('tab=announcements'))
                                 )
                             ) ? styles.active : '',
                             item.disabled ? styles.disabledLink : ''

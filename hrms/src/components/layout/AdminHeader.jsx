@@ -258,14 +258,17 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/admin/clients')) return 'Workforce / Clients';
     if (path.startsWith('/admin/companies/')) return 'Workforce / Clients / Details';
     if (path.startsWith('/admin/companies')) return 'Workforce / Clients';
+    if (path.startsWith('/admin/employees/transfer')) return 'Workforce / HR Management / Employee Transfer';
     if (path.startsWith('/admin/employees')) return 'Workforce / Employees';
+    if (path.startsWith('/admin/hr-management')) return 'Workforce / HR Management';
+    if (path.startsWith('/admin/letter-management') || path.startsWith('/admin/letters')) return 'Workforce / HR Management / Letter Management';
+    if (path.startsWith('/admin/greetings')) return 'Workforce / HR Management / Greetings';
+    if (path.startsWith('/admin/notifications')) {
+      return location.search.includes('tab=announcements') ? 'Workforce / HR Management / Announcements' : 'Settings / Notifications';
+    }
     if (path.startsWith('/admin/roles-permissions')) return 'System / Role & Permissions';
     if (path.startsWith('/admin/users')) return 'System / User Management';
     if (path.startsWith('/admin/masters')) return 'System / Masters';
-    if (path.startsWith('/admin/greetings')) return 'Settings / Greetings';
-    if (path.startsWith('/admin/notifications')) {
-      return location.search.includes('tab=notifications') ? 'System / Notifications' : 'System / Announcements';
-    }
     if (path.startsWith('/admin/payroll')) {
       if (path.includes('/pending-exits')) return 'Payroll / Separation / Pending Exits';
       if (path.includes('/finalized-exits')) return 'Payroll / Separation / Finalized Exits';
