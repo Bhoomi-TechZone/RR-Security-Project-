@@ -135,6 +135,13 @@ function App() {
 
       <Route path="/admin/hr-management" element={<Navigate to="/admin/hr-management/requests" replace />} />
       <Route path="/admin/hr-management/requests" element={<AdminRoute><HRRequests /></AdminRoute>} />
+      <Route path="/admin/hr-management/transfer" element={<AdminRoute><EmployeeTransfer /></AdminRoute>} />
+      <Route path="/admin/hr-management/greetings" element={<AdminRoute><Greetings /></AdminRoute>} />
+      <Route path="/admin/hr-management/announcements" element={<Navigate to="/admin/notifications?tab=announcements" replace />} />
+      <Route path="/admin/announcements" element={<Navigate to="/admin/notifications?tab=announcements" replace />} />
+      <Route path="/admin/hr-management/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
+      <Route path="/admin/hr-management/letter-management" element={<AdminRoute><LetterManagement /></AdminRoute>} />
+      <Route path="/admin/hr-management/letters" element={<AdminRoute><LetterManagement /></AdminRoute>} />
 
       <Route path="/admin/masters" element={<AdminRoute><Masters /></AdminRoute>} />
       <Route path="/admin/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
@@ -203,6 +210,15 @@ function App() {
         <Route path="employees/:id/edit" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
         <Route path="hr-management" element={<Navigate to="/user/hr-management/requests" replace />} />
         <Route path="hr-management/requests" element={<HRRequests />} />
+        <Route path="hr-management/transfer" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employee Transfer"><EmployeeTransfer /></ModulePermissionRoute>} />
+        <Route path="hr-management/greetings" element={<Greetings />} />
+        <Route path="hr-management/announcements" element={<Navigate to="/user/notifications?tab=announcements" replace />} />
+        <Route path="announcements" element={<Navigate to="/user/notifications?tab=announcements" replace />} />
+        <Route path="hr-management/notifications" element={<ModulePermissionRoute moduleKey="notifications" moduleTitle="Notifications"><Notifications /></ModulePermissionRoute>} />
+        <Route path="hr-management/letter-management" element={<ModulePermissionRoute moduleKey="letter_management" moduleTitle="Letter Management"><LetterManagement /></ModulePermissionRoute>} />
+        <Route path="hr-management/letters" element={<ModulePermissionRoute moduleKey="letter_management" moduleTitle="Letter Management"><LetterManagement /></ModulePermissionRoute>} />
+        <Route path="letter-management" element={<ModulePermissionRoute moduleKey="letter_management" moduleTitle="Letter Management"><LetterManagement /></ModulePermissionRoute>} />
+        <Route path="letters" element={<ModulePermissionRoute moduleKey="letter_management" moduleTitle="Letter Management"><LetterManagement /></ModulePermissionRoute>} />
         <Route path="attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Attendance"><Attendance /></ModulePermissionRoute>} />
         <Route path="biometric-attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Biometric Attendance"><BiometricAttendance /></ModulePermissionRoute>} />
         <Route path="shifts" element={<ModulePermissionRoute moduleKey="shifts" moduleTitle="Shift Management"><ShiftManagement /></ModulePermissionRoute>} />

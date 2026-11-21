@@ -98,7 +98,6 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/employees', name: 'All Employees' },
-          { path: '/user/employees/transfer', name: 'Transfer Employees' },
         ]
       },
       { 
@@ -110,6 +109,10 @@ const USER_NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/user/hr-management/requests', name: 'Requests' },
+          { path: '/user/employees/transfer', name: 'Employee Transfer' },
+          { path: '/user/greetings', name: 'Greetings' },
+          { path: '/user/notifications?tab=announcements', name: 'Announcements' },
+          { path: '/user/letter-management', name: 'Letter Management' },
         ]
       },
       { 
@@ -337,10 +340,9 @@ const USER_NAV_GROUPS = [
       },
       { path: '/user/users', name: 'User Management', icon: UserCog, moduleKey: 'user_management' },
       { path: '/user/preferences', name: 'Preferences', icon: SlidersHorizontal, moduleKey: 'preferences' },
+      { path: '/user/notifications?tab=notifications', name: 'Notifications', icon: Bell, moduleKey: 'notifications' },
       { path: '/user/templates', name: 'Templates', icon: FileText, moduleKey: 'templates' },
-      { path: '/user/document-compliance', name: 'Docs & Compliance', icon: FileCheck, moduleKey: 'docs_compliance' },
-      { path: '/user/greetings', name: 'Greetings', icon: PartyPopper, moduleKey: 'greetings' },
-      { path: '/user/notifications', name: 'Notifications', icon: Bell, moduleKey: 'notifications' }
+      { path: '/user/document-compliance', name: 'Docs & Compliance', icon: FileCheck, moduleKey: 'docs_compliance' }
     ]
   }
 ];
@@ -364,8 +366,8 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     '/user/recruitment': location.pathname.startsWith('/user/recruitment'),
     '/user/onboarding': location.pathname.startsWith('/user/onboarding'),
     '/user/clients': location.pathname.startsWith('/user/clients'),
-    '/user/employees': location.pathname.startsWith('/user/employees'),
-    '/user/hr-management': location.pathname.startsWith('/user/hr-management'),
+    '/user/employees': location.pathname === '/user/employees' || location.pathname.startsWith('/user/employees/add') || (location.pathname.startsWith('/user/employees/') && !location.pathname.startsWith('/user/employees/transfer')),
+    '/user/hr-management': location.pathname.startsWith('/user/hr-management') || location.pathname.startsWith('/user/employees/transfer') || location.pathname.startsWith('/user/letter-management') || location.pathname.startsWith('/user/letters') || location.pathname.startsWith('/user/greetings') || (location.pathname.startsWith('/user/notifications') && location.search.includes('tab=announcements')),
     '/user/attendance': location.pathname.startsWith('/user/attendance') || location.pathname.startsWith('/user/biometric-attendance'),
     '/user/shifts': location.pathname.startsWith('/user/shifts'),
     '/user/payroll': location.pathname.startsWith('/user/payroll') && !isSeparationRoute,
@@ -389,6 +391,19 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     Object.keys(openDropdowns).forEach((key) => {
       if (key === '/user/payroll' && isSeparationRoute) return;
       if (
+        (key === '/user/hr-management' && (
+          location.pathname.startsWith('/user/hr-management') ||
+          location.pathname.startsWith('/user/employees/transfer') ||
+          location.pathname.startsWith('/user/letter-management') ||
+          location.pathname.startsWith('/user/letters') ||
+          location.pathname.startsWith('/user/greetings') ||
+          (location.pathname.startsWith('/user/notifications') && location.search.includes('tab=announcements'))
+        )) ||
+        (key === '/user/employees' && (
+          location.pathname === '/user/employees' ||
+          location.pathname.startsWith('/user/employees/add') ||
+          (location.pathname.startsWith('/user/employees/') && !location.pathname.startsWith('/user/employees/transfer'))
+        )) ||
         location.pathname === key ||
         location.pathname.startsWith(key + '/') ||
         location.pathname.startsWith(key + '?') ||
@@ -470,6 +485,17 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                   const Icon = item.icon;
                   const isDropdownActive = item.path === '/user/payroll'
                     ? ((location.pathname === item.path || location.pathname.startsWith(item.path + '/')) && !isSeparationRoute)
+                    : item.path === '/user/employees'
+                    ? (location.pathname === '/user/employees' || location.pathname.startsWith('/user/employees/add') || (location.pathname.startsWith('/user/employees/') && !location.pathname.startsWith('/user/employees/transfer')))
+                    : item.path === '/user/hr-management'
+                    ? (
+                        location.pathname.startsWith('/user/hr-management') ||
+                        location.pathname.startsWith('/user/employees/transfer') ||
+                        location.pathname.startsWith('/user/letter-management') ||
+                        location.pathname.startsWith('/user/letters') ||
+                        location.pathname.startsWith('/user/greetings') ||
+                        (location.pathname.startsWith('/user/notifications') && location.search.includes('tab=announcements'))
+                      )
                     : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'));
 
                   return (
@@ -532,7 +558,8 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                                     if (subItem.path.includes('?')) {
                                       isSubActive = currentFullUrl === subItem.path ||
                                         (subItem.path.includes('tab=banks') && location.pathname === '/user/masters' && !location.search) ||
-                                        (subItem.path.includes('section=company-profile') && location.pathname === '/user/company-setup' && !location.search);
+                                        (subItem.path.includes('section=company-profile') && location.pathname === '/user/company-setup' && !location.search) ||
+                                        (subItem.path.includes('tab=announcements') && location.pathname === '/user/notifications' && location.search.includes('tab=announcements'));
                                     } else {
                                       isSubActive = (location.pathname === subItem.path) &&
                                         (!location.search || (subItem.path === '/user/income-tax' && location.search === '?tab=declaration') || subItem.path !== '/user/attendance' || !location.search.includes('tab=corrections'));
@@ -567,7 +594,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                             styles.link,
                             (item.path === '/user/payroll?tab=fnf'
                               ? isSeparationRoute
-                              : (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding')) || (item.path === '/user/masters' && location.pathname.startsWith('/user/masters')))
+                              : (isActive || (item.path === '/user/recruitment' && location.pathname.startsWith('/user/recruitment')) || (item.path === '/user/onboarding' && location.pathname.startsWith('/user/onboarding')) || (item.path === '/user/masters' && location.pathname.startsWith('/user/masters')) || (item.path.startsWith('/user/notifications') && location.pathname.startsWith('/user/notifications') && !location.search.includes('tab=announcements')))
                             ) ? styles.active : ''
                           ].filter(Boolean).join(' ')}
                           onClick={() => handleItemClick(false)}

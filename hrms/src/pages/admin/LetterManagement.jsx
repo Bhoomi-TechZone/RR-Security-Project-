@@ -810,7 +810,9 @@ function LetterManagement() {
         <div className={styles.pageHeader}>
           <div className={styles.headerLeft}>
             <div className={styles.breadcrumb}>
-              <span>Settings</span>
+              <span>Workforce</span>
+              <ChevronRight size={12} />
+              <span onClick={() => navigate('/admin/hr-management')} style={{ cursor: 'pointer' }}>HR Management</span>
               <ChevronRight size={12} />
               <span>Letter Management</span>
             </div>

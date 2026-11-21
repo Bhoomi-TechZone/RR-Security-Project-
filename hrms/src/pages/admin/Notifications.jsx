@@ -396,7 +396,7 @@ function NotificationsPage() {
   const { activeCompany, company } = useCompany();
   const companyId = activeCompany?.companyId || company?.companyId || activeCompany?.id || company?.id || 'RRS8392014SEC';
 
-  const tabParam = searchParams.get('tab') || 'announcements';
+  const tabParam = searchParams.get('tab') || 'notifications';
   const statusParam = searchParams.get('status');
   const typeParam = searchParams.get('type');
   const audienceParam = searchParams.get('audience');
@@ -478,10 +478,10 @@ function NotificationsPage() {
 
   // Sync state with URL params
   useEffect(() => {
-    if (tabParam === 'notifications') {
-      setActiveTab('notifications');
-    } else {
+    if (tabParam === 'announcements') {
       setActiveTab('announcements');
+    } else {
+      setActiveTab('notifications');
     }
 
     if (statusParam) setNotificationStatusFilter(statusParam);
@@ -491,7 +491,7 @@ function NotificationsPage() {
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    setSearchParams(newTab === 'announcements' ? {} : { tab: newTab });
+    setSearchParams(newTab === 'notifications' ? {} : { tab: newTab });
   };
 
   const filteredAnnouncements = useMemo(() => {
@@ -667,7 +667,26 @@ function NotificationsPage() {
             Dashboard
           </span>
           <span>/</span>
-          <strong>{activeTab === 'announcements' ? 'Announcements' : 'Notifications'}</strong>
+          {activeTab === 'announcements' ? (
+            <>
+              <span>Workforce</span>
+              <span>/</span>
+              <span
+                style={{ cursor: 'pointer', color: 'var(--text-secondary, #64748b)' }}
+                onClick={() => navigate('/admin/hr-management')}
+              >
+                HR Management
+              </span>
+              <span>/</span>
+              <strong>Announcements</strong>
+            </>
+          ) : (
+            <>
+              <span>Settings</span>
+              <span>/</span>
+              <strong>Notifications</strong>
+            </>
+          )}
         </div>
 
         <header className={styles.header}>

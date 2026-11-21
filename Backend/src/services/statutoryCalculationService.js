@@ -8,6 +8,81 @@
 export const normalizeId = (id) => String(id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
 /**
+ * Resolves the applicable salary revision for an employee based on the payroll month.
+ * If employee has salaryRevisions array, picks the latest revision effective on or before the target month.
+ * Falls back cleanly to base employee document if no revision applies or list is empty.
+ */
+export const resolveEffectiveSalaryForMonth = (emp, monthStr = '') => {
+  if (!emp) return {};
+  if (!Array.isArray(emp.salaryRevisions) || emp.salaryRevisions.length === 0) {
+    return emp;
+  }
+
+  const targetMonth = monthStr ? String(monthStr).slice(0, 7) : new Date().toISOString().slice(0, 7);
+
+  const parseEffDate = (eff) => {
+    if (!eff) return '1970-01';
+    const s = String(eff).trim();
+    if (/^\d{4}-\d{2}/.test(s)) return s.slice(0, 7);
+    const match = s.match(/(\d{2})-([A-Za-z]{3})-(\d{4})/);
+    if (match) {
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      const mIdx = months.indexOf(match[2].toUpperCase());
+      const mNum = String(mIdx >= 0 ? mIdx + 1 : 1).padStart(2, '0');
+      return `${match[3]}-${mNum}`;
+    }
+    return s.slice(0, 7);
+  };
+
+  const applicableRevisions = emp.salaryRevisions
+    .filter((r) => {
+      const rMonth = parseEffDate(r.effectiveFrom);
+      return rMonth <= targetMonth;
+    })
+    .sort((a, b) => {
+      const dateA = parseEffDate(a.effectiveFrom);
+      const dateB = parseEffDate(b.effectiveFrom);
+      return dateB.localeCompare(dateA); // most recent first
+    });
+
+  const activeRev = applicableRevisions[0] || emp.salaryRevisions[0] || {};
+
+  return {
+    ...emp,
+    ...activeRev,
+    basic: activeRev.basic !== undefined ? activeRev.basic : emp.basic,
+    vda: activeRev.vda !== undefined ? activeRev.vda : emp.vda,
+    hra: activeRev.hra !== undefined ? activeRev.hra : emp.hra,
+    conveyance: activeRev.conveyance !== undefined ? activeRev.conveyance : emp.conveyance,
+    specialAllowance: activeRev.specialAllowance !== undefined ? activeRev.specialAllowance : emp.specialAllowance,
+    otherAllowance: activeRev.otherAllowance !== undefined ? activeRev.otherAllowance : emp.otherAllowance,
+    grossSalary: activeRev.grossSalary !== undefined ? activeRev.grossSalary : emp.grossSalary,
+    totalSalary: activeRev.totalSalary !== undefined ? activeRev.totalSalary : emp.totalSalary,
+    netSalary: activeRev.netSalary !== undefined ? activeRev.netSalary : emp.netSalary,
+    ctc: activeRev.ctc !== undefined ? activeRev.ctc : emp.ctc,
+    doNotDeductEsi: activeRev.doNotDeductEsi !== undefined ? activeRev.doNotDeductEsi : emp.doNotDeductEsi,
+    deductEsi: activeRev.deductEsi !== undefined ? activeRev.deductEsi : emp.deductEsi,
+    deductEsiAboveCeiling: activeRev.deductEsiAboveCeiling !== undefined ? activeRev.deductEsiAboveCeiling : emp.deductEsiAboveCeiling,
+    doNotDeductPf: activeRev.doNotDeductPf !== undefined ? activeRev.doNotDeductPf : emp.doNotDeductPf,
+    deductPf: activeRev.deductPf !== undefined ? activeRev.deductPf : emp.deductPf,
+    doNotDeductPension: activeRev.doNotDeductPension !== undefined ? activeRev.doNotDeductPension : emp.doNotDeductPension,
+    deductPfAboveCeilingEmployee: activeRev.deductPfAboveCeilingEmployee !== undefined ? activeRev.deductPfAboveCeilingEmployee : emp.deductPfAboveCeilingEmployee,
+    deductPfAboveCeilingEmployer: activeRev.deductPfAboveCeilingEmployer !== undefined ? activeRev.deductPfAboveCeilingEmployer : emp.deductPfAboveCeilingEmployer,
+    deductPfOnGrossSalary: activeRev.deductPfOnGrossSalary !== undefined ? activeRev.deductPfOnGrossSalary : emp.deductPfOnGrossSalary,
+    deductPfExtraContribution: activeRev.deductPfExtraContribution !== undefined ? activeRev.deductPfExtraContribution : emp.deductPfExtraContribution,
+    minPfDeduction: activeRev.minPfDeduction !== undefined ? activeRev.minPfDeduction : emp.minPfDeduction,
+    doNotDeductPt: activeRev.doNotDeductPt !== undefined ? activeRev.doNotDeductPt : emp.doNotDeductPt,
+    deductPt: activeRev.deductPt !== undefined ? activeRev.deductPt : emp.deductPt,
+    ptTaxState: activeRev.ptTaxState || emp.ptTaxState,
+    doNotDeductTds: activeRev.doNotDeductTds !== undefined ? activeRev.doNotDeductTds : emp.doNotDeductTds,
+    deductTds: activeRev.deductTds !== undefined ? activeRev.deductTds : emp.deductTds,
+    doNotDeductLwf: activeRev.doNotDeductLwf !== undefined ? activeRev.doNotDeductLwf : emp.doNotDeductLwf,
+    deductLwf: activeRev.deductLwf !== undefined ? activeRev.deductLwf : emp.deductLwf,
+    lwfTaxState: activeRev.lwfTaxState || emp.lwfTaxState,
+  };
+};
+
+/**
  * Calculates the wage base from selected salary components.
  * Matches selectedComponentIds against salary components master list (if available)
  * as well as common component codes, short names, names, and keys.
@@ -206,9 +281,13 @@ export const getPtWageBase = (emp, monthlyGross, earnedGross, statutoryPt, salar
 /**
  * Helper to calculate Professional Tax strictly from active dynamic PT slabs in MongoDB
  */
-export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = true, gender = '') => {
-  if (ptEnabled === false || !state || !Array.isArray(ptSlabs) || ptSlabs.length === 0 || Number(gross) <= 0) return 0;
-  const stateLower = String(state).trim().toLowerCase();
+export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = true, gender = '', emp = {}) => {
+  if (ptEnabled === false || emp.doNotDeductPt === true || emp.deductPt === false || emp.ptApplicable === false || String(emp.ptApplicable).toLowerCase() === 'no') {
+    return 0;
+  }
+  const effectiveState = emp.ptTaxState || state;
+  if (!effectiveState || !Array.isArray(ptSlabs) || ptSlabs.length === 0 || Number(gross) <= 0) return 0;
+  const stateLower = String(effectiveState).trim().toLowerCase();
   let stateSlabs = ptSlabs.filter((s) => {
     if (s.status === 'inactive') return false;
     const slabState = String(s.state || '').trim().toLowerCase();
@@ -256,12 +335,17 @@ export const calculatePT = (gross, state, ptSlabs = [], month = '', ptEnabled = 
 /**
  * Helper to calculate Labour Welfare Fund (LWF) strictly from active dynamic LWF rules in MongoDB
  */
-export const calculateLWF = (gross, state, lwfRules = [], month = '', lwfApplicable = true, lwfEnabled = true) => {
-  if (lwfEnabled === false || lwfApplicable === false || !state || !Array.isArray(lwfRules) || lwfRules.length === 0) {
+export const calculateLWF = (gross, state, lwfRules = [], month = '', lwfApplicable = true, lwfEnabled = true, emp = {}) => {
+  if (lwfEnabled === false || lwfApplicable === false || emp.doNotDeductLwf === true || emp.deductLwf === false || emp.lwfApplicable === false || String(emp.lwfApplicable).toLowerCase() === 'no') {
     return { employee: 0, employer: 0 };
   }
 
-  const stateLower = String(state).trim().toLowerCase();
+  const effectiveState = emp.lwfTaxState || state;
+  if (!effectiveState || !Array.isArray(lwfRules) || lwfRules.length === 0) {
+    return { employee: 0, employer: 0 };
+  }
+
+  const stateLower = String(effectiveState).trim().toLowerCase();
   const activeRules = lwfRules.filter((r) => {
     if (r.status !== 'active') return false;
     const ruleState = String(r.state || '').trim().toLowerCase();
@@ -316,7 +400,9 @@ export const calculateLWF = (gross, state, lwfRules = [], month = '', lwfApplica
  * Helper to calculate TDS (Income Tax withholding) based on configured statutory TDS regime & slabs
  */
 export const calculateTDS = (earnedGross, emp = {}, statutoryTds = {}) => {
-  if (statutoryTds?.enabled === false) return 0;
+  if (statutoryTds?.enabled === false || emp.doNotDeductTds === true || emp.deductTds === false || emp.tdsApplicable === false || String(emp.tdsApplicable).toLowerCase() === 'no') {
+    return 0;
+  }
 
   const isTdsApplicable = emp.tdsApplicable === true || String(emp.tdsApplicable).toLowerCase() === 'yes';
   if (!isTdsApplicable) return 0;
@@ -412,11 +498,17 @@ export const calculateTDS = (earnedGross, emp = {}, statutoryTds = {}) => {
  * Helper to calculate PF strictly according to statutory PF settings
  */
 export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, earningsMap = {}, salaryComponentsMaster = null) => {
-  if (statutoryPf?.enabled === false) {
+  if (
+    statutoryPf?.enabled === false ||
+    emp.doNotDeductPf === true ||
+    emp.deductPf === false ||
+    emp.pfApplicable === false ||
+    String(emp.pfApplicable).toLowerCase() === 'no'
+  ) {
     return { employee: 0, employer: 0, eps: 0, epfEmployer: 0, edli: 0, admin: 0 };
   }
 
-  const isPfApplicable = emp.pfApplicable === true || String(emp.pfApplicable).toLowerCase() === 'yes';
+  const isPfApplicable = emp.pfApplicable === true || String(emp.pfApplicable).toLowerCase() === 'yes' || emp.pfApplicable === undefined;
   if (!isPfApplicable) {
     return { employee: 0, employer: 0, eps: 0, epfEmployer: 0, edli: 0, admin: 0 };
   }
@@ -428,7 +520,9 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, 
   }
 
   let qualifyingWage = 0;
-  if (Array.isArray(statutoryPf?.selectedComponentIds)) {
+  if (emp.deductPfOnGrossSalary && Number(earningsMap?.grossSalary) > 0) {
+    qualifyingWage = Number(earningsMap.grossSalary);
+  } else if (Array.isArray(statutoryPf?.selectedComponentIds)) {
     if (statutoryPf.selectedComponentIds.length === 0) {
       qualifyingWage = 0;
     } else {
@@ -453,14 +547,21 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, 
   }
 
   const wageCeiling = activeRate?.wageCeiling !== undefined ? Number(activeRate.wageCeiling) : (Number(statutoryPf?.wageCeiling) || 15000);
-  const isRestricted = statutoryPf?.wageCeilingRestricted !== false;
+  const isRestrictedEmployee = statutoryPf?.wageCeilingRestricted !== false && !emp.deductPfAboveCeilingEmployee;
+  const isRestrictedEmployer = statutoryPf?.wageCeilingRestricted !== false && !emp.deductPfAboveCeilingEmployer;
 
-  const pfWage = isRestricted ? Math.min(qualifyingWage, wageCeiling) : qualifyingWage;
-  const epsWage = Math.min(qualifyingWage, wageCeiling);
+  const pfWageEmployee = isRestrictedEmployee ? Math.min(qualifyingWage, wageCeiling) : qualifyingWage;
+  const pfWageEmployer = isRestrictedEmployer ? Math.min(qualifyingWage, wageCeiling) : qualifyingWage;
+  const epsWage = Math.min(qualifyingWage, wageCeiling); // Statutory pension is capped at ceiling
 
   // Employee contribution (dynamic rate)
   const empRate = (activeRate?.employeeRate !== undefined ? Number(activeRate.employeeRate) : (Number(statutoryPf?.employeeContribution) || 12)) / 100;
-  let pfEmployee = Math.round(pfWage * empRate);
+  let pfEmployee = Math.round(pfWageEmployee * empRate);
+
+  // Apply Minimum PF deduction if configured
+  if (emp.minPfDeduction !== undefined && emp.minPfDeduction !== null && Number(emp.minPfDeduction) > 0) {
+    pfEmployee = Math.max(pfEmployee, Number(emp.minPfDeduction));
+  }
 
   // Voluntary Provident Fund (VPF)
   const allowVPF = statutoryPf?.vpfEnabled !== undefined ? Boolean(statutoryPf.vpfEnabled) : (statutoryPf?.allowVPF !== false);
@@ -468,25 +569,26 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, 
   if (allowVPF && vpfPct > 0) {
     const maxVpfPct = Number(statutoryPf?.vpfMaxPercentage) || 100;
     const effectiveVpfPct = Math.min(vpfPct, maxVpfPct);
-    const vpfAmt = Math.round(pfWage * (effectiveVpfPct / 100));
+    const vpfAmt = Math.round(pfWageEmployee * (effectiveVpfPct / 100));
     pfEmployee += vpfAmt;
   }
 
   // Employer contribution breakdown (dynamic rates)
-  const epsRate = (activeRate?.pensionRate !== undefined ? Number(activeRate.pensionRate) : (Number(statutoryPf?.epsContribution) || 8.33)) / 100;
-  const eps = Math.round(epsWage * epsRate);
+  const noPension = emp.doNotDeductPension === true || emp.deductPension === false;
+  const epsRate = noPension ? 0 : ((activeRate?.pensionRate !== undefined ? Number(activeRate.pensionRate) : (Number(statutoryPf?.epsContribution) || 8.33)) / 100);
+  const eps = noPension ? 0 : Math.round(epsWage * epsRate);
 
   const employerRate = activeRate?.employerRate !== undefined
     ? ((Number(activeRate.employerRate) + Number(activeRate.pensionRate || 0)) / 100)
     : ((Number(statutoryPf?.employerContribution) || 12) / 100);
-  const pfEmployer = Math.round(pfWage * employerRate);
+  const pfEmployer = Math.round(pfWageEmployer * employerRate);
   const epfEmployer = Math.max(0, pfEmployer - eps);
 
   const edliRate = (activeRate?.edliAdminRate !== undefined ? Number(activeRate.edliAdminRate) / 2 : (Number(statutoryPf?.edliContribution) || 0.5)) / 100;
   const edli = Math.round(epsWage * edliRate);
 
   const adminRate = (Number(statutoryPf?.adminCharges) || 0.5) / 100;
-  const admin = Math.round(pfWage * adminRate);
+  const admin = Math.round(pfWageEmployer * adminRate);
 
   return {
     employee: pfEmployee,
@@ -495,7 +597,7 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, 
     epfEmployer,
     edli,
     admin,
-    pfWage,
+    pfWage: pfWageEmployee,
     epsWage,
     qualifyingWage,
   };
@@ -505,11 +607,17 @@ export const calculatePF = (earnedBasic, earnedVda, emp = {}, statutoryPf = {}, 
  * Helper to calculate ESI strictly according to statutory ESI settings
  */
 export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, statutoryEsi = {}, earningsMap = {}, salaryComponentsMaster = []) => {
-  if (statutoryEsi?.enabled === false) {
+  if (
+    statutoryEsi?.enabled === false ||
+    emp.doNotDeductEsi === true ||
+    emp.deductEsi === false ||
+    emp.esiApplicable === false ||
+    String(emp.esiApplicable).toLowerCase() === 'no'
+  ) {
     return { employee: 0, employer: 0 };
   }
 
-  const isEsiApplicable = emp.esiApplicable === true || String(emp.esiApplicable).toLowerCase() === 'yes';
+  const isEsiApplicable = emp.esiApplicable === true || String(emp.esiApplicable).toLowerCase() === 'yes' || emp.esiApplicable === undefined;
   if (!isEsiApplicable) {
     return { employee: 0, employer: 0 };
   }
@@ -534,9 +642,10 @@ export const calculateESI = (earnedGross, monthlyGross, paidDays, emp = {}, stat
       ? Number(activeRate.eligibilityWageCeiling)
       : (Number(statutoryEsi?.wageEligibilityLimit) || 21000));
 
-  // Check eligibility threshold against monthlyGross or earnedGross
+  // Check eligibility threshold against monthlyGross or earnedGross unless deductEsiAboveCeiling is true
+  const deductAboveCeiling = Boolean(emp.deductEsiAboveCeiling);
   const checkGross = monthlyGross > 0 ? monthlyGross : earnedGross;
-  if (checkGross > wageLimit) {
+  if (!deductAboveCeiling && checkGross > wageLimit) {
     return { employee: 0, employer: 0 };
   }
 
@@ -620,7 +729,7 @@ export const calculateBonus = (earnedBasic, paidDays, totalDaysInMonth, emp = {}
  * Master Unified Calculation Engine for an Employee Record
  */
 export const computeEmployeePayrollCalculations = ({
-  emp,
+  emp: rawEmp = {},
   attendanceList = [],
   statutoryConfig = {},
   month = '',
@@ -628,6 +737,7 @@ export const computeEmployeePayrollCalculations = ({
   overrides = {},
   salaryComponentsMaster = null,
 }) => {
+  const emp = resolveEffectiveSalaryForMonth(rawEmp, month);
   const normEmpId = normalizeId(emp.employeeId);
   const normCode = normalizeId(emp.employeeCode);
   const normMongoId = normalizeId(emp._id || emp.id);
@@ -881,8 +991,8 @@ export const computeEmployeePayrollCalculations = ({
     }
 
     // 3. PT (only if module is active)
-    if (statutoryConfig?.pt?.enabled !== false) {
-      const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
+    if (statutoryConfig?.pt?.enabled !== false && emp.doNotDeductPt !== true && emp.deductPt !== false && emp.ptApplicable !== false && String(emp.ptApplicable).toLowerCase() !== 'no') {
+      const empState = emp.ptTaxState || emp.taxState || emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
       const ptGross = computePTWageBase({
         emp,
         statutoryPt: statutoryConfig?.pt,
@@ -896,15 +1006,15 @@ export const computeEmployeePayrollCalculations = ({
     }
 
     // 4. TDS (only if module is active)
-    if (statutoryConfig?.tds?.enabled !== false) {
+    if (statutoryConfig?.tds?.enabled !== false && emp.doNotDeductTds !== true && emp.deductTds !== false && emp.tdsApplicable !== false && String(emp.tdsApplicable).toLowerCase() !== 'no') {
       tds = calculateTDS(earnedGross, emp, statutoryConfig?.tds);
     }
 
     // 5. LWF (only if module is active)
-    if (statutoryConfig?.lwf?.enabled !== false) {
-      const empState = emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
+    if (statutoryConfig?.lwf?.enabled !== false && emp.doNotDeductLwf !== true && emp.deductLwf !== false && emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no') {
+      const empState = emp.lwfTaxState || emp.taxState || emp.state || emp.workState || emp.siteState || emp.siteLocation || emp.site || emp.presentAddress || emp.address || '';
       const isLwfApplicable = emp.lwfApplicable !== false && String(emp.lwfApplicable).toLowerCase() !== 'no';
-      lwfRes = calculateLWF(earnedGross, empState, statutoryConfig?.lwfRules, month, isLwfApplicable, true);
+      lwfRes = calculateLWF(earnedGross, empState, statutoryConfig?.lwfRules, month, isLwfApplicable, true, emp);
     }
   }
 
@@ -975,6 +1085,15 @@ export const computeEmployeePayrollCalculations = ({
 
   const netSalary = Math.max(0, earnedGross - totalDeductions);
 
+  const totalEmployerContributions =
+    finalPfEmployer +
+    (pfRes.edli || 0) +
+    (pfRes.admin || 0) +
+    finalEsiEmployer +
+    (lwfRes.employer || 0);
+
+  const totalCtc = earnedGross + totalEmployerContributions;
+
   const initials =
     (emp.name || emp.employeeName || 'EM')
       .split(' ')
@@ -1025,6 +1144,20 @@ export const computeEmployeePayrollCalculations = ({
     otherDeduction: finalPt + finalTds + finalLwf + finalAdvances + finalLoanEmi + finalOtherDed,
     totalDeductions,
     netSalary,
+    employerContributions: {
+      pfEmployer: finalPfEmployer,
+      pensionEmployer: pfRes.eps || 0,
+      eps: pfRes.eps || 0,
+      epfEmployer: pfRes.epfEmployer || 0,
+      edli: pfRes.edli || 0,
+      admin: pfRes.admin || 0,
+      edliAndAdmin: (pfRes.edli || 0) + (pfRes.admin || 0),
+      esiEmployer: finalEsiEmployer,
+      lwfEmployer: lwfRes.employer || 0,
+      totalEmployerContributions,
+      totalCtc,
+    },
+    totalCtc,
     earnings: {
       basic: earnedBasic,
       vda: earnedVda,

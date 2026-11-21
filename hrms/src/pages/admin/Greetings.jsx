@@ -367,9 +367,11 @@ export default function Greetings() {
 
         {/* Dynamic Breadcrumb */}
         <div className={styles.breadcrumb}>
-          <span onClick={() => navigate('/admin/dashboard')}>Dashboard</span>
+          <span onClick={() => navigate(isUserPanel ? '/user/dashboard' : '/admin/dashboard')}>Dashboard</span>
           <ChevronRight size={14} />
-          <span>Settings</span>
+          <span>Workforce</span>
+          <ChevronRight size={14} />
+          <span onClick={() => navigate(isUserPanel ? '/user/hr-management' : '/admin/hr-management')}>HR Management</span>
           <ChevronRight size={14} />
           <strong>Greetings</strong>
         </div>

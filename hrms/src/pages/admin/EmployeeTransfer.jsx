@@ -437,9 +437,9 @@ function EmployeeTransfer() {
           <span className={styles.separator}>/</span>
           <span className={styles.crumbLink}>Workforce</span>
           <span className={styles.separator}>/</span>
-          <Link to="/admin/employees" className={styles.crumbLink}>Employees</Link>
+          <Link to="/admin/hr-management" className={styles.crumbLink}>HR Management</Link>
           <span className={styles.separator}>/</span>
-          <span className={styles.crumbActive}>Transfer Employees</span>
+          <span className={styles.crumbActive}>Employee Transfer</span>
         </nav>
 
         {/* Header Section */}

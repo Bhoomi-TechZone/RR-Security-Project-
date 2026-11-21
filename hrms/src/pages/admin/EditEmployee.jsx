@@ -273,6 +273,7 @@ function EditEmployee() {
         />
 
         <EmployeeForm
+          key={employee?._id || employee?.id || employee?.employeeCode || employee?.employeeId || id}
           isOpen={true}
           isPageMode={true}
           breadcrumb={breadcrumbNav}
