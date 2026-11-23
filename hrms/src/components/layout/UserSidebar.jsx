@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -430,6 +431,77 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     }
   };
 
+  // Floating Flyout Submenu state for Collapsed Mode
+  const [flyoutData, setFlyoutData] = useState(null);
+  const flyoutCloseTimerRef = useRef(null);
+
+  const checkIsSubActive = (subItemPath) => {
+    const currentFullUrl = location.pathname + location.search;
+    if (subItemPath.includes('?')) {
+      return (
+        currentFullUrl === subItemPath ||
+        (subItemPath.includes('tab=banks') && location.pathname === '/user/masters' && !location.search) ||
+        (subItemPath.includes('section=company-profile') && location.pathname === '/user/company-setup' && !location.search) ||
+        (subItemPath.includes('tab=announcements') && location.pathname === '/user/notifications' && location.search.includes('tab=announcements'))
+      );
+    }
+    return (
+      location.pathname === subItemPath &&
+      (!location.search ||
+        (subItemPath === '/user/income-tax' && location.search === '?tab=declaration') ||
+        subItemPath !== '/user/attendance' ||
+        !location.search.includes('tab=corrections'))
+    );
+  };
+
+  const openFlyout = (item, element) => {
+    if (!isCollapsed || !item?.subItems?.length) return;
+    if (flyoutCloseTimerRef.current) {
+      clearTimeout(flyoutCloseTimerRef.current);
+    }
+    const rect = element.getBoundingClientRect();
+    const estimatedHeight = Math.min(380, (item.subItems.length * 36) + 52);
+    const top = Math.max(10, Math.min(rect.top, window.innerHeight - estimatedHeight - 16));
+    const left = rect.right + 8;
+    setFlyoutData({ item, top, left });
+  };
+
+  const closeFlyoutWithDelay = () => {
+    if (flyoutCloseTimerRef.current) {
+      clearTimeout(flyoutCloseTimerRef.current);
+    }
+    flyoutCloseTimerRef.current = setTimeout(() => {
+      setFlyoutData(null);
+    }, 180);
+  };
+
+  const cancelFlyoutClose = () => {
+    if (flyoutCloseTimerRef.current) {
+      clearTimeout(flyoutCloseTimerRef.current);
+    }
+  };
+
+  // Close flyout on scroll, outside click, or when expanding sidebar
+  useEffect(() => {
+    if (!flyoutData) return;
+    const handleScrollOrClickOutside = (e) => {
+      if (e.target?.closest && e.target.closest(`.${styles.flyoutPopover}`)) {
+        return;
+      }
+      setFlyoutData(null);
+    };
+    window.addEventListener('scroll', handleScrollOrClickOutside, true);
+    document.addEventListener('mousedown', handleScrollOrClickOutside);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrClickOutside, true);
+      document.removeEventListener('mousedown', handleScrollOrClickOutside);
+    };
+  }, [flyoutData]);
+
+  useEffect(() => {
+    setFlyoutData(null);
+  }, [isCollapsed, location.pathname, location.search]);
+
   // Filter navigation items by active user permissions dynamically
   const filteredGroups = USER_NAV_GROUPS.map(group => {
     const visibleItems = group.items.filter(item => {
@@ -501,23 +573,46 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                   return (
                     <li key={itemIdx} className={styles.item}>
                       {item.hasDropdown && item.subItems ? (
-                        <div className={styles.dropdownItemWrap}>
+                        <div 
+                          className={styles.dropdownItemWrap}
+                          onMouseEnter={(e) => {
+                            if (isCollapsed) {
+                              openFlyout(item, e.currentTarget);
+                            }
+                          }}
+                          onMouseLeave={() => {
+                            if (isCollapsed) {
+                              closeFlyoutWithDelay();
+                            }
+                          }}
+                        >
                           <div
                             role="button"
                             tabIndex={0}
                             className={[
                               styles.link,
                               styles.dropdownToggle,
-                              isDropdownActive ? styles.active : ''
+                              isDropdownActive ? styles.active : '',
+                              (isCollapsed && flyoutData?.item?.path === item.path) ? styles.activeFlyoutTrigger : ''
                             ].filter(Boolean).join(' ')}
-                            onClick={() => toggleDropdown(item.path)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
+                            onClick={(e) => {
+                              if (isCollapsed) {
                                 e.preventDefault();
+                                openFlyout(item, e.currentTarget);
+                              } else {
                                 toggleDropdown(item.path);
                               }
                             }}
-                            title={isCollapsed ? item.name : undefined}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                if (isCollapsed) {
+                                  openFlyout(item, e.currentTarget);
+                                } else {
+                                  toggleDropdown(item.path);
+                                }
+                              }
+                            }}
                           >
                             <span className={styles.iconWrap}>
                               <Icon size={18} strokeWidth={2} />
@@ -534,11 +629,6 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                                 />
                               </>
                             )}
-                            {isCollapsed && (
-                              <span className={styles.tooltip} role="tooltip">
-                                {item.name}
-                              </span>
-                            )}
                           </div>
 
                           {/* Submenu Items with smooth transition */}
@@ -553,17 +643,7 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
                               <div className={styles.submenuInner}>
                                 <ul className={styles.subMenuList}>
                                   {item.subItems.map((subItem, subIdx) => {
-                                    const currentFullUrl = location.pathname + location.search;
-                                    let isSubActive = false;
-                                    if (subItem.path.includes('?')) {
-                                      isSubActive = currentFullUrl === subItem.path ||
-                                        (subItem.path.includes('tab=banks') && location.pathname === '/user/masters' && !location.search) ||
-                                        (subItem.path.includes('section=company-profile') && location.pathname === '/user/company-setup' && !location.search) ||
-                                        (subItem.path.includes('tab=announcements') && location.pathname === '/user/notifications' && location.search.includes('tab=announcements'));
-                                    } else {
-                                      isSubActive = (location.pathname === subItem.path) &&
-                                        (!location.search || (subItem.path === '/user/income-tax' && location.search === '?tab=declaration') || subItem.path !== '/user/attendance' || !location.search.includes('tab=corrections'));
-                                    }
+                                    const isSubActive = checkIsSubActive(subItem.path);
 
                                     return (
                                       <li key={subIdx} className={styles.subMenuItem}>
@@ -639,6 +719,53 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
             )}
           </button>
         </div>
+
+        {/* Floating Flyout Popover for Submenu in Collapsed Mode */}
+        {isCollapsed && flyoutData && flyoutData.item && createPortal(
+          <div
+            className={styles.flyoutPopover}
+            style={{
+              top: `${flyoutData.top}px`,
+              left: `${flyoutData.left}px`,
+            }}
+            onMouseEnter={cancelFlyoutClose}
+            onMouseLeave={closeFlyoutWithDelay}
+          >
+            {/* Flyout Header */}
+            <div className={styles.flyoutHeader}>
+              <span className={styles.flyoutHeaderIcon}>
+                {React.createElement(flyoutData.item.icon, { size: 16, strokeWidth: 2.2 })}
+              </span>
+              <span className={styles.flyoutHeaderTitle}>{flyoutData.item.name}</span>
+            </div>
+
+            {/* Flyout Submenu List */}
+            <ul className={styles.flyoutList}>
+              {flyoutData.item.subItems.map((subItem, sIdx) => {
+                const isSubActive = checkIsSubActive(subItem.path);
+                return (
+                  <li key={sIdx} className={styles.flyoutListItem}>
+                    <NavLink
+                      to={subItem.path}
+                      className={[
+                        styles.flyoutLink,
+                        isSubActive ? styles.flyoutLinkActive : ''
+                      ].filter(Boolean).join(' ')}
+                      onClick={() => {
+                        setFlyoutData(null);
+                        handleItemClick(false);
+                      }}
+                    >
+                      <span className={styles.flyoutBullet} />
+                      <span className={styles.flyoutItemName}>{subItem.name}</span>
+                    </NavLink>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>,
+          document.body
+        )}
       </aside>
     </>
   );
