@@ -7,7 +7,16 @@ import { ClientAuthProvider } from '../../context/ClientAuthContext';
 
 function ClientLayoutContent() {
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      return false;
+    }
+    try {
+      return localStorage.getItem('novaspark_client_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const handleToggleSidebar = () => {
@@ -15,7 +24,13 @@ function ClientLayoutContent() {
       setIsDrawerOpen((open) => !open);
       return;
     }
-    setIsCollapsed((collapsed) => !collapsed);
+    setIsCollapsed((collapsed) => {
+      const next = !collapsed;
+      try {
+        localStorage.setItem('novaspark_client_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
   };
 
   const handleLogout = () => {

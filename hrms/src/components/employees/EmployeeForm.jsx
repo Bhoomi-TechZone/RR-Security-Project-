@@ -14,6 +14,7 @@ import LoginAccessStep from './LoginAccessStep';
 import AdditionalInfoStep from './AdditionalInfoStep';
 import ActivityLogsStep from './ActivityLogsStep';
 import LetterInboxStep from './LetterInboxStep';
+import AssetsStep from './AssetsStep';
 import { useCompany } from '../../context/CompanyContext';
 import { generateSeriesPreview } from '../../data/numberSeriesData';
 
@@ -26,11 +27,12 @@ const STEPS = [
   { id: 'address', label: 'Addresses', number: '06' },
   { id: 'family', label: 'Family Details', number: '07' },
   { id: 'documents', label: 'Documents', number: '08' },
-  { id: 'letters', label: 'Letter Inbox', number: '09' },
-  { id: 'login', label: 'Login Access', number: '10' },
-  { id: 'additional', label: 'Additional Info', number: '11' },
-  { id: 'activity', label: 'Activity Logs', number: '12' },
-  { id: 'review', label: 'Review & Submit', number: '13' }
+  { id: 'assets', label: 'Assets', number: '09' },
+  { id: 'letters', label: 'Letter Inbox', number: '10' },
+  { id: 'login', label: 'Login Access', number: '11' },
+  { id: 'additional', label: 'Additional Info', number: '12' },
+  { id: 'activity', label: 'Activity Logs', number: '13' },
+  { id: 'review', label: 'Review & Submit', number: '14' }
 ];
 
 const QUICK_NAV_SECTIONS = [
@@ -42,10 +44,11 @@ const QUICK_NAV_SECTIONS = [
   { id: 'section-address', number: '06', label: 'Addresses' },
   { id: 'section-family', number: '07', label: 'Family Details' },
   { id: 'section-documents', number: '08', label: 'Documents' },
-  { id: 'section-letters', number: '09', label: 'Letter Inbox' },
-  { id: 'section-login', number: '10', label: 'Login Access' },
-  { id: 'section-additional', number: '11', label: 'Additional Info' },
-  { id: 'section-activity', number: '12', label: 'Activity Logs' },
+  { id: 'section-assets', number: '09', label: 'Assets' },
+  { id: 'section-letters', number: '10', label: 'Letter Inbox' },
+  { id: 'section-login', number: '11', label: 'Login Access' },
+  { id: 'section-additional', number: '12', label: 'Additional Info' },
+  { id: 'section-activity', number: '13', label: 'Activity Logs' },
 ];
 
 const DEFAULT_FORM_DATA = {
@@ -893,7 +896,20 @@ function EmployeeForm({
               />
             </section>
 
-            {/* 09. Letter Inbox */}
+            {/* 09. Assets */}
+            <section
+              id="section-assets"
+              className={styles.plainSectionCard}
+              style={{ display: activeSection === 'section-assets' ? 'block' : 'none' }}
+            >
+              <AssetsStep
+                data={formData}
+                employee={employee || formData}
+                onChange={handleFormDataChange}
+              />
+            </section>
+
+            {/* 10. Letter Inbox */}
             <section
               id="section-letters"
               className={styles.plainSectionCard}
@@ -905,7 +921,7 @@ function EmployeeForm({
               />
             </section>
 
-            {/* 10. Login Access */}
+            {/* 11. Login Access */}
             <section
               id="section-login"
               className={styles.plainSectionCard}
@@ -918,7 +934,7 @@ function EmployeeForm({
               />
             </section>
 
-            {/* 11. Additional Info */}
+            {/* 12. Additional Info */}
             <section
               id="section-additional"
               className={styles.sectionCard}
@@ -926,7 +942,7 @@ function EmployeeForm({
             >
               <div className={styles.sectionHeader}>
                 <div className={styles.sectionHeaderLeft}>
-                  <span className={styles.sectionNumber}>11</span>
+                  <span className={styles.sectionNumber}>12</span>
                   <div>
                     <h3 className={styles.sectionTitle}>Additional Info</h3>
                     <p className={styles.sectionSubtitle}>Customized data fields and additional organizational notes</p>
@@ -964,13 +980,13 @@ function EmployeeForm({
               )}
             </section>
 
-            {/* 12. Activity Logs */}
+            {/* 13. Activity Logs */}
             <section
               id="section-activity"
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-activity' ? 'block' : 'none' }}
             >
-              <ActivityLogsStep data={formData} employee={employee} />
+              <ActivityLogsStep data={formData} employee={employee || {}} />
             </section>
 
             {/* Bottom Actions Bar in Page Mode (Shifted to bottom as requested) */}
@@ -1101,29 +1117,36 @@ function EmployeeForm({
               />
             )}
             {currentStep === 8 && (
+              <AssetsStep
+                data={formData}
+                employee={employee || formData}
+                onChange={handleFormDataChange}
+              />
+            )}
+            {currentStep === 9 && (
               <LetterInboxStep
                 data={formData}
                 employee={employee}
               />
             )}
-            {currentStep === 9 && (
+            {currentStep === 10 && (
               <LoginAccessStep
                 data={formData}
                 onChange={handleFormDataChange}
                 isEditMode={isEditMode}
               />
             )}
-            {currentStep === 10 && (
+            {currentStep === 11 && (
               <AdditionalInfoStep
                 data={formData}
                 onChange={handleFormDataChange}
                 isSubmitting={isSubmitting}
               />
             )}
-            {currentStep === 11 && (
+            {currentStep === 12 && (
               <ActivityLogsStep data={formData} />
             )}
-            {currentStep === 12 && (
+            {currentStep === 13 && (
               <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />
             )}
           </div>

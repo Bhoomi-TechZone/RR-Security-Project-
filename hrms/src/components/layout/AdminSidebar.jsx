@@ -75,13 +75,9 @@ const NAV_GROUPS = [
       },
       {
         path: '/admin/employees',
-        name: 'Employees',
+        name: 'All Employees',
         icon: Users,
-        moduleKey: 'employees',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/employees', name: 'All Employees' },
-        ]
+        moduleKey: 'employees'
       },
       {
         path: '/admin/hr-management',
@@ -319,7 +315,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       location.pathname.startsWith('/admin/payroll/finalized-exits');
     return {
       '/admin/clients': location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies') || (location.pathname === '/admin/masters' && location.search.includes('tab=clients')),
-      '/admin/employees': location.pathname === '/admin/employees' || location.pathname.startsWith('/admin/employees/add') || (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer')),
       '/admin/hr-management': location.pathname.startsWith('/admin/hr-management') || location.pathname.startsWith('/admin/employees/transfer') || location.pathname.startsWith('/admin/letter-management') || location.pathname.startsWith('/admin/letters') || location.pathname.startsWith('/admin/greetings') || (location.pathname.startsWith('/admin/notifications') && location.search.includes('tab=announcements')),
       '/admin/attendance': location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance'),
       '/admin/shifts': location.pathname.startsWith('/admin/shifts'),
@@ -344,9 +339,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
   useEffect(() => {
     if (location.pathname.startsWith('/admin/clients') || location.pathname.startsWith('/admin/companies')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/clients': true }));
-    }
-    if (location.pathname === '/admin/employees' || location.pathname.startsWith('/admin/employees/add') || (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer'))) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/employees': true }));
     }
     if (
       location.pathname.startsWith('/admin/hr-management') ||
@@ -569,12 +561,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                         location.pathname.startsWith('/admin/clients') ||
                         location.pathname.startsWith('/admin/companies')
                       )
-                    : item.path === '/admin/employees'
-                    ? (
-                        location.pathname === '/admin/employees' ||
-                        location.pathname.startsWith('/admin/employees/add') ||
-                        (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer'))
-                      )
                     : item.path === '/admin/hr-management'
                     ? (
                         location.pathname.startsWith('/admin/hr-management') ||
@@ -700,6 +686,11 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
                                  (item.path === '/admin/all-companies' && (location.pathname.startsWith('/admin/all-companies') || location.pathname.startsWith('/admin/all-company'))) ||
                                  (item.path === '/admin/recruitment' && location.pathname.startsWith('/admin/recruitment')) ||
                                  (item.path === '/admin/onboarding' && location.pathname.startsWith('/admin/onboarding')) ||
+                                 (item.path === '/admin/employees' && (
+                                   location.pathname === '/admin/employees' ||
+                                   location.pathname.startsWith('/admin/employees/add') ||
+                                   (location.pathname.startsWith('/admin/employees/') && !location.pathname.startsWith('/admin/employees/transfer'))
+                                 )) ||
                                  (item.path.startsWith('/admin/notifications') && location.pathname.startsWith('/admin/notifications') && !location.search.includes('tab=announcements'))
                                 )
                             ) ? styles.active : '',

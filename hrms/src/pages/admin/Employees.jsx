@@ -36,7 +36,18 @@ function Employees() {
   const isUserPanel = location.pathname.startsWith('/user');
   const addEmployeePath = isUserPanel ? '/user/employees/add' : '/admin/employees/add';
 
-  const [employees, setEmployees] = useState([]);
+  // SWR Instant Cache: Load cached employees synchronously so the table renders in 0 ms without skeleton wait
+  const [employees, setEmployees] = useState(() => {
+    try {
+      const activeId = localStorage.getItem('novaspark_active_company_id') || 'RRS8392014SEC';
+      const cached = sessionStorage.getItem(`novaspark_employees_${activeId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [clients, setClients] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
@@ -47,7 +58,17 @@ function Employees() {
   const [banks, setBanks] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
   const [workLocations, setWorkLocations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    try {
+      const activeId = localStorage.getItem('novaspark_active_company_id') || 'RRS8392014SEC';
+      const cached = sessionStorage.getItem(`novaspark_employees_${activeId}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return false;
+      }
+    } catch {}
+    return true;
+  });
   const [error, setError] = useState(null);
 
   const [searchParams] = useSearchParams();
@@ -112,8 +133,8 @@ function Employees() {
   // Active fetch abort controller to cancel stale in-flight requests
   const activeFetchAbortRef = useRef(null);
 
-  // Fetch employees strictly isolated for active company
-  const fetchEmployees = useCallback(async () => {
+  // Fetch employees strictly isolated for active company (SWR background sync)
+  const fetchEmployees = useCallback(async (forceLoading = false) => {
     if (!currentCompanyId) {
       setLoading(false);
       return;
@@ -126,12 +147,18 @@ function Employees() {
     const abortController = new AbortController();
     activeFetchAbortRef.current = abortController;
 
-    setLoading(true);
+    // Only show skeleton if we have NO cached data to display
+    setEmployees((currentList) => {
+      if (currentList.length === 0 || forceLoading) {
+        setLoading(true);
+      }
+      return currentList;
+    });
     setError(null);
+
     try {
       const token = authService.getToken();
       const res = await fetch(`${API_BASE_URL}/employees`, {
-        cache: 'no-cache',
         signal: abortController.signal,
         headers: {
           'Authorization': `Bearer ${token || ''}`,
@@ -153,15 +180,17 @@ function Employees() {
         if (res.status !== 404) {
           setError(errMsg);
         }
-        setEmployees([]);
         return;
       }
 
       const data = await res.json();
       if (data && data.success) {
-        setEmployees(data.employees || []);
+        const freshList = data.employees || [];
+        setEmployees(freshList);
+        try {
+          sessionStorage.setItem(`novaspark_employees_${currentCompanyId}`, JSON.stringify(freshList));
+        } catch {}
       } else {
-        setEmployees([]);
         if (data?.message) {
           setError(data.message);
         }
@@ -241,10 +270,12 @@ function Employees() {
       fetchEmployees();
     };
     window.addEventListener('clients-updated', handleSync);
+    window.addEventListener('locations-updated', handleSync);
     window.addEventListener('masters-updated', handleSync);
     window.addEventListener('employees-updated', handleSync);
     return () => {
       window.removeEventListener('clients-updated', handleSync);
+      window.removeEventListener('locations-updated', handleSync);
       window.removeEventListener('masters-updated', handleSync);
       window.removeEventListener('employees-updated', handleSync);
     };

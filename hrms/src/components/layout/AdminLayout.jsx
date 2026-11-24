@@ -12,7 +12,16 @@ import authService from '../../services/authService';
 function AdminLayout({ children, bgWhite = false }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      return false;
+    }
+    try {
+      return localStorage.getItem('novaspark_admin_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // If component is mounted inside the role-based /user panel, UserLayout already handles sidebar and header
@@ -25,7 +34,13 @@ function AdminLayout({ children, bgWhite = false }) {
     if (window.innerWidth <= 768) {
       setIsDrawerOpen(!isDrawerOpen);
     } else {
-      setIsCollapsed(!isCollapsed);
+      setIsCollapsed(prev => {
+        const next = !prev;
+        try {
+          localStorage.setItem('novaspark_admin_sidebar_collapsed', String(next));
+        } catch {}
+        return next;
+      });
     }
   };
 

@@ -4,28 +4,31 @@ import { useCompany } from '../../context/CompanyContext';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 import styles from './BankDetailsStep.module.css';
 
-function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
+function BankDetailsStep({ data = {}, onChange, errors = {}, banks = [] }) {
   const { activeCompany } = useCompany();
+  const safeData = data || {};
 
   const handleChange = (field, value) => {
-    onChange({ ...data, [field]: value });
+    onChange({ ...safeData, [field]: value });
   };
 
-  // Derive active banks strictly from dynamic database master records (no hardcoded fallbacks)
+  // Derive active banks strictly from dynamic database master records (no hardcoded fallbacks), deduplicated
   const bankList = useMemo(() => {
     if (banks && banks.length > 0) {
-      return banks
-        .filter(b => typeof b === 'string' || !b.status || b.status === 'active' || b.name === data.bankName)
-        .map(b => (typeof b === 'string' ? b : b.name || b.bankName || b));
+      const names = banks
+        .filter(b => typeof b === 'string' || !b.status || b.status === 'active' || (safeData.bankName && b.name === safeData.bankName))
+        .map(b => (typeof b === 'string' ? b : b.name || b.bankName || b))
+        .filter(Boolean);
+      return Array.from(new Set(names));
     }
     return [];
-  }, [banks, data.bankName]);
+  }, [banks, safeData.bankName]);
 
   // Resolve currently selected bank object strictly from master records
   const selectedBankObj = useMemo(() => {
-    if (!data.bankName || !banks || banks.length === 0) return null;
-    return banks.find(b => (typeof b === 'object' && (b.name || b.bankName) === data.bankName)) || null;
-  }, [banks, data.bankName]);
+    if (!safeData.bankName || !banks || banks.length === 0) return null;
+    return banks.find(b => (typeof b === 'object' && (b.name || b.bankName) === safeData.bankName)) || null;
+  }, [banks, safeData.bankName]);
 
   // Derive available branches strictly from the selected bank's database branchList
   const availableBranches = useMemo(() => {
@@ -37,24 +40,24 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
 
   const handleBankChange = (newBankName) => {
     onChange({
-      ...data,
+      ...safeData,
       bankName: newBankName
     });
   };
 
   const handleDownloadStatement = () => {
-    downloadEmployeeProfile(data, activeCompany);
+    downloadEmployeeProfile(safeData, activeCompany);
   };
 
-  const maskedAccount = data.accountNumber && String(data.accountNumber).length > 4
-    ? `•••• •••• •••• ${String(data.accountNumber).slice(-4)}`
-    : (data.accountNumber || '•••• •••• •••• ••••');
+  const maskedAccount = safeData.accountNumber && String(safeData.accountNumber).length > 4
+    ? `•••• •••• •••• ${String(safeData.accountNumber).slice(-4)}`
+    : (safeData.accountNumber || '•••• •••• •••• ••••');
 
   const isBankComplete = Boolean(
-    data.bankName &&
-    data.accountNumber &&
-    data.ifsc &&
-    (data.accountHolder || data.name)
+    safeData.bankName &&
+    safeData.accountNumber &&
+    safeData.ifsc &&
+    (safeData.accountHolder || safeData.name)
   );
 
   return (
@@ -109,19 +112,19 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                 <select
                   id="bank-name"
                   className={styles.select}
-                  value={data.bankName || ''}
+                  value={safeData.bankName || ''}
                   onChange={(e) => handleBankChange(e.target.value)}
                 >
                   <option value="">
                     {bankList.length > 0 ? 'Select Bank' : 'No active banks found in Masters'}
                   </option>
-                  {bankList.map((bName) => (
-                    <option key={bName} value={bName}>
+                  {bankList.map((bName, idx) => (
+                    <option key={`${bName}-${idx}`} value={bName}>
                       {bName}
                     </option>
                   ))}
-                  {data.bankName && !bankList.includes(data.bankName) && (
-                    <option value={data.bankName}>{data.bankName}</option>
+                  {safeData.bankName && !bankList.includes(safeData.bankName) && (
+                    <option key={`custom-${safeData.bankName}`} value={safeData.bankName}>{safeData.bankName}</option>
                   )}
                 </select>
               </div>
@@ -139,7 +142,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                   type="text"
                   className={styles.input}
                   placeholder="Enter Account Holder Name"
-                  value={data.accountHolder || ''}
+                  value={safeData.accountHolder || ''}
                   onChange={(e) => handleChange('accountHolder', e.target.value)}
                 />
               </div>
@@ -157,7 +160,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                   type="text"
                   className={styles.input}
                   placeholder="Enter Account Number"
-                  value={data.accountNumber || ''}
+                  value={safeData.accountNumber || ''}
                   onChange={(e) => handleChange('accountNumber', e.target.value)}
                 />
               </div>
@@ -175,7 +178,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                   type="text"
                   className={styles.input}
                   placeholder="Enter IFSC Code"
-                  value={data.ifsc || ''}
+                  value={safeData.ifsc || ''}
                   onChange={(e) => handleChange('ifsc', e.target.value.toUpperCase())}
                 />
               </div>
@@ -190,7 +193,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                 <select
                   id="bank-payment"
                   className={styles.select}
-                  value={data.paymentMode || ''}
+                  value={safeData.paymentMode || ''}
                   onChange={(e) => handleChange('paymentMode', e.target.value)}
                 >
                   <option value="">Select Mode</option>
@@ -219,7 +222,7 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
             <div className={styles.bankCardPreview}>
               <div className={styles.bankCardTop}>
                 <span className={styles.bankCardBankName}>
-                  {data.bankName || 'BANK ACCOUNT'}
+                  {safeData.bankName || 'BANK ACCOUNT'}
                 </span>
                 <div className={styles.bankCardChip} />
               </div>
@@ -228,11 +231,11 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
                 <div>
                   <div className={styles.bankCardHolderLabel}>ACCOUNT HOLDER</div>
                   <div className={styles.bankCardHolderName}>
-                    {data.accountHolder || data.name || 'EMPLOYEE NAME'}
+                    {safeData.accountHolder || safeData.name || 'EMPLOYEE NAME'}
                   </div>
                 </div>
                 <span className={styles.bankCardMode}>
-                  {data.paymentMode || 'Bank Transfer'}
+                  {safeData.paymentMode || 'Bank Transfer'}
                 </span>
               </div>
             </div>
@@ -240,17 +243,17 @@ function BankDetailsStep({ data, onChange, errors = {}, banks = [] }) {
             <div className={styles.summaryList}>
               <div className={styles.summaryRow}>
                 <span className={styles.summaryLabel}>Bank Name</span>
-                <span className={styles.summaryValue}>{data.bankName || '—'}</span>
+                <span className={styles.summaryValue}>{safeData.bankName || '—'}</span>
               </div>
-              {data.branchName && (
+              {safeData.branchName && (
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Branch</span>
-                  <span className={styles.summaryValue}>{data.branchName}</span>
+                  <span className={styles.summaryValue}>{safeData.branchName}</span>
                 </div>
               )}
               <div className={styles.summaryRow}>
                 <span className={styles.summaryLabel}>IFSC Code</span>
-                <span className={styles.summaryValue}>{data.ifsc || '—'}</span>
+                <span className={styles.summaryValue}>{safeData.ifsc || '—'}</span>
               </div>
               <div className={styles.summaryRow}>
                 <span className={styles.summaryLabel}>Status</span>

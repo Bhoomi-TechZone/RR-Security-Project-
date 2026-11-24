@@ -4,6 +4,20 @@ import Company from '../models/companyModel.js';
 import { sendEmployeeWelcomeEmail } from '../services/emailService.js';
 import { resolveClient, buildAssignedEmployeeFilter } from './clientPortalController.js';
 
+// High-performance in-memory cache for employee listings (30-second TTL)
+const employeesCache = new Map();
+const EMPLOYEES_CACHE_TTL = 30000;
+
+export const invalidateEmployeesCache = (companyId) => {
+  if (companyId) {
+    for (const key of employeesCache.keys()) {
+      if (key.includes(companyId)) employeesCache.delete(key);
+    }
+  } else {
+    employeesCache.clear();
+  }
+};
+
 /**
  * Normalizes and formats an employee ID according to the company's employeeCodeSeries rules
  * e.g. "RR005", "5", "RR 5", "RR_005", "rr005" -> "RR-005"
@@ -97,6 +111,17 @@ export const getEmployees = async (req, res) => {
       });
     }
 
+    const clientIdFilter = req.query.clientId || 'all';
+    const cacheKey = `${adminEmail}_${companyId}_${clientIdFilter}`;
+    const cached = employeesCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < EMPLOYEES_CACHE_TTL)) {
+      res.set({
+        'Cache-Control': 'public, max-age=15',
+        'X-Cache': 'HIT'
+      });
+      return res.status(200).json(cached.payload);
+    }
+
     let companyIds = [companyId];
     let comp = null;
     try {
@@ -124,9 +149,9 @@ export const getEmployees = async (req, res) => {
       filter.clientId = req.query.clientId;
     }
 
-    // Exclude massive base64 document attachments for the listing table
+    // Exclude massive base64 document attachments and non-listing arrays for instantaneous table response
     const employees = await Employee.find(filter)
-      .select('-documents -documentList -drivingLicenseCopy')
+      .select('-documents -documentList -drivingLicenseCopy -activityLogs -familyMembers -licenseList -additionalInfo -notes -otherInfo1 -otherInfo2 -otherInfo3 -otherInfo4 -otherInfo5 -otherInfo6 -otherInfo7 -otherInfo8 -otherInfo9 -otherInfo10')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -162,19 +187,19 @@ export const getEmployees = async (req, res) => {
       return doc;
     });
 
-    // Ensure dynamic listing is never cached as 304 without body
-    res.set({
-      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      'Surrogate-Control': 'no-store'
-    });
-
-    return res.status(200).json({
+    const payload = {
       success: true,
       count: normalizedEmployees.length,
       employees: normalizedEmployees
+    };
+    employeesCache.set(cacheKey, { timestamp: Date.now(), payload });
+
+    res.set({
+      'Cache-Control': 'public, max-age=15',
+      'X-Cache': 'MISS'
     });
+
+    return res.status(200).json(payload);
   } catch (error) {
     console.error('Error fetching employees:', error);
     return res.status(500).json({
@@ -607,6 +632,8 @@ export const createEmployee = async (req, res) => {
       }
     }
 
+    invalidateEmployeesCache(companyId);
+
     return res.status(201).json({
       success: true,
       message: emailSent
@@ -919,6 +946,8 @@ export const updateEmployee = async (req, res) => {
       }
     }
 
+    invalidateEmployeesCache(companyId || employee.companyId);
+
     return res.status(200).json({
       success: true,
       message: `Employee "${employee.name}" updated successfully (Client: ${employee.clientName || 'Unassigned'}).`,
@@ -1109,6 +1138,8 @@ export const deleteEmployee = async (req, res) => {
     employee.employeeStatus = 'Inactive';
     employee.isActive = false;
     await employee.save();
+
+    invalidateEmployeesCache(employee.companyId || companyId);
 
     return res.status(200).json({
       success: true,
@@ -1488,6 +1519,8 @@ export const bulkImportEmployees = async (req, res) => {
       };
       await company.save();
     }
+
+    invalidateEmployeesCache(companyId);
 
     return res.status(200).json({
       success: true,

@@ -6,7 +6,16 @@ import styles from './EmployeeLayout.module.css';
 
 function EmployeeLayout() {
   const navigate = useNavigate();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      return false;
+    }
+    try {
+      return localStorage.getItem('novaspark_employee_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const handleToggleSidebar = () => {
@@ -15,7 +24,13 @@ function EmployeeLayout() {
       return;
     }
 
-    setIsCollapsed((collapsed) => !collapsed);
+    setIsCollapsed((collapsed) => {
+      const next = !collapsed;
+      try {
+        localStorage.setItem('novaspark_employee_sidebar_collapsed', String(next));
+      } catch {}
+      return next;
+    });
   };
 
   const handleLogout = () => navigate('/login');

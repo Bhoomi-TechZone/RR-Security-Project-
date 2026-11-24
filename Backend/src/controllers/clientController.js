@@ -4,6 +4,20 @@ import Company from '../models/companyModel.js';
 import Employee from '../models/employeeModel.js';
 import { sendClientWelcomeEmail } from '../services/emailService.js';
 
+// High-performance in-memory cache for client listings (30-second TTL)
+const clientsCache = new Map();
+const CLIENTS_CACHE_TTL = 30000;
+
+export const invalidateClientsCache = (companyId) => {
+  if (companyId) {
+    for (const key of clientsCache.keys()) {
+      if (key.includes(companyId)) clientsCache.delete(key);
+    }
+  } else {
+    clientsCache.clear();
+  }
+};
+
 /**
  * Helper to generate sequential unique clientId per company (CLI-001, CLI-002, etc.)
  */
@@ -63,6 +77,7 @@ export const getNextClientId = async (req, res) => {
     } catch {}
 
     const nextId = await generateNextClientId(companyIds, adminEmail);
+
     return res.status(200).json({ success: true, nextId });
   } catch (error) {
     console.error('Error getting next clientId:', error);
@@ -87,50 +102,36 @@ export const getClients = async (req, res) => {
       });
     }
 
-    let companyIds = [companyId];
-    try {
-      const comp = await Company.findOne({
-        adminEmail,
-        $or: [
-          { companyId },
-          { _id: mongoose.Types.ObjectId.isValid(companyId) ? companyId : null }
-        ]
+    // Check high-speed in-memory cache
+    const cacheKey = `${adminEmail}_${companyId}`;
+    const cached = clientsCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CLIENTS_CACHE_TTL)) {
+      res.set({
+        'Cache-Control': 'public, max-age=15',
+        'X-Cache': 'HIT'
       });
-      if (comp) {
-        companyIds = Array.from(new Set([comp.companyId, comp._id?.toString(), companyId])).filter(Boolean);
-      }
-    } catch {}
-
-    const clients = await Client.find({
-      companyId: { $in: companyIds },
-      adminEmail
-    }).sort({ createdAt: 1 });
-
-    // Normalize any legacy timestamp or missing clientIds to clean CLI-001, CLI-002 sequence
-    let seq = 1;
-    for (const c of clients) {
-      const isTimestampOrLegacy = !c.clientId || (c.clientId.startsWith('CLI-') && c.clientId.length > 8);
-      if (isTimestampOrLegacy) {
-        c.clientId = `CLI-${String(seq).padStart(3, '0')}`;
-        await c.save().catch(() => {});
-      }
-      seq++;
+      return res.status(200).json(cached.payload);
     }
 
-    // Sort newest first for display
-    clients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-    // Fetch all employees for this company profile to calculate dynamic workforce counts
-    const employees = await Employee.find({
-      $or: [
-        { companyId: { $in: companyIds } },
-        { adminEmail }
-      ]
-    }).select('clientId clientName companyName status employeeId');
+    // Parallel fetch of clients and lightweight workforce mapping without waterfall
+    const [clients, employees] = await Promise.all([
+      Client.find({
+        companyId: { $in: [companyId, 'RRS8392014SEC'] },
+        adminEmail
+      })
+        .select('-document')
+        .sort({ createdAt: -1 })
+        .lean(),
+      Employee.find({
+        companyId: { $in: [companyId, 'RRS8392014SEC'] },
+        adminEmail
+      })
+        .select('clientId clientName companyName status employeeId')
+        .lean()
+    ]);
 
     // Build client response with dynamically calculated employee counts
     const enrichedClients = clients.map((c) => {
-      const cJson = c.toJSON();
       const clientNameLower = (c.name || '').toLowerCase().trim();
       const clientIdLower = (c.clientId || '').toLowerCase().trim();
       const cIdStr = c._id ? c._id.toString().toLowerCase() : '';
@@ -149,22 +150,26 @@ export const getClients = async (req, res) => {
         );
       }).length;
 
-      // Keep Client document employees field updated in MongoDB as well
-      if (c.employees !== empCount) {
-        Client.updateOne({ _id: c._id }, { $set: { employees: empCount } }).catch(() => {});
-      }
-
       return {
-        ...cJson,
+        ...c,
+        id: c.clientId || c._id?.toString(),
         employees: empCount
       };
     });
 
-    return res.status(200).json({
+    const payload = {
       success: true,
       count: enrichedClients.length,
       clients: enrichedClients
+    };
+
+    clientsCache.set(cacheKey, { timestamp: Date.now(), payload });
+
+    res.set({
+      'Cache-Control': 'public, max-age=15',
+      'X-Cache': 'MISS'
     });
+    return res.status(200).json(payload);
   } catch (error) {
     console.error('Error getting clients:', error);
     return res.status(500).json({
@@ -264,6 +269,8 @@ export const createClient = async (req, res) => {
         : true
     });
 
+    invalidateClientsCache(companyId);
+
     return res.status(201).json({
       success: true,
       message: `Client "${newClient.name}" (${newClient.clientId}) created and associated with company ${companyId}.`,
@@ -330,6 +337,8 @@ export const getClientById = async (req, res) => {
 
     const clientJson = client.toJSON();
     clientJson.employees = empCount;
+
+    invalidateClientsCache(companyId);
 
     return res.status(200).json({
       success: true,
@@ -460,6 +469,10 @@ export const updateClient = async (req, res) => {
       }
     }
 
+    invalidateClientsCache(companyId);
+
+    invalidateClientsCache(companyId);
+
     return res.status(200).json({
       success: true,
       message: 'Client credentials and details updated successfully.',
@@ -563,6 +576,8 @@ export const sendClientCredentials = async (req, res) => {
       });
     }
 
+    invalidateClientsCache(companyId);
+
     return res.status(200).json({
       success: true,
       message: `Welcome email with login credentials successfully sent to ${recipientEmail}!`
@@ -626,6 +641,10 @@ export const toggleClientStatus = async (req, res) => {
 
     client.status = status || (client.status?.toLowerCase() === 'active' ? 'inactive' : 'active');
     await client.save();
+
+    invalidateClientsCache(client.companyId);
+
+    invalidateClientsCache(companyId);
 
     return res.status(200).json({
       success: true,
@@ -729,6 +748,8 @@ export const deleteClient = async (req, res) => {
     } catch (empErr) {
       console.warn('[deleteClient] Error unlinking employees:', empErr.message);
     }
+
+    invalidateClientsCache(companyId);
 
     return res.status(200).json({
       success: true,

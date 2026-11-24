@@ -2,32 +2,65 @@ import authService from './authService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+// High-speed client cache and in-flight request deduplicator
+const clientsCache = new Map();
+const inFlightRequests = new Map();
+
 export const clientService = {
-  /**
-   * Fetch all clients for the active company profile
-   */
-  async getClients(companyId) {
-    try {
-      const token = authService.getToken();
-      const response = await fetch(`${API_BASE_URL}/clients?companyId=${companyId || ''}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`,
-          'x-company-id': companyId || '',
-        },
-      });
-
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to fetch clients');
-      }
-
-      return data.clients || [];
-    } catch (error) {
-      console.error('clientService.getClients error:', error);
-      throw error;
+  clearCache(companyId) {
+    if (companyId) {
+      clientsCache.delete(companyId);
+    } else {
+      clientsCache.clear();
     }
+  },
+
+  /**
+   * Fetch all clients for the active company profile (with in-memory cache and request deduplication)
+   */
+  async getClients(companyId, forceRefresh = false) {
+    if (!companyId) return [];
+
+    // Return cached list instantly if available
+    if (!forceRefresh && clientsCache.has(companyId)) {
+      return clientsCache.get(companyId);
+    }
+
+    // Reuse in-flight promise if an identical request is already active
+    if (inFlightRequests.has(companyId)) {
+      return inFlightRequests.get(companyId);
+    }
+
+    const fetchPromise = (async () => {
+      try {
+        const token = authService.getToken();
+        const response = await fetch(`${API_BASE_URL}/clients?companyId=${companyId || ''}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token || ''}`,
+            'x-company-id': companyId || '',
+          },
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to fetch clients');
+        }
+
+        const clients = data.clients || [];
+        clientsCache.set(companyId, clients);
+        return clients;
+      } catch (error) {
+        console.error('clientService.getClients error:', error);
+        throw error;
+      } finally {
+        inFlightRequests.delete(companyId);
+      }
+    })();
+
+    inFlightRequests.set(companyId, fetchPromise);
+    return fetchPromise;
   },
 
   /**
@@ -105,6 +138,9 @@ export const clientService = {
         throw new Error(data.message || 'Failed to create client');
       }
 
+      clientService.clearCache(companyId);
+      window.dispatchEvent(new CustomEvent('clients-updated'));
+
       return data.client;
     } catch (error) {
       console.error('clientService.createClient error:', error);
@@ -132,6 +168,9 @@ export const clientService = {
       if (!response.ok) {
         throw new Error(data.message || 'Failed to update client');
       }
+
+      clientService.clearCache(companyId);
+      window.dispatchEvent(new CustomEvent('clients-updated'));
 
       return data.client;
     } catch (error) {
@@ -161,6 +200,9 @@ export const clientService = {
         throw new Error(data.message || 'Failed to update client status');
       }
 
+      clientService.clearCache(companyId);
+      window.dispatchEvent(new CustomEvent('clients-updated'));
+
       return data.client;
     } catch (error) {
       console.error('clientService.toggleClientStatus error:', error);
@@ -187,6 +229,9 @@ export const clientService = {
       if (!response.ok) {
         throw new Error(data.message || 'Failed to delete client');
       }
+
+      clientService.clearCache(companyId);
+      window.dispatchEvent(new CustomEvent('clients-updated'));
 
       return data;
     } catch (error) {
