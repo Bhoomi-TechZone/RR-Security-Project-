@@ -9,7 +9,7 @@
   overflow-x: auto;
   overflow-y: visible;
   min-height: 280px;
-  padding-bottom: 70px;
+  padding-bottom: 0px;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -244,7 +244,7 @@
     display: block !important;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    padding-bottom: 70px;
+    padding-bottom: 0px;
   }
 
   .table {
