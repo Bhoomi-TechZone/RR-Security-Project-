@@ -50,10 +50,12 @@ function toDateString(d) {
 }
 
 function ActivityLogsStep({ data = {}, employee = {} }) {
-  const employeeCode = data?.employeeCode || data?.employeeId || employee?.employeeCode || employee?.employeeId || 'RR-020';
-  const employeeName = data?.name || employee?.name || 'Employee';
+  const safeData = data || {};
+  const safeEmployee = employee || {};
+  const employeeCode = safeData?.employeeCode || safeData?.employeeId || safeEmployee?.employeeCode || safeEmployee?.employeeId || 'RR-020';
+  const employeeName = safeData?.name || safeEmployee?.name || 'Employee';
   const cleanCode = String(employeeCode).replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
-  const empId = data?._id || data?.id || employee?._id || employee?.id || employeeCode;
+  const empId = safeData?._id || safeData?.id || safeEmployee?._id || safeEmployee?.id || employeeCode;
   const storageKey = `novaspark_activity_logs_emp_${cleanCode}`;
 
   const [logs, setLogs] = useState([]);
@@ -75,10 +77,10 @@ function ActivityLogsStep({ data = {}, employee = {} }) {
     let resolvedLogs = [];
 
     // 1. Check passed-in props from parent state
-    if (Array.isArray(data.activityLogs) && data.activityLogs.length > 0) {
-      resolvedLogs = [...data.activityLogs];
-    } else if (Array.isArray(employee.activityLogs) && employee.activityLogs.length > 0) {
-      resolvedLogs = [...employee.activityLogs];
+    if (Array.isArray(safeData?.activityLogs) && safeData.activityLogs.length > 0) {
+      resolvedLogs = [...safeData.activityLogs];
+    } else if (Array.isArray(safeEmployee?.activityLogs) && safeEmployee.activityLogs.length > 0) {
+      resolvedLogs = [...safeEmployee.activityLogs];
     }
 
     // 2. Fetch fresh dynamic logs from backend
@@ -121,8 +123,8 @@ function ActivityLogsStep({ data = {}, employee = {} }) {
 
     // 4. If no logs exist at all, construct dynamic creation log using the actual record metadata
     if (resolvedLogs.length === 0) {
-      const createdTime = employee?.createdAt || data?.createdAt || new Date();
-      const adminEditor = employee?.adminEmail ? employee.adminEmail.split('@')[0] : 'Administrator';
+      const createdTime = safeEmployee?.createdAt || safeData?.createdAt || new Date();
+      const adminEditor = safeEmployee?.adminEmail ? safeEmployee.adminEmail.split('@')[0] : 'Administrator';
       resolvedLogs = [
         {
           id: `log-created-${empId}`,
@@ -144,7 +146,7 @@ function ActivityLogsStep({ data = {}, employee = {} }) {
 
     setLogs(resolvedLogs);
     setLoading(false);
-  }, [empId, employeeCode, employeeName, data.activityLogs, employee.activityLogs, employee?.createdAt, data?.createdAt, storageKey]);
+  }, [empId, employeeCode, employeeName, safeData?.activityLogs, safeEmployee?.activityLogs, safeEmployee?.createdAt, safeData?.createdAt, storageKey]);
 
   useEffect(() => {
     fetchDynamicLogs();

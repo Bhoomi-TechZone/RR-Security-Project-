@@ -4,6 +4,51 @@ import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 import { useCompany } from '../../context/CompanyContext';
 import styles from './PersonalInfoStep.module.css';
 
+/**
+ * Fast client-side image compression to prevent bloated payloads
+ */
+const compressImageFile = (file, maxWidth = 250, quality = 0.8) => {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      resolve('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxWidth) {
+              width = Math.round((width * maxWidth) / height);
+              height = maxWidth;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } catch {
+          resolve(e.target.result);
+        }
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve('');
+    reader.readAsDataURL(file);
+  });
+};
+
 function PersonalInfoStep({ data, onChange, errors = {} }) {
   const { activeCompany } = useCompany();
   const [newTagInput, setNewTagInput] = useState('');
@@ -158,14 +203,11 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
             type="file"
             accept="image/*"
             className={styles.fileInputHidden}
-            onChange={(e) => {
+            onChange={async (e) => {
               const file = e.target.files?.[0];
               if (file) {
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                  handleChange('employeePhoto', reader.result);
-                };
-                reader.readAsDataURL(file);
+                const compressed = await compressImageFile(file, 250, 0.8);
+                handleChange('employeePhoto', compressed);
               }
               e.target.value = '';
             }}
@@ -797,14 +839,11 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
               type="file"
               accept="image/*"
               className={styles.fileInputHidden}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  const reader = new FileReader();
-                  reader.onloadend = () => {
-                    handleChange('employeePhoto', reader.result);
-                  };
-                  reader.readAsDataURL(file);
+                  const compressed = await compressImageFile(file, 250, 0.8);
+                  handleChange('employeePhoto', compressed);
                 }
                 e.target.value = '';
               }}

@@ -119,6 +119,10 @@ const clientSchema = new mongoose.Schema(
   }
 );
 
+// Compound Indexes for fast queries and sort
+clientSchema.index({ companyId: 1, adminEmail: 1, createdAt: -1 });
+clientSchema.index({ adminEmail: 1, createdAt: -1 });
+
 // Auto-assign unique clientId before save if not present
 clientSchema.pre('save', async function () {
   if (!this.clientId) {
