@@ -411,18 +411,16 @@ export const getAdminDashboardStats = async (req, res) => {
       const empName = emp.name || emp.employeeName || 'Staff';
       const monthDay = `${shortMonthNames[parsed.month - 1]} ${String(parsed.day).padStart(2, '0')}`;
       const formattedDate = `${parsed.day} ${fullMonthNames[parsed.month - 1]}`;
-      const loc = (emp.siteLocation || emp.site || emp.joiningLocation || '').trim();
-      const locSuffix = loc ? ` (${loc})` : '';
 
-      let label = `${empName}'s birthday${locSuffix}`;
+      let label = `${empName}'s birthday`;
       let subtitle = `${formattedDate} • ${emp.department || 'Staff'}`;
       if (type === 'work-anniversary') {
         const yrsLabel = years !== null && years >= 0 ? ` (${years} yr)` : '';
-        label = `${empName}'s work anniversary${yrsLabel}${locSuffix}`;
+        label = `${empName}'s work anniversary${yrsLabel}`;
         subtitle = `${years ?? 0} Year${years === 1 ? '' : 's'} • ${monthDay}`;
       } else if (type === 'wedding-anniversary') {
         const yrsLabel = years !== null && years >= 0 ? ` (${years} yr)` : '';
-        label = `${empName}'s wedding anniversary${yrsLabel}${locSuffix}`;
+        label = `${empName}'s wedding anniversary${yrsLabel}`;
         subtitle = `${years !== null && years >= 0 ? `${years} Year${years === 1 ? '' : 's'} Together` : 'Wedding Anniversary'} • ${monthDay}`;
       }
 
@@ -432,7 +430,6 @@ export const getAdminDashboardStats = async (req, res) => {
         employeeId: emp.employeeId || emp.employeeCode || '',
         employeeName: empName,
         department: emp.department || 'Security',
-        location: loc,
         label,
         subtitle,
         date: monthDay,
