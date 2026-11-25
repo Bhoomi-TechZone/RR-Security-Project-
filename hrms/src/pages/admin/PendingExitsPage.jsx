@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import {
   ChevronLeft,
@@ -12,6 +12,7 @@ import {
 import AdminLayout from '../../components/layout/AdminLayout';
 import UserLayout from '../../components/layout/UserLayout';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import FnFDetailsDrawer from '../../components/payroll/FnFDetailsDrawer';
 import FinalizeExitDrawer from '../../components/payroll/FinalizeExitDrawer';
 import { useCompany } from '../../context/CompanyContext';
@@ -397,7 +398,10 @@ export default function PendingExitsPage({ initialShowFinalized = false }) {
         {/* Header Row */}
         <div className={styles.pageHeader}>
           <div className={styles.titleGroup}>
-            <h1 className={styles.title}>Pending Exits</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.title}>Pending Exits</h1>
+            </div>
             <p className={styles.subtitle}>Process Full &amp; Final Settlement for exited employees.</p>
           </div>
           <div className={styles.headerRight}>

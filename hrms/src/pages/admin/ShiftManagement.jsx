@@ -22,6 +22,7 @@ import Pagination from '../../components/common/Pagination';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import Dropdown from '../../components/common/Dropdown';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { useCompany } from '../../context/CompanyContext';
 import { shiftService } from '../../services/shiftService';
 import { authService } from '../../services/authService';
@@ -1441,6 +1442,7 @@ function ShiftManagement() {
   const [clients, setClients] = useState([]);
   const [stats, setStats] = useState(null);
 
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [tab, setTab] = useState(() => searchParams.get('tab') || 'roster');
 
@@ -1748,7 +1750,7 @@ function ShiftManagement() {
     setPage(1);
     setTab('calendar');
     setSelectedDate(filters.date);
-    setSearchParams({ tab: 'calendar' });
+    setSearchParams({ tab: 'calendar' }, { state: location.state });
   };
 
   return (
@@ -1770,7 +1772,10 @@ function ShiftManagement() {
 
         <header className={styles.pageHeader}>
           <div>
-            <h1>Shift Management</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1>Shift Management</h1>
+            </div>
             <p>Create shifts, assign employees and manage workforce rosters for {activeCompany?.name || 'Active Company'}.</p>
           </div>
           <div className={styles.headerActions}>

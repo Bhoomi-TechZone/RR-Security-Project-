@@ -714,7 +714,7 @@ function Preferences() {
                     </div>
                   </label>
 
-                  {/* Advances & Loans */}
+                  {/* Loans */}
                   <label className={`${styles.checklistItem} ${employeePortal.allowAdvancesLoans ? styles.checklistItemActive : ''}`}>
                     <input 
                       type="checkbox" 
@@ -724,8 +724,8 @@ function Preferences() {
                       onChange={(e) => setEmployeePortal({ ...employeePortal, allowAdvancesLoans: e.target.checked })}
                     />
                     <div className={styles.checklistText}>
-                      <span className={styles.checklistLabel}>Advances & Loans</span>
-                      <span className={styles.checklistDesc}>Apply for salary advances/loans, track approval progress and deduction schedules.</span>
+                      <span className={styles.checklistLabel}>Loans</span>
+                      <span className={styles.checklistDesc}>Apply for loans, track approval progress and deduction schedules.</span>
                     </div>
                   </label>
 

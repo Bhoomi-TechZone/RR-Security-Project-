@@ -50,8 +50,8 @@ export const reportCategories = [
   },
   {
     id: 'advance-loan',
-    name: 'Advance & Loan Report',
-    description: 'View employee advances, loans, approvals and deduction history.',
+    name: 'Loan Report',
+    description: 'View employee loans, approvals and deduction history.',
     records: 248,
     accent: 'rose'
   }
@@ -165,7 +165,7 @@ export const reportPreviewDefaults = {
     }
   },
   'advance-loan': {
-    title: 'Advance & Loan Report',
+    title: 'Loan Report',
     period: '01 Aug 2026 - 31 Aug 2026',
     client: 'All Clients',
     department: 'All Departments',

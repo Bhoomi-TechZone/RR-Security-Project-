@@ -432,11 +432,14 @@
 }
 
 .tableCard {
+  width: 100%;
   overflow: hidden;
 }
 
 .tableWrapper {
+  width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {

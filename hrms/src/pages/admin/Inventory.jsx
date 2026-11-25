@@ -1,5 +1,5 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Download, MoreVertical, Package, PackageCheck, PackageOpen, Plus,
   RotateCcw, Search, X, AlertTriangle, ShieldCheck, DollarSign,
@@ -11,6 +11,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 import StatusBadge from '../../components/common/StatusBadge';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import {
   INVENTORY_CATEGORIES,
   INVENTORY_SIZES,
@@ -859,7 +860,7 @@ function ClearanceTable({ rows, onInspectClearance }) {
 function RequestsTable({ rows, onViewDetails, onAssign, onReject }) {
   return (
     <div className={styles.tableCard}>
-      <div className={styles.tableResponsive}>
+      <div className={styles.tableWrapper}>
         <table className={styles.table}>
           <thead>
             <tr>
@@ -1096,19 +1097,40 @@ export default function Inventory() {
   const [employees, setEmployees] = useState([]);
 
   const navigate = useNavigate();
+  const location = useLocation();
+  const isFromRequestsHub = Boolean(location.state?.fromRequestsHub);
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestTypeFilter = searchParams.get('type'); // 'asset' | 'uniform' | null
 
   // Navigation & filter state
   const initialTab = searchParams.get('tab') || 'stock';
   const [tab, setTab] = useState(initialTab); // 'stock' | 'requests' | 'issued' | 'returns' | 'movement' | 'clearance'
-  const [inventoryType, setInventoryType] = useState('uniform'); // 'uniform' | 'asset'
+  const initialType = searchParams.get('type') === 'asset' ? 'asset' : 'uniform';
+  const [inventoryType, setInventoryType] = useState(initialType); // 'uniform' | 'asset'
+  const prevTypeRef = useRef(initialType);
+
+  const handleSectionTabChange = (nextTab) => {
+    setPage(1);
+    setTab(nextTab);
+    setSearchParams({ type: inventoryType, tab: nextTab });
+  };
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
+    const typeParam = searchParams.get('type');
+    const nextType = typeParam === 'asset' ? 'asset' : 'uniform';
+
     if (tabParam && ['stock', 'requests', 'issued', 'returns', 'movement', 'clearance'].includes(tabParam)) {
       setTab(tabParam);
     } else {
       setTab('stock');
+    }
+
+    if (prevTypeRef.current !== nextType) {
+      prevTypeRef.current = nextType;
+      setInventoryType(nextType);
+      setPage(1);
+      setFilters((prev) => ({ ...prev, category: '', size: '' }));
     }
   }, [searchParams]);
 
@@ -1211,9 +1233,6 @@ export default function Inventory() {
 
   const isAssetItem = (item) => !isUniformItem(item);
 
-  const uniformItemsCount = useMemo(() => items.filter(isUniformItem).length, [items]);
-  const assetItemsCount = useMemo(() => items.filter(isAssetItem).length, [items]);
-
   // Partitioned datasets based on inventoryType
   const currentBaseItems = useMemo(() => {
     return items.filter((i) => (inventoryType === 'uniform' ? isUniformItem(i) : isAssetItem(i)));
@@ -1268,13 +1287,24 @@ export default function Inventory() {
   // Filtered Requisition rows
   const filteredRequests = useMemo(() => {
     return requests.filter((item) => {
+      if (requestTypeFilter === 'uniform') {
+        const isUniform =
+          item.requestType === 'uniform' ||
+          ['uniform', 'accessory', 'clothing'].includes((item.category || '').toLowerCase());
+        if (!isUniform) return false;
+      } else if (requestTypeFilter === 'asset') {
+        const isUniform =
+          item.requestType === 'uniform' ||
+          ['uniform', 'accessory', 'clothing'].includes((item.category || '').toLowerCase());
+        if (isUniform) return false;
+      }
       const q = filters.search.toLowerCase().trim();
       if (q && !`${item.employeeName} ${item.employeeId} ${item.itemName} ${item.requestId} ${item.reason}`.toLowerCase().includes(q)) {
         return false;
       }
       return true;
     });
-  }, [requests, filters]);
+  }, [requests, filters, requestTypeFilter]);
 
   // Active rows & pagination
   const activeRows = tab === 'stock' ? filteredStock : tab === 'requests' ? filteredRequests : tab === 'issued' ? filteredIssued : tab === 'returns' ? filteredReturns : clearances;
@@ -1514,18 +1544,57 @@ export default function Inventory() {
           </button>
           <span>/</span>
           <strong>
-            {tab === 'requests' ? 'Uniform Requisitions' : tab === 'issued' ? 'Issued Items' : tab === 'returns' ? 'Return History' : tab === 'movement' ? 'Stock Movements' : tab === 'clearance' ? 'Asset Exit Clearance' : 'Inventory Stock'}
+            {tab === 'requests'
+              ? requestTypeFilter === 'asset'
+                ? 'Asset Requisitions'
+                : requestTypeFilter === 'uniform'
+                ? 'Uniform Requisitions'
+                : 'Uniform & Asset Requisitions'
+              : tab === 'movement'
+              ? 'Stock Movements'
+              : tab === 'clearance'
+              ? 'Asset Exit Clearance'
+              : `${inventoryType === 'asset' ? 'Assets' : 'Uniforms'}${
+                  tab === 'issued' ? ' / Issued' : tab === 'returns' ? ' / Return History' : ''
+                }`}
           </strong>
         </div>
 
         {/* Page Header */}
         <header className={styles.pageHeader}>
           <div>
-            <h1>
-              {tab === 'requests' ? 'Uniform & Asset Requisitions' : tab === 'issued' ? 'Uniform & Asset Issue Register' : tab === 'returns' ? 'Uniform & Asset Return History' : tab === 'movement' ? 'Stock Movement & Audit Trail' : tab === 'clearance' ? 'Employee Exit Asset Clearance' : 'Inventory Management'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1>
+                {tab === 'requests'
+                  ? requestTypeFilter === 'asset'
+                    ? 'Asset Requisitions'
+                    : requestTypeFilter === 'uniform'
+                    ? 'Uniform Requisitions'
+                    : 'Uniform & Asset Requisitions'
+                  : tab === 'movement'
+                  ? 'Stock Movement & Audit Trail'
+                  : tab === 'clearance'
+                  ? 'Employee Exit Asset Clearance'
+                  : inventoryType === 'asset'
+                  ? 'Asset Management'
+                  : 'Uniform Management'}
+              </h1>
+            </div>
             <p>
-              {tab === 'requests' ? 'Review employee requests for uniform sets, tactical equipment and assign custody stock.' : tab === 'issued' ? 'Track issued uniform sets, safety gear, and assigned equipment to field personnel.' : tab === 'returns' ? 'Uniform inspection logs, returned condition grading, and recovery charges.' : tab === 'movement' ? 'Detailed inbound, outbound, opening balance, and adjustment transaction audit logs.' : tab === 'clearance' ? 'Separating employee no-due asset recovery, handover approvals, and clearance certificates.' : 'Stock registers, uniform issues, return inspection & exit clearance'}
+              {tab === 'requests'
+                ? requestTypeFilter === 'asset'
+                  ? 'Review employee requests for tactical equipment, torches, ID cards, and assign custody stock.'
+                  : requestTypeFilter === 'uniform'
+                  ? 'Review employee requests for uniform sets, safety shoes, and assign custody stock.'
+                  : 'Review employee requests for uniform sets, tactical equipment and assign custody stock.'
+                : tab === 'movement'
+                ? 'Detailed inbound, outbound, opening balance, and adjustment transaction audit logs.'
+                : tab === 'clearance'
+                ? 'Separating employee no-due asset recovery, handover approvals, and clearance certificates.'
+                : inventoryType === 'asset'
+                ? 'Asset stock registers, equipment custody issues, and return inspection logs'
+                : 'Uniform stock registers, employee uniform issues, sizes & return logs'}
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -1580,48 +1649,50 @@ export default function Inventory() {
           </div>
         </header>
 
-        {/* Sub-tabs Switcher: Uniform vs Asset */}
+        {/* Section Tabs inside Uniforms / Assets: Stock | Issued | Return History */}
         {(tab === 'stock' || tab === 'issued' || tab === 'returns') && (
           <div className={styles.typeSwitcherCard}>
             <div className={styles.subTabs}>
               <button
                 type="button"
-                className={inventoryType === 'uniform' ? styles.subTabActive : styles.subTab}
-                onClick={() => {
-                  setInventoryType('uniform');
-                  setPage(1);
-                  setFilters((prev) => ({ ...prev, category: '', size: '' }));
-                }}
+                className={tab === 'stock' ? styles.subTabActive : styles.subTab}
+                onClick={() => handleSectionTabChange('stock')}
               >
-                <Shirt size={16} />
-                <span>Uniforms ({uniformItemsCount})</span>
+                {inventoryType === 'asset' ? <Shield size={16} /> : <Shirt size={16} />}
+                <span>{inventoryType === 'asset' ? 'Asset Stock' : 'Uniform Stock'} ({currentBaseItems.length})</span>
               </button>
               <button
                 type="button"
-                className={inventoryType === 'asset' ? styles.subTabActive : styles.subTab}
-                onClick={() => {
-                  setInventoryType('asset');
-                  setPage(1);
-                  setFilters((prev) => ({ ...prev, category: '', size: '' }));
-                }}
+                className={tab === 'issued' ? styles.subTabActive : styles.subTab}
+                onClick={() => handleSectionTabChange('issued')}
               >
-                <Shield size={16} />
-                <span>Assets ({assetItemsCount})</span>
+                <PackageOpen size={16} />
+                <span>{inventoryType === 'asset' ? 'Issued Assets' : 'Issued Uniforms'} ({currentBaseIssued.length})</span>
+              </button>
+              <button
+                type="button"
+                className={tab === 'returns' ? styles.subTabActive : styles.subTab}
+                onClick={() => handleSectionTabChange('returns')}
+              >
+                <RotateCcw size={16} />
+                <span>Return History ({currentBaseReturns.length})</span>
               </button>
             </div>
           </div>
         )}
 
-        {/* 6 Responsive Summary KPIs */}
-        <EnhancedSummaryCards
-          items={currentBaseItems}
-          issued={currentBaseIssued}
-          returns={currentBaseReturns}
-          onLowStockClick={() => {
-            setTab('stock');
-            setFilter('status', 'low-stock');
-          }}
-        />
+        {/* 6 Responsive Summary KPIs (hidden in focused Request Hub view) */}
+        {!(isFromRequestsHub && tab === 'requests') && (
+          <EnhancedSummaryCards
+            items={currentBaseItems}
+            issued={currentBaseIssued}
+            returns={currentBaseReturns}
+            onLowStockClick={() => {
+              handleSectionTabChange('stock');
+              setFilter('status', 'low-stock');
+            }}
+          />
+        )}
 
         {/* Dynamic Interactive Category Cards */}
         {tab === 'stock' && (
@@ -1634,7 +1705,8 @@ export default function Inventory() {
         )}
 
         {/* Section Header with Quick Actions */}
-        <section className={styles.sectionIntro}>
+        {!(isFromRequestsHub && tab === 'requests') && (
+          <section className={styles.sectionIntro}>
           <div>
             <h2 className={styles.sectionTitle}>
               {tab === 'stock'
@@ -1738,9 +1810,10 @@ export default function Inventory() {
             )}
           </div>
         </section>
+        )}
 
         {/* Filters for Stock, Issued, Returns */}
-        {tab !== 'movement' && tab !== 'clearance' && (
+        {tab !== 'movement' && tab !== 'clearance' && !(isFromRequestsHub && tab === 'requests') && (
           <Filters
             values={filters}
             setValue={setFilter}
@@ -1875,7 +1948,11 @@ export default function Inventory() {
                       title="No issued items found."
                       description="Issue inventory to active employees to see records here."
                       actionLabel="Issue First Item"
-                      onAction={() => setIssueModalOpen(true)}
+                      onAction={() => {
+                        setIssueType(inventoryType);
+                        setIssueTargetItem(currentBaseItems.find((i) => (i.availableQuantity || 0) > 0) || currentBaseItems[0] || null);
+                        setIssueModalOpen(true);
+                      }}
                     />
                   </div>
                 )}
@@ -1930,7 +2007,8 @@ export default function Inventory() {
         )}
 
         {/* Low Stock Alert Footer Ribbon */}
-        <div className={styles.alertRow}>
+        {!(isFromRequestsHub && tab === 'requests') && (
+          <div className={styles.alertRow}>
           <div className={styles.alertCard}>
             <div className={styles.alertIconWrap}>
               <AlertTriangle size={20} color="#ea580c" />
@@ -1943,7 +2021,7 @@ export default function Inventory() {
               type="button"
               className={styles.alertBtn}
               onClick={() => {
-                setTab('stock');
+                handleSectionTabChange('stock');
                 setFilter('status', 'low-stock');
               }}
             >
@@ -1961,7 +2039,8 @@ export default function Inventory() {
               <span>Damaged Qty: <strong>{items.reduce((s, i) => s + (i.damagedQuantity || 0), 0)}</strong></span>
             </div>
           </div>
-        </div>
+          </div>
+        )}
 
         {/* All Enhanced Modals & Drawers */}
         <DeleteItemConfirmModal
@@ -2009,7 +2088,7 @@ export default function Inventory() {
         <InventoryReturnModal
           isOpen={returnModalOpen}
           issueRecord={returnTargetIssue}
-          issuedList={issued}
+          issuedList={['stock', 'issued', 'returns'].includes(tab) ? currentBaseIssued : issued}
           isSubmitting={isSavingReturn}
           onClose={() => {
             setReturnModalOpen(false);

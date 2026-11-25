@@ -1197,7 +1197,7 @@ function Masters() {
                     ? 'Configure security guard, supervisor, facility management and workforce job classifications.'
                     : (activeTab === 'client-services' || activeTab === 'clients')
                     ? 'Configure operational client service categories and offerings available during client onboarding.'
-                    : activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.' : 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.') : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
+                    : activeTab === 'salary-components' ? (salaryComponentSubTab === 'deductions' ? 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, and food deductions.' : 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.') : `Configure and manage organization ${TAB_LABELS[activeTab]?.toLowerCase() || 'master'} records and configurations.`}
                 </p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>

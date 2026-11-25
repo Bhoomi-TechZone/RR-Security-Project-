@@ -108,7 +108,7 @@
 /* Cards Grid */
 .cardsGrid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 16px;
   width: 100%;
 }
@@ -139,7 +139,7 @@
 
 /* Individual Request Card */
 .requestCard {
-  background: #ffffff;
+  background: #e8e8e8;
   border: 1px solid #edf0f5;
   border-radius: 12px;
   padding: 24px 16px 20px;
@@ -166,6 +166,25 @@
   transform: translateY(-1px);
 }
 
+/* Circular Count Badge (top-right) */
+.countBadge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: #1ba2e5;
+  color: #ffffff;
+  font-size: 11.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .cardIcon {
   color: #1e293b;
   margin-bottom: 12px;
@@ -190,121 +209,128 @@
   color: #0f172a;
 }
 
-/* Help Modal / Drawer */
-.modalBackdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(2px);
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
 
-.modalContent {
-  background: #ffffff;
-  border-radius: 14px;
-  width: 100%;
-  max-width: 520px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  overflow: hidden;
-  animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-@keyframes modalIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
+  /* Right Slide-Over Help Drawer */
+  .drawerBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(2px);
+    z-index: 1050;
+    display: flex;
+    justify-content: flex-end;
   }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
-}
 
-.modalHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px;
-  border-bottom: 1px solid #f1f5f9;
-}
+    .helpDrawer {
+      width: 100%;
+      max-width: 440px;
+      height: 100%;
+      background: #ffffff;
+      box-shadow: -8px 0 30px rgba(15, 23, 42, 0.14);
+      display: flex;
+      flex-direction: column;
+      animation: drawerSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
 
-.modalTitle {
-  font-size: 17px;
-  font-weight: 600;
-  color: #0f172a;
-  margin: 0;
-}
+      @keyframes drawerSlideIn {
+        from {
+          transform: translateX(100%);
+        }
+        to {
+          transform: translateX(0);
+        }
+      }
 
-.closeBtn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s ease, background 0.15s ease;
-}
+        .drawerHeader {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 20px 24px;
+          border-bottom: 1px solid #f1f5f9;
+        }
 
-.closeBtn:hover {
-  color: #0f172a;
-  background: #f1f5f9;
-}
+          .drawerTitle {
+            font-size: 17px;
+            font-weight: 600;
+            color: #0f172a;
+            margin: 0;
+          }
 
-.modalBody {
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  font-size: 14px;
-  color: #475569;
-  line-height: 1.5;
-}
+          .drawerSubtitle {
+            font-size: 12.5px;
+            color: #64748b;
+            margin: 4px 0 0;
+          }
 
-.helpItem {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
+          .closeBtn {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.15s ease, background 0.15s ease;
+          }
 
-.helpItemIcon {
-  color: #00a389;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
+          .closeBtn:hover {
+            color: #0f172a;
+            background: #f1f5f9;
+          }
 
-.helpItem strong {
-  color: #1e293b;
-  display: block;
-  margin-bottom: 2px;
-}
+            .drawerBody {
+              padding: 20px 24px;
+              display: flex;
+              flex-direction: column;
+              gap: 16px;
+              font-size: 13.5px;
+              color: #475569;
+              line-height: 1.5;
+              overflow-y: auto;
+              flex: 1;
+            }
 
-.modalFooter {
-  padding: 16px 24px;
-  background: #f8fafc;
-  display: flex;
-  justify-content: flex-end;
-  border-top: 1px solid #f1f5f9;
-}
+            .helpItem {
+              display: flex;
+              gap: 12px;
+              align-items: flex-start;
+            }
 
-.gotItBtn {
-  padding: 8px 18px;
-  background: #00a389;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
+            .helpItemIcon {
+              color: #00a389;
+              flex-shrink: 0;
+              margin-top: 2px;
+            }
 
-.gotItBtn:hover {
-  background: #008f77;
-}
+            .helpItem strong {
+              color: #1e293b;
+              display: block;
+              margin-bottom: 2px;
+            }
+
+              .drawerFooter {
+                padding: 16px 24px;
+                background: #f8fafc;
+                display: flex;
+                justify-content: flex-end;
+                border-top: 1px solid #f1f5f9;
+              }
+
+              .gotItBtn {
+                padding: 8px 18px;
+                background: #00a389;
+                color: #ffffff;
+                border: none;
+                border-radius: 6px;
+                font-size: 13px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: background 0.15s ease;
+              }
+
+              .gotItBtn:hover {
+                background: #008f77;
+              }

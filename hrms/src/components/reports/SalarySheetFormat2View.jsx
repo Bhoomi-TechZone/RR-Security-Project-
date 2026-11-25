@@ -424,10 +424,6 @@ export default function SalarySheetFormat2View({
                     <div>LOAN</div>
                   </div>
                   <div className={styles.dualRow} style={{ fontSize: '0.66rem' }}>
-                    <div>ADVANCE</div>
-                    <div>ADVANCE</div>
-                  </div>
-                  <div className={styles.dualRow} style={{ fontSize: '0.66rem' }}>
                     <div>OTHER DED</div>
                     <div></div>
                   </div>
@@ -555,7 +551,6 @@ export default function SalarySheetFormat2View({
                           {selectedOptions.dedPf !== false && ded.pf > 0 && <div>{ded.pf}</div>}
                           {selectedOptions.dedEsi !== false && ded.esi > 0 && <div>{ded.esi}</div>}
                           {selectedOptions.dedLwf !== false && ded.lwf > 0 && <div>{ded.lwf}</div>}
-                          {selectedOptions.dedAdvance !== false && ded.advance > 0 && <div>{ded.advance}</div>}
                         </div>
                         <div>
                           {selectedOptions.dedUni !== false && ded.uni > 0 && <div>{ded.uni}</div>}

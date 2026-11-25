@@ -15,6 +15,7 @@ import {
   Send
 } from 'lucide-react';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import authService from '../../services/authService';
 import {
   getStoredDeclarations,
@@ -177,7 +178,10 @@ export default function EmployeeTaxDeclaration() {
             <div className={styles.breadcrumb}>
               <span>Employee Portal</span> / <strong>IT Declaration (Form 12BB)</strong>
             </div>
-            <h1 className={styles.pageTitle}>Income Tax Declaration & Proofs</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.pageTitle}>Income Tax Declaration & Proofs</h1>
+            </div>
             <p className={styles.pageSubtitle}>
               Submit statutory Form 12BB declarations for FY 2026-2027 under Section 192 of the Income Tax Act to optimize monthly TDS deductions.
             </p>

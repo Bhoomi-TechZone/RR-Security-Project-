@@ -164,7 +164,6 @@ export function getSalarySheetFormat1Layout(statutoryConfig = null) {
             { id: 'dedPt', label: `P.T. (Professional Tax${ptStateLabel})`, defaultSelected: true },
             { id: 'dedIt', label: 'I.T. / TDS (Income Tax)', defaultSelected: true },
             { id: 'dedLwf', label: 'LWF (Labour Welfare)', defaultSelected: true },
-            { id: 'dedAdvance', label: 'Salary Advance Recovery', defaultSelected: true },
             { id: 'dedLoan', label: 'Loan / EMI Deduction', defaultSelected: true },
             { id: 'dedFood', label: 'Food / Canteen Deduction', defaultSelected: true },
             { id: 'dedOthDed', label: 'Other Deductions', defaultSelected: true },

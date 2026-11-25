@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import {
   Shirt,
   Shield,
@@ -31,6 +32,7 @@ import {
 import styles from './MyAssetsUniform.module.css';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 import preferenceService from '../../services/preferenceService';
@@ -90,7 +92,19 @@ export default function MyAssetsUniform() {
   const [requests, setRequests] = useState([]);
   const [masterItems, setMasterItems] = useState([]);
   
-  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'uniform' | 'equipment' | 'requests' | 'returns'
+  const location = useLocation();
+  const isFromRequestsHub = Boolean(location.state?.fromRequestsHub);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTabParam = searchParams.get('tab');
+  const typeParam = searchParams.get('type');
+  const sectionMode = location.pathname.includes('/employee/uniforms') || typeParam === 'uniform' ? 'uniform' : 'asset';
+  const isUniformMode = sectionMode === 'uniform';
+
+  const [activeTab, setActiveTab] = useState(() =>
+    initialTabParam && ['issued', 'requests', 'returns'].includes(initialTabParam)
+      ? initialTabParam
+      : 'issued'
+  ); // 'issued' | 'requests' | 'returns'
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedItem, setSelectedItem] = useState(null);
@@ -100,20 +114,50 @@ export default function MyAssetsUniform() {
   const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    requestType: 'uniform', // 'uniform' | 'asset'
+    requestType: sectionMode, // 'uniform' | 'asset'
     itemId: '',
     itemCode: '',
     itemName: '',
-    category: 'Uniform',
+    category: isUniformMode ? 'Uniform' : 'Equipment',
     brand: '',
-    size: '36',
-    color: 'Navy Blue',
+    size: isUniformMode ? '36' : 'Standard',
+    color: isUniformMode ? 'Navy Blue' : 'Standard',
     quantity: 1,
     unit: 'Pcs',
     reason: 'New Joining Issue',
     urgency: 'Normal',
     notes: ''
   });
+
+  useEffect(() => {
+    const t = searchParams.get('tab');
+    if (t && ['issued', 'requests', 'returns'].includes(t)) {
+      setActiveTab(t);
+    } else {
+      setActiveTab('issued');
+    }
+    setSearchQuery('');
+    setStatusFilter('all');
+    setFormData((prev) => ({
+      ...prev,
+      requestType: sectionMode,
+      itemId: '',
+      itemCode: '',
+      itemName: '',
+      category: sectionMode === 'asset' ? 'Equipment' : 'Uniform',
+      size: sectionMode === 'asset' ? 'Standard' : '36',
+      color: sectionMode === 'asset' ? 'Standard' : 'Navy Blue',
+    }));
+  }, [searchParams, sectionMode]);
+
+  const handleTabChange = (nextTab) => {
+    setActiveTab(nextTab);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('tab', nextTab);
+      return next;
+    });
+  };
 
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
@@ -203,25 +247,33 @@ export default function MyAssetsUniform() {
     fetchData();
   }, [companyId, employeeId]);
 
-  // Tab counts
-  const uniformCount = useMemo(() => {
-    return issuedItems.filter(
-      (i) =>
-        i.itemType === 'uniform' ||
-        ['uniform', 'accessory', 'clothing'].includes((i.category || '').toLowerCase())
-    ).length;
-  }, [issuedItems]);
+  const isUniformRecord = (item) => {
+    if (!item) return false;
+    if (item.itemType === 'uniform' || item.requestType === 'uniform') return true;
+    if (item.itemType === 'asset' || item.requestType === 'asset') return false;
+    return ['uniform', 'accessory', 'clothing', 'apparel'].includes((item.category || '').toLowerCase());
+  };
 
-  const equipmentCount = useMemo(() => {
-    return issuedItems.filter(
-      (i) =>
-        i.itemType !== 'uniform' &&
-        !['uniform', 'accessory', 'clothing'].includes((i.category || '').toLowerCase())
-    ).length;
-  }, [issuedItems]);
+  // Partitioned data scoped to the current sidebar section ('uniform' vs 'asset')
+  const scopedIssuedItems = useMemo(() => {
+    return issuedItems.filter((i) => (isUniformMode ? isUniformRecord(i) : !isUniformRecord(i)));
+  }, [issuedItems, isUniformMode]);
 
-  const requestsCount = useMemo(() => requests.length, [requests]);
-  const returnCount = useMemo(() => returnRecords.length, [returnRecords]);
+  const scopedRequests = useMemo(() => {
+    return requests.filter((r) => (isUniformMode ? isUniformRecord(r) : !isUniformRecord(r)));
+  }, [requests, isUniformMode]);
+
+  const scopedReturns = useMemo(() => {
+    return returnRecords.filter((r) => (isUniformMode ? isUniformRecord(r) : !isUniformRecord(r)));
+  }, [returnRecords, isUniformMode]);
+
+  const issuedCount = scopedIssuedItems.length;
+  const requestsCount = scopedRequests.length;
+  const returnCount = scopedReturns.length;
+  const assignedCount = useMemo(
+    () => scopedRequests.filter((r) => ['Assigned', 'Approved'].includes(r.status)).length,
+    [scopedRequests]
+  );
 
   // Dynamic Catalog Items for the chosen request type (Uniform vs Asset)
   const catalogItems = useMemo(() => {
@@ -397,16 +449,16 @@ export default function MyAssetsUniform() {
       showToast(res.message || 'Uniform/Asset request submitted successfully!', 'success');
       setIsApplyModalOpen(false);
       
-      // Reset form
+      // Reset form preserving current section mode
       setFormData({
-        requestType: 'uniform',
+        requestType: sectionMode,
         itemId: '',
         itemCode: '',
         itemName: '',
-        category: 'Uniform',
+        category: isUniformMode ? 'Uniform' : 'Equipment',
         brand: '',
-        size: 'L',
-        color: 'Navy Blue',
+        size: isUniformMode ? '36' : 'Standard',
+        color: isUniformMode ? 'Navy Blue' : 'Standard',
         quantity: 1,
         unit: 'Pcs',
         reason: 'New Joining Issue',
@@ -416,7 +468,7 @@ export default function MyAssetsUniform() {
 
       // Refresh data and switch to requests tab
       await fetchData();
-      setActiveTab('requests');
+      handleTabChange('requests');
     } catch (err) {
       console.error('Failed to submit asset request:', err);
       showToast(err.message || 'Failed to submit request. Please try again.', 'error');
@@ -439,13 +491,7 @@ export default function MyAssetsUniform() {
 
   // Filtered List
   const filteredItems = useMemo(() => {
-    return issuedItems.filter((item) => {
-      const isUniform =
-        item.itemType === 'uniform' ||
-        ['uniform', 'accessory', 'clothing'].includes((item.category || '').toLowerCase());
-
-      if (activeTab === 'uniform' && !isUniform) return false;
-      if (activeTab === 'equipment' && isUniform) return false;
+    return scopedIssuedItems.filter((item) => {
       if (activeTab === 'returns' || activeTab === 'requests') return false;
 
       if (statusFilter !== 'all') {
@@ -464,7 +510,7 @@ export default function MyAssetsUniform() {
 
       return true;
     });
-  }, [issuedItems, activeTab, statusFilter, searchQuery]);
+  }, [scopedIssuedItems, activeTab, statusFilter, searchQuery]);
 
   // If Assets/Uniform tab is disabled by Company Admin in Preferences
   if (!loading && (portalAccess.enabled === false || portalAccess.allowAssetsUniform === false)) {
@@ -497,13 +543,31 @@ export default function MyAssetsUniform() {
       <div className={styles.headerSection}>
         <div>
           <div className={styles.eyebrow}>Employee Self-Service / Custody & Requisition</div>
-          <h1 className={styles.title}>
-            <Shirt size={28} className={styles.titleIcon} />
-            My Assets & Uniforms
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <RequestBackButton />
+            <h1 className={styles.title}>
+              {isUniformMode ? (
+                <Shirt size={28} className={styles.titleIcon} />
+              ) : (
+                <Shield size={28} className={styles.titleIcon} />
+              )}
+              {isFromRequestsHub && activeTab === 'requests'
+                ? isUniformMode
+                  ? 'My Uniform Requisitions'
+                  : 'My Asset Requisitions'
+                : isUniformMode
+                ? 'My Uniforms'
+                : 'My Assets'}
+            </h1>
+          </div>
           <p className={styles.subtitle}>
-            View assigned duty uniforms, protective equipment, apply for new items or replacements,
-            and track admin approval & custody issuance status.
+            {isFromRequestsHub && activeTab === 'requests'
+              ? isUniformMode
+                ? 'Submit new uniform or safety footwear requisitions and track admin approval status.'
+                : 'Submit new equipment or asset requisitions and track admin approval status.'
+              : isUniformMode
+              ? 'View assigned duty uniforms, apply for new sets or size replacements, and track approval & return logs.'
+              : 'View assigned company assets and equipment, apply for field gear, and track approval & return logs.'}
           </p>
         </div>
 
@@ -514,54 +578,59 @@ export default function MyAssetsUniform() {
             onClick={() => setIsApplyModalOpen(true)}
           >
             <Plus size={16} strokeWidth={2.5} />
-            <span>Apply for Uniform / Asset</span>
+            <span>
+              {isUniformMode ? 'Apply for Uniform' : 'Apply for Asset'}
+            </span>
           </button>
-          
-          <button
-            type="button"
-            className={styles.actionBtn}
-            onClick={() => window.print()}
-          >
-            <Printer size={15} />
-            <span>Print Custody Card</span>
-          </button>
+
+          {!isFromRequestsHub && (
+            <button
+              type="button"
+              className={styles.actionBtn}
+              onClick={() => window.print()}
+            >
+              <Printer size={15} />
+              <span>Print Custody Card</span>
+            </button>
+          )}
         </div>
       </div>
 
       {/* KPI Cards */}
-      <div className={styles.kpiGrid}>
+      {!isFromRequestsHub && (
+        <div className={styles.kpiGrid}>
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIconWrap} ${styles.kpiIconBlue}`}>
-            <Package size={22} />
+            {isUniformMode ? <Shirt size={22} /> : <Shield size={22} />}
           </div>
           <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Total Issued Items</span>
-            <span className={styles.kpiValue}>{issuedItems.length}</span>
+            <span className={styles.kpiLabel}>{isUniformMode ? 'Issued Uniforms' : 'Issued Assets'}</span>
+            <span className={styles.kpiValue}>{issuedCount}</span>
             <span className={styles.kpiMeta}>Active in your custody</span>
           </div>
         </div>
 
         <div className={styles.kpiCard}>
           <div className={`${styles.kpiIconWrap} ${styles.kpiIconIndigo}`}>
-            <Shirt size={22} />
-          </div>
-          <div className={styles.kpiContent}>
-            <span className={styles.kpiLabel}>Uniforms & Apparel</span>
-            <span className={styles.kpiValue}>{uniformCount}</span>
-            <span className={styles.kpiMeta}>Shirts, trousers, caps & belts</span>
-          </div>
-        </div>
-
-        <div className={styles.kpiCard}>
-          <div className={`${styles.kpiIconWrap} ${styles.kpiIconAmber}`}>
             <FileText size={22} />
           </div>
           <div className={styles.kpiContent}>
             <span className={styles.kpiLabel}>My Requisitions</span>
             <span className={styles.kpiValue}>{requestsCount}</span>
             <span className={styles.kpiMeta}>
-              {requests.filter((r) => r.status === 'Pending Review').length} Pending Review
+              {scopedRequests.filter((r) => r.status === 'Pending Review').length} Pending Review
             </span>
+          </div>
+        </div>
+
+        <div className={styles.kpiCard}>
+          <div className={`${styles.kpiIconWrap} ${styles.kpiIconAmber}`}>
+            <CheckCircle2 size={22} />
+          </div>
+          <div className={styles.kpiContent}>
+            <span className={styles.kpiLabel}>Approved / Assigned</span>
+            <span className={styles.kpiValue}>{assignedCount}</span>
+            <span className={styles.kpiMeta}>Fulfilled requests</span>
           </div>
         </div>
 
@@ -575,43 +644,28 @@ export default function MyAssetsUniform() {
             <span className={styles.kpiMeta}>Cleared back to warehouse</span>
           </div>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Main Card with Tabs & Grid */}
       <div className={styles.mainCard}>
         {/* Toolbar */}
         <div className={styles.toolbar}>
-          <div className={styles.tabsGroup}>
+          {!isFromRequestsHub && (
+            <div className={styles.tabsGroup}>
             <button
               type="button"
-              className={`${styles.tabBtn} ${activeTab === 'all' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveTab('all')}
+              className={`${styles.tabBtn} ${activeTab === 'issued' ? styles.tabBtnActive : ''}`}
+              onClick={() => handleTabChange('issued')}
             >
-              <span>All Items</span>
-              <span className={styles.tabCount}>{issuedItems.length}</span>
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === 'uniform' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveTab('uniform')}
-            >
-              <Shirt size={14} />
-              <span>Uniforms</span>
-              <span className={styles.tabCount}>{uniformCount}</span>
-            </button>
-            <button
-              type="button"
-              className={`${styles.tabBtn} ${activeTab === 'equipment' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveTab('equipment')}
-            >
-              <Shield size={14} />
-              <span>Equipment & Kits</span>
-              <span className={styles.tabCount}>{equipmentCount}</span>
+              {isUniformMode ? <Shirt size={14} /> : <Shield size={14} />}
+              <span>{isUniformMode ? 'Issued Uniforms' : 'Issued Assets'}</span>
+              <span className={styles.tabCount}>{issuedCount}</span>
             </button>
             <button
               type="button"
               className={`${styles.tabBtn} ${activeTab === 'requests' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveTab('requests')}
+              onClick={() => handleTabChange('requests')}
             >
               <FileText size={14} />
               <span>My Requests</span>
@@ -620,13 +674,14 @@ export default function MyAssetsUniform() {
             <button
               type="button"
               className={`${styles.tabBtn} ${activeTab === 'returns' ? styles.tabBtnActive : ''}`}
-              onClick={() => setActiveTab('returns')}
+              onClick={() => handleTabChange('returns')}
             >
               <RotateCcw size={14} />
               <span>Return History</span>
               <span className={styles.tabCount}>{returnCount}</span>
             </button>
-          </div>
+            </div>
+          )}
 
           <div className={styles.filtersGroup}>
             <div className={styles.searchBox}>
@@ -656,17 +711,28 @@ export default function MyAssetsUniform() {
         </div>
 
         {/* 1. MY REQUESTS TAB */}
-        {activeTab === 'requests' ? (
+        {activeTab === 'requests' ? (() => {
+          const displayedRequests = scopedRequests.filter((req) => {
+            if (searchQuery.trim()) {
+              const q = searchQuery.toLowerCase();
+              if (!`${req.requestId || ''} ${req.itemName || ''} ${req.category || ''} ${req.reason || ''}`.toLowerCase().includes(q)) {
+                return false;
+              }
+            }
+            return true;
+          });
+          return (
           <div style={{ padding: '20px' }}>
-            {requests.length === 0 ? (
+            {displayedRequests.length === 0 ? (
               <div className={styles.emptyState}>
                 <div className={styles.emptyIcon}>
                   <FileText size={28} />
                 </div>
-                <h3 className={styles.emptyTitle}>No Requisition Requests Yet</h3>
+                <h3 className={styles.emptyTitle}>No {isUniformMode ? 'Uniform' : 'Asset'} Requisitions Yet</h3>
                 <p className={styles.emptyDesc}>
-                  Need a new security uniform, jacket, flashlight, or replacement gear? Click "Apply for
-                  Uniform / Asset" above to submit a requisition to Admin.
+                  {isUniformMode
+                    ? 'Need a new security uniform, cap, belt, or replacement shoes? Click "Apply for Uniform" above to submit a requisition to Admin.'
+                    : 'Need a flashlight, walkie-talkie, ID card, or safety equipment? Click "Apply for Asset" above to submit a requisition to Admin.'}
                 </p>
                 <button
                   type="button"
@@ -693,7 +759,7 @@ export default function MyAssetsUniform() {
                     </tr>
                   </thead>
                   <tbody>
-                    {requests.map((req) => {
+                    {displayedRequests.map((req) => {
                       const isPending = req.status === 'Pending Review';
                       const isApproved = req.status === 'Approved';
                       const isAssigned = req.status === 'Assigned';
@@ -759,17 +825,18 @@ export default function MyAssetsUniform() {
               </div>
             )}
           </div>
-        ) : activeTab === 'returns' ? (
+          );
+        })() : activeTab === 'returns' ? (
           /* 2. RETURN HISTORY TAB */
           <div style={{ padding: '20px' }}>
-            {returnRecords.length === 0 ? (
+            {scopedReturns.length === 0 ? (
               <div className={styles.emptyState}>
                 <div className={styles.emptyIcon}>
                   <RotateCcw size={28} />
                 </div>
-                <h3 className={styles.emptyTitle}>No Returned Assets Found</h3>
+                <h3 className={styles.emptyTitle}>No Returned {isUniformMode ? 'Uniforms' : 'Assets'} Found</h3>
                 <p className={styles.emptyDesc}>
-                  You have not surrendered or returned any uniform or equipment items yet.
+                  You have not surrendered or returned any {isUniformMode ? 'uniform' : 'asset or equipment'} items yet.
                 </p>
               </div>
             ) : (
@@ -786,7 +853,7 @@ export default function MyAssetsUniform() {
                     </tr>
                   </thead>
                   <tbody>
-                    {returnRecords.map((ret) => (
+                    {scopedReturns.map((ret) => (
                       <tr key={ret.id || ret._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '12px 16px', fontWeight: 600 }}>{ret.returnId || 'RET-001'}</td>
                         <td style={{ padding: '12px 16px' }}>
@@ -814,9 +881,9 @@ export default function MyAssetsUniform() {
                 <div className={styles.emptyIcon}>
                   <Package size={28} />
                 </div>
-                <h3 className={styles.emptyTitle}>No Issued Items Match Filter</h3>
+                <h3 className={styles.emptyTitle}>No Issued {isUniformMode ? 'Uniforms' : 'Assets'} Match Filter</h3>
                 <p className={styles.emptyDesc}>
-                  Try clearing your search query or submit an application if you need uniform items.
+                  Try clearing your search query or submit an application if you need {isUniformMode ? 'uniform' : 'asset'} items.
                 </p>
                 <button
                   type="button"
@@ -824,7 +891,7 @@ export default function MyAssetsUniform() {
                   style={{ marginTop: '8px' }}
                   onClick={() => setIsApplyModalOpen(true)}
                 >
-                  <Plus size={15} /> Apply for Uniform
+                  <Plus size={15} /> {isUniformMode ? 'Apply for Uniform' : 'Apply for Asset'}
                 </button>
               </div>
             ) : (
@@ -931,7 +998,7 @@ export default function MyAssetsUniform() {
             <div className={styles.modalHeader}>
               <h3 className={styles.modalTitle}>
                 <Plus size={18} style={{ color: '#2563eb', verticalAlign: 'middle', marginRight: 6 }} />
-                Apply for Uniform / Asset Requisition
+                {isUniformMode ? 'Apply for Uniform Requisition' : 'Apply for Asset Requisition'}
               </h3>
               <button
                 type="button"
@@ -945,85 +1012,6 @@ export default function MyAssetsUniform() {
 
             <form onSubmit={handleSubmitRequisition}>
               <div className={styles.modalBody}>
-                {/* 1. Request Type */}
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup} style={{ gridColumn: 'span 2' }}>
-                    <label className={styles.formLabel}>
-                      Requisition Category Type <span className={styles.requiredStar}>*</span>
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '2px' }}>
-                      <button
-                        type="button"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          border: formData.requestType === 'uniform' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                          background: formData.requestType === 'uniform' ? '#eff6ff' : '#ffffff',
-                          color: formData.requestType === 'uniform' ? '#1d4ed8' : '#475569',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                        onClick={() => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            requestType: 'uniform',
-                            category: 'Uniform',
-                            itemId: '',
-                            itemCode: '',
-                            itemName: '',
-                            brand: '',
-                            size: 'L',
-                            color: 'Navy Blue',
-                            unit: 'Pcs'
-                          }));
-                        }}
-                      >
-                        <Shirt size={18} />
-                        <span>Uniform & Apparel</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '8px',
-                          padding: '10px 14px',
-                          borderRadius: '8px',
-                          border: formData.requestType === 'asset' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                          background: formData.requestType === 'asset' ? '#eff6ff' : '#ffffff',
-                          color: formData.requestType === 'asset' ? '#1d4ed8' : '#475569',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          transition: 'all 0.15s'
-                        }}
-                        onClick={() => {
-                          setFormData((prev) => ({
-                            ...prev,
-                            requestType: 'asset',
-                            category: 'Equipment',
-                            itemId: '',
-                            itemCode: '',
-                            itemName: '',
-                            brand: '',
-                            size: 'Standard',
-                            color: 'Standard',
-                            unit: 'Pcs'
-                          }));
-                        }}
-                      >
-                        <Shield size={18} />
-                        <span>Asset & Equipment</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
 
                 {/* 2. Select from Master Catalog added by Admin */}
                 <div className={styles.formGroup}>

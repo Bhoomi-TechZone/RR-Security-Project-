@@ -12,6 +12,9 @@ import InventoryItem from '../models/inventoryItemModel.js';
 import { ReimbursementClaim } from '../models/reimbursementModel.js';
 import { AdvanceLoanRequest } from '../models/advanceLoanModel.js';
 import InventoryRequest from '../models/inventoryRequestModel.js';
+import Overtime from '../models/overtimeModel.js';
+import Separation from '../models/separationModel.js';
+import { parseDateParts } from '../services/greetingService.js';
 import jwt from 'jsonwebtoken';
 
 /**
@@ -377,12 +380,85 @@ export const getAdminDashboardStats = async (req, res) => {
     const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     const birthdayEmployees = [];
+    const upcomingEvents = [];
+    const todayMidnight = new Date(currentYear, now.getMonth(), todayDay);
+    const nextMonthNum = currentMonth === 12 ? 1 : currentMonth + 1;
+    const nextMonthYear = currentMonth === 12 ? currentYear + 1 : currentYear;
+
+    const pushUpcomingOccasion = (emp, rawDate, type) => {
+      if (!rawDate) return;
+      const parsed = parseDateParts(rawDate);
+      if (!parsed || !parsed.month || !parsed.day) return;
+
+      let nextOccasion = new Date(currentYear, parsed.month - 1, parsed.day);
+      if (nextOccasion < todayMidnight) {
+        nextOccasion = new Date(currentYear + 1, parsed.month - 1, parsed.day);
+      }
+
+      const occMonth = nextOccasion.getMonth() + 1;
+      const occYear = nextOccasion.getFullYear();
+      const isCurrentOrNextMonth =
+        (occYear === currentYear && occMonth === currentMonth) ||
+        (occYear === nextMonthYear && occMonth === nextMonthNum);
+
+      if (!isCurrentOrNextMonth) return;
+
+      const diffDays = Math.round((nextOccasion.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+      const years = parsed.year ? occYear - parsed.year : null;
+
+      if (type === 'work-anniversary' && years !== null && years < 0) return;
+
+      const empName = emp.name || emp.employeeName || 'Staff';
+      const monthDay = `${shortMonthNames[parsed.month - 1]} ${String(parsed.day).padStart(2, '0')}`;
+      const formattedDate = `${parsed.day} ${fullMonthNames[parsed.month - 1]}`;
+      const loc = (emp.siteLocation || emp.site || emp.joiningLocation || '').trim();
+      const locSuffix = loc ? ` (${loc})` : '';
+
+      let label = `${empName}'s birthday${locSuffix}`;
+      let subtitle = `${formattedDate} • ${emp.department || 'Staff'}`;
+      if (type === 'work-anniversary') {
+        const yrsLabel = years !== null && years >= 0 ? ` (${years} yr)` : '';
+        label = `${empName}'s work anniversary${yrsLabel}${locSuffix}`;
+        subtitle = `${years ?? 0} Year${years === 1 ? '' : 's'} • ${monthDay}`;
+      } else if (type === 'wedding-anniversary') {
+        const yrsLabel = years !== null && years >= 0 ? ` (${years} yr)` : '';
+        label = `${empName}'s wedding anniversary${yrsLabel}${locSuffix}`;
+        subtitle = `${years !== null && years >= 0 ? `${years} Year${years === 1 ? '' : 's'} Together` : 'Wedding Anniversary'} • ${monthDay}`;
+      }
+
+      upcomingEvents.push({
+        id: `${type}-${emp._id || emp.employeeId}`,
+        type,
+        employeeId: emp.employeeId || emp.employeeCode || '',
+        employeeName: empName,
+        department: emp.department || 'Security',
+        location: loc,
+        label,
+        subtitle,
+        date: monthDay,
+        monthDay,
+        month: occMonth,
+        year: occYear,
+        formattedDate,
+        daysLeft: diffDays,
+        isToday: diffDays === 0,
+        isTomorrow: diffDays === 1,
+        tagText: monthDay,
+        urgency: diffDays <= 1 ? 'medium' : diffDays <= 7 ? 'low' : 'safe',
+        years,
+        link: '/admin/greetings'
+      });
+    };
+
     employees.forEach(emp => {
+      pushUpcomingOccasion(emp, emp.dob, 'birthday');
+      pushUpcomingOccasion(emp, emp.joiningDate, 'work-anniversary');
+      pushUpcomingOccasion(emp, emp.marriageDate || emp.marriedDate, 'wedding-anniversary');
+
       if (!emp.dob) return;
       const parsed = parseDob(emp.dob);
       if (!parsed || !parsed.month || !parsed.day) return;
 
-      const todayMidnight = new Date(currentYear, now.getMonth(), todayDay);
       let nextBirthday = new Date(currentYear, parsed.month - 1, parsed.day);
       if (nextBirthday < todayMidnight) {
         nextBirthday = new Date(currentYear + 1, parsed.month - 1, parsed.day);
@@ -417,8 +493,9 @@ export const getAdminDashboardStats = async (req, res) => {
       });
     });
 
-    // Sort by daysLeft ascending (closest upcoming birthday first)
+    // Sort by daysLeft ascending (closest upcoming first)
     birthdayEmployees.sort((a, b) => a.daysLeft - b.daysLeft);
+    upcomingEvents.sort((a, b) => a.daysLeft - b.daysLeft);
 
     const thisMonthBirthdays = birthdayEmployees.filter(b => b.isThisMonth);
     const upcomingNext30 = birthdayEmployees.filter(b => b.daysLeft <= 30);
@@ -589,8 +666,8 @@ export const getAdminDashboardStats = async (req, res) => {
       recentActivities.push({
         id: `loan-${al.requestId || al._id}`,
         type: 'loan',
-        tag: isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Advance',
-        message: `${al.employeeName} requested advance of ₹${Number(al.amountRequested || al.amount || 0).toLocaleString('en-IN')}.`,
+        tag: isApproved ? 'Approved' : isRejected ? 'Rejected' : 'Loan',
+        message: `${al.employeeName} requested loan of ₹${Number(al.amountRequested || al.amount || 0).toLocaleString('en-IN')}.`,
         time: al.createdAt ? formatTimeAgo(new Date(al.createdAt)) : 'Recently',
         timestamp: new Date(al.createdAt || 0),
         targetUrl: '/admin/advances-loans'
@@ -619,6 +696,143 @@ export const getAdminDashboardStats = async (req, res) => {
     // Sort all dynamic activities chronologically descending
     recentActivities.sort((a, b) => b.timestamp - a.timestamp);
 
+    // 10b. Open Requests Feed & Per-Category Counts (Strictly Pending / Actionable Requests)
+    const openRequests = [];
+    const openRequestCounts = {
+      'attendance-correction': 0,
+      leaves: pendingLeaveCount,
+      'leave-encashment': 0,
+      overtime: 0,
+      'shift-change': 0,
+      loans: 0,
+      reimbursement: pendingReimbursementsCount,
+      'it-declaration': 0,
+      'asset-requisition': 0,
+      uniform: 0,
+      'letter-request': 0,
+      'transfer-request': 0,
+      resignation: 0
+    };
+
+    if (resolvedCompanyIds.length > 0) {
+      const [
+        pendingLeavesList,
+        pendingClaimsList,
+        pendingLoansList,
+        pendingInvAll,
+        pendingOvertimeCount,
+        pendingOvertimeList,
+        pendingExitsCount,
+        pendingExitsList,
+        pendingLoansCountExact
+      ] = await Promise.all([
+        Leave.find({ ...claimsFilter, status: { $regex: /^pending/i } }).sort({ createdAt: -1 }).limit(5).lean(),
+        ReimbursementClaim.find({ ...claimsFilter, approvalStatus: { $regex: /^pending/i } }).sort({ createdAt: -1 }).limit(5).lean(),
+        AdvanceLoanRequest.find({ ...claimsFilter, status: { $regex: /^pending/i }, type: 'loan' }).sort({ createdAt: -1 }).limit(5).lean(),
+        InventoryRequest.find({ ...claimsFilter, recordType: 'request', status: { $regex: /^pending/i } }).sort({ createdAt: -1 }).lean(),
+        Overtime.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i } }),
+        Overtime.find({ ...claimsFilter, status: { $regex: /^pending/i } }).sort({ createdAt: -1 }).limit(5).lean(),
+        Separation.countDocuments({ ...claimsFilter, settlementStatus: { $in: ['Pending Clearance', 'Pending Approval'] } }),
+        Separation.find({ ...claimsFilter, settlementStatus: { $in: ['Pending Clearance', 'Pending Approval'] } }).sort({ createdAt: -1 }).limit(5).lean(),
+        AdvanceLoanRequest.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i }, type: 'loan' })
+      ]);
+
+      openRequestCounts.overtime = pendingOvertimeCount;
+      openRequestCounts.resignation = pendingExitsCount;
+      openRequestCounts.loans = pendingLoansCountExact;
+
+      let assetReqCount = 0;
+      let uniformReqCount = 0;
+      pendingInvAll.forEach(inv => {
+        const isAsset =
+          inv.requestType === 'asset' ||
+          ['equipment', 'safety gear', 'id card', 'security kit'].includes(String(inv.category || '').toLowerCase());
+        if (isAsset) assetReqCount += 1;
+        else uniformReqCount += 1;
+      });
+      openRequestCounts['asset-requisition'] = assetReqCount;
+      openRequestCounts.uniform = uniformReqCount;
+
+      const pendingInvList = pendingInvAll.slice(0, 5);
+
+      pendingLeavesList.forEach(lv => {
+        openRequests.push({
+          id: `open-leave-${lv.leaveId || lv._id}`,
+          type: 'leave',
+          tag: 'Leave',
+          message: `${lv.employeeName || 'Staff'} applied for ${lv.leaveType || 'Leave'} (${lv.days || 1} day).`,
+          time: lv.createdAt ? formatTimeAgo(new Date(lv.createdAt)) : 'Recently',
+          timestamp: new Date(lv.createdAt || lv.appliedOn || 0),
+          targetUrl: '/admin/leave?tab=requests'
+        });
+      });
+
+      pendingClaimsList.forEach(rc => {
+        openRequests.push({
+          id: `open-claim-${rc.claimId || rc._id}`,
+          type: 'reimbursement',
+          tag: 'Claim',
+          message: `${rc.employeeName || 'Staff'} submitted claim of ₹${Number(rc.claimedAmount || 0).toLocaleString('en-IN')} (${rc.expenseType || 'Expense'}).`,
+          time: rc.createdAt ? formatTimeAgo(new Date(rc.createdAt)) : 'Recently',
+          timestamp: new Date(rc.createdAt || 0),
+          targetUrl: '/admin/reimbursements'
+        });
+      });
+
+      pendingLoansList.forEach(al => {
+        openRequests.push({
+          id: `open-loan-${al.requestId || al._id}`,
+          type: 'loan',
+          tag: 'Loan',
+          message: `${al.employeeName || 'Staff'} requested loan of ₹${Number(al.amountRequested || al.amount || 0).toLocaleString('en-IN')}.`,
+          time: al.createdAt ? formatTimeAgo(new Date(al.createdAt)) : 'Recently',
+          timestamp: new Date(al.createdAt || 0),
+          targetUrl: '/admin/advances-loans?tab=loans'
+        });
+      });
+
+      pendingInvList.forEach(inv => {
+        const isAsset =
+          inv.requestType === 'asset' ||
+          ['equipment', 'safety gear', 'id card', 'security kit'].includes(String(inv.category || '').toLowerCase());
+        openRequests.push({
+          id: `open-inv-${inv.requestId || inv._id}`,
+          type: isAsset ? 'asset' : 'uniform',
+          tag: isAsset ? 'Asset' : 'Uniform',
+          message: `${inv.employeeName || 'Staff'} requested ${inv.quantity || 1}x ${inv.itemName || (isAsset ? 'Asset' : 'Uniform')}.`,
+          time: inv.createdAt ? formatTimeAgo(new Date(inv.createdAt)) : 'Recently',
+          timestamp: new Date(inv.createdAt || 0),
+          targetUrl: isAsset ? '/admin/inventory?tab=requests&type=asset' : '/admin/inventory?tab=requests&type=uniform'
+        });
+      });
+
+      pendingOvertimeList.forEach(ot => {
+        openRequests.push({
+          id: `open-ot-${ot.overtimeId || ot._id}`,
+          type: 'overtime',
+          tag: 'Overtime',
+          message: `${ot.employeeName || 'Staff'} requested ${ot.overtimeHours || 0}h overtime${ot.date ? ` (${ot.date})` : ''}.`,
+          time: ot.createdAt ? formatTimeAgo(new Date(ot.createdAt)) : 'Recently',
+          timestamp: new Date(ot.createdAt || 0),
+          targetUrl: '/admin/overtime?tab=requests'
+        });
+      });
+
+      pendingExitsList.forEach(sep => {
+        openRequests.push({
+          id: `open-exit-${sep.settlementId || sep._id}`,
+          type: 'resignation',
+          tag: 'Exit',
+          message: `${sep.employeeName || 'Staff'} submitted exit request (${sep.separationReason || 'Resignation'}).`,
+          time: sep.createdAt ? formatTimeAgo(new Date(sep.createdAt)) : 'Recently',
+          timestamp: new Date(sep.createdAt || 0),
+          targetUrl: '/admin/payroll/pending-exits'
+        });
+      });
+
+      openRequests.sort((a, b) => b.timestamp - a.timestamp);
+    }
+
     // 11. Alerts & Reminders (Dynamic Operational Alerts + Mathematically Accurate Statutory Deadlines)
     const upcomingReminders = [];
 
@@ -640,7 +854,7 @@ export const getAdminDashboardStats = async (req, res) => {
       upcomingReminders.push({
         id: 'claim-alert',
         label: `${totalPendingClaims} Pending Claim${totalPendingClaims > 1 ? 's' : ''}`,
-        date: 'Reimbursement / Advance Review',
+        date: 'Reimbursement / Loan Review',
         tagText: `${totalPendingClaims} Pending`,
         daysLeft: 0,
         urgency: 'medium',
@@ -946,6 +1160,10 @@ export const getAdminDashboardStats = async (req, res) => {
       attendanceOverview,
       ageDemographics,
       recentActivities: recentActivities.slice(0, 6),
+      openRequests: openRequests.slice(0, 8),
+      openRequestCounts,
+      openRequestsCount: Object.values(openRequestCounts).reduce((sum, n) => sum + (Number(n) || 0), 0),
+      upcomingEvents: upcomingEvents.slice(0, 30),
       upcomingReminders: upcomingReminders.slice(0, 5),
       payrollSummary: {
         overall: {

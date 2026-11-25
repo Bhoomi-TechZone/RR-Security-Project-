@@ -9,6 +9,7 @@ import EmployeeAttendanceDetails from '../../components/employee/EmployeeAttenda
 import EmployeeAttendanceCorrectionModal from '../../components/employee/EmployeeAttendanceCorrectionModal';
 import EmployeeCorrectionRequestsList from '../../components/employee/EmployeeCorrectionRequestsList';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { getMonthLabel } from '../../data/employeeAttendanceData';
 import { useCompany } from '../../context/CompanyContext';
 import attendanceService from '../../services/attendanceService';
@@ -241,7 +242,10 @@ function MyAttendance() {
         <header className={styles.pageHeader}>
           <div>
             <p className={styles.eyebrow}>Self-Service Portal</p>
-            <h1>{activeTab === 'corrections' ? 'My Correction Requests' : 'Attendance Register'}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1>{activeTab === 'corrections' ? 'My Correction Requests' : 'Attendance Register'}</h1>
+            </div>
             <p>
               {activeTab === 'corrections'
                 ? 'Track the status of your submitted punch adjustments and attendance corrections.'

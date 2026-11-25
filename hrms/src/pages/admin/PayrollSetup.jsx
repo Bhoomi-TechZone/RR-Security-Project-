@@ -58,7 +58,7 @@ const ALL_SETUP_CATALOG = [
     desc: 'Configure and manage earnings, basic wages, DA, HRA, allowances, reimbursements, and overtime pay.',
     icon: Layers,
     badge: 'Earnings',
-    iconColor: '#059669' }, { id: 'salary-deductions', tab: 'salary-deductions', externalRoute: '/admin/masters?tab=salary-components&subTab=deductions', title: 'Deductions', desc: 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.', icon: Landmark, badge: 'Deductions', iconColor: '#dc2626'
+    iconColor: '#059669' }, { id: 'salary-deductions', tab: 'salary-deductions', externalRoute: '/admin/masters?tab=salary-components&subTab=deductions', title: 'Deductions', desc: 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, and food deductions.', icon: Landmark, badge: 'Deductions', iconColor: '#dc2626'
   },
   {
     id: 'pay-schedules',

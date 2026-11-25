@@ -105,7 +105,7 @@ export default function EmployeePayslipModal({ isOpen, employee, onClose }) {
     if (Number(slipData.deductions.pt) > 0) list.push({ label: 'Professional Tax (PT)', amount: slipData.deductions.pt });
     if (Number(slipData.deductions.tds) > 0) list.push({ label: 'Income Tax (TDS)', amount: slipData.deductions.tds });
     if (Number(slipData.deductions.lwf) > 0) list.push({ label: 'Labour Welfare Fund (LWF)', amount: slipData.deductions.lwf });
-    if (Number(slipData.deductions.advances) > 0) list.push({ label: 'Salary Advance Deduction', amount: slipData.deductions.advances });
+    if (Number(slipData.deductions.advances) > 0) list.push({ label: 'Loan Recovery Deduction', amount: slipData.deductions.advances });
     if (Number(slipData.deductions.loanEmi) > 0) list.push({ label: 'Loan EMI Deduction', amount: slipData.deductions.loanEmi });
 
     const standardDedKeys = new Set(['pfEmployee', 'pfEmployer', 'esiEmployee', 'esiEmployer', 'pt', 'tds', 'lwf', 'advances', 'loanEmi', 'otherDeductions', 'totalDeductions']);

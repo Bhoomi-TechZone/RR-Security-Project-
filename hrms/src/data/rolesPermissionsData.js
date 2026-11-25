@@ -111,15 +111,15 @@ export const PERMISSION_MODULES = [
   },
   {
     key: 'advances_loans',
-    name: 'Advances & Loans',
+    name: 'Loans',
     category: 'Payroll Management',
-    description: 'Salary advance requests, loan disbursement, EMI repayment schedules, and deduction history',
+    description: 'Employee loan applications, disbursement, EMI repayment schedules, and deduction history',
     actions: [
-      { key: 'view', label: 'View', description: 'View advance & loan requests and EMI ledgers' },
-      { key: 'add', label: 'Add / Request', description: 'Create advance request or loan application' },
+      { key: 'view', label: 'View', description: 'View loan requests and EMI ledgers' },
+      { key: 'add', label: 'Add / Request', description: 'Create employee loan application' },
       { key: 'edit', label: 'Edit', description: 'Adjust EMI repayment schedule and tenures' },
-      { key: 'delete', label: 'Delete', description: 'Cancel or delete advance/loan records' },
-      { key: 'approve', label: 'Approve', description: 'Approve and disburse advance / loan requests' }
+      { key: 'delete', label: 'Delete', description: 'Cancel or delete loan records' },
+      { key: 'approve', label: 'Approve', description: 'Approve and disburse loan requests' }
     ]
   },
   {

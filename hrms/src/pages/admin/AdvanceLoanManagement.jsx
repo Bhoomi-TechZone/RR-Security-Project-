@@ -17,6 +17,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { usePermissions } from '../../context/PermissionContext';
 import { useCompany } from '../../context/CompanyContext';
 import { advanceLoanService } from '../../services/advanceLoanService';
@@ -55,7 +56,7 @@ const getEmpDisplayName = (emp) => {
   return full || emp.employeeId || 'Employee';
 };
 
-const typeLabel = (value) => (value === 'loan' ? 'Loan' : 'Advance');
+const typeLabel = () => 'Loan';
 
 const statusLabel = (value) =>
   ({
@@ -68,15 +69,14 @@ const statusLabel = (value) =>
     deducted: 'Deducted'
   }[value] || value);
 
-const typeClass = (value) => (value === 'loan' ? styles.loan : styles.advance);
+const typeClass = () => styles.loan;
 const statusClass = (value) => styles[value] || styles.pending;
 
-function SummaryCards({ requests, tab }) {
-  const currentRequests = useMemo(() => {
-    if (tab === 'advances') return requests.filter((r) => r.type === 'advance');
-    if (tab === 'loans') return requests.filter((r) => r.type === 'loan');
-    return requests;
-  }, [requests, tab]);
+function SummaryCards({ requests }) {
+  const currentRequests = useMemo(
+    () => requests.filter((r) => r.type === 'loan'),
+    [requests]
+  );
 
   const total = currentRequests.length;
   const pending = currentRequests.filter((item) => item.status === 'pending').length;
@@ -87,13 +87,11 @@ function SummaryCards({ requests, tab }) {
     .filter((item) => ['approved', 'completed'].includes(item.status))
     .reduce((sum, item) => sum + (Number(item.remainingAmount) || 0), 0);
 
-  const prefix = tab === 'advances' ? 'Advance' : tab === 'loans' ? 'Loan' : 'Request';
-
   const cards = [
-    { label: tab === 'advances' ? 'Total Advance Requests' : tab === 'loans' ? 'Total Loan Requests' : 'Total Requests', value: total, icon: FileText, tone: styles.blue },
-    { label: `Pending ${prefix}s`, value: pending, icon: Clock3, tone: styles.yellow },
-    { label: `Approved ${prefix} Amount`, value: money(approved), icon: BadgeIndianRupee, tone: styles.green },
-    { label: `Outstanding ${prefix} Amount`, value: money(outstanding), icon: WalletCards, tone: styles.purple }
+    { label: 'Total Loan Requests', value: total, icon: FileText, tone: styles.blue },
+    { label: 'Pending Loans', value: pending, icon: Clock3, tone: styles.yellow },
+    { label: 'Approved Loan Amount', value: money(approved), icon: BadgeIndianRupee, tone: styles.green },
+    { label: 'Outstanding Loan Amount', value: money(outstanding), icon: WalletCards, tone: styles.purple }
   ];
 
   return (
@@ -113,63 +111,7 @@ function SummaryCards({ requests, tab }) {
   );
 }
 
-function Overview({ requests, tab }) {
-  const isAdvances = tab === 'advances';
-  const isLoans = tab === 'loans';
-  const currentRequests = useMemo(() => {
-    if (isAdvances) return requests.filter((r) => r.type === 'advance');
-    if (isLoans) return requests.filter((r) => r.type === 'loan');
-    return requests;
-  }, [requests, isAdvances, isLoans]);
-
-  const totals = (isAdvances ? ['advance'] : isLoans ? ['loan'] : ['advance', 'loan']).map((type) => {
-    const list = requests.filter((item) => item.type === type);
-    return {
-      type,
-      count: list.length,
-      amount: list.reduce((sum, item) => sum + (Number(item.amount) || 0), 0)
-    };
-  });
-  const states = ['approved', 'pending', 'rejected'];
-  const title = isAdvances ? 'Salary Advance Overview' : isLoans ? 'Employee Loan Overview' : 'Advance & Loan Overview';
-
-  return (
-    <section className={styles.overviewCard}>
-      <div className={styles.sectionHeader}>
-        <div>
-          <h2 className={styles.sectionTitle}>{title}</h2>
-          <p className={styles.sectionSubtext}>Requests and approval distribution</p>
-        </div>
-      </div>
-      <div className={styles.overviewGrid}>
-        {totals.map((item) => (
-          <div className={styles.overviewTile} key={item.type}>
-            <span className={`${styles.typeBadge} ${typeClass(item.type)}`}>
-              {typeLabel(item.type)}
-            </span>
-            <strong>{item.count} Requests</strong>
-            <span>{money(item.amount)}</span>
-          </div>
-        ))}
-        <div className={styles.statusSummary}>
-          {states.map((state) => (
-            <span key={state}>
-              <i className={`${styles.statusDot} ${statusClass(state)}`} />
-              {statusLabel(state)}{' '}
-              <strong>
-                {currentRequests.filter((item) => item.status === state).length}
-              </strong>
-            </span>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Filters({ values, setValue, reset, tab, clients, employees }) {
-  const isSingleType = tab === 'advances' || tab === 'loans';
-
+function Filters({ values, setValue, reset, clients, employees }) {
   const field = (label, key, options, placeholder) => (
     <div className={styles.field}>
       <label className={styles.fieldLabel}>{label}</label>
@@ -203,16 +145,6 @@ function Filters({ values, setValue, reset, tab, clients, employees }) {
             />
           </div>
         </div>
-
-        {!isSingleType && field(
-          'Request Type',
-          'type',
-          [
-            { value: 'advance', label: 'Advance' },
-            { value: 'loan', label: 'Loan' }
-          ],
-          'All Types'
-        )}
 
         {field(
           'Client',
@@ -502,12 +434,12 @@ function ModalActions({ close, save, label, loading }) {
 }
 
 function RequestForm({ request, onClose, onSave, employees = [] }) {
-  const reqType = request?.type || 'advance';
+  const reqType = 'loan';
   const isEditing = Boolean(request?._id || request?.id);
 
   const calculateEmi = (amt, rateVal, numMonths) => {
     const p = Number(amt || 0);
-    const r = reqType === 'loan' ? Number(rateVal || 0) : 0;
+    const r = Number(rateVal || 0);
     const n = Math.max(1, Number(numMonths || 1));
     if (p <= 0) return '';
     const interest = Math.round((p * r * (n / 12)) / 100);
@@ -518,11 +450,11 @@ function RequestForm({ request, onClose, onSave, employees = [] }) {
   const currentYearMonth = new Date().toISOString().slice(0, 7);
 
   const initialAmount = isEditing ? request.amount : '';
-  const initialRate = isEditing ? (request.interestRate ?? 0) : (reqType === 'loan' ? 0 : '');
-  const initialMonths = isEditing ? (request.numberOfMonths || 1) : (reqType === 'loan' ? 6 : 1);
+  const initialRate = isEditing ? (request.interestRate ?? 0) : 0;
+  const initialMonths = isEditing ? (request.numberOfMonths || 1) : 6;
   const initialEmi = isEditing
     ? request.emiAmount
-    : reqType === 'loan' && initialAmount
+    : initialAmount
     ? calculateEmi(initialAmount, initialRate, initialMonths)
     : '';
 
@@ -531,12 +463,12 @@ function RequestForm({ request, onClose, onSave, employees = [] }) {
       ? { ...request }
       : {
           employeeId: '',
-          type: reqType,
+          type: 'loan',
           amount: initialAmount,
           interestRate: initialRate,
           reason: 'Emergency',
           otherReason: '',
-          deductionMethod: reqType === 'loan' ? 'monthly-emi' : 'salary-adjustment',
+          deductionMethod: 'monthly-emi',
           emiAmount: initialEmi,
           numberOfMonths: initialMonths,
           firstDeductionMonth: currentYearMonth,
@@ -921,7 +853,7 @@ function DetailsDrawer({ request, onClose, onApprove, onReject }) {
       />
       <aside className={styles.drawer}>
         <div className={styles.drawerHeader}>
-          <h2>Advance / Loan Details</h2>
+          <h2>Loan Details</h2>
           <button
             type="button"
             className={styles.closeButton}
@@ -1237,7 +1169,7 @@ function ExportModal({ onClose, onExport, clients = [], employees = [] }) {
   const [reportType, setReportType] = useState('requests');
 
   return (
-    <Modal title="Export Advance & Loan Report" onClose={onClose}>
+    <Modal title="Export Loan Report" onClose={onClose}>
       <div className={styles.formGrid}>
         <FormField label="Report Type">
           <select
@@ -1245,11 +1177,11 @@ function ExportModal({ onClose, onExport, clients = [], employees = [] }) {
             value={reportType}
             onChange={(event) => setReportType(event.target.value)}
           >
-            <option value="requests">Advance &amp; Loan Requests</option>
-            <option value="approved">Approved Requests</option>
+            <option value="requests">Loan Requests</option>
+            <option value="approved">Approved Loans</option>
             <option value="schedule">Deduction Schedule</option>
             <option value="history">Deduction History</option>
-            <option value="outstanding">Outstanding Amount</option>
+            <option value="outstanding">Outstanding Loan Amount</option>
           </select>
         </FormField>
 
@@ -1292,14 +1224,17 @@ function AdvanceLoanManagement() {
   const [actionLoading, setActionLoading] = useState(false);
 
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState(() => searchParams.get('tab') || 'all');
+  const [tab, setTab] = useState(() => {
+    const t = searchParams.get('tab');
+    return ['schedule', 'history'].includes(t) ? t : 'loans';
+  });
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam) {
+    if (tabParam && ['schedule', 'history'].includes(tabParam)) {
       setTab(tabParam);
     } else {
-      setTab('all');
+      setTab('loans');
     }
   }, [searchParams]);
 
@@ -1330,23 +1265,23 @@ function AdvanceLoanManagement() {
     try {
       setLoading(true);
       const [reqList, schedList, histList, statsData, empList, clientList] = await Promise.all([
-        advanceLoanService.getRequests(companyId, filters),
-        advanceLoanService.getSchedules(companyId),
-        advanceLoanService.getHistory(companyId),
+        advanceLoanService.getRequests(companyId, { ...filters, type: 'loan' }),
+        advanceLoanService.getSchedules(companyId, { type: 'loan' }),
+        advanceLoanService.getHistory(companyId, { type: 'loan' }),
         advanceLoanService.getStats(companyId),
         employeeService.getEmployees(companyId),
         clientService.getClients(companyId)
       ]);
 
-      setRequests(reqList || []);
-      setSchedules(schedList || []);
-      setHistory(histList || []);
+      setRequests((reqList || []).filter((item) => item.type === 'loan'));
+      setSchedules((schedList || []).filter((item) => item.type === 'loan'));
+      setHistory((histList || []).filter((item) => item.type === 'loan'));
       setStats(statsData || null);
       setEmployees(empList || []);
       setClients(clientList || []);
     } catch (err) {
-      console.error('Error fetching advance/loan data from MongoDB:', err);
-      notify(err.message || 'Failed to load advance & loan records', 'danger');
+      console.error('Error fetching loan data from MongoDB:', err);
+      notify(err.message || 'Failed to load loan records', 'danger');
     } finally {
       setLoading(false);
     }
@@ -1376,6 +1311,7 @@ function AdvanceLoanManagement() {
 
   const filteredRequests = useMemo(() => {
     return requests.filter((item) => {
+      if (item.type !== 'loan') return false;
       const query = filters.search.toLowerCase().trim();
       if (
         query &&
@@ -1385,9 +1321,6 @@ function AdvanceLoanManagement() {
       ) {
         return false;
       }
-      if (tab === 'advances' && item.type !== 'advance') return false;
-      if (tab === 'loans' && item.type !== 'loan') return false;
-      if (filters.type && item.type !== filters.type) return false;
       if (filters.client && item.clientName !== filters.client) return false;
       if (filters.employee && item.employeeId !== filters.employee) return false;
       if (filters.status && item.status !== filters.status) return false;
@@ -1395,23 +1328,23 @@ function AdvanceLoanManagement() {
       if (filters.toDate && item.requestDate > filters.toDate) return false;
       return true;
     });
-  }, [requests, filters, tab]);
+  }, [requests, filters]);
 
   const filteredSchedules = useMemo(() => {
     return schedules.filter(
       (item) =>
+        item.type === 'loan' &&
         (!filters.employee || item.employeeId === filters.employee) &&
-        (!filters.client || item.clientName === filters.client) &&
-        (!filters.type || item.type === filters.type)
+        (!filters.client || item.clientName === filters.client)
     );
   }, [schedules, filters]);
 
   const filteredHistory = useMemo(() => {
     return history.filter(
       (item) =>
+        item.type === 'loan' &&
         (!filters.employee || item.employeeId === filters.employee) &&
-        (!filters.client || item.clientName === filters.client) &&
-        (!filters.type || item.type === filters.type)
+        (!filters.client || item.clientName === filters.client)
     );
   }, [history, filters]);
 
@@ -1518,7 +1451,7 @@ function AdvanceLoanManagement() {
         const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(dataToExport, null, 2));
         const dlAnchor = document.createElement('a');
         dlAnchor.setAttribute('href', dataStr);
-        dlAnchor.setAttribute('download', `Advance_Loan_${reportType}_${new Date().toISOString().slice(0, 10)}.json`);
+        dlAnchor.setAttribute('download', `Loan_Report_${reportType}_${new Date().toISOString().slice(0, 10)}.json`);
         dlAnchor.click();
       } else {
         // CSV export
@@ -1529,7 +1462,7 @@ function AdvanceLoanManagement() {
         ].join('\n');
         const dlAnchor = document.createElement('a');
         dlAnchor.setAttribute('href', encodeURI(csvContent));
-        dlAnchor.setAttribute('download', `Advance_Loan_${reportType}_${new Date().toISOString().slice(0, 10)}.csv`);
+        dlAnchor.setAttribute('download', `Loan_Report_${reportType}_${new Date().toISOString().slice(0, 10)}.csv`);
         dlAnchor.click();
       }
 
@@ -1556,58 +1489,41 @@ function AdvanceLoanManagement() {
         <div className={styles.breadcrumb}>
           <span>Dashboard</span>
           <span>/</span>
-          {tab === 'advances' ? (
+          {tab === 'schedule' ? (
             <>
-              <span>Advances &amp; Loans</span>
-              <span>/</span>
-              <strong>Salary Advances</strong>
-            </>
-          ) : tab === 'loans' ? (
-            <>
-              <span>Advances &amp; Loans</span>
-              <span>/</span>
-              <strong>Employee Loans</strong>
-            </>
-          ) : tab === 'schedule' ? (
-            <>
-              <span>Advances &amp; Loans</span>
+              <span>Loans</span>
               <span>/</span>
               <strong>Deduction Schedule</strong>
             </>
           ) : tab === 'history' ? (
             <>
-              <span>Advances &amp; Loans</span>
+              <span>Loans</span>
               <span>/</span>
               <strong>Deduction History</strong>
             </>
           ) : (
-            <strong>Advances &amp; Loans</strong>
+            <strong>Employee Loans</strong>
           )}
         </div>
 
         <header className={styles.pageHeader}>
           <div>
-            <h1>
-              {tab === 'advances'
-                ? 'Salary Advances'
-                : tab === 'loans'
-                ? 'Employee Loans'
-                : tab === 'schedule'
-                ? 'Deduction Schedule'
-                : tab === 'history'
-                ? 'Deduction History'
-                : 'Advance & Loan Management'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1>
+                {tab === 'schedule'
+                  ? 'Loan Deduction Schedule'
+                  : tab === 'history'
+                  ? 'Loan Deduction History'
+                  : 'Loan Management'}
+              </h1>
+            </div>
             <p>
-              {tab === 'advances'
-                ? 'Manage employee salary advance requests, approval workflows and adjustments.'
-                : tab === 'loans'
-                ? 'Manage employee loan applications, interest calculations, EMIs and approvals.'
-                : tab === 'schedule'
-                ? 'Track active monthly advance and loan EMI deductions against salaries.'
+              {tab === 'schedule'
+                ? 'Track active monthly loan EMI schedules and remaining balances against employee salaries.'
                 : tab === 'history'
-                ? 'View previously recorded salary deductions and repayment history.'
-                : 'Manage employee advances, loans, approvals and salary deductions.'}
+                ? 'View recorded monthly loan EMI salary deductions and repayment history.'
+                : 'Manage employee loan applications, interest calculations, EMIs and approvals.'}
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -1619,31 +1535,20 @@ function AdvanceLoanManagement() {
             >
               <RefreshCw size={15} /> Refresh
             </button>
-            {tab === 'all' && (
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => setTab('history')}
-              >
-                Deduction History
-              </button>
-            )}
-            {canAdd('advances_loans') && tab !== 'advances' && (
-              <button
-                type="button"
-                className={styles.secondaryButton}
-                onClick={() => setRequestModal({ type: 'loan' })}
-              >
-                <Plus size={16} /> Request Loan
-              </button>
-            )}
-            {canAdd('advances_loans') && tab !== 'loans' && (
+            <button
+              type="button"
+              className={styles.secondaryButton}
+              onClick={() => setExportOpen(true)}
+            >
+              <Download size={15} /> Export Report
+            </button>
+            {tab !== 'schedule' && tab !== 'history' && canAdd('advances_loans') && (
               <button
                 type="button"
                 className={styles.primaryButton}
-                onClick={() => setRequestModal({ type: 'advance' })}
+                onClick={() => setRequestModal({ type: 'loan' })}
               >
-                <Plus size={16} /> Request Advance
+                <Plus size={16} /> Request Loan
               </button>
             )}
           </div>
@@ -1656,97 +1561,14 @@ function AdvanceLoanManagement() {
           </div>
         ) : (
           <>
-            <SummaryCards requests={requests} tab={tab} />
-            <Overview requests={requests} tab={tab} />
-
-            <div className={styles.infoCard}>
-              <strong>Salary Adjustment</strong>
-              <span>
-                {tab === 'advances'
-                  ? "Approved advances will be deducted from the employee's next salary payout."
-                  : tab === 'loans'
-                  ? "Approved loans will be deducted monthly based on configured EMI schedules."
-                  : "Approved advances and loan deductions will be adjusted against the employee's monthly salary."}
-              </span>
-            </div>
-
             {tab !== 'schedule' && tab !== 'history' && (
-              <section className={styles.sectionIntro}>
-                <div>
-                  <h2 className={styles.sectionTitle}>
-                    {tab === 'advances'
-                      ? 'Salary Advance Requests'
-                      : tab === 'loans'
-                      ? 'Employee Loan Applications'
-                      : 'Advance & Loan Requests'}
-                  </h2>
-                  <p className={styles.sectionSubtext}>
-                    {tab === 'advances'
-                      ? 'View and manage employee advance requests.'
-                      : tab === 'loans'
-                      ? 'View and manage employee loan applications.'
-                      : 'View and manage employee financial requests.'}
-                  </p>
-                </div>
-                <div className={styles.introActions}>
-                  <button
-                    type="button"
-                    className={styles.secondaryButton}
-                    onClick={() => setExportOpen(true)}
-                  >
-                    <Download size={15} /> Export Report
-                  </button>
-                  {tab !== 'advances' && (
-                    <button
-                      type="button"
-                      className={styles.secondaryButton}
-                      onClick={() => setRequestModal({ type: 'loan' })}
-                    >
-                      <Plus size={16} /> Request Loan
-                    </button>
-                  )}
-                  {tab !== 'loans' && (
-                    <button
-                      type="button"
-                      className={styles.primaryButton}
-                      onClick={() => setRequestModal({ type: 'advance' })}
-                    >
-                      <Plus size={16} /> Request Advance
-                    </button>
-                  )}
-                </div>
-              </section>
-            )}
-
-            {(tab === 'schedule' || tab === 'history') && (
-              <section className={styles.sectionIntro}>
-                <div>
-                  <h2 className={styles.sectionTitle}>
-                    {tab === 'schedule'
-                      ? 'Deduction Schedule'
-                      : 'Deduction History'}
-                  </h2>
-                  <p className={styles.sectionSubtext}>
-                    {tab === 'schedule'
-                      ? 'Track approved advances and loans against monthly salary.'
-                      : 'View previously recorded salary deductions.'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => setExportOpen(true)}
-                >
-                  <Download size={15} /> Export Report
-                </button>
-              </section>
+              <SummaryCards requests={requests} />
             )}
 
             <Filters
               values={filters}
               setValue={setFilter}
               reset={reset}
-              tab={tab}
               clients={clients}
               employees={employees}
             />
@@ -1783,7 +1605,7 @@ function AdvanceLoanManagement() {
                       ? 'No active deduction schedules found.'
                       : tab === 'history'
                       ? 'No deduction history found.'
-                      : 'No advance or loan requests found.'
+                      : 'No loan requests found.'
                   }
                   description="Try changing your filters or create a new request."
                   actionLabel="Reset Filters"
@@ -1810,11 +1632,11 @@ function AdvanceLoanManagement() {
               <section className={styles.analyticsCard}>
                 <h2 className={styles.sectionTitle}>Pending Approvals</h2>
                 <p>
-                  {requests.filter((item) => item.status === 'pending').length}{' '}
-                  requests are waiting for approval.
+                  {requests.filter((item) => item.type === 'loan' && item.status === 'pending').length}{' '}
+                  loan requests are waiting for approval.
                 </p>
                 {requests
-                  .filter((item) => item.status === 'pending')
+                  .filter((item) => item.type === 'loan' && item.status === 'pending')
                   .slice(0, 4)
                   .map((item) => (
                     <button

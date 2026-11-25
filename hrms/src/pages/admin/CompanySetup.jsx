@@ -260,7 +260,7 @@ const SETUP_MODULES = [
   {
     id: 'salary-deductions',
     title: 'Deductions',
-    desc: 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, food deductions, and salary advances.',
+    desc: 'Configure statutory deductions (PF, ESI, PT, TDS), loan recoveries, and food deductions.',
     category: 'payroll-setup',
     icon: Landmark,
     badge: 'Deductions',

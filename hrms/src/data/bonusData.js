@@ -14,7 +14,7 @@ export const BONUS_CONSTANTS = {
 
 export const BONUS_TYPES = [
   'Annual Statutory Bonus (Act 1965)',
-  'Festive / Diwali Advance Bonus',
+  'Festive / Diwali Interim Bonus',
   'Performance Ex-Gratia Bonus',
   'Attendance & Loyalty Bonus'
 ];
@@ -119,7 +119,7 @@ export const INITIAL_BONUS_RECORDS = [
     disbursedDate: '2026-10-22',
     approvedBy: 'Meenakshi Iyer (Finance Lead)',
     formCSerialNo: 'FC-2026-081',
-    remarks: 'Prorated for 298 days. Diwali advance adjusted.'
+    remarks: 'Prorated for 298 days. Interim festive bonus adjusted.'
   },
   {
     id: 'bon_002',
@@ -168,7 +168,7 @@ export const INITIAL_BONUS_RECORDS = [
     grossBonus: 6647,
     interimAdvance: 1500,
     netBonusPayable: 5147,
-    bonusType: 'Festive / Diwali Advance Bonus',
+    bonusType: 'Festive / Diwali Interim Bonus',
     status: 'Pending Approval',
     paymentMode: 'NEFT Transfer',
     utrNumber: '—',

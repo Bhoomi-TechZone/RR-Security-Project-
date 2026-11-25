@@ -5,7 +5,7 @@ export const advanceLoanReportData = mockAdvanceLoanRequests.slice(0, 10).map((r
   employee: request.employeeName,
   employeeId: request.employeeId,
   client: request.clientName,
-  type: request.type === 'loan' ? 'Loan' : 'Advance',
+  type: 'Loan',
   amount: request.amount,
   approvedAmount: request.approvedAmount,
   deducted: request.deductedAmount,

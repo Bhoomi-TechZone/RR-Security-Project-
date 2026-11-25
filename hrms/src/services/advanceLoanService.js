@@ -33,7 +33,7 @@ class AdvanceLoanService {
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.message || 'Failed to fetch advance & loan requests');
+      throw new Error(data.message || 'Failed to fetch loan requests');
     }
     return data.data || [];
   }
@@ -197,7 +197,7 @@ class AdvanceLoanService {
 
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.message || 'Failed to fetch advance and loan statistics');
+      throw new Error(data.message || 'Failed to fetch loan statistics');
     }
     return data.data;
   }

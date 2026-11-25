@@ -495,7 +495,7 @@ export async function generateSalarySlipPdf({
     ...(pt > 0 ? [{ label: 'Professional Tax (PT)', amount: pt }] : []),
     ...(tds > 0 ? [{ label: 'Tax Deducted at Source (TDS)', amount: tds }] : []),
     ...(lwf > 0 ? [{ label: 'Labour Welfare Fund (LWF)', amount: lwf }] : []),
-    ...(advance > 0 ? [{ label: 'Advance / Loan Recovery', amount: advance }] : []),
+    ...(advance > 0 ? [{ label: 'Loan Recovery', amount: advance }] : []),
     ...(otherDeductions > 0 ? [{ label: 'Other Deductions', amount: otherDeductions }] : []),
   ];
 

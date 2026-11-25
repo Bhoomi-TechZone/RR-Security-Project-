@@ -48,7 +48,6 @@ const DEFAULT_FALLBACK_EARNINGS = [
 
 const DEFAULT_FALLBACK_DEDUCTIONS = [
   { name: 'Uniform', code: 'UF', type: 'deduction', status: 'active' },
-  { name: 'Advance', code: 'Adv', type: 'deduction', status: 'active' },
   { name: 'Loan', code: 'Loan', type: 'deduction', status: 'active' }
 ];
 

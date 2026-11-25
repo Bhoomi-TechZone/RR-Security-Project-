@@ -14,6 +14,11 @@ import EmployeeTaxDeclaration from './pages/employee/EmployeeTaxDeclaration'
 import MyAdvancesLoans from './pages/employee/MyAdvancesLoans'
 import EmployeeNotifications from './pages/employee/EmployeeNotifications'
 import MyAssetsUniform from './pages/employee/MyAssetsUniform'
+import MyRequests from './pages/employee/MyRequests'
+import MyOvertime from './pages/employee/MyOvertime'
+import MyReimbursements from './pages/employee/MyReimbursements'
+import MyLetters from './pages/employee/MyLetters'
+import MyResignation from './pages/employee/MyResignation'
 import EmployeeLayout from './components/layout/EmployeeLayout'
 import ClientLayout from './components/layout/ClientLayout'
 import ClientDashboard from './pages/dashboards/ClientDashboard'
@@ -233,7 +238,7 @@ function App() {
         <Route path="income-tax" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Income Tax Management"><IncomeTaxManagement /></ModulePermissionRoute>} />
         <Route path="payroll-setup" element={<ModulePermissionRoute moduleKey="payroll_setup" moduleTitle="Payroll Setup"><PayrollSetup /></ModulePermissionRoute>} />
         <Route path="statutory-setup" element={<ModulePermissionRoute moduleKey="statutory_setup" moduleTitle="Statutory Setup"><StatutorySetup /></ModulePermissionRoute>} />
-        <Route path="advances-loans" element={<ModulePermissionRoute moduleKey="advances_loans" moduleTitle="Advances & Loans"><AdvanceLoanManagement /></ModulePermissionRoute>} />
+        <Route path="advances-loans" element={<ModulePermissionRoute moduleKey="advances_loans" moduleTitle="Loans"><AdvanceLoanManagement /></ModulePermissionRoute>} />
         <Route path="reimbursements" element={<ModulePermissionRoute moduleKey="reimbursements" moduleTitle="Reimbursements"><Reimbursements /></ModulePermissionRoute>} />
         <Route path="overtime" element={<ModulePermissionRoute moduleKey="overtime" moduleTitle="Overtime"><Overtime /></ModulePermissionRoute>} />
 
@@ -261,13 +266,18 @@ function App() {
       <Route path="/employee" element={<EmployeeLayout />}>
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<EmployeeDashboard />} />
+        <Route path="requests" element={<MyRequests />} />
         <Route path="attendance" element={<MyAttendance />} />
         <Route path="leave" element={<MyLeave />} />
+        <Route path="overtime" element={<MyOvertime />} />
         <Route path="salary-slips" element={<MySalarySlips />} />
         <Route path="tax-declaration" element={<EmployeeTaxDeclaration />} />
         <Route path="advances-loans" element={<MyAdvancesLoans />} />
+        <Route path="reimbursements" element={<MyReimbursements />} />
         <Route path="assets" element={<MyAssetsUniform />} />
         <Route path="uniforms" element={<MyAssetsUniform />} />
+        <Route path="letters" element={<MyLetters />} />
+        <Route path="resignation" element={<MyResignation />} />
         <Route path="notifications" element={<EmployeeNotifications />} />
       </Route>
 

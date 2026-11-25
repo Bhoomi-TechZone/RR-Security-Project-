@@ -58,7 +58,7 @@ export const downloadSalarySheetFormat2Excel = (
       'ATTENDANCE (Month Day, Present, EL, CL, W.Off, Holiday, SL, LWP, Payable, OT)',
       'RATE OF PAY (BASIC, D.A., HRA, CONV ALLO, ARREAR, SPEC ALLO, DW, BONUS, LEAVE, Total)',
       'EARNINGS (BASIC, D.A., HRA, CONV ALLO, ARREAR, SPEC ALLOW, DW, BONUS, LEAVE, UNI ALLOW, OT, Total)',
-      'DEDUCTION (PF, ESI, LWF, ADVANCE, OTHER DED, UNI, NIGHT SLP, LOAN, ADVANCE, Total)',
+      'DEDUCTION (PF, ESI, LWF, OTHER DED, UNI, NIGHT SLP, LOAN, Total)',
       'NET PAYABLE',
       'Signature'
     ]
@@ -111,8 +111,7 @@ export const downloadSalarySheetFormat2Excel = (
     const dedText = [
       `PF: ${ded.pf || 0} | UNI: 0`,
       `ESI: ${ded.esi || 0} | NIGHT SLP: 0`,
-      `LWF: ${ded.lwf || 0} | LOAN: ${ded.loan || 0}`,
-      `ADVANCE: ${ded.advance || 0} | ADVANCE: 0`,
+      `LWF: ${ded.lwf || 0} | LOAN: ${(ded.loan || 0) + (ded.advance || 0)}`,
       `OTHER DED: ${ded.othDed || 0}`,
       `Total : ${row.grossDeduct || 0}`
     ].join('\n');
@@ -308,7 +307,7 @@ export const downloadSalarySheetFormat2Pdf = async (
       { content: 'ATTENDANCE\nMonth Day\nPresent        EL\nW.Off           CL\nHoliday        SL\nLWP\nPayable        OT', styles: { halign: 'left', valign: 'middle' } },
       { content: 'RATE OF PAY\nBASIC           SPEC ALLO\nD.A.              DW\nHRA              BONUS\nCONV ALLO   LEAVE\nARREAR', styles: { halign: 'left', valign: 'middle' } },
       { content: 'E A R N I N G S\nBASIC           SPEC ALLOW\nD.A.              DW\nHRA              BONUS\nCONV ALLO   LEAVE\nARREAR         UNI ALLOW\n                    OT AMOUNT', styles: { halign: 'left', valign: 'middle' } },
-      { content: 'D E D U C T I O N\nPF                 UNI\nESI               NIGHT SLP\nLWF              LOAN\nADVANCE      ADVANCE\nOTHER DED', styles: { halign: 'left', valign: 'middle' } },
+      { content: 'D E D U C T I O N\nPF                 UNI\nESI               NIGHT SLP\nLWF              LOAN\nOTHER DED', styles: { halign: 'left', valign: 'middle' } },
       { content: 'NET PAYABLE\n\n\n\nSignature', styles: { halign: 'center', valign: 'middle' } },
     ]
   ];

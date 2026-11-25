@@ -241,8 +241,8 @@ export const createAdvanceLoanRequest = async (req, res) => {
       recipientRole: 'admin',
       recipientId: 'admin',
       type: 'advance-loan',
-      title: `New ${body.type === 'loan' ? 'Loan Application' : 'Advance Request'}: ₹${amount.toLocaleString('en-IN')}`,
-      message: `${employeeName} (${employeeId}) applied for a ${body.type} of ₹${amount.toLocaleString('en-IN')} for ${body.reason}.`,
+      title: `New Loan Application: ₹${amount.toLocaleString('en-IN')}`,
+      message: `${employeeName} (${employeeId}) applied for a loan of ₹${amount.toLocaleString('en-IN')} for ${body.reason}.`,
       employeeId,
       employeeName,
       clientName: clientName || '',
@@ -254,7 +254,7 @@ export const createAdvanceLoanRequest = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `${body.type === 'loan' ? 'Loan' : 'Advance'} request submitted successfully`,
+      message: `Loan request submitted successfully`,
       data: savedRequest
     });
   } catch (error) {
@@ -478,8 +478,8 @@ export const approveAdvanceLoanRequest = async (req, res) => {
         employeeId: request.employeeId,
         employeeName: request.employeeName,
         type: 'advance-loan',
-        title: `${request.type === 'loan' ? 'Loan Application' : 'Advance Request'} Approved`,
-        message: `Your ${request.type} request of ₹${totalRepayable.toLocaleString('en-IN')} has been approved.`,
+        title: `Loan Application Approved`,
+        message: `Your loan request of ₹${totalRepayable.toLocaleString('en-IN')} has been approved.`,
         targetUrl: '/employee/notifications',
         referenceId: request.requestId,
         priority: 'normal'
@@ -488,7 +488,7 @@ export const approveAdvanceLoanRequest = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: `${request.type === 'loan' ? 'Loan' : 'Advance'} request approved successfully`,
+      message: `Loan request approved successfully`,
       data: request
     });
   } catch (error) {
@@ -550,8 +550,8 @@ export const rejectAdvanceLoanRequest = async (req, res) => {
         employeeId: request.employeeId,
         employeeName: request.employeeName,
         type: 'advance-loan',
-        title: `${request.type === 'loan' ? 'Loan Application' : 'Advance Request'} Rejected`,
-        message: `Your ${request.type} request was rejected.${reason ? ` Reason: ${reason}` : ''}`,
+        title: `Loan Application Rejected`,
+        message: `Your loan request was rejected.${reason ? ` Reason: ${reason}` : ''}`,
         targetUrl: '/employee/notifications',
         referenceId: request.requestId,
         priority: 'important'

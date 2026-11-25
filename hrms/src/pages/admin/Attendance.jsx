@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw, CalendarDays, CalendarRange, LayoutDashboard } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -15,6 +15,7 @@ import AttendanceExportModal from '../../components/attendance/AttendanceExportM
 import AttendanceImportModal from '../../components/attendance/AttendanceImportModal';
 import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
@@ -305,6 +306,8 @@ function Attendance() {
   const [isLoading, setIsLoading] = useState(true);
 
   // --- Granular Filter View Mode & Date States ---
+  const location = useLocation();
+  const isFromRequestsHub = Boolean(location.state?.fromRequestsHub);
   const [searchParams, setSearchParams] = useSearchParams();
   const todayStr = getLocalDateStr();
   const currentMonthStr = todayStr.slice(0, 7);
@@ -436,7 +439,7 @@ function Attendance() {
         next.delete('date');
       }
       return next;
-    });
+    }, { state: location.state });
   };
 
   const handlePrevWeek = () => {
@@ -1014,9 +1017,12 @@ function Attendance() {
             <div className={styles.breadcrumb}>
               <span>Home</span> / <span>Workforce</span> / <span className={styles.activeBreadcrumb}>Attendance</span>
             </div>
-            <h1 className={styles.pageTitle}>
-              {activeTab === 'corrections' ? 'Correction Requests' : 'Attendance Management'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.pageTitle}>
+                {activeTab === 'corrections' ? 'Correction Requests' : 'Attendance Management'}
+              </h1>
+            </div>
           </div>
 
           <div className={styles.headerActions}>
@@ -1030,7 +1036,7 @@ function Attendance() {
               <RefreshCw size={15} />
               <span>Refresh</span>
             </button>
-            {canAdd('attendance') && (
+            {!isFromRequestsHub && canAdd('attendance') && (
               <button
                 className={styles.importBtn}
                 onClick={() => setShowImportModal(true)}
@@ -1051,8 +1057,9 @@ function Attendance() {
           </div>
         </div>
 
-        {/* Tabs Navigation */}
-        <div className={styles.tabsRow}>
+        {/* Tabs Navigation (hidden when opened directly from Request Hub card) */}
+        {!isFromRequestsHub && (
+          <div className={styles.tabsRow}>
           <button
             type="button"
             className={`${styles.tabBtn} ${activeTab === 'daily' ? styles.activeTab : ''}`}
@@ -1100,7 +1107,8 @@ function Attendance() {
               <span className={styles.badgeCount}>{pendingCorrectionsCount}</span>
             )}
           </button>
-        </div>
+          </div>
+        )}
 
         {/* TAB CONTENT: DAILY / WEEKLY / MONTHLY */}
         {activeTab !== 'corrections' && (

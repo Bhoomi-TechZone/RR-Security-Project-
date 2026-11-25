@@ -1,4 +1,4 @@
-// NovaSpark HRMS - Mock advance and loan requests.
+// NovaSpark HRMS - Mock loan requests.
 // Replace with API data when the backend is ready.
 import { mockEmployees } from './employeeData';
 
@@ -7,10 +7,10 @@ const statuses = ['pending', 'approved', 'rejected', 'completed'];
 
 export const mockAdvanceLoanRequests = Array.from({ length: 32 }, (_, index) => {
   const employee = mockEmployees[index % mockEmployees.length];
-  const type = index % 3 === 0 ? 'loan' : 'advance';
-  const amount = type === 'loan' ? [50000, 75000, 100000][index % 3] : [15000, 25000, 35000][index % 3];
-  const numberOfMonths = type === 'loan' ? (index % 3) + 5 : 1;
-  const emiAmount = type === 'loan' ? Math.ceil(amount / numberOfMonths) : amount;
+  const type = 'loan';
+  const amount = [50000, 75000, 100000][index % 3];
+  const numberOfMonths = (index % 3) + 5;
+  const emiAmount = Math.ceil(amount / numberOfMonths);
   const status = statuses[index % statuses.length];
   const requestDate = `2026-08-${String(2 + (index % 23)).padStart(2, '0')}`;
   const approvedAmount = status === 'approved' || status === 'completed' ? amount : 0;

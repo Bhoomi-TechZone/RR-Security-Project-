@@ -28,6 +28,7 @@ import authService from '../../services/authService';
 import { advanceLoanService } from '../../services/advanceLoanService';
 import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import styles from './MyAdvancesLoans.module.css';
 
 const formatRupee = (val) =>
@@ -54,8 +55,9 @@ const formatDate = (val) => {
 
 export default function MyAdvancesLoans() {
   const { activeCompany } = useCompany();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const currentTab = searchParams.get('tab') || 'all'; // 'all' | 'advances' | 'loans' | 'schedule' | 'history'
+  const [searchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab');
+  const currentTab = ['schedule', 'history'].includes(rawTab) ? rawTab : 'loans'; // 'loans' | 'schedule' | 'history'
 
   const currentUser = authService.getCurrentUser() || authService.getUser() || {};
   const companyId = activeCompany?._id || activeCompany?.companyId || currentUser?.companyId || 'RRS8392014SEC';
@@ -74,7 +76,7 @@ export default function MyAdvancesLoans() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  // Modals: null | 'advance' | 'loan'
+  // Modals: null | 'loan'
   const [modalType, setModalType] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
 
@@ -85,17 +87,6 @@ export default function MyAdvancesLoans() {
   };
 
   const currentYearMonth = new Date().toISOString().slice(0, 7);
-
-  // Advance Form State
-  const [advanceForm, setAdvanceForm] = useState({
-    amount: '',
-    reason: 'Emergency',
-    otherReason: '',
-    deductionMethod: 'salary-adjustment',
-    firstDeductionMonth: currentYearMonth,
-    remarks: ''
-  });
-  const [advanceErrors, setAdvanceErrors] = useState({});
 
   // Loan Form State
   const [loanForm, setLoanForm] = useState({
@@ -109,24 +100,24 @@ export default function MyAdvancesLoans() {
   const [loanErrors, setLoanErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
-  // Fetch employee requests, schedules & history from MongoDB
+  // Fetch employee loan requests, schedules & history from MongoDB
   const loadData = useCallback(async (isSilent = false) => {
     try {
       if (!isSilent) setLoading(true);
       else setRefreshing(true);
 
       const [reqData, schedData, histData] = await Promise.all([
-        advanceLoanService.getRequests(companyId, { employee: employeeId }).catch(() => []),
-        advanceLoanService.getSchedules(companyId, { employee: employeeId }).catch(() => []),
-        advanceLoanService.getHistory(companyId, { employee: employeeId }).catch(() => [])
+        advanceLoanService.getRequests(companyId, { employee: employeeId, type: 'loan' }).catch(() => []),
+        advanceLoanService.getSchedules(companyId, { employee: employeeId, type: 'loan' }).catch(() => []),
+        advanceLoanService.getHistory(companyId, { employee: employeeId, type: 'loan' }).catch(() => [])
       ]);
 
-      setRequests(Array.isArray(reqData) ? reqData : []);
-      setSchedules(Array.isArray(schedData) ? schedData : []);
-      setHistory(Array.isArray(histData) ? histData : []);
+      setRequests(Array.isArray(reqData) ? reqData.filter((r) => r.type === 'loan') : []);
+      setSchedules(Array.isArray(schedData) ? schedData.filter((s) => s.type === 'loan') : []);
+      setHistory(Array.isArray(histData) ? histData.filter((h) => h.type === 'loan') : []);
     } catch (err) {
-      console.error('Error loading advances & loans:', err);
-      showToast('Failed to load advances & loans data', 'error');
+      console.error('Error loading loans:', err);
+      showToast('Failed to load loans data', 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -136,20 +127,6 @@ export default function MyAdvancesLoans() {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  // Open distinct modals
-  const handleOpenAdvanceModal = () => {
-    setAdvanceForm({
-      amount: '',
-      reason: 'Emergency',
-      otherReason: '',
-      deductionMethod: 'salary-adjustment',
-      firstDeductionMonth: currentYearMonth,
-      remarks: ''
-    });
-    setAdvanceErrors({});
-    setModalType('advance');
-  };
 
   const handleOpenLoanModal = () => {
     setLoanForm({
@@ -171,60 +148,6 @@ export default function MyAdvancesLoans() {
     const months = Math.max(1, Number(loanForm.numberOfMonths || 1));
     return Math.ceil(principal / months);
   }, [loanForm.amount, loanForm.numberOfMonths]);
-
-  // Submit Advance Request
-  const handleSubmitAdvance = async (e) => {
-    e.preventDefault();
-    const errs = {};
-    const amt = Number(advanceForm.amount);
-    if (!advanceForm.amount || amt <= 0) {
-      errs.amount = 'Please enter a valid advance amount greater than ₹0';
-    } else if (amt > 100000) {
-      errs.amount = 'Salary advance cannot exceed ₹1,00,000';
-    }
-
-    if (!advanceForm.reason) {
-      errs.reason = 'Please select a reason';
-    } else if (advanceForm.reason === 'Other' && !advanceForm.otherReason?.trim()) {
-      errs.otherReason = 'Please specify reason';
-    }
-
-    if (Object.keys(errs).length > 0) {
-      setAdvanceErrors(errs);
-      return;
-    }
-
-    try {
-      setSubmitting(true);
-      const payload = {
-        employeeId,
-        employeeName,
-        department,
-        designation,
-        type: 'advance',
-        amount: Number(advanceForm.amount),
-        reason: advanceForm.reason === 'Other' ? advanceForm.otherReason.trim() : advanceForm.reason,
-        otherReason: advanceForm.reason === 'Other' ? advanceForm.otherReason.trim() : '',
-        deductionMethod: advanceForm.deductionMethod,
-        numberOfMonths: advanceForm.deductionMethod === 'monthly-emi' ? 2 : 1,
-        emiAmount: Number(advanceForm.amount),
-        firstDeductionMonth: advanceForm.firstDeductionMonth,
-        adjustmentMonth: advanceForm.firstDeductionMonth,
-        remarks: advanceForm.remarks?.trim() || '',
-        requestDate: new Date().toISOString().slice(0, 10)
-      };
-
-      await advanceLoanService.createRequest(companyId, payload);
-      showToast('Salary advance request submitted successfully!', 'success');
-      setModalType(null);
-      loadData(true);
-    } catch (err) {
-      console.error('Failed to submit advance:', err);
-      showToast(err.message || 'Failed to submit advance request', 'error');
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   // Submit Loan Request
   const handleSubmitLoan = async (e) => {
@@ -285,11 +208,10 @@ export default function MyAdvancesLoans() {
     }
   };
 
-  // Filter requests based on tab & search
+  // Filter loan requests based on search & status
   const filteredRequests = useMemo(() => {
     return requests.filter((req) => {
-      if (currentTab === 'advances' && req.type !== 'advance') return false;
-      if (currentTab === 'loans' && req.type !== 'loan') return false;
+      if (req.type !== 'loan') return false;
       if (statusFilter !== 'all' && req.status !== statusFilter) return false;
       if (search.trim()) {
         const query = search.toLowerCase();
@@ -300,25 +222,11 @@ export default function MyAdvancesLoans() {
       }
       return true;
     });
-  }, [requests, currentTab, statusFilter, search]);
+  }, [requests, statusFilter, search]);
 
-  // Tab Counts
-  const advanceCount = useMemo(() => requests.filter((r) => r.type === 'advance').length, [requests]);
-  const loanCount = useMemo(() => requests.filter((r) => r.type === 'loan').length, [requests]);
-
-  // Dynamic KPI Stats based on currentTab
+  // Dynamic KPI Stats for Loans
   const kpiStats = useMemo(() => {
-    let sourceList = requests;
-    let labelPrefix = 'Request';
-
-    if (currentTab === 'advances') {
-      sourceList = requests.filter((r) => r.type === 'advance');
-      labelPrefix = 'Advance';
-    } else if (currentTab === 'loans') {
-      sourceList = requests.filter((r) => r.type === 'loan');
-      labelPrefix = 'Loan';
-    }
-
+    const sourceList = requests.filter((r) => r.type === 'loan');
     const total = sourceList.length;
     const pending = sourceList.filter((r) => r.status === 'pending').length;
     const approvedAmount = sourceList
@@ -330,27 +238,27 @@ export default function MyAdvancesLoans() {
 
     return {
       card1: {
-        label: currentTab === 'advances' ? 'Total Advance Requests' : currentTab === 'loans' ? 'Total Loan Applications' : 'Total Requests',
+        label: 'Total Loan Applications',
         value: total,
         sub: 'Submitted to date'
       },
       card2: {
-        label: `Pending ${labelPrefix}s`,
+        label: 'Pending Loans',
         value: pending,
         sub: 'Awaiting HR approval'
       },
       card3: {
-        label: `Approved ${labelPrefix} Amount`,
+        label: 'Approved Loan Amount',
         value: formatRupee(approvedAmount),
         sub: 'Sanctioned funds'
       },
       card4: {
-        label: `Outstanding ${labelPrefix} Balance`,
+        label: 'Outstanding Loan Balance',
         value: formatRupee(outstanding),
         sub: 'Balance to be deducted'
       }
     };
-  }, [requests, currentTab]);
+  }, [requests]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -384,30 +292,20 @@ export default function MyAdvancesLoans() {
 
   const getPageHeaderInfo = () => {
     switch (currentTab) {
-      case 'advances':
-        return {
-          title: 'My Salary Advances',
-          subtitle: 'Apply for short-term salary advances, check approval status and upcoming payroll adjustments.'
-        };
-      case 'loans':
-        return {
-          title: 'My Loans',
-          subtitle: 'Apply for personal loans, choose repayment tenure, and track monthly EMI installments.'
-        };
       case 'schedule':
         return {
           title: 'Deduction Schedule',
-          subtitle: 'Track active monthly salary deductions, repayment progress bars and remaining balance.'
+          subtitle: 'Track active monthly loan deductions, repayment progress bars and remaining balance.'
         };
       case 'history':
         return {
           title: 'Deduction History',
-          subtitle: 'View historical salary deductions and past payment logs recorded against your payroll slips.'
+          subtitle: 'View historical loan deductions and past payment logs recorded against your payroll slips.'
         };
       default:
         return {
-          title: 'My Advances & Loans',
-          subtitle: 'Apply for advances and personal loans, check approval progress, and view deduction schedules.'
+          title: 'My Loans',
+          subtitle: 'Apply for personal loans, choose repayment tenure, and track monthly EMI installments.'
         };
     }
   };
@@ -430,27 +328,24 @@ export default function MyAdvancesLoans() {
             <div className={styles.breadcrumb}>
               <span>Employee Portal</span>
               <span>/</span>
-              <span>Advances & Loans</span>
-              {currentTab !== 'all' && (
+              <span>Loans</span>
+              {currentTab !== 'loans' && (
                 <>
                   <span>/</span>
                   <strong>
-                    {currentTab === 'advances'
-                      ? 'Advances'
-                      : currentTab === 'loans'
-                      ? 'Loans'
-                      : currentTab === 'schedule'
-                      ? 'Deduction Schedule'
-                      : 'Deduction History'}
+                    {currentTab === 'schedule' ? 'Deduction Schedule' : 'Deduction History'}
                   </strong>
                 </>
               )}
             </div>
-            <h1 className={styles.pageTitle}>{pageInfo.title}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.pageTitle}>{pageInfo.title}</h1>
+            </div>
             <p className={styles.pageSubtitle}>{pageInfo.subtitle}</p>
           </div>
 
-          {/* Action Buttons: Advance, Loan, Refresh */}
+          {/* Action Buttons: Loan, Refresh */}
           <div className={styles.headerActions}>
             <button
               type="button"
@@ -462,25 +357,13 @@ export default function MyAdvancesLoans() {
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
             </button>
 
-            {currentTab !== 'advances' && (
-              <button
-                type="button"
-                className={styles.applyLoanBtn}
-                onClick={handleOpenLoanModal}
-              >
-                <Plus size={16} /> Request Loan
-              </button>
-            )}
-
-            {currentTab !== 'loans' && (
-              <button
-                type="button"
-                className={styles.applyAdvanceBtn}
-                onClick={handleOpenAdvanceModal}
-              >
-                <Plus size={16} /> Request Advance
-              </button>
-            )}
+            <button
+              type="button"
+              className={styles.applyLoanBtn}
+              onClick={handleOpenLoanModal}
+            >
+              <Plus size={16} /> Request Loan
+            </button>
           </div>
         </div>
 
@@ -531,8 +414,8 @@ export default function MyAdvancesLoans() {
           </div>
         </div>
 
-        {/* Section View: All / Advances / Loans Table */}
-        {['all', 'advances', 'loans'].includes(currentTab) && (
+        {/* Section View: Loans Table */}
+        {currentTab === 'loans' && (
           <div className={styles.mainCard}>
             <div className={styles.toolbar}>
               <div className={styles.searchBox}>
@@ -578,24 +461,14 @@ export default function MyAdvancesLoans() {
             ) : filteredRequests.length === 0 ? (
               <EmptyState
                 icon={HandCoins}
-                title={`No ${currentTab === 'advances' ? 'advance' : currentTab === 'loans' ? 'loan' : ''} requests found`}
+                title="No loan requests found"
                 description={
                   search || statusFilter !== 'all'
                     ? 'No requests match your current filters.'
-                    : `You haven't submitted any ${
-                        currentTab === 'advances'
-                          ? 'salary advance'
-                          : currentTab === 'loans'
-                          ? 'personal loan'
-                          : 'advance or loan'
-                      } requests yet.`
+                    : "You haven't submitted any personal loan requests yet."
                 }
-                actionLabel={
-                  currentTab === 'loans' ? '+ Request Loan' : '+ Request Advance'
-                }
-                onAction={
-                  currentTab === 'loans' ? handleOpenLoanModal : handleOpenAdvanceModal
-                }
+                actionLabel="+ Request Loan"
+                onAction={handleOpenLoanModal}
               />
             ) : (
               <div className={styles.tableContainer}>
@@ -620,12 +493,8 @@ export default function MyAdvancesLoans() {
                           <span className={styles.reqId}>{row.requestId}</span>
                         </td>
                         <td>
-                          <span
-                            className={`${styles.typeBadge} ${
-                              row.type === 'loan' ? styles.loanBadge : styles.advanceBadge
-                            }`}
-                          >
-                            {row.type === 'loan' ? 'Loan' : 'Advance'}
+                          <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
+                            Loan
                           </span>
                         </td>
                         <td>{formatDate(row.requestDate || row.createdAt)}</td>
@@ -677,7 +546,7 @@ export default function MyAdvancesLoans() {
             <div className={styles.policyAlert}>
               <Info size={18} style={{ flexShrink: 0, marginTop: 2 }} />
               <div>
-                <strong>Active Deduction Schedules:</strong> Approved advances and loans are adjusted
+                <strong>Active Deduction Schedules:</strong> Approved loans are adjusted
                 automatically against your monthly salary. Repayment progress and remaining installments are tracked here.
               </div>
             </div>
@@ -721,12 +590,8 @@ export default function MyAdvancesLoans() {
                             <span className={styles.reqId}>{item.scheduleId || item.requestId || 'SCH-001'}</span>
                           </td>
                           <td>
-                            <span
-                              className={`${styles.typeBadge} ${
-                                item.type === 'loan' ? styles.loanBadge : styles.advanceBadge
-                              }`}
-                            >
-                              {item.type === 'loan' ? 'Loan' : 'Advance'}
+                            <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
+                              Loan
                             </span>
                           </td>
                           <td className={styles.amountCell}>{formatRupee(total)}</td>
@@ -810,12 +675,8 @@ export default function MyAdvancesLoans() {
                           <span className={styles.reqId}>{h.requestId || h.historyId || `TXN-${idx + 1}`}</span>
                         </td>
                         <td>
-                          <span
-                            className={`${styles.typeBadge} ${
-                              h.type === 'loan' ? styles.loanBadge : styles.advanceBadge
-                            }`}
-                          >
-                            {h.type === 'loan' ? 'Loan' : 'Advance'}
+                          <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
+                            Loan
                           </span>
                         </td>
                         <td>{h.salaryMonth || h.month || '—'}</td>
@@ -841,191 +702,7 @@ export default function MyAdvancesLoans() {
         )}
       </div>
 
-      {/* ── MODAL 1: APPLY FOR SALARY ADVANCE ──────────────── */}
-      {modalType === 'advance' && (
-        <div className={styles.modalOverlay} onClick={() => setModalType(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleGroup}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <HandCoins size={20} color="#2563eb" />
-                  <h2 className={styles.modalTitle}>Apply for Salary Advance</h2>
-                </div>
-                <p className={styles.modalSubtitle}>
-                  Request short-term financial advance adjusted against upcoming salary payout.
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setModalType(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitAdvance} className={styles.modalForm}>
-              <div className={styles.modalBody}>
-                {/* Employee Info Header Box */}
-                <div className={styles.empInfoBox}>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Employee Name</span>
-                    <span className={styles.infoValue}>{employeeName}</span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Employee ID</span>
-                    <span className={styles.infoValue}>{employeeId}</span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Designation</span>
-                    <span className={styles.infoValue}>{designation}</span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Department</span>
-                    <span className={styles.infoValue}>{department}</span>
-                  </div>
-                </div>
-
-                {/* Requested Amount */}
-                <div className={styles.formGroup}>
-                  <label className={`${styles.label} ${styles.labelWithPreview}`}>
-                    <span>Advance Amount (₹) <span className={styles.required}>*</span></span>
-                    {advanceForm.amount > 0 && (
-                      <span className={styles.amountPreviewBlue}>
-                        {formatRupee(advanceForm.amount)}
-                      </span>
-                    )}
-                  </label>
-                  <div className={styles.inputGroup}>
-                    <span className={styles.inputPrefix}>₹</span>
-                    <input
-                      type="number"
-                      min="500"
-                      step="500"
-                      placeholder="e.g. 10000"
-                      className={`${styles.input} ${styles.inputWithPrefix}`}
-                      value={advanceForm.amount}
-                      onChange={(e) => {
-                        setAdvanceForm({ ...advanceForm, amount: e.target.value });
-                        if (advanceErrors.amount) setAdvanceErrors({ ...advanceErrors, amount: null });
-                      }}
-                    />
-                  </div>
-                  {advanceErrors.amount && <span className={styles.errorText}>{advanceErrors.amount}</span>}
-                </div>
-
-                {/* Deduction Method */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Repayment Method <span className={styles.required}>*</span></label>
-                  <select
-                    className={styles.selectInput}
-                    value={advanceForm.deductionMethod}
-                    onChange={(e) => setAdvanceForm({ ...advanceForm, deductionMethod: e.target.value })}
-                  >
-                    <option value="salary-adjustment">Single Deduction (Next Salary Adjustment)</option>
-                    <option value="monthly-emi">Split Deduction (2 Months EMI)</option>
-                  </select>
-                </div>
-
-                {/* Expected Adjustment Month */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Adjustment Payroll Month</label>
-                  <input
-                    type="month"
-                    className={styles.input}
-                    value={advanceForm.firstDeductionMonth}
-                    onChange={(e) => setAdvanceForm({ ...advanceForm, firstDeductionMonth: e.target.value })}
-                  />
-                </div>
-
-                {/* Reason */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Reason / Purpose <span className={styles.required}>*</span></label>
-                  <select
-                    className={styles.selectInput}
-                    value={advanceForm.reason}
-                    onChange={(e) => {
-                      setAdvanceForm({ ...advanceForm, reason: e.target.value });
-                      if (advanceErrors.reason) setAdvanceErrors({ ...advanceErrors, reason: null });
-                    }}
-                  >
-                    <option value="Emergency">General Emergency</option>
-                    <option value="Medical Emergency">Medical Emergency</option>
-                    <option value="Family Emergency">Family Emergency</option>
-                    <option value="House Rent / Repair">House Rent / Repair</option>
-                    <option value="Festival / Marriage">Festival / Marriage Expenses</option>
-                    <option value="Travel Expenses">Travel / Commute</option>
-                    <option value="Other">Other (Please specify)</option>
-                  </select>
-                  {advanceErrors.reason && <span className={styles.errorText}>{advanceErrors.reason}</span>}
-                </div>
-
-                {advanceForm.reason === 'Other' && (
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Please Specify Reason <span className={styles.required}>*</span></label>
-                    <input
-                      type="text"
-                      placeholder="Specify your advance purpose..."
-                      className={styles.input}
-                      value={advanceForm.otherReason}
-                      onChange={(e) => setAdvanceForm({ ...advanceForm, otherReason: e.target.value })}
-                    />
-                    {advanceErrors.otherReason && (
-                      <span className={styles.errorText}>{advanceErrors.otherReason}</span>
-                    )}
-                  </div>
-                )}
-
-                {/* Remarks */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Additional Remarks / Justification (Optional)</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Provide any additional context for management review..."
-                    className={styles.textarea}
-                    value={advanceForm.remarks}
-                    onChange={(e) => setAdvanceForm({ ...advanceForm, remarks: e.target.value })}
-                  />
-                </div>
-
-                {/* Policy Notice */}
-                <div className={styles.policyAlert}>
-                  <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <span>
-                    Salary advances are adjusted against your upcoming monthly salary slip upon approval by HR/Management.
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={() => setModalType(null)}
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.submitBtn}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Submitting...
-                    </>
-                  ) : (
-                    'Submit Advance Request'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* ── MODAL 2: APPLY FOR PERSONAL LOAN ────────────────── */}
+      {/* ── MODAL: APPLY FOR PERSONAL LOAN ────────────────── */}
       {modalType === 'loan' && (
         <div className={styles.modalOverlay} onClick={() => setModalType(null)}>
           <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -1266,12 +943,8 @@ export default function MyAdvancesLoans() {
             <div className={styles.modalBody}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span
-                    className={`${styles.typeBadge} ${
-                      selectedRequest.type === 'loan' ? styles.loanBadge : styles.advanceBadge
-                    }`}
-                  >
-                    {selectedRequest.type === 'loan' ? 'Personal Loan' : 'Salary Advance'}
+                  <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
+                    Personal Loan
                   </span>
                   <span style={{ fontSize: 13, color: '#64748b' }}>Current Status:</span>
                 </div>

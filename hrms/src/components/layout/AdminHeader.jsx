@@ -216,7 +216,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       case 'reimbursement':
         return { icon: Receipt, bg: '#ecfdf5', color: '#059669', badgeBg: '#d1fae5', label: 'Claim' };
       case 'advance-loan':
-        return { icon: WalletCards, bg: '#fffbeb', color: '#d97706', badgeBg: '#fef3c7', label: 'Advance' };
+        return { icon: WalletCards, bg: '#fffbeb', color: '#d97706', badgeBg: '#fef3c7', label: 'Loan' };
       case 'uniform-request':
         return { icon: Shirt, bg: '#eff6ff', color: '#2563eb', badgeBg: '#dbeafe', label: 'Uniform' };
       case 'asset-request':
@@ -285,7 +285,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       if (location.search.includes('tab=bonus')) return 'Payroll / Bonus Management';
       return 'Payroll / Payroll Processing';
     }
-    if (path.startsWith('/admin/advances-loans')) return 'Payroll / Advances & Loans';
+    if (path.startsWith('/admin/advances-loans')) return 'Payroll / Loans';
     if (path.startsWith('/admin/overtime')) return 'Payroll / Overtime';
     if (path.startsWith('/admin/leave')) {
       if (location.search.includes('tab=encashment')) return 'Management / Leave / Leave Encashment';
@@ -294,7 +294,13 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       if (location.search.includes('tab=calendar')) return 'Management / Leave / Roster & Calendar';
       return 'Management / Leave';
     }
-    if (path.startsWith('/admin/inventory')) return 'Management / Inventory';
+    if (path.startsWith('/admin/inventory')) {
+      if (location.search.includes('tab=movement')) return 'Management / Inventory / Stock Movements';
+      if (location.search.includes('tab=clearance')) return 'Management / Inventory / Asset Clearance';
+      if (location.search.includes('type=asset')) return 'Management / Inventory / Assets';
+      if (location.search.includes('type=uniform')) return 'Management / Inventory / Uniforms';
+      return 'Management / Inventory';
+    }
     if (path.startsWith('/admin/reports')) return 'Management / Reports';
     if (path.startsWith('/admin/biometric-attendance')) return 'Workforce / Biometric Attendance';
     if (path.startsWith('/admin/attendance')) return 'Workforce / Attendance';
@@ -472,7 +478,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
 
                             <div className={styles.notifActionRow}>
                               <span className={styles.notifActionLink}>
-                                {notif.type === 'birthday' ? 'View Employee →' : notif.type === 'leave-application' ? 'Review Leave →' : notif.type === 'reimbursement' ? 'Review Claim →' : notif.type === 'advance-loan' ? 'Review Advance →' : 'View Details →'}
+                                {notif.type === 'birthday' ? 'View Employee →' : notif.type === 'leave-application' ? 'Review Leave →' : notif.type === 'reimbursement' ? 'Review Claim →' : notif.type === 'advance-loan' ? 'Review Loan →' : 'View Details →'}
                               </span>
                             </div>
                           </div>

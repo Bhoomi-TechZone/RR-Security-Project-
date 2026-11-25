@@ -26,6 +26,7 @@ import Pagination from '../../components/common/Pagination';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { usePermissions } from '../../context/PermissionContext';
 import { useCompany } from '../../context/CompanyContext';
 import overtimeService from '../../services/overtimeService';
@@ -1225,9 +1226,12 @@ function Overtime() {
 
         <header className={styles.header}>
           <div className={styles.titleBlock}>
-            <h1 className={styles.title}>
-              {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Client & Dept Overtime Analytics' : 'Overtime Management'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.title}>
+                {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Client & Dept Overtime Analytics' : 'Overtime Management'}
+              </h1>
+            </div>
             <p className={styles.subtitle}>
               {activeTab === 'requests' ? 'Review, approve or reject pending employee overtime claims.' : activeTab === 'history' ? 'Historical record of processed and approved overtime logs.' : activeTab === 'analytics' ? 'Live distribution of overtime hours and amounts across clients & departments.' : 'Review, manage and track employee overtime records.'}
             </p>

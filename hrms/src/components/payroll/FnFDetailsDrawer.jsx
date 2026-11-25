@@ -83,7 +83,7 @@ const DEFAULT_EARNING_COMPONENTS = [
 ];
 
 const DEFAULT_DEDUCTION_COMPONENTS = [
-  { key: 'advanceLoanRecovery', label: 'Advances & Loans Recovery', module: 'Advances & Loans', hint: 'Outstanding salary advance or loan balance' },
+  { key: 'advanceLoanRecovery', label: 'Loan Recovery', module: 'Loans', hint: 'Outstanding loan balance' },
   { key: 'noticeRecovery', label: 'Notice Period Recovery', module: 'Separation Notice', hint: 'Notice shortfall recovery if applicable' },
   { key: 'uniformPenalty', label: 'Asset / Uniform Recovery', module: 'Inventory', hint: 'Unreturned kit, uniform, or asset deduction' },
   { key: 'statutoryDeductions', label: 'Statutory Deductions (PF / ESIC / TDS)', module: 'Statutory', hint: 'Employee PF, ESIC, or tax deduction' }

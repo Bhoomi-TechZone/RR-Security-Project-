@@ -80,7 +80,7 @@ export default function WageSalaryRegisterTable({ reportData, selectedOptions = 
   const showDedCol1 = opt.dedPf !== false || opt.dedEsi !== false;
   const showDedCol2 = opt.dedPt !== false || opt.dedIt !== false || opt.dedLwf !== false;
   const showDedCol3 =
-    opt.dedAdvance !== false || opt.dedLoan !== false || opt.dedFood !== false;
+    opt.dedLoan !== false || opt.dedFood !== false;
   const showDedCol4 = opt.dedOther !== false || opt.dedMbill !== false;
   const dedColSpan =
     (showDedCol1 ? 1 : 0) +
@@ -226,8 +226,6 @@ export default function WageSalaryRegisterTable({ reportData, selectedOptions = 
               )}
               {showDedCol3 && (
                 <th style={{ minWidth: '50px', fontSize: '9px' }}>
-                  {opt.dedAdvance !== false && <span>Advance</span>}
-                  {opt.dedAdvance !== false && opt.dedLoan !== false && <br />}
                   {opt.dedLoan !== false && <span>LOAN</span>}
                   {opt.dedLoan !== false && opt.dedFood !== false && <br />}
                   {opt.dedFood !== false && <span>Food</span>}
@@ -439,11 +437,10 @@ export default function WageSalaryRegisterTable({ reportData, selectedOptions = 
                     </td>
                   )}
 
-                  {/* 13. Deductions (Col 3: Advance / Loan / Food) */}
+                  {/* 13. Deductions (Col 3: Loan / Food) */}
                   {showDedCol3 && (
                     <td className={styles.deductionCell}>
-                      {opt.dedAdvance !== false && <div>{ded.advance ?? 0}</div>}
-                      {opt.dedLoan !== false && <div style={{ color: '#64748b' }}>{ded.loan ?? 0}</div>}
+                      {opt.dedLoan !== false && <div>{(ded.loan ?? 0) + (ded.advance ?? 0)}</div>}
                       {opt.dedFood !== false && <div style={{ color: '#64748b' }}>{ded.food ?? 0}</div>}
                     </td>
                   )}

@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import styles from './IncomeTaxManagement.module.css';
 
 // Sub-item Tab Components
@@ -135,6 +136,7 @@ export default function IncomeTaxManagement() {
         <div className={styles.pageHeader}>
           <div className={styles.headerLeft}>
             <div className={styles.headerTitleRow}>
+              <RequestBackButton />
               <h1 className={styles.title}>{currentMeta.title}</h1>
               <span className={styles.fyPill}>
                 <Sparkles size={12} color="#2563eb" />

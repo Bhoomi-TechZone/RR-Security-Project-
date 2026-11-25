@@ -45,7 +45,7 @@ const TYPE_FILTER_OPTIONS = [
   { value: 'announcement', label: 'Announcement' },
   { value: 'salary', label: 'Salary' },
   { value: 'reimbursement', label: 'Reimbursement' },
-  { value: 'loan', label: 'Advance / Loan' },
+  { value: 'loan', label: 'Loan' },
   { value: 'document', label: 'Document' },
 ];
 
@@ -116,7 +116,7 @@ function typeBadgeLabel(type) {
     case 'leave': return 'Leave';
     case 'salary': return 'Salary';
     case 'reimbursement': return 'Reimbursement';
-    case 'loan': return 'Advance / Loan';
+    case 'loan': return 'Loan';
     case 'document': return 'Document';
     case 'announcement': return 'Announcement';
     default: return 'Notification';
