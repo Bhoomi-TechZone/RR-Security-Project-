@@ -53,21 +53,27 @@ function UpcomingEvents({ events = [], birthdayFallbackList = [], loading = fals
   const normalizedEvents = useMemo(() => {
     if (Array.isArray(events) && events.length > 0) {
       return events
-        .map((ev) => ({
-          ...ev,
-          monthDay: ev.monthDay || formatMonthDay(ev.date, ev.formattedDate)
-        }))
+        .map((ev) => {
+          const cleanLabel =
+            ev.location && typeof ev.label === 'string' && ev.label.endsWith(` (${ev.location})`)
+              ? ev.label.slice(0, -(` (${ev.location})`.length))
+              : ev.label;
+          return {
+            ...ev,
+            label: cleanLabel,
+            monthDay: ev.monthDay || formatMonthDay(ev.date, ev.formattedDate)
+          };
+        })
         .filter((ev) => isInCurrentOrNextMonth(ev.month, ev.monthDay, ev.daysLeft));
     }
     if (Array.isArray(birthdayFallbackList) && birthdayFallbackList.length > 0) {
       return birthdayFallbackList
         .map((b, idx) => {
-          const loc = (b.siteLocation || b.site || b.clientName || '').trim();
           const monthDay = formatMonthDay(b.shortDate, b.formattedDate);
           return {
             id: `birthday-${b._id || b.id || b.employeeId || idx}-${idx}`,
             type: 'birthday',
-            label: `${b.name}'s birthday${loc ? ` (${loc})` : ''}`,
+            label: `${b.name}'s birthday`,
             month: b.birthMonth,
             monthDay,
             daysLeft: b.daysLeft ?? 0,
