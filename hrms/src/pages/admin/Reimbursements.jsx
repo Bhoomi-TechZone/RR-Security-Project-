@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Receipt, Plus, Download, Tag, BarChart3, Check, X, AlertCircle, Loader2, RefreshCw
 } from 'lucide-react';
@@ -8,6 +8,7 @@ import styles from './Reimbursements.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
 import ConfirmModal from '../../components/common/ConfirmModal';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { usePermissions } from '../../context/PermissionContext';
 import { useCompany } from '../../context/CompanyContext';
 
@@ -29,6 +30,7 @@ import ReimbursementReports from '../../components/reimbursements/ReimbursementR
 
 export default function Reimbursements() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const { canAdd, canEdit, canDelete, canExport, canApprove } = usePermissions();
   const { activeCompanyId, activeCompany } = useCompany();
@@ -81,7 +83,7 @@ export default function Reimbursements() {
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    setSearchParams(newTab === 'claims' ? {} : { tab: newTab });
+    setSearchParams(newTab === 'claims' ? {} : { tab: newTab }, { state: location.state });
   };
 
   // --- TOAST NOTIFICATION STATE ---
@@ -391,7 +393,10 @@ export default function Reimbursements() {
               <span>/</span>
               <span>Reimbursements</span>
             </nav>
-            <h1 className={styles.pageTitle}>Reimbursement Management</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.pageTitle}>Reimbursement Management</h1>
+            </div>
             <p className={styles.pageSubtitle}>
               Manage employee expense claims, multi-tier approvals, payments and reimbursement records.
             </p>

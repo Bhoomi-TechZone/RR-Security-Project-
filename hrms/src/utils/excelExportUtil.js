@@ -41,7 +41,7 @@ export const generateReportExcel = ({
       'ESI Deduction': r.deductions?.esi || 0,
       'PT Deduction': r.deductions?.pt || 0,
       'TDS / IT': r.deductions?.it || 0,
-      'Advance / Loans': (r.deductions?.advance || 0) + (r.deductions?.loan || 0),
+      'Loans': (r.deductions?.advance || 0) + (r.deductions?.loan || 0),
       'Total Deductions': r.grossDeduct || 0,
       'Net Payable': r.netPayable || r.netPayableNumber || 0,
       'Bank Name': r.bankName || '—',

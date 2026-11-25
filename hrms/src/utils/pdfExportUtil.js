@@ -140,7 +140,7 @@ export const generateReportPdf = async ({
         { content: 'SP.All\nOT/PIB', styles: { halign: 'right', fontSize: 7 } },
         { content: 'P.F\nESI', styles: { halign: 'right', fontSize: 7 } },
         { content: 'P.T.\nI.T.\nLWF', styles: { halign: 'right', fontSize: 7 } },
-        { content: 'Advance\nLOAN\nFood', styles: { halign: 'right', fontSize: 7 } },
+        { content: 'LOAN\nFood', styles: { halign: 'right', fontSize: 7 } },
         { content: 'Oth.Ded\nE/Mbill', styles: { halign: 'right', fontSize: 7 } },
       ],
     ];
@@ -166,7 +166,7 @@ export const generateReportPdf = async ({
 
       const ded1 = `${ded.pf ?? 0}\n${ded.esi ?? 0}`;
       const ded2 = `${ded.pt ?? 0}\n${ded.it ?? 0}\n${ded.lwf ?? 0}`;
-      const ded3 = `${ded.advance ?? 0}\n${ded.loan ?? 0}\n${ded.food ?? 0}`;
+      const ded3 = `${(ded.loan ?? 0) + (ded.advance ?? 0)}\n${ded.food ?? 0}`;
       const ded4 = `${ded.othDed ?? 0}\n${ded.eMbill ?? 0}`;
 
       const bankBlock = `Bank: ${r.bankName || '—'}\nA/c: ${r.bankAccountNo || '—'}\n\nSign: _________`;

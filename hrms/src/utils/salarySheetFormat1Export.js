@@ -228,7 +228,7 @@ export const downloadSalarySheetFormat1Excel = (
       'Gross Salary',
       `Deduction - P.F (${pfEmployeeRate}%) / ESI (${esiEmployeeRate}%)`,
       'Deduction - P.T. / I.T. / LWF',
-      'Deduction - Advance / Loan / Food',
+      'Deduction - Loan / Food',
       'Deduction - Oth.Ded / E/Mbill',
       'Gross Deduct.',
       'Net Payable',
@@ -302,7 +302,7 @@ export const downloadSalarySheetFormat1Excel = (
 
     const dedPfEsi = `${selectedOptions.dedPf !== false ? (ded.pf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (ded.esi || 0) : '—'}`;
     const dedPtItLwf = `${selectedOptions.dedPt !== false ? (ded.pt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (ded.it || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (ded.lwf || 0) : '—'}`;
-    const dedAdvLoanFood = `${selectedOptions.dedAdvance !== false ? (ded.advance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (ded.loan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}`;
+    const dedAdvLoanFood = `${selectedOptions.dedLoan !== false ? ((ded.loan || 0) + (ded.advance || 0)) : '—'}\n${selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}`;
     const dedOthEM = `${selectedOptions.dedOthDed !== false ? (ded.othDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (ded.eMbill || 0) : '—'}`;
 
     aoa.push([
@@ -350,7 +350,7 @@ export const downloadSalarySheetFormat1Excel = (
       selectedOptions.grossSalary !== false ? (activeTotals.grandGross || 0) : '—',
       `${selectedOptions.dedPf !== false ? (activeTotals.grandPf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (activeTotals.grandEsi || 0) : '—'}`,
       `${selectedOptions.dedPt !== false ? (activeTotals.grandPt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (activeTotals.grandIt || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (activeTotals.grandLwf || 0) : '—'}`,
-      `${selectedOptions.dedAdvance !== false ? (activeTotals.grandAdvance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (activeTotals.grandLoan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (activeTotals.grandFood || 0) : '—'}`,
+      `${selectedOptions.dedLoan !== false ? ((activeTotals.grandLoan || 0) + (activeTotals.grandAdvance || 0)) : '—'}\n${selectedOptions.dedFood !== false ? (activeTotals.grandFood || 0) : '—'}`,
       `${selectedOptions.dedOthDed !== false ? (activeTotals.grandOthDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (activeTotals.grandEMbill || 0) : '—'}`,
       selectedOptions.grossDeduct !== false ? (activeTotals.grandDeductions || 0) : '—',
       selectedOptions.netPayable !== false ? (activeTotals.grandNet || 0) : '—',
@@ -593,7 +593,7 @@ export const downloadSalarySheetFormat1Pdf = async (
       { content: 'SP.All\nOT/PIB', styles: { halign: 'right' } },
       { content: `P.F (${pfEmployeeRate}%)\nESI (${esiEmployeeRate}%)`, styles: { halign: 'right' } },
       { content: 'P.T.\nI.T. / LWF', styles: { halign: 'right' } },
-      { content: 'Advance\nLoan / Food', styles: { halign: 'right' } },
+      { content: 'Loan\nFood', styles: { halign: 'right' } },
       { content: 'Oth.Ded\nE/Mbill', styles: { halign: 'right' } },
     ],
   ];
@@ -669,7 +669,7 @@ export const downloadSalarySheetFormat1Pdf = async (
       grossText,
       `${selectedOptions.dedPf !== false ? (ded.pf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (ded.esi || 0) : '—'}`,
       `${selectedOptions.dedPt !== false ? (ded.pt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (ded.it || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (ded.lwf || 0) : '—'}`,
-      `${selectedOptions.dedAdvance !== false ? (ded.advance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (ded.loan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}`,
+      `${selectedOptions.dedLoan !== false ? ((ded.loan || 0) + (ded.advance || 0)) : '—'}\n${selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}`,
       `${selectedOptions.dedOthDed !== false ? (ded.othDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (ded.eMbill || 0) : '—'}`,
       selectedOptions.grossDeduct !== false ? (row.grossDeduct || 0).toLocaleString('en-IN') : '—',
       selectedOptions.netPayable !== false ? (row.netPayable || 0).toLocaleString('en-IN') : '—',
@@ -699,7 +699,7 @@ export const downloadSalarySheetFormat1Pdf = async (
       { content: selectedOptions.grossSalary !== false ? (activeTotals.grandGross || 0).toLocaleString('en-IN') : '—', styles: { halign: 'right', fontStyle: 'bold' } },
       { content: `${selectedOptions.dedPf !== false ? (activeTotals.grandPf || 0) : '—'}\n${selectedOptions.dedEsi !== false ? (activeTotals.grandEsi || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: `${selectedOptions.dedPt !== false ? (activeTotals.grandPt || 0) : '—'}\n${selectedOptions.dedIt !== false ? (activeTotals.grandIt || 0) : '—'}\n${selectedOptions.dedLwf !== false ? (activeTotals.grandLwf || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
-      { content: `${selectedOptions.dedAdvance !== false ? (activeTotals.grandAdvance || 0) : '—'}\n${selectedOptions.dedLoan !== false ? (activeTotals.grandLoan || 0) : '—'}\n${selectedOptions.dedFood !== false ? (activeTotals.grandFood || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
+      { content: `${selectedOptions.dedLoan !== false ? ((activeTotals.grandLoan || 0) + (activeTotals.grandAdvance || 0)) : '—'}\n${selectedOptions.dedFood !== false ? (activeTotals.grandFood || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: `${selectedOptions.dedOthDed !== false ? (activeTotals.grandOthDed || 0) : '—'}\n${selectedOptions.dedEMbill !== false ? (activeTotals.grandEMbill || 0) : '—'}`, styles: { halign: 'right', fontStyle: 'bold' } },
       { content: selectedOptions.grossDeduct !== false ? (activeTotals.grandDeductions || 0).toLocaleString('en-IN') : '—', styles: { halign: 'right', fontStyle: 'bold' } },
       { content: selectedOptions.netPayable !== false ? (activeTotals.grandNet || 0).toLocaleString('en-IN') : '—', styles: { halign: 'right', fontStyle: 'bold' } },
@@ -840,7 +840,7 @@ export const downloadSalarySheetFormat1Pdf = async (
         ['House Rent Allowance (HRA)', (earningSummary.hra || activeTotals.grandHra || 0).toLocaleString('en-IN'), 'Professional Tax (P.T.)', (deductionSummary.pt || activeTotals.grandPt || 0).toLocaleString('en-IN')],
         ['Conveyance Allowance', (earningSummary.conv || activeTotals.grandConv || 0).toLocaleString('en-IN'), 'Income Tax (I.T. / TDS)', (deductionSummary.it || activeTotals.grandIt || 0).toLocaleString('en-IN')],
         ['Special Allowance', (earningSummary.spAll || activeTotals.grandSpAll || 0).toLocaleString('en-IN'), 'Labour Welfare Fund (LWF)', (deductionSummary.lwf || activeTotals.grandLwf || 0).toLocaleString('en-IN')],
-        ['Other Allowances', (earningSummary.othAll || activeTotals.grandOthAll || 0).toLocaleString('en-IN'), 'Salary Advance Recovery', (deductionSummary.advance || activeTotals.grandAdvance || 0).toLocaleString('en-IN')],
+        ['Other Allowances', (earningSummary.othAll || activeTotals.grandOthAll || 0).toLocaleString('en-IN'), 'Loan Recovery', ((deductionSummary.loan || activeTotals.grandLoan || 0) + (deductionSummary.advance || activeTotals.grandAdvance || 0)).toLocaleString('en-IN')],
         ['Gross Earnings', (activeTotals.grandGross || 0).toLocaleString('en-IN'), 'Gross Deductions Total', (activeTotals.grandDeductions || 0).toLocaleString('en-IN')],
         [{ content: 'Net Salary Payable', colSpan: 2, styles: { fontStyle: 'bold' } }, { content: `INR ${(activeTotals.grandNet || 0).toLocaleString('en-IN')}`, colSpan: 2, styles: { fontStyle: 'bold', halign: 'right' } }]
       ];

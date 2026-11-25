@@ -61,7 +61,7 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/shifts')) return 'Workforce / Shift Management';
     if (path.startsWith('/user/payroll-setup')) return 'Payroll Management / Payroll Setup';
     if (path.startsWith('/user/statutory-setup')) return 'Payroll Management / Statutory Setup';
-    if (path.startsWith('/user/advances-loans')) return 'Payroll Management / Advances & Loans';
+    if (path.startsWith('/user/advances-loans')) return 'Payroll Management / Loans';
     if (path.startsWith('/user/reimbursements')) return 'Payroll Management / Reimbursements';
     if (path.startsWith('/user/overtime')) return 'Payroll Management / Overtime';
     if (path.startsWith('/user/payroll')) {
@@ -81,7 +81,13 @@ function UserHeader({ onToggleSidebar, onLogout }) {
       return 'Payroll Management / Payroll Processing';
     }
     if (path.startsWith('/user/leave')) return 'Management / Leave';
-    if (path.startsWith('/user/inventory')) return 'Management / Inventory';
+    if (path.startsWith('/user/inventory')) {
+      if (location.search.includes('tab=movement')) return 'Management / Inventory / Stock Movements';
+      if (location.search.includes('tab=clearance')) return 'Management / Inventory / Asset Clearance';
+      if (location.search.includes('type=asset')) return 'Management / Inventory / Assets';
+      if (location.search.includes('type=uniform')) return 'Management / Inventory / Uniforms';
+      return 'Management / Inventory';
+    }
     if (path.startsWith('/user/reports')) return 'Management / Reports';
     if (path.startsWith('/user/company-setup')) return 'System / Organization Setup';
     if (path.startsWith('/user/work-locations')) return 'System / Work Locations';

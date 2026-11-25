@@ -75,7 +75,7 @@ const notificationTypeOptions = [
   { value: 'asset-request', label: 'Asset Request' },
   { value: 'uniform-request', label: 'Uniform Request' },
   { value: 'reimbursement', label: 'Reimbursement Claim' },
-  { value: 'advance-loan', label: 'Advance & Loan' },
+  { value: 'advance-loan', label: 'Loan Requests' },
   { value: 'leave-application', label: 'Leave Application' },
   { value: 'leave-approval', label: 'Leave Approval' },
   { value: 'attendance-correction', label: 'Attendance Correction' },

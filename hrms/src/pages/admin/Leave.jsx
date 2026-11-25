@@ -24,6 +24,7 @@ import Pagination from '../../components/common/Pagination';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
 import EmptyState from '../../components/common/EmptyState';
+import RequestBackButton from '../../components/common/RequestBackButton';
 
 import LeaveMasterSection from '../../components/leave/LeaveMasterSection';
 import LeaveTypeModal from '../../components/leave/LeaveTypeModal';
@@ -860,9 +861,12 @@ export default function Leave() {
         {/* Page Header */}
         <header className={styles.header}>
           <div className={styles.titleBlock}>
-            <h1 className={styles.title}>
-              {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : activeTab === 'encashment' ? 'Leave Encashment Management' : 'Leave Management'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.title}>
+                {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : activeTab === 'encashment' ? 'Leave Encashment Management' : 'Leave Management'}
+              </h1>
+            </div>
             <p className={styles.subtitle}>
               {activeTab === 'balances' ? 'Track annual leave quotas, accrued balances, and policy assignments.' : activeTab === 'master' ? 'Configure leave types, encashment rules, paid/unpaid guidelines, and carry-forwards.' : activeTab === 'calendar' ? 'Live on-site personnel availability snapshot and duty roster.' : activeTab === 'encashment' ? 'Manage employee leave encashment requests and payout policies.' : 'Manage employee leave requests, approvals, and attendance balance synchronization.'}
             </p>

@@ -25,6 +25,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { useCompany } from '../../context/CompanyContext';
 import { usePermissions } from '../../context/PermissionContext';
 import { employeeService } from '../../services/employeeService';
@@ -445,10 +446,13 @@ function EmployeeTransfer() {
         {/* Header Section */}
         <header className={styles.header}>
           <div className={styles.titleArea}>
-            <h1 className={styles.title}>
-              Transfer Employees
-              <span className={styles.titleBadge}>Workforce Relocation</span>
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.title}>
+                Transfer Employees
+                <span className={styles.titleBadge}>Workforce Relocation</span>
+              </h1>
+            </div>
             <p className={styles.description}>
               Reassign workforce personnel across client companies and physical sites with audit logs and transfer slips.
             </p>

@@ -27,7 +27,7 @@ export const SEPARATION_REASONS = [
 export const CLEARANCE_DEPARTMENTS = [
   { key: 'hr', name: 'HR Department', description: 'ID Card, employee file, NDA compliance & exit survey' },
   { key: 'operations', name: 'Operations / Site', description: 'Guard post handover, shift duty register, replacement guard deployed' },
-  { key: 'accounts', name: 'Accounts & Finance', description: 'Petty cash, tour imprest, pending advance & loan clearance' },
+  { key: 'accounts', name: 'Accounts & Finance', description: 'Petty cash, tour imprest, pending loan clearance' },
   { key: 'admin', name: 'Admin & Facilities', description: 'Biometric access revoked, locker keys, SIM card returned' },
   { key: 'inventory', name: 'Inventory & Uniform Store', description: 'Uniform shirts, boots, belt, cap, whistle, torch & gear inspection' },
   { key: 'client', name: 'Client Site Clearance', description: 'Client site manager sign-off and site access revoked' }
@@ -76,7 +76,7 @@ export const INITIAL_FNF_RECORDS = [
     clearances: {
       hr: { status: 'Cleared', clearedBy: 'Priya Sharma (HR)', clearedDate: '2026-10-28', remarks: 'ID Card & files verified' },
       operations: { status: 'Cleared', clearedBy: 'Rajesh Nair (Ops)', clearedDate: '2026-10-29', remarks: 'Replacement guard deployed' },
-      accounts: { status: 'Cleared', clearedBy: 'Deepak Joshi (Acc)', clearedDate: '2026-10-30', remarks: 'Advance adjusted' },
+      accounts: { status: 'Cleared', clearedBy: 'Deepak Joshi (Acc)', clearedDate: '2026-10-30', remarks: 'Loan adjusted' },
       admin: { status: 'Cleared', clearedBy: 'Manoj Verma (Admin)', clearedDate: '2026-10-29', remarks: 'Biometric disabled' },
       inventory: { status: 'Cleared', clearedBy: 'Kavita Singh (Store)', clearedDate: '2026-10-30', remarks: 'Uniform kit returned in good order' },
       client: { status: 'Cleared', clearedBy: 'Client Security Head', clearedDate: '2026-10-31', remarks: 'DLF site sign-off received' }
@@ -284,7 +284,7 @@ export const INITIAL_FNF_RECORDS = [
     clearances: {
       hr: { status: 'Cleared', clearedBy: 'Priya Sharma (HR)', clearedDate: '2026-10-24', remarks: 'ID Card surrendered' },
       operations: { status: 'Cleared', clearedBy: 'Ops Supervisor', clearedDate: '2026-10-25', remarks: 'Duty log signed' },
-      accounts: { status: 'Cleared', clearedBy: 'Deepak Joshi (Acc)', clearedDate: '2026-10-26', remarks: 'Advance of ₹2,000 flagged' },
+      accounts: { status: 'Cleared', clearedBy: 'Deepak Joshi (Acc)', clearedDate: '2026-10-26', remarks: 'Loan recovery of ₹2,000 flagged' },
       admin: { status: 'Cleared', clearedBy: 'Manoj Verma (Admin)', clearedDate: '2026-10-25', remarks: 'Clear' },
       inventory: { status: 'Pending', clearedBy: '', clearedDate: '', remarks: '1 Security Cap missing & 1 Shirt damaged' },
       client: { status: 'Cleared', clearedBy: 'DLF Site Head', clearedDate: '2026-10-25', remarks: 'Site access revoked' }
@@ -384,7 +384,7 @@ export const INITIAL_FNF_RECORDS = [
     clearances: {
       hr: { status: 'Cleared', clearedBy: 'Priya Sharma', clearedDate: '2026-10-30', remarks: 'Cleared' },
       operations: { status: 'Cleared', clearedBy: 'Housekeeping Supervisor', clearedDate: '2026-10-31', remarks: 'Handover complete' },
-      accounts: { status: 'Cleared', clearedBy: 'Accounts', clearedDate: '2026-10-31', remarks: 'No advances' },
+      accounts: { status: 'Cleared', clearedBy: 'Accounts', clearedDate: '2026-10-31', remarks: 'No pending loans' },
       admin: { status: 'Cleared', clearedBy: 'Admin', clearedDate: '2026-10-31', remarks: 'Gate pass revoked' },
       inventory: { status: 'Cleared', clearedBy: 'Store', clearedDate: '2026-10-31', remarks: 'All uniform aprons returned' },
       client: { status: 'Cleared', clearedBy: 'Logix Client Rep', clearedDate: '2026-10-31', remarks: 'Contract end signed' }
@@ -484,7 +484,7 @@ export const INITIAL_FNF_RECORDS = [
     clearances: {
       hr: { status: 'Cleared', clearedBy: 'Priya Sharma', clearedDate: '2026-10-16', remarks: 'ID Card surrendered' },
       operations: { status: 'Cleared', clearedBy: 'Site Ops Lead', clearedDate: '2026-10-17', remarks: 'Gate pass revoked' },
-      accounts: { status: 'Cleared', clearedBy: 'Accounts', clearedDate: '2026-10-17', remarks: 'No advances' },
+      accounts: { status: 'Cleared', clearedBy: 'Accounts', clearedDate: '2026-10-17', remarks: 'No pending loans' },
       admin: { status: 'Cleared', clearedBy: 'Admin', clearedDate: '2026-10-17', remarks: 'Locker empty' },
       inventory: { status: 'Cleared', clearedBy: 'Uniform Store', clearedDate: '2026-10-17', remarks: 'Uniform kit returned' },
       client: { status: 'Cleared', clearedBy: 'Unitech Client Rep', clearedDate: '2026-10-17', remarks: 'Cleared' }

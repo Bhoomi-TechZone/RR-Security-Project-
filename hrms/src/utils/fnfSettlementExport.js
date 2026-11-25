@@ -284,7 +284,7 @@ export async function downloadFnfSettlementPdf(record, globalCompanyInfo, option
       'Bonus',
       formatCurrency(earnings.bonus ?? 0),
       formatCurrency(earnings.ytdBonus ?? 0),
-      deductions.advanceLoan > 0 ? 'Advance / Loan EMI' : '',
+      deductions.advanceLoan > 0 ? 'Loan EMI' : '',
       deductions.advanceLoan > 0 ? formatCurrency(deductions.advanceLoan) : '',
       deductions.advanceLoan > 0 ? formatCurrency(deductions.advanceLoan * 6) : '',
     ],

@@ -546,7 +546,7 @@ export const mockPayrollRecords = [
     pfNumber: "UP/NOI/0045219/000/0013",
     esiNumber: "31000548920000620",
     generatedDate: null,
-    holdReason: "Advance repayment adjustment exceeds maximum permissible limit for the cycle."
+    holdReason: "Loan repayment adjustment exceeds maximum permissible limit for the cycle."
   },
   {
     id: 14,

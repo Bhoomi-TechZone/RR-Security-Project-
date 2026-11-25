@@ -1,0 +1,165 @@
+.card {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 4px;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.viewAllBtn {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.viewAllBtn:hover {
+  opacity: 0.75;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  max-height: 365px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 999px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  border-radius: 6px;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.itemLeft {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+  flex: 1;
+}
+
+.squareMarker {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #1e293b;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dateBadge {
+  background-color: #f3c593;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 28px 12px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.emptyIcon {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.emptyText {
+  font-size: 12.5px;
+  margin: 0;
+  font-weight: 500;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #f1f3f7 25%, #e2e8f0 50%, #f1f3f7 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.5s infinite;
+  border-radius: 4px;
+}
+
+.skeletonTitle {
+  height: 16px;
+  width: 130px;
+}
+
+.skeletonItem {
+  height: 38px;
+  width: 100%;
+  margin-bottom: 6px;
+  border-radius: 6px;
+}
+
+@keyframes pulse {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .card {
+    padding: 16px;
+  }
+}

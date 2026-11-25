@@ -525,7 +525,7 @@ export default function SalarySheetFormat1View({
                   {/* Deductions Sub-columns */}
                   <th className={styles.subHeader}>P.F ({pfEmployeeRate}%)<br />ESI ({esiEmployeeRate}%)</th>
                   <th className={styles.subHeader}>P.T.<br />I.T. / LWF</th>
-                  <th className={styles.subHeader}>Advance<br />Loan / Food</th>
+                  <th className={styles.subHeader}>Loan<br />Food</th>
                   <th className={styles.subHeader}>Oth.Ded<br />E/Mbill</th>
                 </tr>
               </thead>
@@ -654,10 +654,9 @@ export default function SalarySheetFormat1View({
                         <div className={styles.stackedCellSecondary}>{selectedOptions.dedLwf !== false ? (ded.lwf || 0) : '—'}</div>
                       </td>
 
-                      {/* 13. Deduction - Advance / LOAN / Food */}
+                      {/* 13. Deduction - LOAN / Food */}
                       <td className={styles.stackedCell}>
-                        <div>{selectedOptions.dedAdvance !== false ? (ded.advance || 0) : '—'}</div>
-                        <div className={styles.stackedCellSecondary}>{selectedOptions.dedLoan !== false ? (ded.loan || 0) : '—'}</div>
+                        <div>{selectedOptions.dedLoan !== false ? ((ded.loan || 0) + (ded.advance || 0)) : '—'}</div>
                         <div className={styles.stackedCellSecondary}>{selectedOptions.dedFood !== false ? (ded.food || 0) : '—'}</div>
                       </td>
 
@@ -748,8 +747,7 @@ export default function SalarySheetFormat1View({
                       <div className={styles.stackedCellSecondary}>{selectedOptions.dedLwf !== false ? (dynamicTotals.grandLwf || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
-                      <div>{selectedOptions.dedAdvance !== false ? (dynamicTotals.grandAdvance || 0) : '—'}</div>
-                      <div className={styles.stackedCellSecondary}>{selectedOptions.dedLoan !== false ? (dynamicTotals.grandLoan || 0) : '—'}</div>
+                      <div>{selectedOptions.dedLoan !== false ? ((dynamicTotals.grandLoan || 0) + (dynamicTotals.grandAdvance || 0)) : '—'}</div>
                       <div className={styles.stackedCellSecondary}>{selectedOptions.dedFood !== false ? (dynamicTotals.grandFood || 0) : '—'}</div>
                     </td>
                     <td className={styles.stackedCell}>
@@ -1004,12 +1002,6 @@ export default function SalarySheetFormat1View({
                         <tr>
                           <td className={styles.headLabel}>OTH.All</td>
                           <td className={styles.right}>{(earningSummary.othAll ?? totals.grandOthAll ?? 0).toLocaleString('en-IN')}</td>
-                          <td className={styles.headLabel}>Advance</td>
-                          <td className={styles.right}>{(deductionSummary.advance ?? totals.grandAdvance ?? 0).toLocaleString('en-IN')}</td>
-                        </tr>
-                        <tr>
-                          <td className={styles.headLabel}>OT/PIB</td>
-                          <td className={styles.right}>{(earningSummary.otPib ?? totals.grandOtPib ?? 0).toLocaleString('en-IN')}</td>
                           <td className={styles.headLabel}>LWF</td>
                           <td className={styles.right}>{(deductionSummary.lwf ?? totals.grandLwf ?? 0).toLocaleString('en-IN')}</td>
                         </tr>

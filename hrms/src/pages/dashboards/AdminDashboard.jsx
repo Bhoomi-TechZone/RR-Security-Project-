@@ -10,8 +10,8 @@ import UpcomingBirthdaysModal from '../../components/dashboard/UpcomingBirthdays
 import OnLeaveTodayModal from '../../components/dashboard/OnLeaveTodayModal';
 import LeaveRequestsModal from '../../components/dashboard/LeaveRequestsModal';
 import EmployeeDistribution from '../../components/dashboard/EmployeeDistribution';
-import RecentActivities from '../../components/dashboard/RecentActivities';
-import UpcomingReminders from '../../components/dashboard/UpcomingReminders';
+import OpenRequests from '../../components/dashboard/OpenRequests';
+import UpcomingEvents from '../../components/dashboard/UpcomingEvents';
 import Dropdown from '../../components/common/Dropdown';
 import { useCompany } from '../../context/CompanyContext';
 import dashboardService from '../../services/dashboardService';
@@ -200,18 +200,23 @@ function AdminDashboard() {
           </div>
         </div>
 
-        {/* ---- Row 2: Department Wise Employees, Recent Activities, Upcoming Reminders ---- */}
+        {/* ---- Row 2: Department Wise Employees, Open Requests, Upcoming Events ---- */}
         <div className={styles.bottomGridRow}>
           <EmployeeDistribution 
             data={dashboardData?.departmentDistribution || [{ role: 'Security', count: 1 }]} 
             loading={loading && !dashboardData}
           />
-          <RecentActivities 
-            activities={dashboardData?.recentActivities || []} 
+          <OpenRequests 
+            counts={dashboardData?.openRequestCounts}
+            openRequests={dashboardData?.openRequests || []} 
+            fallbackActivities={dashboardData?.recentActivities || []}
+            quickInsights={dashboardData?.quickInsights}
             loading={loading && !dashboardData}
           />
-          <UpcomingReminders 
-            data={dashboardData?.upcomingReminders || []} 
+          <UpcomingEvents 
+            events={dashboardData?.upcomingEvents || []}
+            birthdayFallbackList={dashboardData?.quickInsights?.upcomingBirthdaysList || []}
+            loading={loading && !dashboardData}
           />
         </div>
 

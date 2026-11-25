@@ -24,7 +24,7 @@ const tagClassMap = {
   'Leave': styles.tagLeave,
   'Attendance': styles.tagAttendance,
   'Claim': styles.tagClaim,
-  'Advance': styles.tagAdvance,
+  'Loan': styles.tagAdvance,
   'Requisition': styles.tagRequisition,
   'Rejected': styles.tagRejected,
   'Pending': styles.tagPending,

@@ -860,17 +860,6 @@ export default function FnFInitiateModal({
                   </div>
                   <div>
                     <label style={{ display: 'block', fontSize: '11px', color: '#991b1b', marginBottom: 3 }}>
-                      Advance Recovery (₹)
-                    </label>
-                    <input
-                      type="number"
-                      value={formData.deductions.advanceRecovery}
-                      onChange={(e) => setFormData((p) => ({ ...p, deductions: { ...p.deductions, advanceRecovery: Number(e.target.value) } }))}
-                      style={{ width: '100%', height: 34, borderRadius: 6, border: '1px solid #fca5a5', padding: '0 8px', fontSize: '12px' }}
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '11px', color: '#991b1b', marginBottom: 3 }}>
                       Loan Outstanding (₹)
                     </label>
                     <input

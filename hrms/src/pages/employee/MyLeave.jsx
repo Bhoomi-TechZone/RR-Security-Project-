@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import StatusBadge from '../../components/common/StatusBadge';
 import Toast from '../../components/common/Toast';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import {
   currentEmployeeProfile,
   employeeLeaveBalances,
@@ -1199,7 +1200,10 @@ function MyLeave() {
             <div className={styles.breadcrumb}>
               <span>Employee Portal</span> / <strong>{activeTab === 'encashment' ? 'Leave Encashment' : 'My Leave'}</strong>
             </div>
-            <h1 className={styles.pageTitle}>{activeTab === 'encashment' ? 'My Leave Encashment Portal' : 'My Leave & Attendance Portal'}</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.pageTitle}>{activeTab === 'encashment' ? 'My Leave Encashment Portal' : 'My Leave & Attendance Portal'}</h1>
+            </div>
             <p className={styles.pageSubtitle}>
               {activeTab === 'encashment' ? 'Encash accumulated Earned Leave (EL) balance as per statutory guidelines.' : 'View your leave entitlement, submit leave requests, monitor 2-level supervisor/HR sign-offs, and track attendance synchronization.'}
             </p>

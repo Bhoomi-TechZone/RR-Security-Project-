@@ -118,7 +118,6 @@ export const SALARY_SHEET_FORMAT_2_LAYOUT = [
           { id: 'dedPf', label: 'PF (EPF EE 12%)', defaultSelected: true },
           { id: 'dedEsi', label: 'ESI (ESIC EE 0.75%)', defaultSelected: true },
           { id: 'dedLwf', label: 'LWF (Labour Welfare)', defaultSelected: true },
-          { id: 'dedAdvance', label: 'Salary Advance Recovery', defaultSelected: true },
           { id: 'dedUni', label: 'Uniform Deduction (UNI)', defaultSelected: true },
           { id: 'dedNightSlp', label: 'Night Shift Slip Deduction', defaultSelected: true },
           { id: 'dedLoan', label: 'Loan / EMI Recovery', defaultSelected: true },

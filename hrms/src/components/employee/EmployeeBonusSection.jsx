@@ -59,7 +59,7 @@ export default function EmployeeBonusSection({ employee = {} }) {
         <div className={styles.kpiCard}>
           <div className={styles.cardLabel}>Net Bonus Credited</div>
           <div className={styles.cardVal} style={{ color: '#16a34a' }}>{formatINR(myRecord.netBonusPayable)}</div>
-          <div className={styles.cardSub}>After ₹{myRecord.interimAdvance} festive advance</div>
+          <div className={styles.cardSub}>After ₹{myRecord.interimAdvance} interim bonus adjusted</div>
         </div>
 
         <div className={styles.kpiCard}>
@@ -155,7 +155,7 @@ export default function EmployeeBonusSection({ employee = {} }) {
               <strong>{formatINR(myRecord.grossBonus)}</strong>
             </div>
             <div className={styles.voucherRow}>
-              <span>Less: Interim / Festive Advance Adjusted:</span>
+              <span>Less: Interim Bonus Adjusted:</span>
               <span style={{ color: '#dc2626' }}>
                 {myRecord.interimAdvance > 0 ? `- ${formatINR(myRecord.interimAdvance)}` : 'Nil'}
               </span>

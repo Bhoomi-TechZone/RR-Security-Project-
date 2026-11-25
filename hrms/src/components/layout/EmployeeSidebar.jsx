@@ -2,13 +2,18 @@ import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
+  ArrowLeftRight,
   Bell,
   CalendarCheck,
   CalendarDays,
+  FileSignature,
   FileText,
   LayoutDashboard,
   LogOut,
+  Receipt,
+  Shield,
   Shirt,
+  Timer,
   Zap,
   ChevronDown,
   HandCoins,
@@ -22,6 +27,7 @@ import rrLogo from '../../assets/rrlogo.png';
 
 const ALL_NAV_ITEMS = [
   { path: '/employee/dashboard', name: 'Dashboard', icon: LayoutDashboard, key: 'allowDashboard' },
+  { path: '/employee/requests', name: 'Request Hub', icon: ArrowLeftRight },
   {
     path: '/employee/attendance',
     name: 'My Attendance',
@@ -44,6 +50,7 @@ const ALL_NAV_ITEMS = [
       { path: '/employee/leave?tab=encashment', name: 'Leave Encashment' },
     ]
   },
+  { path: '/employee/overtime', name: 'Overtime', icon: Timer, key: 'allowAttendance' },
   {
     path: '/employee/salary-slips',
     name: 'Payroll & Slips',
@@ -59,19 +66,20 @@ const ALL_NAV_ITEMS = [
   { path: '/employee/tax-declaration', name: 'IT Declaration (12BB)', icon: Calculator, key: 'allowSalarySlips' },
   {
     path: '/employee/advances-loans',
-    name: 'Advances & Loans',
+    name: 'Loans',
     icon: HandCoins,
     key: 'allowAdvancesLoans',
     hasDropdown: true,
     subItems: [
-      { path: '/employee/advances-loans', name: 'All Requests' },
-      { path: '/employee/advances-loans?tab=advances', name: 'Advances' },
-      { path: '/employee/advances-loans?tab=loans', name: 'Loans' },
+      { path: '/employee/advances-loans?tab=loans', name: 'My Loans' },
       { path: '/employee/advances-loans?tab=schedule', name: 'Deduction Schedule' },
       { path: '/employee/advances-loans?tab=history', name: 'Deduction History' },
     ]
   },
-  { path: '/employee/assets', name: 'Assets / Uniform', icon: Shirt, key: 'allowAssetsUniform' },
+  { path: '/employee/reimbursements', name: 'Reimbursements', icon: Receipt },
+  { path: '/employee/uniforms', name: 'Uniforms', icon: Shirt, key: 'allowAssetsUniform' },
+  { path: '/employee/assets', name: 'Assets', icon: Shield, key: 'allowAssetsUniform' },
+  { path: '/employee/letters', name: 'HR Letters', icon: FileSignature },
   { path: '/employee/notifications', name: 'Notifications', icon: Bell, key: 'allowNotifications' }
 ];
 

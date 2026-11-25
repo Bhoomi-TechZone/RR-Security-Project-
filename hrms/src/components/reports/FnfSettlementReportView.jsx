@@ -236,7 +236,7 @@ function FnfSettlementSheetItem({ record, globalCompanyInfo }) {
             <td className={styles.textLeft}>Bonus</td>
             <td className={styles.textRight}>{formatCurrency(earnings.bonus ?? 0)}</td>
             <td className={styles.textRight}>{formatCurrency(earnings.ytdBonus ?? 0)}</td>
-            <td className={styles.textLeft}>{deductions.advanceLoan > 0 ? 'Advance / Loan EMI' : ''}</td>
+            <td className={styles.textLeft}>{deductions.advanceLoan > 0 ? 'Loan EMI' : ''}</td>
             <td className={styles.textRight}>{deductions.advanceLoan > 0 ? formatCurrency(deductions.advanceLoan) : ''}</td>
             <td className={styles.textRight}>{deductions.advanceLoan > 0 ? formatCurrency(deductions.advanceLoan * 6) : ''}</td>
           </tr>

@@ -165,7 +165,7 @@ export default function RunPayrollModal({
       'Validating employee records & bank details...',
       'Calculating attendance and payable days...',
       'Calculating approved overtime hours & rates...',
-      'Applying active advance & loan adjustments...',
+      'Applying active loan adjustments...',
       'Applying statutory PF & ESI deductions...',
       'Generating net salary ledgers & slips...',
     ];
@@ -409,7 +409,7 @@ export default function RunPayrollModal({
                 </li>
                 <li className={styles.checkItem}>
                   <CheckCircle2 size={16} className={styles.iconCheck} />
-                  <span>Advance and loan deductions adjusted</span>
+                  <span>Loan deductions adjusted</span>
                 </li>
               </ul>
 

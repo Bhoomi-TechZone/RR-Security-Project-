@@ -196,7 +196,7 @@ export const mockSalaryComponents = [
     notPayable: false,
     excludeHolidays: false,
     excludeWeekoffs: false,
-    description: 'Employee loan advance disbursement',
+    description: 'Employee loan disbursement',
     status: 'active'
   },
   {

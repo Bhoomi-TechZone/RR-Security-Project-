@@ -6914,7 +6914,7 @@ export const getEmployeePayslipReport = async (req, res) => {
       ];
       if (ptDeduction > 0) deductions.push({ name: 'PROFESSIONAL TAX', amount: ptDeduction });
       if (tdsDeduction > 0) deductions.push({ name: 'TDS', amount: tdsDeduction });
-      if (advanceDeduction > 0) deductions.push({ name: 'ADVANCE / LOAN', amount: advanceDeduction });
+      if (advanceDeduction > 0) deductions.push({ name: 'LOAN', amount: advanceDeduction });
       if (lwfDeduction > 0) deductions.push({ name: 'LWF', amount: lwfDeduction });
       if (otherDeduction > 0) deductions.push({ name: 'OTHER DEDUCTION', amount: otherDeduction });
 

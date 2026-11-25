@@ -44,7 +44,7 @@ export default function PayrollAnalytics({ records = [], selectedMonth = '', mon
 
     const deductions = [
       { label: 'PF Contribution', amount: formatRupee(pf), percent: Math.round((pf / safeDeductions) * 100), color: '#dc2626' },
-      { label: 'Advance & Loan Adjustments', amount: formatRupee(advances), percent: Math.round((advances / safeDeductions) * 100), color: '#ef4444' },
+      { label: 'Loan Adjustments', amount: formatRupee(advances), percent: Math.round((advances / safeDeductions) * 100), color: '#ef4444' },
       { label: 'ESI Contribution', amount: formatRupee(esi), percent: Math.round((esi / safeDeductions) * 100), color: '#f87171' },
       { label: 'Tax & Other Deductions', amount: formatRupee(otherDeductions), percent: Math.round((otherDeductions / safeDeductions) * 100), color: '#fca5a5' },
     ];

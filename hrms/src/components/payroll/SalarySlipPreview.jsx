@@ -403,7 +403,7 @@ export default function SalarySlipPreview({
                   )}
                   {advance > 0 && (
                     <div className={styles.ledgerLine}>
-                      <span>Advance / Loan Recovery</span>
+                      <span>Loan Recovery</span>
                       <span>{formatRupee(advance)}</span>
                     </div>
                   )}

@@ -1514,7 +1514,7 @@ function WageSalaryRegisterTableLegacy({ reportData }) {
               {/* Deduction Sub-headers */}
               <th style={{ minWidth: '50px', fontSize: '9px' }}>P.F<br />ESI</th>
               <th style={{ minWidth: '50px', fontSize: '9px' }}>P.T.<br />I.T.<br />LWF</th>
-              <th style={{ minWidth: '50px', fontSize: '9px' }}>Advance<br />LOAN<br />Food</th>
+              <th style={{ minWidth: '50px', fontSize: '9px' }}>LOAN<br />Food</th>
               <th style={{ minWidth: '50px', fontSize: '9px' }}>Oth.Ded<br />E/Mbill</th>
             </tr>
           </thead>
@@ -1620,10 +1620,9 @@ function WageSalaryRegisterTableLegacy({ reportData }) {
                     <div style={{ color: '#64748b' }}>{ded.lwf ?? 0}</div>
                   </td>
 
-                  {/* 13. Deductions (Col 3: Advance / Loan / Food) */}
+                  {/* 13. Deductions (Col 3: Loan / Food) */}
                   <td className={styles.deductionCell}>
-                    <div>{ded.advance ?? 0}</div>
-                    <div style={{ color: '#64748b' }}>{ded.loan ?? 0}</div>
+                    <div>{(ded.loan ?? 0) + (ded.advance ?? 0)}</div>
                     <div style={{ color: '#64748b' }}>{ded.food ?? 0}</div>
                   </td>
 

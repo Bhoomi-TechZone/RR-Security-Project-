@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useLocation, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   FileSignature,
   FileCheck,
@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import styles from './LetterManagement.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
+import RequestBackButton from '../../components/common/RequestBackButton';
 import { useCompany } from '../../context/CompanyContext';
 import letterService from '../../services/letterService';
 import { employeeService } from '../../services/employeeService';
@@ -43,6 +44,7 @@ import {
 function LetterManagement() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
@@ -113,9 +115,9 @@ function LetterManagement() {
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     if (tabId === 'all') {
-      setSearchParams({});
+      setSearchParams({}, { state: location.state });
     } else {
-      setSearchParams({ type: tabId });
+      setSearchParams({ type: tabId }, { state: location.state });
     }
   };
 
@@ -816,7 +818,10 @@ function LetterManagement() {
               <ChevronRight size={12} />
               <span>Letter Management</span>
             </div>
-          <h1 className={styles.pageTitle}>Letter Management</h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <RequestBackButton />
+              <h1 className={styles.pageTitle}>Letter Management</h1>
+            </div>
           <p className={styles.pageSubtitle}>
             Generate, issue, preview, and track official employee letters formatted from Template Setup.
           </p>

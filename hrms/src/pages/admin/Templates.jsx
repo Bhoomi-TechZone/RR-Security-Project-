@@ -1861,7 +1861,7 @@ function Templates() {
                         </div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}><span>PF</span><span>₹2,400</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}><span>ESI</span><span>₹550</span></div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}><span>Advance</span><span>₹1,000</span></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '3px 0' }}><span>Loan EMI</span><span>₹1,000</span></div>
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, borderTop: '1px dashed #cbd5e1', paddingTop: '4px', marginTop: '6px' }}>
                           <span>Total</span><span>-₹4,200</span>
                         </div>

@@ -260,16 +260,10 @@ export default function PayrollDetailsDrawer({
                   <span className={styles.deductText}>-{formatRupee(lwf)}</span>
                 </div>
               )}
-              {advances > 0 && (
-                <div className={styles.ledgerRow}>
-                  <span>Advance Adjustment</span>
-                  <span className={styles.deductText}>-{formatRupee(advances)}</span>
-                </div>
-              )}
-              {loanEmi > 0 && (
+              {(advances > 0 || loanEmi > 0) && (
                 <div className={styles.ledgerRow}>
                   <span>Loan Recovery / EMI</span>
-                  <span className={styles.deductText}>-{formatRupee(loanEmi)}</span>
+                  <span className={styles.deductText}>-{formatRupee(advances + loanEmi)}</span>
                 </div>
               )}
               {otherDeductions > 0 && (
@@ -308,7 +302,7 @@ export default function PayrollDetailsDrawer({
           <div className={styles.infoBox}>
             <Info size={18} className={styles.infoIcon} />
             <p>
-              Salary calculation is based on attendance, overtime, advances and applicable deductions.
+              Salary calculation is based on attendance, overtime, loans and applicable deductions.
               Actual payroll calculations will be handled by the backend payroll engine.
             </p>
           </div>

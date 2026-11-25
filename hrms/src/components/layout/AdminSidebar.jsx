@@ -140,11 +140,12 @@ const NAV_GROUPS = [
       },
       {
         path: '/admin/advances-loans',
-        name: 'Advances & Loans',
+        name: 'Loans',
         icon: HandCoins,
         moduleKey: 'advances_loans',
         hasDropdown: true,
         subItems: [
+          { path: '/admin/advances-loans?tab=loans', name: 'All Loan Requests' },
           { path: '/admin/advances-loans?tab=schedule', name: 'Deduction Schedule' },
           { path: '/admin/advances-loans?tab=history', name: 'Deduction History' },
         ]
@@ -212,9 +213,8 @@ const NAV_GROUPS = [
         moduleKey: 'inventory',
         hasDropdown: true,
         subItems: [
-          { path: '/admin/inventory', name: 'Inventory Stock' },
-          { path: '/admin/inventory?tab=issued', name: 'Issued Items' },
-          { path: '/admin/inventory?tab=returns', name: 'Return History' },
+          { path: '/admin/inventory?type=uniform', name: 'Uniforms' },
+          { path: '/admin/inventory?type=asset', name: 'Assets' },
           { path: '/admin/inventory?tab=movement', name: 'Stock Movements' },
           { path: '/admin/inventory?tab=clearance', name: 'Asset Clearance' },
         ]
@@ -420,6 +420,8 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
         currentFullUrl === subItemPath ||
         (subItemPath.includes('tab=banks') && location.pathname === '/admin/masters' && !location.search) ||
         (subItemPath.includes('section=company-profile') && location.pathname === '/admin/company-setup' && !location.search) ||
+        (subItemPath === '/admin/inventory?type=uniform' && location.pathname === '/admin/inventory' && !location.search.includes('tab=movement') && !location.search.includes('tab=clearance') && !location.search.includes('tab=requests') && !location.search.includes('type=asset')) ||
+        (subItemPath === '/admin/inventory?type=asset' && location.pathname === '/admin/inventory' && !location.search.includes('tab=requests') && location.search.includes('type=asset')) ||
         (subItemPath.includes('tab=announcements') && location.pathname === '/admin/notifications' && (!location.search || location.search === '?tab=announcements'))
       );
     }
