@@ -15,10 +15,10 @@ import MyAdvancesLoans from './pages/employee/MyAdvancesLoans'
 import EmployeeNotifications from './pages/employee/EmployeeNotifications'
 import MyAssetsUniform from './pages/employee/MyAssetsUniform'
 import MyRequests from './pages/employee/MyRequests'
+import EmployeeRequestCategory from './pages/employee/EmployeeRequestCategory'
 import MyOvertime from './pages/employee/MyOvertime'
 import MyReimbursements from './pages/employee/MyReimbursements'
 import MyLetters from './pages/employee/MyLetters'
-import MyResignation from './pages/employee/MyResignation'
 import EmployeeLayout from './components/layout/EmployeeLayout'
 import ClientLayout from './components/layout/ClientLayout'
 import ClientDashboard from './pages/dashboards/ClientDashboard'
@@ -73,8 +73,10 @@ import PendingExitsPage from './pages/admin/PendingExitsPage'
 import FinalizedExitsPage from './pages/admin/FinalizedExitsPage'
 import IncomeTaxManagement from './pages/admin/IncomeTaxManagement'
 import Greetings from './pages/admin/Greetings'
+import UpcomingEventsPage from './pages/admin/UpcomingEventsPage'
 import CandidateSelfOnboard from './pages/public/CandidateSelfOnboard'
 import HRRequests from './pages/admin/HRRequests'
+import HRRequestCategory from './pages/admin/HRRequestCategory'
 import AdminRoute from './components/common/AdminRoute'
 import UserRoute from './components/common/UserRoute'
 import ModulePermissionRoute from './components/common/ModulePermissionRoute'
@@ -140,6 +142,7 @@ function App() {
 
       <Route path="/admin/hr-management" element={<Navigate to="/admin/hr-management/requests" replace />} />
       <Route path="/admin/hr-management/requests" element={<AdminRoute><HRRequests /></AdminRoute>} />
+      <Route path="/admin/hr-management/requests/:categoryId" element={<AdminRoute><HRRequestCategory /></AdminRoute>} />
       <Route path="/admin/hr-management/transfer" element={<AdminRoute><EmployeeTransfer /></AdminRoute>} />
       <Route path="/admin/hr-management/greetings" element={<AdminRoute><Greetings /></AdminRoute>} />
       <Route path="/admin/hr-management/announcements" element={<Navigate to="/admin/notifications?tab=announcements" replace />} />
@@ -168,6 +171,7 @@ function App() {
       <Route path="/admin/income-tax" element={<AdminRoute><IncomeTaxManagement /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><Reports /></AdminRoute>} />
       <Route path="/admin/greetings" element={<AdminRoute><Greetings /></AdminRoute>} />
+      <Route path="/admin/upcoming-events" element={<AdminRoute><UpcomingEventsPage /></AdminRoute>} />
       <Route path="/admin/notifications" element={<AdminRoute><Notifications /></AdminRoute>} />
       <Route path="/admin/roles-permissions" element={<AdminRoute><RolePermissions /></AdminRoute>} />
       <Route path="/admin/users" element={<AdminRoute><AdminUserManagement /></AdminRoute>} />
@@ -215,6 +219,7 @@ function App() {
         <Route path="employees/:id/edit" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employees"><EditEmployee /></ModulePermissionRoute>} />
         <Route path="hr-management" element={<Navigate to="/user/hr-management/requests" replace />} />
         <Route path="hr-management/requests" element={<HRRequests />} />
+        <Route path="hr-management/requests/:categoryId" element={<HRRequestCategory />} />
         <Route path="hr-management/transfer" element={<ModulePermissionRoute moduleKey="employees" moduleTitle="Employee Transfer"><EmployeeTransfer /></ModulePermissionRoute>} />
         <Route path="hr-management/greetings" element={<Greetings />} />
         <Route path="hr-management/announcements" element={<Navigate to="/user/notifications?tab=announcements" replace />} />
@@ -259,6 +264,7 @@ function App() {
         <Route path="templates" element={<ModulePermissionRoute moduleKey="templates" moduleTitle="Templates"><Templates /></ModulePermissionRoute>} />
         <Route path="document-compliance" element={<ModulePermissionRoute moduleKey="docs_compliance" moduleTitle="Docs & Compliance"><DocumentCompliance /></ModulePermissionRoute>} />
         <Route path="greetings" element={<Greetings />} />
+        <Route path="upcoming-events" element={<UpcomingEventsPage />} />
         <Route path="notifications" element={<ModulePermissionRoute moduleKey="notifications" moduleTitle="Notifications"><Notifications /></ModulePermissionRoute>} />
       </Route>
 
@@ -267,6 +273,7 @@ function App() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<EmployeeDashboard />} />
         <Route path="requests" element={<MyRequests />} />
+        <Route path="requests/:categoryId" element={<EmployeeRequestCategory />} />
         <Route path="attendance" element={<MyAttendance />} />
         <Route path="leave" element={<MyLeave />} />
         <Route path="overtime" element={<MyOvertime />} />
@@ -277,7 +284,7 @@ function App() {
         <Route path="assets" element={<MyAssetsUniform />} />
         <Route path="uniforms" element={<MyAssetsUniform />} />
         <Route path="letters" element={<MyLetters />} />
-        <Route path="resignation" element={<MyResignation />} />
+        <Route path="resignation" element={<Navigate to="/employee/requests/resignation" replace />} />
         <Route path="notifications" element={<EmployeeNotifications />} />
       </Route>
 

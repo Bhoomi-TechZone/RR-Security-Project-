@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Calendar } from 'lucide-react';
 import styles from './UpcomingEvents.module.css';
 
@@ -48,6 +48,8 @@ function isInCurrentOrNextMonth(monthNum, monthDayStr, daysLeft) {
 
 function UpcomingEvents({ events = [], birthdayFallbackList = [], loading = false }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const eventsPagePath = location.pathname.startsWith('/user') ? '/user/upcoming-events' : '/admin/upcoming-events';
 
   // Prefer backend upcomingEvents; strictly filter to current or next month
   const normalizedEvents = useMemo(() => {
@@ -106,9 +108,9 @@ function UpcomingEvents({ events = [], birthdayFallbackList = [], loading = fals
         <h3 className={styles.title}>Upcoming Events</h3>
         <button
           type="button"
-          onClick={() => navigate('/admin/greetings')}
+          onClick={() => navigate(eventsPagePath)}
           className={styles.viewAllBtn}
-          title="View greetings & celebrations calendar"
+          title="View all upcoming events"
         >
           View All →
         </button>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeftRight,
@@ -16,6 +16,10 @@ import {
   FileSignature,
   MapPin,
   UserMinus,
+  CalendarRange,
+  CalendarCheck2,
+  CreditCard,
+  Clock4,
   X,
   CheckCircle2,
   FileText
@@ -37,7 +41,11 @@ const CATEGORY_ICONS = {
   uniform: Shirt,
   'letter-request': FileSignature,
   'transfer-request': MapPin,
-  resignation: UserMinus
+  resignation: UserMinus,
+  'week-off-change': CalendarRange,
+  'comp-off': CalendarCheck2,
+  'bank-change': CreditCard,
+  'time-relaxation': Clock4
 };
 
 function HRRequests() {
@@ -45,26 +53,33 @@ function HRRequests() {
   const location = useLocation();
   const isUserPanel = location.pathname.startsWith('/user');
   const [showHelpDrawer, setShowHelpDrawer] = useState(false);
+  const [hubRequests, setHubRequests] = useState(() => getStoredHubRequests());
+
+  useEffect(() => {
+    const syncRequests = () => setHubRequests(getStoredHubRequests());
+    window.addEventListener('storage', syncRequests);
+    window.addEventListener('novaspark:hub-requests-updated', syncRequests);
+    return () => {
+      window.removeEventListener('storage', syncRequests);
+      window.removeEventListener('novaspark:hub-requests-updated', syncRequests);
+    };
+  }, []);
 
   const pendingCounts = useMemo(() => {
     const counts = {};
-    getStoredHubRequests().forEach((req) => {
+    hubRequests.forEach((req) => {
       if (req.status === 'Pending') {
         counts[req.categoryId] = (counts[req.categoryId] || 0) + 1;
       }
     });
     return counts;
-  }, []);
+  }, [hubRequests]);
 
   const handleCardClick = (card) => {
-    const targetPath = isUserPanel ? card.userPath : card.adminPath;
-    const backTo = isUserPanel ? '/user/hr-management/requests' : '/admin/hr-management/requests';
-    navigate(targetPath, {
-      state: {
-        fromRequestsHub: true,
-        backTo
-      }
-    });
+    const basePath = isUserPanel
+      ? '/user/hr-management/requests'
+      : '/admin/hr-management/requests';
+    navigate(`${basePath}/${card.id}`);
   };
 
   return (

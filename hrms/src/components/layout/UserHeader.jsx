@@ -53,6 +53,7 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/hr-management')) return 'Workforce / HR Management';
     if (path.startsWith('/user/letter-management') || path.startsWith('/user/letters')) return 'Workforce / HR Management / Letter Management';
     if (path.startsWith('/user/greetings')) return 'Workforce / HR Management / Greetings';
+    if (path.startsWith('/user/upcoming-events')) return 'Dashboard / Upcoming Events';
     if (path.startsWith('/user/notifications')) {
       return location.search.includes('tab=announcements') ? 'Workforce / HR Management / Announcements' : 'Settings / Notifications';
     }
