@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   RotateCcw,
   Plane,
@@ -13,9 +13,13 @@ import {
   Shirt,
   FileSignature,
   MapPin,
-  UserMinus
+  UserMinus,
+  CalendarRange,
+  CalendarCheck2,
+  CreditCard,
+  Clock4
 } from 'lucide-react';
-import { REQUEST_CATEGORIES } from '../../data/requestHubData';
+import { REQUEST_CATEGORIES, getStoredHubRequests } from '../../data/requestHubData';
 import styles from './OpenRequests.module.css';
 
 const CATEGORY_META = {
@@ -31,7 +35,11 @@ const CATEGORY_META = {
   uniform: { icon: Shirt, color: '#2563eb' },
   'letter-request': { icon: FileSignature, color: '#6b1d45' },
   'transfer-request': { icon: MapPin, color: '#0891b2' },
-  resignation: { icon: UserMinus, color: '#dc2626' }
+  resignation: { icon: UserMinus, color: '#dc2626' },
+  'week-off-change': { icon: CalendarRange, color: '#4f46e5' },
+  'comp-off': { icon: CalendarCheck2, color: '#16a34a' },
+  'bank-change': { icon: CreditCard, color: '#9333ea' },
+  'time-relaxation': { icon: Clock4, color: '#d97706' }
 };
 
 function OpenRequests({
@@ -42,19 +50,45 @@ function OpenRequests({
   loading = false
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const isUserPanel = location.pathname.startsWith('/user');
+  const requestsHubPath = isUserPanel
+    ? '/user/hr-management/requests'
+    : '/admin/hr-management/requests';
 
-  // Compute live per-category pending counts (prefers backend openRequestCounts; falls back cleanly)
+  const [hubRequests, setHubRequests] = useState(() => getStoredHubRequests());
+
+  useEffect(() => {
+    const syncHub = () => setHubRequests(getStoredHubRequests());
+    window.addEventListener('storage', syncHub);
+    window.addEventListener('novaspark:hub-requests-updated', syncHub);
+    return () => {
+      window.removeEventListener('storage', syncHub);
+      window.removeEventListener('novaspark:hub-requests-updated', syncHub);
+    };
+  }, []);
+
+  // Compute live per-category pending counts (merges backend counts with Request Hub pending counts)
   const resolvedCounts = useMemo(() => {
+    const hubCounts = {};
+    hubRequests.forEach((req) => {
+      if (req.status === 'Pending') {
+        hubCounts[req.categoryId] = (hubCounts[req.categoryId] || 0) + 1;
+      }
+    });
+
     if (counts && typeof counts === 'object') {
-      return counts;
+      const merged = { ...hubCounts };
+      Object.entries(counts).forEach(([key, val]) => {
+        const num = Number(val) || 0;
+        merged[key] = num > 0 ? num : (hubCounts[key] || 0);
+      });
+      return merged;
     }
 
     const derived = {
-      leaves: Number(quickInsights?.leaveRequests) || 0,
-      reimbursement: 0,
-      loans: 0,
-      'asset-requisition': 0,
-      uniform: 0
+      ...hubCounts,
+      leaves: Math.max(Number(quickInsights?.leaveRequests) || 0, hubCounts.leaves || 0),
     };
 
     const sourceList = Array.isArray(openRequests) && openRequests.length > 0
@@ -86,7 +120,7 @@ function OpenRequests({
     }
 
     return derived;
-  }, [counts, openRequests, fallbackActivities, quickInsights]);
+  }, [counts, hubRequests, openRequests, fallbackActivities, quickInsights]);
 
   if (loading) {
     return (
@@ -112,7 +146,7 @@ function OpenRequests({
         <h3 className={styles.title}>Open Requests</h3>
         <button
           type="button"
-          onClick={() => navigate('/admin/hr-management/requests')}
+          onClick={() => navigate(requestsHubPath)}
           className={styles.viewAllBtn}
           title="Open Requests Hub"
         >
@@ -131,7 +165,7 @@ function OpenRequests({
               key={cat.id}
               type="button"
               className={styles.row}
-              onClick={() => navigate(cat.adminPath)}
+              onClick={() => navigate(`${requestsHubPath}/${cat.id}`)}
               title={cat.description}
             >
               <span className={styles.rowLeft}>

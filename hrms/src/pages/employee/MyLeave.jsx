@@ -162,7 +162,7 @@ function MyLeaveBalancesSection({ balances }) {
 }
 
 // Apply Leave Modal / Edit Resubmit Modal
-function ApplyLeaveModal({
+export function ApplyLeaveModal({
   isOpen,
   onClose,
   onSubmit,

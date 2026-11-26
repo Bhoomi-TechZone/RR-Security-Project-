@@ -22,6 +22,7 @@ import { usePermissions } from '../../context/PermissionContext';
 import attendanceService from '../../services/attendanceService';
 import { clientService } from '../../services/clientService';
 import employeeService from '../../services/employeeService';
+import { getStoredHubRequests, updateHubRequestStatus } from '../../data/requestHubData';
 import styles from './Attendance.module.css';
 
 const getLocalDateStr = () => {
@@ -412,9 +413,42 @@ function Attendance() {
       setRecords(sanitizeRecords(list));
 
       const corrs = await attendanceService.getCorrectionRequests(compId).catch(() => []);
-      if (Array.isArray(corrs)) {
-        setCorrections(corrs);
-      }
+      const apiCorrs = Array.isArray(corrs) ? corrs : [];
+      const hubCorrs = getStoredHubRequests()
+        .filter((item) => item.categoryId === 'attendance-correction')
+        .map((item) => ({
+          id: item.id,
+          employeeName: item.employeeName,
+          employeeId: item.employeeId,
+          initials: (item.employeeName || 'EM')
+            .split(' ')
+            .map((p) => p[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase(),
+          date: item.details?.Date || item.submittedDate,
+          site: item.site || 'Main Site',
+          originalCheckIn: '09:00',
+          originalCheckOut: '',
+          requestedCheckIn: '09:00',
+          requestedCheckOut: '18:00',
+          reason: item.reason || item.summary,
+          submittedAt: item.submittedDate,
+          status:
+            item.status === 'Approved'
+              ? 'approved'
+              : item.status === 'Rejected'
+              ? 'rejected'
+              : 'pendingCorrection',
+          adminRemarks: item.remarks || ''
+        }));
+
+      const apiIds = new Set(apiCorrs.map((c) => c.id || c._id || c.correctionId));
+      const mergedCorrs = [
+        ...hubCorrs.filter((hc) => !apiIds.has(hc.id)),
+        ...apiCorrs
+      ];
+      setCorrections(mergedCorrs);
     } catch (err) {
       console.warn('MongoDB attendance load error:', err.message);
     } finally {
@@ -821,7 +855,12 @@ function Attendance() {
   // Corrections Handler
   const handleApproveCorrection = async (corrId) => {
     try {
-      await attendanceService.reviewCorrectionRequest(compId, corrId, 'approve');
+      if (String(corrId).startsWith('REQ-')) {
+        updateHubRequestStatus(corrId, 'Approved', 'Approved from Attendance Corrections');
+        window.dispatchEvent(new Event('novaspark:hub-requests-updated'));
+      } else {
+        await attendanceService.reviewCorrectionRequest(compId, corrId, 'approve');
+      }
       await fetchRecords();
       setReviewRequest(null);
       showToast('✓ Correction approved and attendance record updated successfully.');
@@ -832,7 +871,12 @@ function Attendance() {
 
   const handleRejectCorrection = async (corrId, reason) => {
     try {
-      await attendanceService.reviewCorrectionRequest(compId, corrId, 'reject', reason);
+      if (String(corrId).startsWith('REQ-')) {
+        updateHubRequestStatus(corrId, 'Rejected', reason || 'Rejected from Attendance Corrections');
+        window.dispatchEvent(new Event('novaspark:hub-requests-updated'));
+      } else {
+        await attendanceService.reviewCorrectionRequest(compId, corrId, 'reject', reason);
+      }
       await fetchRecords();
       setReviewRequest(null);
       showToast('Correction request has been rejected.');

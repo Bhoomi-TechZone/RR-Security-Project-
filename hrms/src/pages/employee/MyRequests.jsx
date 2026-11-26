@@ -16,6 +16,10 @@ import {
   FileSignature,
   MapPin,
   UserMinus,
+  CalendarRange,
+  CalendarCheck2,
+  CreditCard,
+  Clock4,
   X,
   CheckCircle2,
   FileText
@@ -27,13 +31,17 @@ import styles from './MyRequests.module.css';
 
 const CATEGORY_ICONS = {
   'attendance-correction': RotateCcw,
+  'time-relaxation': Clock4,
   leaves: Plane,
   'leave-encashment': Coins,
+  'comp-off': CalendarCheck2,
   overtime: Timer,
   'shift-change': CalendarClock,
+  'week-off-change': CalendarRange,
   loans: Landmark,
   reimbursement: Receipt,
   'it-declaration': Calculator,
+  'bank-change': CreditCard,
   'asset-requisition': Package,
   uniform: Shirt,
   'letter-request': FileSignature,
@@ -43,6 +51,9 @@ const CATEGORY_ICONS = {
 
 const QUICK_REQUEST_TYPES = [
   { id: 'shift-change', label: 'Shift Change / Swap' },
+  { id: 'week-off-change', label: 'Week Off Change' },
+  { id: 'time-relaxation', label: 'Time Relaxation' },
+  { id: 'bank-change', label: 'Bank Account Change' },
   { id: 'transfer-request', label: 'Transfer / Site Relocation' }
 ];
 
@@ -66,12 +77,23 @@ export default function MyRequests() {
 
   const [showHelpDrawer, setShowHelpDrawer] = useState(false);
   const [quickModalType, setQuickModalType] = useState(null);
+  const [hubRequests, setHubRequests] = useState(() => getStoredHubRequests());
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  useEffect(() => {
+    const sync = () => setHubRequests(getStoredHubRequests());
+    window.addEventListener('storage', sync);
+    window.addEventListener('novaspark:hub-requests-updated', sync);
+    return () => {
+      window.removeEventListener('storage', sync);
+      window.removeEventListener('novaspark:hub-requests-updated', sync);
+    };
+  }, []);
 
   const pendingCounts = useMemo(() => {
     const counts = {};
     const curId = String(employeeId || '').toLowerCase();
-    getStoredHubRequests().forEach((req) => {
+    hubRequests.forEach((req) => {
       const rId = String(req.employeeId || '').toLowerCase();
       const belongsToEmployee = !curId || rId === curId || rId === 'rrs0104' || rId.startsWith('rrs');
       if (belongsToEmployee && req.status === 'Pending') {
@@ -79,7 +101,7 @@ export default function MyRequests() {
       }
     });
     return counts;
-  }, [employeeId]);
+  }, [employeeId, hubRequests]);
 
   const [quickForm, setQuickForm] = useState({
     currentShift: 'Night Shift (08 PM – 08 AM)',
@@ -87,6 +109,14 @@ export default function MyRequests() {
     effectiveFrom: new Date().toISOString().slice(0, 10),
     effectiveTo: new Date().toISOString().slice(0, 10),
     swapWith: '',
+    currentWeekOff: new Date().toISOString().slice(0, 10),
+    requestedWeekOff: new Date().toISOString().slice(0, 10),
+    relaxationDate: new Date().toISOString().slice(0, 10),
+    relaxationType: 'Late Arrival',
+    relaxationDuration: '30 Minutes',
+    bankName: '',
+    accountNumber: '',
+    ifscCode: '',
     currentSite: currentUser?.site || 'DLF CyberCity Tech Park',
     preferredSite: '',
     preferredDate: new Date().toISOString().slice(0, 10),
@@ -97,7 +127,10 @@ export default function MyRequests() {
 
   useEffect(() => {
     const action = searchParams.get('action');
-    if (action && ['shift-change', 'transfer-request'].includes(action)) {
+    if (
+      action &&
+      ['shift-change', 'week-off-change', 'time-relaxation', 'bank-change', 'transfer-request'].includes(action)
+    ) {
       setQuickModalType(action);
     }
   }, [searchParams]);
@@ -105,17 +138,7 @@ export default function MyRequests() {
   const employeeCards = REQUEST_CATEGORIES.filter((cat) => !cat.adminOnly);
 
   const handleCardClick = (card) => {
-    if (card.quickAction) {
-      setQuickForm((prev) => ({ ...prev, reason: '' }));
-      setQuickModalType(card.quickAction);
-      return;
-    }
-    navigate(card.employeePath, {
-      state: {
-        fromRequestsHub: true,
-        backTo: '/employee/requests'
-      }
-    });
+    navigate(`/employee/requests/${card.id}`);
   };
 
   const closeQuickModal = () => {
@@ -160,6 +183,83 @@ export default function MyRequests() {
           ...(quickForm.swapWith ? { 'Swap Colleague': quickForm.swapWith } : {})
         }
       };
+    } else if (quickModalType === 'week-off-change') {
+      const id = `REQ-WOC-${Math.floor(8100 + Math.random() * 800)}`;
+      newEntry = {
+        id,
+        categoryId: 'week-off-change',
+        categoryLabel: 'Week Off Change',
+        employeeId,
+        employeeName,
+        designation: currentUser?.designation || 'Staff Member',
+        site: quickForm.currentSite,
+        submittedDate: today,
+        summary: `Week Off Change: ${formatDate(quickForm.currentWeekOff)} → ${formatDate(quickForm.requestedWeekOff)}`,
+        amountOrMetric: '1 Day Swap',
+        priority: 'Normal',
+        stage: 'Pending Supervisor Approval',
+        status: 'Pending',
+        reason: quickForm.reason.trim(),
+        remarks: '',
+        details: {
+          'Current Week Off': formatDate(quickForm.currentWeekOff),
+          'Requested Week Off': formatDate(quickForm.requestedWeekOff),
+          ...(quickForm.swapWith ? { 'Reliever Guard': quickForm.swapWith } : {})
+        }
+      };
+    } else if (quickModalType === 'time-relaxation') {
+      const id = `REQ-TRL-${Math.floor(8400 + Math.random() * 500)}`;
+      newEntry = {
+        id,
+        categoryId: 'time-relaxation',
+        categoryLabel: 'Time Relaxation',
+        employeeId,
+        employeeName,
+        designation: currentUser?.designation || 'Staff Member',
+        site: quickForm.currentSite,
+        submittedDate: today,
+        summary: `${quickForm.relaxationType} Relaxation (${quickForm.relaxationDuration}) on ${formatDate(quickForm.relaxationDate)}`,
+        amountOrMetric: quickForm.relaxationDuration,
+        priority: 'Normal',
+        stage: 'Pending Supervisor Approval',
+        status: 'Pending',
+        reason: quickForm.reason.trim(),
+        remarks: '',
+        details: {
+          Date: formatDate(quickForm.relaxationDate),
+          'Relaxation Type': quickForm.relaxationType,
+          'Duration Requested': quickForm.relaxationDuration
+        }
+      };
+    } else if (quickModalType === 'bank-change') {
+      if (!quickForm.bankName.trim() || !quickForm.accountNumber.trim() || !quickForm.ifscCode.trim()) {
+        showToast('Please enter Bank Name, Account Number, and IFSC Code.', 'error');
+        return;
+      }
+      const id = `REQ-BNK-${Math.floor(8300 + Math.random() * 600)}`;
+      const maskedAcc = `XXXX XXXX ${quickForm.accountNumber.trim().slice(-4)}`;
+      newEntry = {
+        id,
+        categoryId: 'bank-change',
+        categoryLabel: 'Bank Change',
+        employeeId,
+        employeeName,
+        designation: currentUser?.designation || 'Staff Member',
+        site: quickForm.currentSite,
+        submittedDate: today,
+        summary: `Salary Account Update: ${quickForm.bankName.trim()} (${maskedAcc})`,
+        amountOrMetric: 'Bank Update',
+        priority: 'High',
+        stage: 'Pending Payroll Verification',
+        status: 'Pending',
+        reason: quickForm.reason.trim(),
+        remarks: '',
+        details: {
+          'New Bank': quickForm.bankName.trim(),
+          'Account No': maskedAcc,
+          'IFSC Code': quickForm.ifscCode.trim().toUpperCase()
+        }
+      };
     } else if (quickModalType === 'transfer-request') {
       if (!quickForm.preferredSite.trim()) {
         showToast('Please specify preferred site / branch.', 'error');
@@ -191,7 +291,9 @@ export default function MyRequests() {
     }
 
     if (newEntry) {
-      addHubRequest(newEntry);
+      const updated = addHubRequest(newEntry);
+      setHubRequests(updated);
+      window.dispatchEvent(new Event('novaspark:hub-requests-updated'));
       closeQuickModal();
       showToast(`✓ ${newEntry.categoryLabel} (${newEntry.id}) submitted successfully!`);
     }
@@ -354,6 +456,119 @@ export default function MyRequests() {
                     />
                   </div>
                 </>
+              )}
+
+              {quickModalType === 'week-off-change' && (
+                <>
+                  <div className={styles.formGrid2}>
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>Current Week Off Date</label>
+                      <input
+                        type="date"
+                        className={styles.selectInput}
+                        value={quickForm.currentWeekOff}
+                        onChange={(e) => setQuickForm({ ...quickForm, currentWeekOff: e.target.value })}
+                      />
+                    </div>
+                    <div className={styles.field}>
+                      <label className={styles.fieldLabel}>Requested Week Off Date</label>
+                      <input
+                        type="date"
+                        className={styles.selectInput}
+                        value={quickForm.requestedWeekOff}
+                        onChange={(e) => setQuickForm({ ...quickForm, requestedWeekOff: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>Reliever Colleague (Optional)</label>
+                    <input
+                      type="text"
+                      className={styles.selectInput}
+                      value={quickForm.swapWith}
+                      onChange={(e) => setQuickForm({ ...quickForm, swapWith: e.target.value })}
+                      placeholder="Colleague Name / Employee Code"
+                    />
+                  </div>
+                </>
+              )}
+
+              {quickModalType === 'time-relaxation' && (
+                <div className={styles.formGrid2}>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>Date</label>
+                    <input
+                      type="date"
+                      className={styles.selectInput}
+                      value={quickForm.relaxationDate}
+                      onChange={(e) => setQuickForm({ ...quickForm, relaxationDate: e.target.value })}
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>Relaxation Type</label>
+                    <select
+                      className={styles.selectInput}
+                      value={quickForm.relaxationType}
+                      onChange={(e) => setQuickForm({ ...quickForm, relaxationType: e.target.value })}
+                    >
+                      <option>Late Arrival</option>
+                      <option>Early Departure</option>
+                      <option>Short Leave Grace</option>
+                    </select>
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>Duration Requested</label>
+                    <select
+                      className={styles.selectInput}
+                      value={quickForm.relaxationDuration}
+                      onChange={(e) => setQuickForm({ ...quickForm, relaxationDuration: e.target.value })}
+                    >
+                      <option>15 Minutes</option>
+                      <option>30 Minutes</option>
+                      <option>45 Minutes</option>
+                      <option>1 Hour</option>
+                      <option>2 Hours</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {quickModalType === 'bank-change' && (
+                <div className={styles.formGrid2}>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>New Bank Name *</label>
+                    <input
+                      type="text"
+                      className={styles.selectInput}
+                      value={quickForm.bankName}
+                      onChange={(e) => setQuickForm({ ...quickForm, bankName: e.target.value })}
+                      placeholder="e.g., HDFC Bank"
+                      required
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>Account Number *</label>
+                    <input
+                      type="text"
+                      className={styles.selectInput}
+                      value={quickForm.accountNumber}
+                      onChange={(e) => setQuickForm({ ...quickForm, accountNumber: e.target.value })}
+                      placeholder="Enter bank account number"
+                      required
+                    />
+                  </div>
+                  <div className={styles.field}>
+                    <label className={styles.fieldLabel}>IFSC Code *</label>
+                    <input
+                      type="text"
+                      className={styles.selectInput}
+                      value={quickForm.ifscCode}
+                      onChange={(e) => setQuickForm({ ...quickForm, ifscCode: e.target.value })}
+                      placeholder="e.g., HDFC0001420"
+                      required
+                    />
+                  </div>
+                </div>
               )}
 
               {quickModalType === 'transfer-request' && (
