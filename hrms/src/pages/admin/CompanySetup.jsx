@@ -13,6 +13,7 @@ import AdminLayout from '../../components/layout/AdminLayout';
 import FormInput from '../../components/common/FormInput';
 import PrimaryButton from '../../components/common/PrimaryButton';
 import Toast from '../../components/common/Toast';
+import storageService from '../../services/storageService';
 
 import { useCompany } from '../../context/CompanyContext';
 import { 
@@ -810,18 +811,34 @@ function CompanySetup() {
         return;
       }
 
-      // Create preview & update logo in formData
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setLogoPreview(reader.result);
-        setFormData(prev => ({ ...prev, logo: reader.result }));
-        localStorage.setItem('novaspark_company_logo_preview', reader.result);
-        if (activeCompany) {
-          const compId = activeCompany.companyId || activeCompany.id;
-          localStorage.setItem(`novaspark_company_logo_${compId}`, reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      // Upload to Cloudflare R2 with instant preview
+      const localUrl = URL.createObjectURL(file);
+      setLogoPreview(localUrl);
+
+      const compId = activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+      storageService.uploadFile(file, 'images', compId)
+        .then((uploaded) => {
+          if (uploaded?.url) {
+            setLogoPreview(uploaded.url);
+            setFormData(prev => ({ ...prev, logo: uploaded.url }));
+            localStorage.setItem('novaspark_company_logo_preview', uploaded.url);
+            localStorage.setItem(`novaspark_company_logo_${compId}`, uploaded.url);
+            showToast('✓ Logo uploaded to Cloudflare R2', 'success');
+          }
+        })
+        .catch((err) => {
+          console.warn('R2 logo upload failed, fallback:', err);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setLogoPreview(reader.result);
+            setFormData(prev => ({ ...prev, logo: reader.result }));
+            localStorage.setItem('novaspark_company_logo_preview', reader.result);
+            if (activeCompany) {
+              localStorage.setItem(`novaspark_company_logo_${compId}`, reader.result);
+            }
+          };
+          reader.readAsDataURL(file);
+        });
     }
   };
 

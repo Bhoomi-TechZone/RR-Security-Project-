@@ -10,6 +10,7 @@ import {
   Upload
 } from 'lucide-react';
 import styles from './DocumentsStep.module.css';
+import storageService from '../../services/storageService';
 
 /**
  * Formats a date string into "12-Nov-2026"
@@ -46,8 +47,8 @@ const DEFAULT_DOC_TYPES = [
 ];
 
 function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
-  const employeeCode = data?.employeeCode || data?.employeeId || 'RR-020';
-  const employeeName = data?.name || 'Ramesh Kumar';
+  const employeeCode = data?.employeeCode || data?.employeeId || '';
+  const employeeName = data?.name || '';
   const cleanCode = String(employeeCode).replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
   const cleanName = String(employeeName).trim().replace(/\s+/g, '_').toUpperCase();
 
@@ -64,11 +65,14 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
     return DEFAULT_DOC_TYPES;
   }, [documentTypes]);
 
-  // Initial compilation of documents
+  // Initial compilation of documents (NO static fake samples!)
   const getInitialDocs = () => {
     try {
       const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {}
 
     const list = [];
@@ -78,16 +82,17 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
       data.licenseList.forEach((lic, idx) => {
         if (lic.licenseNo || lic.photo || lic.licenseType) {
           const typeName = lic.licenseType || 'Driving License';
+          const cleanTypeName = typeName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
           list.push({
             id: `lic-${idx}-${Date.now()}`,
             category: 'license',
             name: typeName,
             number: lic.licenseNo || '',
-            date: lic.expiryDate || '2026-11-12',
+            date: lic.expiryDate || lic.date || '',
             file: lic.photo || '',
             isHidden: lic.isHidden !== false,
-            title: `${typeName.toUpperCase()}${lic.licenseNo ? ` [${lic.licenseNo}]` : ' [SAMPLE]'} uploaded on ${formatDisplayDate(lic.expiryDate || '2026-11-12')}`,
-            fileName: `${typeName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_SAMPLE_${cleanCode}_${cleanName}.PDF`
+            title: `${typeName.toUpperCase()}${lic.licenseNo ? ` [${lic.licenseNo}]` : ''} uploaded on ${formatDisplayDate(lic.expiryDate || lic.date)}`,
+            fileName: `${cleanTypeName}_${cleanCode || 'EMP'}_${cleanName || 'DOC'}.PDF`
           });
         }
       });
@@ -98,16 +103,17 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
       data.documentList.forEach((doc, idx) => {
         if (doc.name || doc.photo) {
           const typeName = doc.name || 'KYC Document';
+          const cleanTypeName = typeName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
           list.push({
             id: `doc-${idx}-${Date.now()}`,
             category: 'document',
             name: typeName,
             number: doc.number || '',
-            date: doc.date || '2026-11-12',
+            date: doc.date || '',
             file: doc.photo || '',
             isHidden: doc.isHidden !== false,
-            title: `${typeName.toUpperCase()} [KYC] uploaded on ${formatDisplayDate(doc.date || '2026-11-12')}`,
-            fileName: `${typeName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()}_SAMPLE_${cleanCode}_${cleanName}.PDF`
+            title: `${typeName.toUpperCase()}${doc.number ? ` [${doc.number}]` : ''} uploaded on ${formatDisplayDate(doc.date)}`,
+            fileName: `${cleanTypeName}_${cleanCode || 'EMP'}_${cleanName || 'DOC'}.PDF`
           });
         }
       });
@@ -122,41 +128,40 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
           category: 'license',
           name: 'Driving License',
           number: data.drivingLicenseNo || '',
-          date: data.dlExpiryDate || '2026-11-12',
+          date: data.dlExpiryDate || '',
           file: data.drivingLicenseCopy || '',
           isHidden: true,
-          title: `DRIVING LICENSE${data.drivingLicenseNo ? ` [${data.drivingLicenseNo}]` : ' [SAMPLE]'} uploaded on ${formatDisplayDate(data.dlExpiryDate || '2026-11-12')}`,
-          fileName: `DRIVING_LICENSE_SAMPLE_${cleanCode}_${cleanName}.PDF`
+          title: `DRIVING LICENSE${data.drivingLicenseNo ? ` [${data.drivingLicenseNo}]` : ''} uploaded on ${formatDisplayDate(data.dlExpiryDate)}`,
+          fileName: `DRIVING_LICENSE_${cleanCode || 'EMP'}_${cleanName || 'DOC'}.PDF`
         });
       }
     }
 
-    // If still empty, provide clean sample matching screenshot
-    if (list.length === 0) {
-      return [
-        {
-          id: `DOC-${cleanCode}-01`,
-          category: 'license',
-          name: 'Driving License',
-          number: 'DL-0920190012345',
-          date: '2026-11-12',
-          file: '',
-          isHidden: true,
-          title: `DRIVING LICENSE [SAMPLE] uploaded on 12-Nov-2026`,
-          fileName: `DRIVING_LICENSE_SAMPLE_${cleanCode}_${cleanName}.PDF`
-        },
-        {
-          id: `DOC-${cleanCode}-02`,
-          category: 'document',
-          name: 'Aadhaar Card',
-          number: data.aadhaar || 'XXXX-XXXX-1234',
-          date: '2026-11-12',
-          file: '',
-          isHidden: true,
-          title: `AADHAAR CARD [KYC] uploaded on 12-Nov-2026`,
-          fileName: `AADHAAR_CARD_SAMPLE_${cleanCode}_${cleanName}.PDF`
+    // Structured documents map
+    if (data.documents && typeof data.documents === 'object') {
+      Object.entries(data.documents).forEach(([docKey, docVal]) => {
+        if (docVal && (docVal.file || docVal.photo || docVal.number || docVal.status === 'verified')) {
+          const typeName = docKey
+            .replace(/([A-Z])/g, ' $1')
+            .replace(/^./, (str) => str.toUpperCase())
+            .trim();
+          const alreadyInList = list.some(d => d.name.toLowerCase() === typeName.toLowerCase());
+          if (!alreadyInList) {
+            const cleanTypeName = typeName.replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+            list.push({
+              id: `doc-struct-${docKey}`,
+              category: docKey.toLowerCase().includes('license') ? 'license' : 'document',
+              name: typeName,
+              number: docVal.number || '',
+              date: docVal.date || '',
+              file: docVal.file || docVal.photo || '',
+              isHidden: docVal.isHidden !== false,
+              title: `${typeName.toUpperCase()}${docVal.number ? ` [${docVal.number}]` : ''} uploaded on ${formatDisplayDate(docVal.date)}`,
+              fileName: `${cleanTypeName}_${cleanCode || 'EMP'}_${cleanName || 'DOC'}.PDF`
+            });
+          }
         }
-      ];
+      });
     }
 
     return list;
@@ -173,6 +178,7 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
   const [formFile, setFormFile] = useState('');
   const [formFileName, setFormFileName] = useState('');
   const [uploadError, setUploadError] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
 
   // Save changes to parent data & storage
   const syncWithParent = (updatedDocs) => {
@@ -236,26 +242,27 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
 
   // Download File / Document
   const handleDownloadDoc = (doc) => {
-    if (doc.file && doc.file.startsWith('data:')) {
+    if (doc.file) {
       const link = document.createElement('a');
       link.href = doc.file;
+      link.target = '_blank';
       link.download = doc.fileName || `${doc.name || 'document'}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } else {
-      // Create a clean sample certificate blob to download
-      const content = `========================================================\nDOCUMENT RECORD: ${doc.title || doc.name}\n========================================================\n\nEmployee Name: ${employeeName}\nEmployee Code: ${employeeCode}\nDocument Type: ${doc.name}\nDocument No.: ${doc.number || 'N/A'}\nVerification Date: ${formatDisplayDate(doc.date)}\nStatus: Verified\n\nRR Security & Facilities Verification Authority\nPlot 45, Sector 18, Gurugram, Haryana - 122008\n========================================================`;
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = doc.fileName ? doc.fileName.replace('.PDF', '.txt') : `${doc.name}.txt`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      return;
     }
+    // Create verification certificate blob fallback if file url is missing
+    const content = `========================================================\nDOCUMENT RECORD: ${doc.title || doc.name}\n========================================================\n\nEmployee Name: ${employeeName}\nEmployee Code: ${employeeCode}\nDocument Type: ${doc.name}\nDocument No.: ${doc.number || 'N/A'}\nVerification Date: ${formatDisplayDate(doc.date)}\nStatus: Verified\n\nRR Security & Facilities Verification Authority\nPlot 45, Sector 18, Gurugram, Haryana - 122008\n========================================================`;
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = doc.fileName ? doc.fileName.replace('.PDF', '.txt') : `${doc.name}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   // Open Add Modal
@@ -273,23 +280,23 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
     setIsModalOpen(true);
   };
 
-  // Handle file selection with validation (Max 5MB, allowed formats: jpg, jpeg, png, pdf, max name length: 100)
-  const handleFileInputChange = (e) => {
+  // Handle file selection with validation and Cloudflare R2 Upload
+  const handleFileInputChange = async (e) => {
     setUploadError('');
     const file = e.target.files?.[0];
     if (file) {
-      // Validate 5 MB file size limit
-      if (file.size > 5 * 1024 * 1024) {
-        setUploadError('Maximum file size allowed: 5 MB per document.');
+      // Validate 15 MB file size limit
+      if (file.size > 15 * 1024 * 1024) {
+        setUploadError('Maximum file size allowed: 15 MB per document.');
         e.target.value = '';
         return;
       }
 
       // Validate allowed file formats
       const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
-      const allowedExts = ['.jpg', '.jpeg', '.png', '.pdf'];
+      const allowedExts = ['.jpg', '.jpeg', '.png', '.pdf', '.webp', '.docx'];
       if (!allowedExts.includes(ext)) {
-        setUploadError('Invalid file type. Allowed formats: jpg, jpeg, png, pdf');
+        setUploadError('Invalid file type. Allowed formats: jpg, jpeg, png, pdf, webp, docx');
         e.target.value = '';
         return;
       }
@@ -302,11 +309,25 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
       }
 
       setFormFileName(file.name);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormFile(reader.result);
-      };
-      reader.readAsDataURL(file);
+      setIsUploading(true);
+
+      try {
+        const uploaded = await storageService.uploadFile(file, 'documents', data?.companyId || '');
+        if (uploaded?.url) {
+          setFormFile(uploaded.url);
+        } else {
+          throw new Error('Upload URL missing');
+        }
+      } catch (err) {
+        console.warn('Direct Cloudflare R2 upload fallback to local:', err.message);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormFile(reader.result);
+        };
+        reader.readAsDataURL(file);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -339,7 +360,7 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
       date: formDate,
       file: formFile,
       isHidden: true,
-      title: `${formDocType.toUpperCase()}${formDocNo ? ` [${formDocNo}]` : ' [SAMPLE]'} uploaded on ${dateFormatted}`,
+      title: `${formDocType.toUpperCase()}${formDocNo ? ` [${formDocNo}]` : ''} uploaded on ${dateFormatted}`,
       fileName: cleanFileName
     };
 
@@ -451,7 +472,21 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
           })
         ) : (
           <div className={styles.emptyState}>
-            <p style={{ margin: 0, fontWeight: 500 }}>No documents uploaded for this employee yet.</p>
+            <p style={{ margin: 0, fontWeight: 600, color: '#334155', fontSize: '14px' }}>
+              No documents uploaded for this employee yet.
+            </p>
+            <p style={{ margin: '6px 0 16px', color: '#64748b', fontSize: '13px' }}>
+              Click "+ Add Document" to upload licenses, certificates, and KYC verification proofs.
+            </p>
+            <button
+              type="button"
+              className={styles.addBtn}
+              onClick={handleOpenAddModal}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <PlusCircle size={15} />
+              <span>Add Document</span>
+            </button>
           </div>
         )}
       </div>
@@ -595,9 +630,10 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
                 <button
                   type="submit"
                   className={styles.saveBtn}
+                  disabled={isUploading}
                 >
                   <Check size={14} />
-                  <span>Save Document</span>
+                  <span>{isUploading ? 'Uploading to Cloudflare R2...' : 'Save Document'}</span>
                 </button>
               </div>
             </form>
@@ -622,22 +658,28 @@ function DocumentsStep({ data, onChange, designation, documentTypes = [] }) {
               </button>
             </div>
             <div className={styles.modalBody} style={{ alignItems: 'center' }}>
-              {previewDoc.file && previewDoc.file.startsWith('data:image/') ? (
+              {previewDoc.file && (previewDoc.file.startsWith('data:image/') || previewDoc.file.match(/\.(jpeg|jpg|png|webp|gif)/i)) ? (
                 <img
                   src={previewDoc.file}
                   alt={previewDoc.name}
                   className={styles.previewImg}
                 />
+              ) : previewDoc.file && previewDoc.file.match(/\.pdf/i) ? (
+                <iframe
+                  src={previewDoc.file}
+                  title={previewDoc.name}
+                  style={{ width: '100%', height: '500px', border: 'none', borderRadius: '8px' }}
+                />
               ) : (
                 <div style={{ padding: '30px', textAlign: 'center' }}>
-                  <p style={{ fontWeight: 600 }}>{previewDoc.fileName}</p>
+                  <p style={{ fontWeight: 600 }}>{previewDoc.fileName || previewDoc.name}</p>
                   <button
                     type="button"
                     className={styles.downloadBtn}
                     onClick={() => handleDownloadDoc(previewDoc)}
                   >
                     <Download size={14} />
-                    <span>Download File</span>
+                    <span>Download / View File</span>
                   </button>
                 </div>
               )}

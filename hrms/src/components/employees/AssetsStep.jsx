@@ -117,7 +117,7 @@ const isDummyMock = (item) => {
 };
 
 export default function AssetsStep({ data, employee, onChange }) {
-  const empCode = employee?.employeeCode || data?.employeeCode || data?._id || data?.id || 'RR-020';
+  const empCode = employee?.employeeCode || data?.employeeCode || data?._id || data?.id || '';
   const empId = employee?.employeeId || employee?.employeeCode || employee?._id || employee?.id || data?.employeeId || data?.employeeCode || data?._id || data?.id || empCode;
   const storageKey = `novaspark_assets_emp_${empCode}`;
 

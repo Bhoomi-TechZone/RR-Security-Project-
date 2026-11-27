@@ -156,6 +156,7 @@ const attendanceSchema = new mongoose.Schema(
 
 // Compound index to ensure uniqueness per employee per date per company
 attendanceSchema.index({ companyId: 1, employeeId: 1, date: 1 }, { unique: false });
+attendanceSchema.index({ companyId: 1, date: 1 });
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 export default Attendance;

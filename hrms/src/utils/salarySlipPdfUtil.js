@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { numberToIndianWords } from './payrollUtils';
+import storageService from '../services/storageService';
 
 /**
  * Load an image source and convert to dataURL with dimensions
@@ -612,14 +613,50 @@ export async function generateSalarySlipPdf({
   const cleanEmpName = employeeName.replace(/[^a-zA-Z0-9]/g, '_');
   const cleanMonth = salaryMonth.replace(/[^a-zA-Z0-9]/g, '_');
   const fileName = `Salary_Slip_${cleanEmpName}_${cleanMonth}.pdf`;
+  const pdfBlob = doc.output('blob');
+
+  // Asynchronously archive to Cloudflare R2 if not already uploaded
+  if (slip && !slip.pdfUrl && typeof File !== 'undefined') {
+    const compId = slip.companyId || company?.companyId || 'RRS8392014SEC';
+    const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    storageService.uploadFile(pdfFile, 'salaryslips', compId)
+      .then((res) => {
+        if (res?.url) {
+          slip.pdfUrl = res.url;
+          slip.fileKey = res.key;
+        }
+      })
+      .catch((err) => {
+        console.warn('Salary slip R2 background archive error:', err);
+      });
+  }
 
   if (mode === 'print') {
     doc.autoPrint();
-    const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, '_blank');
+  } else if (mode === 'blob') {
+    return { doc, pdfBlob, fileName };
   } else {
     // Direct file download
     doc.save(fileName);
   }
+
+  return { doc, pdfBlob, fileName };
+}
+
+/**
+ * Upload a salary slip PDF directly to Cloudflare R2 storage
+ */
+export async function uploadSalarySlipPdfToR2(slip, company = {}) {
+  const result = await generateSalarySlipPdf({ slip, company, mode: 'blob' });
+  if (!result?.pdfBlob) return null;
+  const compId = slip.companyId || company?.companyId || 'RRS8392014SEC';
+  const pdfFile = new File([result.pdfBlob], result.fileName, { type: 'application/pdf' });
+  const uploaded = await storageService.uploadFile(pdfFile, 'salaryslips', compId);
+  if (uploaded?.url) {
+    slip.pdfUrl = uploaded.url;
+    slip.fileKey = uploaded.key;
+  }
+  return uploaded;
 }

@@ -26,6 +26,7 @@ import {
 } from '../../data/onboardingData';
 import { getStoredCandidates } from '../../data/recruitmentData';
 import onboardingService from '../../services/onboardingService';
+import storageService from '../../services/storageService';
 import styles from './CandidateSelfOnboard.module.css';
 
 const GENDERS = ['Male', 'Female', 'Other'];
@@ -266,14 +267,27 @@ export default function CandidateSelfOnboard() {
 
     setFileErrors((prev) => ({ ...prev, [field]: null }));
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setFormData((prev) => ({
-        ...prev,
-        [field]: reader.result
-      }));
-    };
-    reader.readAsDataURL(file);
+    // Upload to Cloudflare R2 with fallback
+    storageService.uploadFile(file, field === 'profilePhoto' ? 'images' : 'documents', candidate?.companyId || 'RRS8392014SEC')
+      .then((uploaded) => {
+        if (uploaded?.url) {
+          setFormData((prev) => ({
+            ...prev,
+            [field]: uploaded.url
+          }));
+        }
+      })
+      .catch((err) => {
+        console.warn('R2 upload failed, fallback to local reader:', err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          setFormData((prev) => ({
+            ...prev,
+            [field]: reader.result
+          }));
+        };
+        reader.readAsDataURL(file);
+      });
   };
 
   // Dynamic document upload handler with strict 4MB max size enforcement
@@ -292,37 +306,69 @@ export default function CandidateSelfOnboard() {
 
     setFileErrors((prev) => ({ ...prev, [errorKey]: null }));
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const resultUrl = reader.result;
-      const formattedSize = file.size > 1024 * 1024
-        ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
-        : `${Math.round(file.size / 1024)} KB`;
+    const formattedSize = file.size > 1024 * 1024
+      ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+      : `${Math.round(file.size / 1024)} KB`;
 
-      setDynamicDocValues((prev) => {
-        const cur = prev[docKey] || {};
-        return {
-          ...prev,
-          [docKey]: {
-            ...cur,
-            [subField]: resultUrl,
-            fileName: file.name,
-            fileSize: formattedSize
+    // Upload to Cloudflare R2 with fallback
+    storageService.uploadFile(file, 'documents', candidate?.companyId || 'RRS8392014SEC')
+      .then((uploaded) => {
+        const resultUrl = uploaded?.url || '';
+        if (resultUrl) {
+          setDynamicDocValues((prev) => {
+            const cur = prev[docKey] || {};
+            return {
+              ...prev,
+              [docKey]: {
+                ...cur,
+                [subField]: resultUrl,
+                fileName: file.name,
+                fileSize: formattedSize
+              }
+            };
+          });
+
+          // Sync to root legacy formData
+          const keyLower = docKey.toLowerCase();
+          if (keyLower.includes('aadhaar') || keyLower.includes('aadhar')) {
+            if (subField === 'photoFront') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
+            if (subField === 'photoBack') setFormData(p => ({ ...p, aadhaarBackPhoto: resultUrl }));
+            if (subField === 'fileUrl') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
+          } else if (keyLower.includes('pan')) {
+            setFormData(p => ({ ...p, panPhoto: resultUrl }));
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('R2 dynamic doc upload failed, fallback:', err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          const resultUrl = reader.result;
+          setDynamicDocValues((prev) => {
+            const cur = prev[docKey] || {};
+            return {
+              ...prev,
+              [docKey]: {
+                ...cur,
+                [subField]: resultUrl,
+                fileName: file.name,
+                fileSize: formattedSize
+              }
+            };
+          });
+
+          // Sync to root legacy formData
+          const keyLower = docKey.toLowerCase();
+          if (keyLower.includes('aadhaar') || keyLower.includes('aadhar')) {
+            if (subField === 'photoFront') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
+            if (subField === 'photoBack') setFormData(p => ({ ...p, aadhaarBackPhoto: resultUrl }));
+            if (subField === 'fileUrl') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
+          } else if (keyLower.includes('pan')) {
+            setFormData(p => ({ ...p, panPhoto: resultUrl }));
           }
         };
+        reader.readAsDataURL(file);
       });
-
-      // Sync to root legacy formData
-      const keyLower = docKey.toLowerCase();
-      if (keyLower.includes('aadhaar') || keyLower.includes('aadhar')) {
-        if (subField === 'photoFront') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
-        if (subField === 'photoBack') setFormData(p => ({ ...p, aadhaarBackPhoto: resultUrl }));
-        if (subField === 'fileUrl') setFormData(p => ({ ...p, aadhaarFrontPhoto: resultUrl }));
-      } else if (keyLower.includes('pan')) {
-        setFormData(p => ({ ...p, panPhoto: resultUrl }));
-      }
-    };
-    reader.readAsDataURL(file);
   };
 
   const validate = () => {

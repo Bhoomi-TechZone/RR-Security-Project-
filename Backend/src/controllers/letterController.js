@@ -218,7 +218,14 @@ export const getLetters = async (req, res) => {
     if (req.query.department && req.query.department !== 'All') {
       filter.department = req.query.department;
     }
-    if (req.query.search) {
+    if (req.query.employeeCode || req.query.employeeId) {
+      const empCode = (req.query.employeeCode || req.query.employeeId).trim();
+      const codeRegex = new RegExp(`^${empCode}$`, 'i');
+      filter.$or = [
+        { employeeCode: codeRegex },
+        { employeeId: codeRegex }
+      ];
+    } else if (req.query.search) {
       const q = req.query.search.trim();
       filter.$or = [
         { employeeName: { $regex: q, $options: 'i' } },

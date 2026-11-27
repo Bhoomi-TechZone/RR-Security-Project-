@@ -24,15 +24,29 @@ function EditClient() {
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
-  const [company, setCompany] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [company, setCompany] = useState(() => {
+    if (!currentCompanyId || !id) return null;
+    try {
+      const stored = localStorage.getItem(`novaspark_clients_${currentCompanyId}`);
+      if (stored) {
+        const list = JSON.parse(stored);
+        if (Array.isArray(list)) {
+          return list.find((c) => c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))) || null;
+        }
+      }
+    } catch {}
+    return null;
+  });
+  const [loading, setLoading] = useState(() => !company);
   const [toast, setToast] = useState({ message: '', type: 'success' });
 
   useEffect(() => {
     let isMounted = true;
     const fetchClient = async () => {
       try {
-        setLoading(true);
+        if (!company) {
+          setLoading(true);
+        }
         // Try fetching via clientService or direct API
         const token = authService.getToken();
         let clientData = null;

@@ -4,12 +4,29 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const employeeService = {
   /**
-   * Fetch all employees for the active company profile
+   * Fetch employees for the active company profile (supports server-side pagination & filtering)
    */
-  async getEmployees(companyId) {
+  async getEmployees(companyId, params = {}) {
     try {
       const token = authService.getToken();
-      const response = await fetch(`${API_BASE_URL}/employees`, {
+      const query = new URLSearchParams();
+      if (params.page !== undefined && params.page !== null) query.append('page', params.page);
+      if (params.limit !== undefined && params.limit !== null) query.append('limit', params.limit);
+      if (params.search) query.append('search', params.search);
+      if (params.q) query.append('q', params.q);
+      if (params.clientId && params.clientId !== 'all') query.append('clientId', params.clientId);
+      if (params.location && params.location !== 'all') query.append('location', params.location);
+      if (params.department && params.department !== 'all') query.append('department', params.department);
+      if (params.designation && params.designation !== 'all') query.append('designation', params.designation);
+      if (params.status && params.status !== 'all') query.append('status', params.status);
+      if (params.sortBy && params.sortBy !== 'none') query.append('sortBy', params.sortBy);
+      if (params.sortOrder) query.append('sortOrder', params.sortOrder);
+      if (params.minimal) query.append('minimal', 'true');
+
+      const queryString = query.toString();
+      const url = `${API_BASE_URL}/employees${queryString ? `?${queryString}` : ''}`;
+
+      const response = await fetch(url, {
         method: 'GET',
         cache: 'no-cache',
         headers: {
@@ -20,7 +37,7 @@ export const employeeService = {
       });
 
       if (!response.ok) {
-        if (response.status === 304) return [];
+        if (response.status === 304) return params.page ? { employees: [], pagination: { total: 0, page: 1, limit: 10, totalPages: 1 }, count: 0 } : [];
         let errMsg = 'Failed to fetch employees';
         try {
           const errData = await response.json();
@@ -30,20 +47,32 @@ export const employeeService = {
       }
 
       const data = await response.json();
+      if (params.page !== undefined && params.page !== null) {
+        return {
+          employees: Array.isArray(data.employees) ? data.employees : [],
+          pagination: data.pagination || { total: data.count || 0, page: Number(params.page), limit: Number(params.limit || 10), totalPages: Math.ceil((data.count || 0) / (params.limit || 10)) || 1 },
+          count: data.count || (Array.isArray(data.employees) ? data.employees.length : 0)
+        };
+      }
       return Array.isArray(data.employees) ? data.employees : Array.isArray(data) ? data : [];
     } catch (error) {
       console.error('employeeService.getEmployees error:', error);
-      return [];
+      return params.page ? { employees: [], pagination: { total: 0, page: 1, limit: 10, totalPages: 1 }, count: 0 } : [];
     }
   },
 
   /**
-   * Fetch single employee details by ID
+   * Fetch single employee details by ID (documents excluded by default for instant rendering)
    */
-  async getEmployeeById(companyId, id) {
+  async getEmployeeById(companyId, id, options = {}) {
     try {
       const token = authService.getToken();
-      const response = await fetch(`${API_BASE_URL}/employees/${id}`, {
+      const params = new URLSearchParams();
+      if (options.includeDocuments) params.append('includeDocuments', 'true');
+      if (options.section) params.append('section', options.section);
+      const queryStr = params.toString();
+      const url = `${API_BASE_URL}/employees/${id}${queryStr ? `?${queryStr}` : ''}`;
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -60,6 +89,33 @@ export const employeeService = {
       return data.employee || data;
     } catch (error) {
       console.error('employeeService.getEmployeeById error:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetch employee documents on-demand when user opens documents tab
+   */
+  async getEmployeeDocuments(companyId, id) {
+    try {
+      const token = authService.getToken();
+      const response = await fetch(`${API_BASE_URL}/employees/${id}/documents`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token || ''}`,
+          'x-company-id': companyId || '',
+        },
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to fetch employee documents');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('employeeService.getEmployeeDocuments error:', error);
       throw error;
     }
   },

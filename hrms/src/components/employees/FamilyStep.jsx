@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { PlusCircle, Trash2, Pencil, HelpCircle, Upload, Eye, X, Check } from 'lucide-react';
+import { PlusCircle, Trash2, Pencil, HelpCircle, Upload, Eye, X, Check, Loader2 } from 'lucide-react';
+import storageService from '../../services/storageService';
 import styles from './FamilyStep.module.css';
 
 /**
@@ -434,9 +435,18 @@ function FamilyStep({ data, onChange }) {
                         type="file"
                         accept="image/*,.pdf"
                         className={styles.fileInputHidden}
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
+                            try {
+                              const uploaded = await storageService.uploadFile(file, 'documents', 'RRS8392014SEC');
+                              if (uploaded?.url) {
+                                setFormMember({ ...formMember, aadhaarPhoto: uploaded.url });
+                                return;
+                              }
+                            } catch (err) {
+                              console.warn('R2 upload failed, fallback:', err);
+                            }
                             const reader = new FileReader();
                             reader.onloadend = () => {
                               setFormMember({ ...formMember, aadhaarPhoto: reader.result });

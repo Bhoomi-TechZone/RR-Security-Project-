@@ -3,6 +3,7 @@ import { X, Loader2, ChevronLeft, Image, ChevronDown, Search, Check } from 'luci
 import { useCompany } from '../../context/CompanyContext';
 import clientService from '../../services/clientService';
 import masterService from '../../services/masterService';
+import storageService from '../../services/storageService';
 import styles from './CompanyForm.module.css';
 
 /**
@@ -212,44 +213,68 @@ function CompanyForm({
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compId = currentCompanyId || 'RRS8392014SEC';
+        const uploaded = await storageService.uploadFile(file, 'documents', compId);
         setFormData((prev) => ({
           ...prev,
           document: {
             name: file.name,
             size: file.size,
             type: file.type,
-            data: reader.result
+            url: uploaded.url,
+            data: uploaded.url,
+            key: uploaded.key
           }
         }));
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('R2 file upload failed, fallback:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData((prev) => ({
+            ...prev,
+            document: {
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              data: reader.result
+            }
+          }));
+        };
+        reader.readAsDataURL(file);
+      }
       if (errors.document) {
         setErrors((prev) => ({ ...prev, document: '' }));
       }
     }
   };
 
-  const handleLogoChange = (e) => {
+  const handleLogoChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
         setErrors((prev) => ({ ...prev, logo: 'Please select an image file (PNG, JPG, SVG, WebP).' }));
         return;
       }
-      if (file.size > 3 * 1024 * 1024) {
-        setErrors((prev) => ({ ...prev, logo: 'Logo file size must be less than 3MB.' }));
+      if (file.size > 5 * 1024 * 1024) {
+        setErrors((prev) => ({ ...prev, logo: 'Logo file size must be less than 5MB.' }));
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData((prev) => ({ ...prev, logo: reader.result }));
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compId = currentCompanyId || 'RRS8392014SEC';
+        const uploaded = await storageService.uploadFile(file, 'images', compId);
+        setFormData((prev) => ({ ...prev, logo: uploaded.url }));
+      } catch (err) {
+        console.warn('R2 logo upload failed, fallback:', err);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setFormData((prev) => ({ ...prev, logo: reader.result }));
+        };
+        reader.readAsDataURL(file);
+      }
       if (errors.logo) {
         setErrors((prev) => ({ ...prev, logo: '' }));
       }

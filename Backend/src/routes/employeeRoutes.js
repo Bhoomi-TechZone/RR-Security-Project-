@@ -2,6 +2,7 @@ import express from 'express';
 import {
   getEmployees,
   getEmployeeById,
+  getEmployeeDocuments,
   createEmployee,
   updateEmployee,
   deleteEmployee,
@@ -29,6 +30,7 @@ router.route('/:id')
   .put(adminOnly, updateEmployee)
   .delete(adminOnly, deleteEmployee);
 
+router.get('/:id/documents', getEmployeeDocuments);
 router.get('/:id/activity-logs', getEmployeeActivityLogs);
 
 router.post('/:id/send-credentials', adminOnly, sendEmployeeCredentials);

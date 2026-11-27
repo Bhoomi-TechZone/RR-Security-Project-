@@ -232,25 +232,25 @@ export const computePTWageBase = ({
 
   const targetMap = isEarned
     ? {
-        basic: earnedEarnings.basic !== undefined ? earnedEarnings.basic : (Number(emp.basic) || 0),
-        vda: earnedEarnings.vda !== undefined ? earnedEarnings.vda : (Number(emp.vda) || 0),
-        hra: earnedEarnings.hra !== undefined ? earnedEarnings.hra : (Number(emp.hra) || 0),
-        conveyance: earnedEarnings.conveyance !== undefined ? earnedEarnings.conveyance : (Number(emp.conveyance) || 0),
-        specialAllowance: earnedEarnings.specialAllowance !== undefined ? earnedEarnings.specialAllowance : (Number(emp.specialAllowance) || 0),
-        otherAllowance: earnedEarnings.otherAllowance !== undefined ? earnedEarnings.otherAllowance : (Number(emp.otherAllowance) || 0),
-        bonus: earnedEarnings.bonus !== undefined ? earnedEarnings.bonus : (Number(emp.bonus) || 0),
-        ...(earnedEarnings || {}),
-      }
+      basic: earnedEarnings.basic !== undefined ? earnedEarnings.basic : (Number(emp.basic) || 0),
+      vda: earnedEarnings.vda !== undefined ? earnedEarnings.vda : (Number(emp.vda) || 0),
+      hra: earnedEarnings.hra !== undefined ? earnedEarnings.hra : (Number(emp.hra) || 0),
+      conveyance: earnedEarnings.conveyance !== undefined ? earnedEarnings.conveyance : (Number(emp.conveyance) || 0),
+      specialAllowance: earnedEarnings.specialAllowance !== undefined ? earnedEarnings.specialAllowance : (Number(emp.specialAllowance) || 0),
+      otherAllowance: earnedEarnings.otherAllowance !== undefined ? earnedEarnings.otherAllowance : (Number(emp.otherAllowance) || 0),
+      bonus: earnedEarnings.bonus !== undefined ? earnedEarnings.bonus : (Number(emp.bonus) || 0),
+      ...(earnedEarnings || {}),
+    }
     : {
-        basic: Number(emp.basic) || 0,
-        vda: Number(emp.vda) || 0,
-        hra: Number(emp.hra) || 0,
-        conveyance: Number(emp.conveyance) || 0,
-        specialAllowance: Number(emp.specialAllowance) || 0,
-        otherAllowance: Number(emp.otherAllowance) || 0,
-        bonus: Number(emp.bonus) || 0,
-        ...(monthlyEarnings || {}),
-      };
+      basic: Number(emp.basic) || 0,
+      vda: Number(emp.vda) || 0,
+      hra: Number(emp.hra) || 0,
+      conveyance: Number(emp.conveyance) || 0,
+      specialAllowance: Number(emp.specialAllowance) || 0,
+      otherAllowance: Number(emp.otherAllowance) || 0,
+      bonus: Number(emp.bonus) || 0,
+      ...(monthlyEarnings || {}),
+    };
 
   return calculateComponentWageBase({
     selectedComponentIds: statutoryPt.selectedComponentIds,
@@ -731,6 +731,8 @@ export const calculateBonus = (earnedBasic, paidDays, totalDaysInMonth, emp = {}
 export const computeEmployeePayrollCalculations = ({
   emp: rawEmp = {},
   attendanceList = [],
+  empAttendance = null,
+  attendanceMap = null,
   statutoryConfig = {},
   month = '',
   totalDaysInMonth = 30,
@@ -742,13 +744,17 @@ export const computeEmployeePayrollCalculations = ({
   const normCode = normalizeId(emp.employeeCode);
   const normMongoId = normalizeId(emp._id || emp.id);
 
-  // Match attendance
-  const empAtt = Array.isArray(attendanceList)
-    ? attendanceList.filter((a) => {
-      const aId = normalizeId(a.employeeId);
-      return aId === normEmpId || aId === normCode || aId === normMongoId;
-    })
-    : [];
+  // Match attendance in O(1) if pre-grouped or pre-filtered
+  const empAtt = Array.isArray(empAttendance)
+    ? empAttendance
+    : (attendanceMap instanceof Map
+      ? (attendanceMap.get(normEmpId) || attendanceMap.get(normCode) || attendanceMap.get(normMongoId) || [])
+      : (Array.isArray(attendanceList)
+        ? attendanceList.filter((a) => {
+          const aId = normalizeId(a.employeeId);
+          return aId === normEmpId || aId === normCode || aId === normMongoId;
+        })
+        : []));
 
   const hasAttendance = overrides.hasAttendance !== undefined
     ? Boolean(overrides.hasAttendance)

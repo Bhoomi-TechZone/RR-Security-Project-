@@ -288,6 +288,8 @@ const employeeSchema = new mongoose.Schema(
 employeeSchema.index({ companyId: 1, adminEmail: 1, createdAt: -1 });
 employeeSchema.index({ adminEmail: 1, createdAt: -1 });
 employeeSchema.index({ clientId: 1, createdAt: -1 });
+employeeSchema.index({ adminEmail: 1, employeeId: 1 });
+employeeSchema.index({ adminEmail: 1, employeeCode: 1 });
 
 // Auto-hash password before saving
 employeeSchema.pre('save', async function () {

@@ -14,6 +14,7 @@ import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import masterService from '../../services/masterService';
 import candidateService from '../../services/candidateService';
+import storageService from '../../services/storageService';
 import {
   generateNextCandidateId,
   addCandidate,
@@ -397,38 +398,63 @@ export default function AddCandidate() {
     }));
   };
 
-  const handlePhotoUpload = (e) => {
+  const handlePhotoUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) {
       showToast('Please upload a valid JPG or PNG image.', 'error');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (event) => {
+    const compId = currentCompanyId || 'RRS8392014SEC';
+    try {
+      const uploaded = await storageService.uploadFile(file, 'images', compId);
       setFormData((prev) => ({
         ...prev,
-        photo: event.target.result,
+        photo: uploaded.url,
         photoName: file.name
       }));
-      showToast('Candidate photo attached successfully!', 'success');
-    };
-    reader.readAsDataURL(file);
+      showToast('✓ Candidate photo uploaded to Cloudflare R2!', 'success');
+    } catch (err) {
+      console.warn('R2 photo upload failed, fallback:', err);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setFormData((prev) => ({
+          ...prev,
+          photo: event.target.result,
+          photoName: file.name
+        }));
+        showToast('Candidate photo attached locally!', 'info');
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  const handleResumeUpload = (e) => {
+  const handleResumeUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const sizeKb = (file.size / 1024).toFixed(0);
     const sizeStr = Number(sizeKb) > 1024 ? `${(Number(sizeKb) / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+    const compId = currentCompanyId || 'RRS8392014SEC';
 
-    setFormData((prev) => ({
-      ...prev,
-      resumeUrl: file.name,
-      resumeName: file.name,
-      resumeSize: sizeStr
-    }));
-    showToast(`Resume attached: ${file.name}`, 'success');
+    try {
+      const uploaded = await storageService.uploadFile(file, 'documents', compId);
+      setFormData((prev) => ({
+        ...prev,
+        resumeUrl: uploaded.url,
+        resumeName: file.name,
+        resumeSize: sizeStr
+      }));
+      showToast(`✓ Resume uploaded to Cloudflare R2: ${file.name}`, 'success');
+    } catch (err) {
+      console.warn('R2 resume upload failed, fallback:', err);
+      setFormData((prev) => ({
+        ...prev,
+        resumeUrl: file.name,
+        resumeName: file.name,
+        resumeSize: sizeStr
+      }));
+      showToast(`Resume attached: ${file.name}`, 'success');
+    }
   };
 
   const validate = () => {

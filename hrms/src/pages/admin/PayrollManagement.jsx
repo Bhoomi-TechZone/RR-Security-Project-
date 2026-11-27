@@ -847,6 +847,11 @@ export default function PayrollManagement() {
   // Actions: Download Slip PDF
   const handleDownloadSlip = (slip) => {
     try {
+      if (slip.pdfUrl) {
+        window.open(slip.pdfUrl, '_blank');
+        notify(`✓ Opening salary slip from Cloudflare R2...`, 'success');
+        return;
+      }
       notify(`Preparing salary slip for ${slip.employeeName}...`, 'info');
       const companyObj =
         companies.find(

@@ -36,6 +36,7 @@ import candidateRoutes from './routes/candidateRoutes.js';
 import onboardingRoutes from './routes/onboardingRoutes.js';
 import greetingRoutes from './routes/greetingRoutes.js';
 import separationRoutes from './routes/separationRoutes.js';
+import storageRoutes from './routes/storageRoutes.js';
 import { dispatchAllCompaniesGreetings } from './services/greetingService.js';
 
 // ===========================================
@@ -260,6 +261,9 @@ app.use('/api/greetings', greetingRoutes);
 
 // Dynamic Separation & FnF Settlement Engine (Multi-Tenant Company Isolated)
 app.use('/api/separation', separationRoutes);
+
+// Cloudflare R2 Object Storage (Documents, Images, Salary Slips, Attachments)
+app.use('/api/storage', storageRoutes);
 
 
 // ===========================================
