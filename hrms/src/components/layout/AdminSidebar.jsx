@@ -139,16 +139,10 @@ const NAV_GROUPS = [
         ]
       },
       {
-        path: '/admin/advances-loans',
+        path: '/admin/loans',
         name: 'Loans',
         icon: HandCoins,
-        moduleKey: 'advances_loans',
-        hasDropdown: true,
-        subItems: [
-          { path: '/admin/advances-loans?tab=loans', name: 'All Loan Requests' },
-          { path: '/admin/advances-loans?tab=schedule', name: 'Deduction Schedule' },
-          { path: '/admin/advances-loans?tab=history', name: 'Deduction History' },
-        ]
+        moduleKey: 'advances_loans'
       },
       {
         path: '/admin/reimbursements',
@@ -321,7 +315,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       '/admin/payroll': (location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) && !initialSep,
       '/admin/payroll-setup': location.pathname === '/admin/payroll-setup' || location.pathname.startsWith('/admin/payroll-setup/') || (location.pathname === '/admin/masters' && location.search.includes('tab=salary-components')),
       '/admin/statutory-setup': location.pathname === '/admin/statutory-setup' || location.pathname.startsWith('/admin/statutory-setup/') || location.pathname === '/admin/settings/statutory',
-      '/admin/advances-loans': location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/'),
       '/admin/reimbursements': location.pathname === '/admin/reimbursements' || location.pathname.startsWith('/admin/reimbursements/'),
       '/admin/overtime': location.pathname === '/admin/overtime' || location.pathname.startsWith('/admin/overtime/'),
       '/admin/income-tax': location.pathname === '/admin/income-tax' || location.pathname.startsWith('/admin/income-tax/'),
@@ -358,9 +351,6 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
     }
     if ((location.pathname === '/admin/payroll' || location.pathname.startsWith('/admin/payroll/')) && !isSeparationRoute) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/payroll': true }));
-    }
-    if (location.pathname === '/admin/advances-loans' || location.pathname.startsWith('/admin/advances-loans/')) {
-      setOpenDropdowns(prev => ({ ...prev, '/admin/advances-loans': true }));
     }
     if (location.pathname === '/admin/reimbursements' || location.pathname.startsWith('/admin/reimbursements/')) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/reimbursements': true }));

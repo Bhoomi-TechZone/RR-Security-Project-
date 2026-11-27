@@ -109,9 +109,9 @@ export const REQUEST_CATEGORIES = [
     group: 'Payroll & Claims',
     description: 'Employee loan applications and configured EMI deduction schedules.',
     employeeDesc: 'Apply for an employee loan with monthly EMI repayment.',
-    adminPath: '/admin/advances-loans?tab=loans',
-    userPath: '/user/advances-loans?tab=loans',
-    employeePath: '/employee/advances-loans?tab=loans',
+    adminPath: '/admin/loans',
+    userPath: '/user/loans',
+    employeePath: '/employee/loans',
     badgeTone: 'purple',
   },
   {

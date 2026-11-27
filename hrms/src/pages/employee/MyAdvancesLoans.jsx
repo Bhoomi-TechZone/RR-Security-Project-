@@ -1,126 +1,199 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import {
-  BadgeIndianRupee,
-  Clock3,
-  FileText,
-  WalletCards,
-  Plus,
-  RefreshCw,
-  Search,
+  ArrowLeft,
   CheckCircle2,
-  AlertCircle,
-  XCircle,
-  Info,
-  Calendar,
-  Layers,
-  ArrowRight,
-  TrendingDown,
-  X,
-  Loader2,
+  Clock3,
+  Eye,
+  FileSpreadsheet,
   HandCoins,
-  ChevronRight,
-  ShieldAlert,
-  History
+  PlusCircle,
+  Save,
+  XCircle
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { useCompany } from '../../context/CompanyContext';
 import authService from '../../services/authService';
 import { advanceLoanService } from '../../services/advanceLoanService';
 import Toast from '../../components/common/Toast';
-import EmptyState from '../../components/common/EmptyState';
 import RequestBackButton from '../../components/common/RequestBackButton';
 import styles from './MyAdvancesLoans.module.css';
 
-const formatRupee = (val) =>
-  new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0
-  }).format(Number(val || 0));
+const formatUpperDate = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+  const yr = d.getFullYear();
+  return `${day}-${mon}-${yr}`;
+};
 
-const formatDate = (val) => {
-  if (!val) return '—';
-  try {
-    const d = new Date(val.includes('T') ? val : `${val}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return val;
-    return new Intl.DateTimeFormat('en-GB', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    }).format(d);
-  } catch {
-    return val;
+const formatMixedDate = (dateStr) => {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr.includes('T') ? dateStr : `${dateStr}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const day = String(d.getDate()).padStart(2, '0');
+  const mon = d.toLocaleString('en-US', { month: 'short' });
+  const yr = d.getFullYear();
+  return `${day}-${mon}-${yr}`;
+};
+
+const formatDec = (num) =>
+  Number(num || 0).toLocaleString('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+
+const formatInt = (num) => Number(num || 0).toLocaleString('en-IN');
+
+const addMonthsToIso = (isoDate, offset) => {
+  const base = isoDate ? new Date(`${isoDate}T00:00:00`) : new Date();
+  if (Number.isNaN(base.getTime())) return isoDate;
+  const d = new Date(base);
+  d.setMonth(d.getMonth() + offset);
+  return d.toISOString().slice(0, 10);
+};
+
+const generateScheduleRows = ({
+  loanAmount,
+  issueDate,
+  deductionStart,
+  installmentsCount
+}) => {
+  const amount = Number(loanAmount) || 0;
+  const count = Math.max(1, Number(installmentsCount) || 1);
+  if (amount <= 0) return [];
+
+  const rows = [
+    {
+      id: `disb-${Date.now()}`,
+      isDisbursement: true,
+      date: issueDate || new Date().toISOString().slice(0, 10),
+      opening: 0,
+      principal: 0,
+      interest: 0,
+      installment: 0,
+      balance: 0,
+      deductible: false
+    }
+  ];
+
+  const basePrincipal = Math.floor((amount / count) * 100) / 100;
+  let remaining = amount;
+
+  for (let i = 0; i < count; i += 1) {
+    const isLast = i === count - 1;
+    const principal = isLast ? Number(remaining.toFixed(2)) : basePrincipal;
+    const opening = Number(remaining.toFixed(2));
+    const balance = Math.max(0, Number((opening - principal).toFixed(2)));
+    remaining = balance;
+
+    rows.push({
+      id: `inst-${i + 1}-${Date.now()}`,
+      isDisbursement: false,
+      date: addMonthsToIso(deductionStart || issueDate, i),
+      opening,
+      principal,
+      interest: 0,
+      installment: principal,
+      balance,
+      deductible: true
+    });
   }
+
+  return rows;
+};
+
+const normalizeLoanRecord = (r, index) => {
+  const amount = Number(r.approvedAmount || r.amount || 0);
+  const count = Math.max(1, Number(r.numberOfMonths || r.installmentsCount || 6));
+  const issueDate = (r.requestDate || r.createdAt || new Date().toISOString()).slice(0, 10);
+  const startMonth = r.firstDeductionMonth || r.adjustmentMonth || '';
+  const deductionStart =
+    startMonth && startMonth.length === 7
+      ? `${startMonth}-01`
+      : addMonthsToIso(issueDate, 1);
+
+  return {
+    id: r.requestId || r._id || r.id || `LN-${index + 1}`,
+    requestId: r.requestId || r._id || r.id || `LN-${index + 1}`,
+    purpose: r.reason || 'Personal Loan',
+    loanAmount: amount,
+    issueDate,
+    deductionStart,
+    installmentsCount: count,
+    interestMethod: 'Interest Free',
+    status: (r.status || 'pending').toLowerCase(),
+    remarks: r.remarks || '',
+    schedule: generateScheduleRows({
+      loanAmount: amount,
+      issueDate,
+      deductionStart,
+      installmentsCount: count
+    })
+  };
 };
 
 export default function MyAdvancesLoans() {
   const { activeCompany } = useCompany();
-  const [searchParams] = useSearchParams();
-  const rawTab = searchParams.get('tab');
-  const currentTab = ['schedule', 'history'].includes(rawTab) ? rawTab : 'loans'; // 'loans' | 'schedule' | 'history'
-
   const currentUser = authService.getCurrentUser() || authService.getUser() || {};
-  const companyId = activeCompany?._id || activeCompany?.companyId || currentUser?.companyId || 'RRS8392014SEC';
+  const companyId =
+    activeCompany?._id || activeCompany?.companyId || currentUser?.companyId || 'RRS8392014SEC';
   const employeeId = currentUser?.employeeId || currentUser?.employeeCode || currentUser?.id || '';
   const employeeName = currentUser?.name || currentUser?.employeeName || 'Employee';
   const designation = currentUser?.designation || currentUser?.role || 'Staff Member';
   const department = currentUser?.department || 'Operations';
 
-  const [requests, setRequests] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [history, setHistory] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'apply' | 'view'
+  const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [selectedLoanId, setSelectedLoanId] = useState(null);
 
-  // Filters
-  const [search, setSearch] = useState('');
+  // List filters
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [appliedFilters, setAppliedFilters] = useState({
+    fromDate: '',
+    toDate: '',
+    status: 'all'
+  });
 
-  // Modals: null | 'loan'
-  const [modalType, setModalType] = useState(null);
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  // Apply form state
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const nextMonthStr = addMonthsToIso(todayStr, 1);
+  const [applyForm, setApplyForm] = useState({
+    loanAmount: '',
+    reason: 'Family Emergency',
+    otherReason: '',
+    deductionStart: nextMonthStr,
+    installments: '6',
+    remarks: ''
+  });
+  const [formErrors, setFormErrors] = useState({});
+  const [previewSchedule, setPreviewSchedule] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Toast state
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   const showToast = (message, type = 'success') => {
     setToast({ show: true, message, type });
   };
 
-  const currentYearMonth = new Date().toISOString().slice(0, 7);
-
-  // Loan Form State
-  const [loanForm, setLoanForm] = useState({
-    amount: '',
-    reason: 'Family Emergency',
-    otherReason: '',
-    numberOfMonths: 6,
-    firstDeductionMonth: currentYearMonth,
-    remarks: ''
-  });
-  const [loanErrors, setLoanErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-
-  // Fetch employee loan requests, schedules & history from MongoDB
-  const loadData = useCallback(async (isSilent = false) => {
+  const loadData = useCallback(async () => {
     try {
-      if (!isSilent) setLoading(true);
-      else setRefreshing(true);
-
-      const [reqData, schedData, histData] = await Promise.all([
-        advanceLoanService.getRequests(companyId, { employee: employeeId, type: 'loan' }).catch(() => []),
-        advanceLoanService.getSchedules(companyId, { employee: employeeId, type: 'loan' }).catch(() => []),
-        advanceLoanService.getHistory(companyId, { employee: employeeId, type: 'loan' }).catch(() => [])
-      ]);
-
-      setRequests(Array.isArray(reqData) ? reqData.filter((r) => r.type === 'loan') : []);
-      setSchedules(Array.isArray(schedData) ? schedData.filter((s) => s.type === 'loan') : []);
-      setHistory(Array.isArray(histData) ? histData.filter((h) => h.type === 'loan') : []);
+      setLoading(true);
+      const reqData = await advanceLoanService
+        .getRequests(companyId, { employee: employeeId, type: 'loan' })
+        .catch(() => []);
+      const loanReqs = Array.isArray(reqData)
+        ? reqData.filter((r) => r.type === 'loan').map(normalizeLoanRecord)
+        : [];
+      setLoans(loanReqs);
     } catch (err) {
       console.error('Error loading loans:', err);
       showToast('Failed to load loans data', 'error');
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
   }, [companyId, employeeId]);
 
@@ -128,78 +201,126 @@ export default function MyAdvancesLoans() {
     loadData();
   }, [loadData]);
 
-  const handleOpenLoanModal = () => {
-    setLoanForm({
-      amount: '',
-      reason: 'Family Emergency',
-      otherReason: '',
-      numberOfMonths: 6,
-      firstDeductionMonth: currentYearMonth,
-      remarks: ''
+  const filteredLoans = useMemo(() => {
+    return loans.filter((l) => {
+      if (appliedFilters.fromDate && l.issueDate < appliedFilters.fromDate) return false;
+      if (appliedFilters.toDate && l.issueDate > appliedFilters.toDate) return false;
+      if (appliedFilters.status !== 'all' && l.status !== appliedFilters.status) return false;
+      return true;
     });
-    setLoanErrors({});
-    setModalType('loan');
+  }, [loans, appliedFilters]);
+
+  const selectedLoan = useMemo(
+    () => loans.find((l) => l.id === selectedLoanId) || null,
+    [loans, selectedLoanId]
+  );
+
+  const scheduleTotals = useMemo(() => {
+    const rows = selectedLoan?.schedule || [];
+    return rows.reduce(
+      (acc, r) => ({
+        principal: acc.principal + (Number(r.principal) || 0),
+        interest: acc.interest + (Number(r.interest) || 0),
+        installment: acc.installment + (Number(r.installment) || 0)
+      }),
+      { principal: 0, interest: 0, installment: 0 }
+    );
+  }, [selectedLoan]);
+
+  const estimatedEmi = useMemo(() => {
+    const amt = Number(applyForm.loanAmount || 0);
+    const months = Math.max(1, Number(applyForm.installments || 1));
+    if (amt <= 0) return 0;
+    return Math.ceil(amt / months);
+  }, [applyForm.loanAmount, applyForm.installments]);
+
+  const handleApplyFilters = () => {
+    setAppliedFilters({ fromDate, toDate, status: statusFilter });
   };
 
-  // Live Loan EMI calculation
-  const calculatedLoanEmi = useMemo(() => {
-    const principal = Number(loanForm.amount || 0);
-    if (principal <= 0) return 0;
-    const months = Math.max(1, Number(loanForm.numberOfMonths || 1));
-    return Math.ceil(principal / months);
-  }, [loanForm.amount, loanForm.numberOfMonths]);
+  const handleOpenApply = () => {
+    setApplyForm({
+      loanAmount: '',
+      reason: 'Family Emergency',
+      otherReason: '',
+      deductionStart: nextMonthStr,
+      installments: '6',
+      remarks: ''
+    });
+    setFormErrors({});
+    setPreviewSchedule([]);
+    setViewMode('apply');
+  };
 
-  // Submit Loan Request
-  const handleSubmitLoan = async (e) => {
-    e.preventDefault();
+  const handleOpenView = (loan) => {
+    setSelectedLoanId(loan.id);
+    setViewMode('view');
+  };
+
+  const validateApplyForm = () => {
     const errs = {};
-    const amt = Number(loanForm.amount);
-    if (!loanForm.amount || amt <= 0) {
-      errs.amount = 'Please enter a valid loan amount greater than ₹0';
+    const amt = Number(applyForm.loanAmount);
+    if (!applyForm.loanAmount || amt <= 0) {
+      errs.loanAmount = 'Enter a valid loan amount greater than ₹0';
     } else if (amt > 200000) {
-      errs.amount = 'Personal loan cannot exceed ₹2,00,000';
+      errs.loanAmount = 'Loan amount cannot exceed ₹2,00,000';
     }
-
-    if (!loanForm.reason) {
+    if (!applyForm.reason) {
       errs.reason = 'Please select a purpose';
-    } else if (loanForm.reason === 'Other' && !loanForm.otherReason?.trim()) {
+    } else if (applyForm.reason === 'Other' && !applyForm.otherReason?.trim()) {
       errs.otherReason = 'Please specify purpose';
     }
-
-    const months = Number(loanForm.numberOfMonths);
+    const months = Number(applyForm.installments);
     if (!months || months < 1 || months > 24) {
-      errs.numberOfMonths = 'Tenure must be between 1 and 24 months';
+      errs.installments = 'Installments must be between 1 and 24';
     }
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
 
-    if (Object.keys(errs).length > 0) {
-      setLoanErrors(errs);
-      return;
-    }
+  const handlePreviewSchedule = () => {
+    if (!validateApplyForm()) return;
+    setPreviewSchedule(
+      generateScheduleRows({
+        loanAmount: Number(applyForm.loanAmount),
+        issueDate: todayStr,
+        deductionStart: applyForm.deductionStart,
+        installmentsCount: Number(applyForm.installments)
+      })
+    );
+  };
+
+  const handleSubmitLoan = async (e) => {
+    e.preventDefault();
+    if (!validateApplyForm()) return;
 
     try {
       setSubmitting(true);
+      const months = Number(applyForm.installments);
+      const deductionMonth = (applyForm.deductionStart || nextMonthStr).slice(0, 7);
       const payload = {
         employeeId,
         employeeName,
         department,
         designation,
         type: 'loan',
-        amount: Number(loanForm.amount),
-        reason: loanForm.reason === 'Other' ? loanForm.otherReason.trim() : loanForm.reason,
-        otherReason: loanForm.reason === 'Other' ? loanForm.otherReason.trim() : '',
+        amount: Number(applyForm.loanAmount),
+        reason:
+          applyForm.reason === 'Other' ? applyForm.otherReason.trim() : applyForm.reason,
+        otherReason: applyForm.reason === 'Other' ? applyForm.otherReason.trim() : '',
         deductionMethod: 'monthly-emi',
         numberOfMonths: months,
-        emiAmount: calculatedLoanEmi,
-        firstDeductionMonth: loanForm.firstDeductionMonth,
-        adjustmentMonth: loanForm.firstDeductionMonth,
-        remarks: loanForm.remarks?.trim() || '',
-        requestDate: new Date().toISOString().slice(0, 10)
+        emiAmount: estimatedEmi,
+        firstDeductionMonth: deductionMonth,
+        adjustmentMonth: deductionMonth,
+        remarks: applyForm.remarks?.trim() || '',
+        requestDate: todayStr
       };
 
       await advanceLoanService.createRequest(companyId, payload);
       showToast('Loan application submitted successfully!', 'success');
-      setModalType(null);
-      loadData(true);
+      await loadData();
+      setViewMode('list');
     } catch (err) {
       console.error('Failed to submit loan:', err);
       showToast(err.message || 'Failed to submit loan application', 'error');
@@ -208,841 +329,519 @@ export default function MyAdvancesLoans() {
     }
   };
 
-  // Filter loan requests based on search & status
-  const filteredRequests = useMemo(() => {
-    return requests.filter((req) => {
-      if (req.type !== 'loan') return false;
-      if (statusFilter !== 'all' && req.status !== statusFilter) return false;
-      if (search.trim()) {
-        const query = search.toLowerCase();
-        const matchesId = req.requestId?.toLowerCase().includes(query);
-        const matchesReason = req.reason?.toLowerCase().includes(query);
-        const matchesRemarks = req.remarks?.toLowerCase().includes(query);
-        return matchesId || matchesReason || matchesRemarks;
-      }
-      return true;
-    });
-  }, [requests, statusFilter, search]);
+  const handleDownloadScheduleExcel = () => {
+    if (!selectedLoan) return;
+    const rows = (selectedLoan.schedule || []).map((r) => ({
+      Date: r.isDisbursement ? formatUpperDate(r.date) : formatMixedDate(r.date),
+      Opening: r.opening.toFixed(2),
+      Principal: r.principal.toFixed(2),
+      Interest: r.interest.toFixed(2),
+      Installment: r.installment.toFixed(2),
+      Balance: r.balance.toFixed(2),
+      Deductible: r.isDisbursement ? '' : r.deductible ? 'Yes' : 'No'
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Loan Schedule');
+    XLSX.writeFile(wb, `My_Loan_Schedule_${selectedLoan.id}.xlsx`);
+  };
 
-  // Dynamic KPI Stats for Loans
-  const kpiStats = useMemo(() => {
-    const sourceList = requests.filter((r) => r.type === 'loan');
-    const total = sourceList.length;
-    const pending = sourceList.filter((r) => r.status === 'pending').length;
-    const approvedAmount = sourceList
-      .filter((r) => ['approved', 'completed'].includes(r.status))
-      .reduce((sum, r) => sum + (Number(r.approvedAmount) || Number(r.amount) || 0), 0);
-    const outstanding = sourceList
-      .filter((r) => ['approved', 'completed'].includes(r.status))
-      .reduce((sum, r) => sum + (Number(r.remainingAmount !== undefined ? r.remainingAmount : r.amount) || 0), 0);
-
-    return {
-      card1: {
-        label: 'Total Loan Applications',
-        value: total,
-        sub: 'Submitted to date'
-      },
-      card2: {
-        label: 'Pending Loans',
-        value: pending,
-        sub: 'Awaiting HR approval'
-      },
-      card3: {
-        label: 'Approved Loan Amount',
-        value: formatRupee(approvedAmount),
-        sub: 'Sanctioned funds'
-      },
-      card4: {
-        label: 'Outstanding Loan Balance',
-        value: formatRupee(outstanding),
-        sub: 'Balance to be deducted'
-      }
+  const renderStatusBadge = (status) => {
+    const map = {
+      approved: { cls: styles.statusApproved, icon: <CheckCircle2 size={12} />, label: 'Approved' },
+      rejected: { cls: styles.statusRejected, icon: <XCircle size={12} />, label: 'Rejected' },
+      completed: { cls: styles.statusCompleted, icon: <CheckCircle2 size={12} />, label: 'Completed' },
+      pending: { cls: styles.statusPending, icon: <Clock3 size={12} />, label: 'Pending' }
     };
-  }, [requests]);
-
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'approved':
-        return (
-          <span className={`${styles.statusBadge} ${styles.statusApproved}`}>
-            <CheckCircle2 size={13} /> Approved
-          </span>
-        );
-      case 'rejected':
-        return (
-          <span className={`${styles.statusBadge} ${styles.statusRejected}`}>
-            <XCircle size={13} /> Rejected
-          </span>
-        );
-      case 'completed':
-        return (
-          <span className={`${styles.statusBadge} ${styles.statusCompleted}`}>
-            <CheckCircle2 size={13} /> Completed
-          </span>
-        );
-      case 'pending':
-      default:
-        return (
-          <span className={`${styles.statusBadge} ${styles.statusPending}`}>
-            <Clock3 size={13} /> Pending
-          </span>
-        );
-    }
+    const item = map[status] || map.pending;
+    return (
+      <span className={`${styles.statusPill} ${item.cls}`}>
+        {item.icon}
+        <span>{item.label}</span>
+      </span>
+    );
   };
-
-  const getPageHeaderInfo = () => {
-    switch (currentTab) {
-      case 'schedule':
-        return {
-          title: 'Deduction Schedule',
-          subtitle: 'Track active monthly loan deductions, repayment progress bars and remaining balance.'
-        };
-      case 'history':
-        return {
-          title: 'Deduction History',
-          subtitle: 'View historical loan deductions and past payment logs recorded against your payroll slips.'
-        };
-      default:
-        return {
-          title: 'My Loans',
-          subtitle: 'Apply for personal loans, choose repayment tenure, and track monthly EMI installments.'
-        };
-    }
-  };
-
-  const pageInfo = getPageHeaderInfo();
 
   return (
-    <div className={styles.page}>
-      <Toast
-        show={toast.show}
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast({ show: false, message: '', type: 'success' })}
-      />
-
-      <div className={styles.container}>
-        {/* Breadcrumb & Header */}
-        <div className={styles.pageHeader}>
-          <div className={styles.headerLeft}>
-            <div className={styles.breadcrumb}>
-              <span>Employee Portal</span>
-              <span>/</span>
-              <span>Loans</span>
-              {currentTab !== 'loans' && (
-                <>
-                  <span>/</span>
-                  <strong>
-                    {currentTab === 'schedule' ? 'Deduction Schedule' : 'Deduction History'}
-                  </strong>
-                </>
-              )}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <RequestBackButton />
-              <h1 className={styles.pageTitle}>{pageInfo.title}</h1>
-            </div>
-            <p className={styles.pageSubtitle}>{pageInfo.subtitle}</p>
-          </div>
-
-          {/* Action Buttons: Loan, Refresh */}
-          <div className={styles.headerActions}>
-            <button
-              type="button"
-              className={styles.refreshBtn}
-              onClick={() => loadData(true)}
-              title="Refresh Data"
-              disabled={loading || refreshing}
-            >
-              <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-            </button>
-
-            <button
-              type="button"
-              className={styles.applyLoanBtn}
-              onClick={handleOpenLoanModal}
-            >
-              <Plus size={16} /> Request Loan
-            </button>
-          </div>
-        </div>
-
-        {/* Dynamic KPI Cards */}
-        <div className={styles.summaryGrid}>
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryContent}>
-              <span className={styles.summaryLabel}>{kpiStats.card1.label}</span>
-              <strong className={styles.summaryNumber}>{kpiStats.card1.value}</strong>
-              <span className={styles.summarySub}>{kpiStats.card1.sub}</span>
-            </div>
-            <div className={`${styles.iconWrap} ${styles.blue}`}>
-              <FileText size={22} />
-            </div>
-          </div>
-
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryContent}>
-              <span className={styles.summaryLabel}>{kpiStats.card2.label}</span>
-              <strong className={styles.summaryNumber}>{kpiStats.card2.value}</strong>
-              <span className={styles.summarySub}>{kpiStats.card2.sub}</span>
-            </div>
-            <div className={`${styles.iconWrap} ${styles.yellow}`}>
-              <Clock3 size={22} />
-            </div>
-          </div>
-
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryContent}>
-              <span className={styles.summaryLabel}>{kpiStats.card3.label}</span>
-              <strong className={styles.summaryNumber}>{kpiStats.card3.value}</strong>
-              <span className={styles.summarySub}>{kpiStats.card3.sub}</span>
-            </div>
-            <div className={`${styles.iconWrap} ${styles.green}`}>
-              <BadgeIndianRupee size={22} />
-            </div>
-          </div>
-
-          <div className={styles.summaryCard}>
-            <div className={styles.summaryContent}>
-              <span className={styles.summaryLabel}>{kpiStats.card4.label}</span>
-              <strong className={styles.summaryNumber}>{kpiStats.card4.value}</strong>
-              <span className={styles.summarySub}>{kpiStats.card4.sub}</span>
-            </div>
-            <div className={`${styles.iconWrap} ${styles.purple}`}>
-              <WalletCards size={22} />
-            </div>
-          </div>
-        </div>
-
-        {/* Section View: Loans Table */}
-        {currentTab === 'loans' && (
-          <div className={styles.mainCard}>
-            <div className={styles.toolbar}>
-              <div className={styles.searchBox}>
-                <Search size={16} />
-                <input
-                  type="text"
-                  placeholder="Search by Request ID, reason..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className={styles.searchInput}
-                />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch('')}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              <div className={styles.filtersGroup}>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className={styles.filterSelect}
-                >
-                  <option value="all">All Statuses</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                  <option value="rejected">Rejected</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-            </div>
-
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
-                <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-                <p>Loading your records...</p>
-              </div>
-            ) : filteredRequests.length === 0 ? (
-              <EmptyState
-                icon={HandCoins}
-                title="No loan requests found"
-                description={
-                  search || statusFilter !== 'all'
-                    ? 'No requests match your current filters.'
-                    : "You haven't submitted any personal loan requests yet."
-                }
-                actionLabel="+ Request Loan"
-                onAction={handleOpenLoanModal}
-              />
-            ) : (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Request ID</th>
-                      <th>Type</th>
-                      <th>Applied Date</th>
-                      <th>Requested Amount</th>
-                      <th>Repayment Terms</th>
-                      <th>Reason / Purpose</th>
-                      <th>Status</th>
-                      <th>Outstanding</th>
-                      <th style={{ textAlign: 'right' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredRequests.map((row) => (
-                      <tr key={row._id || row.requestId}>
-                        <td>
-                          <span className={styles.reqId}>{row.requestId}</span>
-                        </td>
-                        <td>
-                          <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
-                            Loan
-                          </span>
-                        </td>
-                        <td>{formatDate(row.requestDate || row.createdAt)}</td>
-                        <td className={styles.amountCell}>{formatRupee(row.amount)}</td>
-                        <td>
-                          <div className={styles.repayTerms}>
-                            <span className={styles.repayMethod}>
-                              {row.deductionMethod === 'monthly-emi'
-                                ? `Monthly EMI (${row.numberOfMonths || 1} mos)`
-                                : 'Salary Adjustment'}
-                            </span>
-                            <span className={styles.repaySub}>
-                              {row.deductionMethod === 'monthly-emi'
-                                ? `${formatRupee(row.emiAmount)} / mo`
-                                : 'Next payroll cycle'}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {row.reason}
-                        </td>
-                        <td>{getStatusBadge(row.status)}</td>
-                        <td style={{ fontWeight: 600 }}>
-                          {row.status === 'approved' || row.status === 'completed'
-                            ? formatRupee(row.remainingAmount !== undefined ? row.remainingAmount : row.amount)
-                            : '—'}
-                        </td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className={styles.actionBtn}
-                            onClick={() => setSelectedRequest(row)}
-                          >
-                            View Details <ChevronRight size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab Content: Deduction Schedule */}
-        {currentTab === 'schedule' && (
-          <div className={styles.mainCard}>
-            <div className={styles.policyAlert}>
-              <Info size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <strong>Active Deduction Schedules:</strong> Approved loans are adjusted
-                automatically against your monthly salary. Repayment progress and remaining installments are tracked here.
-              </div>
-            </div>
-
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
-                <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-                <p>Loading deduction schedules...</p>
-              </div>
-            ) : schedules.length === 0 ? (
-              <EmptyState
-                icon={Calendar}
-                title="No active deduction schedules"
-                description="You currently have no active deduction schedules linked to your employee code."
-              />
-            ) : (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Schedule / Request ID</th>
-                      <th>Type</th>
-                      <th>Sanctioned Amount</th>
-                      <th>Deducted Amount</th>
-                      <th>Remaining Balance</th>
-                      <th>Repayment Progress</th>
-                      <th>Monthly EMI</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {schedules.map((item) => {
-                      const total = Number(item.totalAmount || item.approvedAmount || item.amount || 0);
-                      const deducted = Number(item.totalDeducted || item.deductedAmount || 0);
-                      const remaining = Number(item.remainingBalance !== undefined ? item.remainingBalance : (total - deducted));
-                      const progress = total > 0 ? Math.min(100, Math.round((deducted / total) * 100)) : 0;
-
-                      return (
-                        <tr key={item._id || item.scheduleId || item.requestId}>
-                          <td>
-                            <span className={styles.reqId}>{item.scheduleId || item.requestId || 'SCH-001'}</span>
-                          </td>
-                          <td>
-                            <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
-                              Loan
-                            </span>
-                          </td>
-                          <td className={styles.amountCell}>{formatRupee(total)}</td>
-                          <td style={{ color: '#16a34a', fontWeight: 600 }}>{formatRupee(deducted)}</td>
-                          <td style={{ color: '#9333ea', fontWeight: 600 }}>{formatRupee(remaining)}</td>
-                          <td>
-                            <div className={styles.scheduleProgress}>
-                              <div className={styles.progressBar}>
-                                <div className={styles.progressFill} style={{ width: `${progress}%` }} />
-                              </div>
-                              <div className={styles.progressLabel}>
-                                <span>{progress}% paid</span>
-                                <span>{item.installmentsPaid || 0}/{item.totalInstallments || item.numberOfMonths || 1} mos</span>
-                              </div>
-                            </div>
-                          </td>
-                          <td style={{ fontWeight: 600 }}>{formatRupee(item.monthlyDeduction || item.emiAmount)}/mo</td>
-                          <td>
-                            <span
-                              className={`${styles.statusBadge} ${
-                                item.status === 'completed'
-                                  ? styles.statusCompleted
-                                  : item.status === 'active'
-                                  ? styles.statusApproved
-                                  : styles.statusPending
-                              }`}
-                            >
-                              {item.status || 'Active'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Tab Content: Deduction History */}
-        {currentTab === 'history' && (
-          <div className={styles.mainCard}>
-            <div className={styles.policyAlert}>
-              <History size={18} style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <strong>Repayment History:</strong> Detailed log of previous payroll deductions, showing exact amounts
-                adjusted and salary month details.
-              </div>
-            </div>
-
-            {loading ? (
-              <div style={{ textAlign: 'center', padding: '48px 0', color: '#64748b' }}>
-                <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px' }} />
-                <p>Loading deduction history...</p>
-              </div>
-            ) : history.length === 0 ? (
-              <EmptyState
-                icon={History}
-                title="No past deduction history"
-                description="No deduction transactions have been processed yet on your payroll slips."
-              />
-            ) : (
-              <div className={styles.tableContainer}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Transaction / Request ID</th>
-                      <th>Type</th>
-                      <th>Payroll Month</th>
-                      <th>Deduction Date</th>
-                      <th>Deducted Amount</th>
-                      <th>Remaining Balance</th>
-                      <th>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((h, idx) => (
-                      <tr key={h._id || idx}>
-                        <td>
-                          <span className={styles.reqId}>{h.requestId || h.historyId || `TXN-${idx + 1}`}</span>
-                        </td>
-                        <td>
-                          <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
-                            Loan
-                          </span>
-                        </td>
-                        <td>{h.salaryMonth || h.month || '—'}</td>
-                        <td>{formatDate(h.deductionDate || h.createdAt)}</td>
-                        <td style={{ color: '#16a34a', fontWeight: 700 }}>
-                          {formatRupee(h.deductedAmount || h.amount)}
-                        </td>
-                        <td style={{ color: '#9333ea', fontWeight: 600 }}>
-                          {formatRupee(h.remainingBalance || 0)}
-                        </td>
-                        <td>
-                          <span className={`${styles.statusBadge} ${styles.statusCompleted}`}>
-                            <CheckCircle2 size={13} /> Deducted
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        )}
+    <div className={styles.wrapper}>
+      <div className={styles.breadcrumb}>
+        <span>Dashboard</span>
+        <span>/</span>
+        <strong>My Loans</strong>
       </div>
 
-      {/* ── MODAL: APPLY FOR PERSONAL LOAN ────────────────── */}
-      {modalType === 'loan' && (
-        <div className={styles.modalOverlay} onClick={() => setModalType(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleGroup}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <BadgeIndianRupee size={20} color="#7e22ce" />
-                  <h2 className={styles.modalTitle}>Apply for Personal Loan</h2>
-                </div>
-                <p className={styles.modalSubtitle}>
-                  Request personal loan with convenient monthly EMI installments.
-                </p>
-              </div>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setModalType(null)}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitLoan} className={styles.modalForm}>
-              <div className={styles.modalBody}>
-                {/* Employee Info Header Box */}
-                <div className={styles.empInfoBox}>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Employee Name</span>
-                    <span className={styles.infoValue}>{employeeName}</span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Employee ID</span>
-                    <span className={styles.infoValue}>{employeeId}</span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Designation</span>
-                    <span className={styles.infoValue}>{designation}</span>
-                  </div>
-                  <div className={styles.infoItem}>
-                    <span className={styles.infoLabel}>Department</span>
-                    <span className={styles.infoValue}>{department}</span>
-                  </div>
-                </div>
-
-                {/* Requested Loan Amount */}
-                <div className={styles.formGroup}>
-                  <label className={`${styles.label} ${styles.labelWithPreview}`}>
-                    <span>Loan Amount (₹) <span className={styles.required}>*</span></span>
-                    {loanForm.amount > 0 && (
-                      <span className={styles.amountPreviewPurple}>
-                        {formatRupee(loanForm.amount)}
-                      </span>
-                    )}
-                  </label>
-                  <div className={styles.inputGroup}>
-                    <span className={styles.inputPrefix}>₹</span>
-                    <input
-                      type="number"
-                      min="1000"
-                      step="1000"
-                      placeholder="e.g. 50000"
-                      className={`${styles.input} ${styles.inputWithPrefix}`}
-                      value={loanForm.amount}
-                      onChange={(e) => {
-                        setLoanForm({ ...loanForm, amount: e.target.value });
-                        if (loanErrors.amount) setLoanErrors({ ...loanErrors, amount: null });
-                      }}
-                    />
-                  </div>
-                  {loanErrors.amount && <span className={styles.errorText}>{loanErrors.amount}</span>}
-                </div>
-
-                {/* Tenure in Months */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Repayment Tenure (Months) <span className={styles.required}>*</span></label>
-                  <select
-                    className={styles.selectInput}
-                    value={loanForm.numberOfMonths}
-                    onChange={(e) => setLoanForm({ ...loanForm, numberOfMonths: Number(e.target.value) })}
-                  >
-                    <option value={3}>3 Months</option>
-                    <option value={6}>6 Months (Half Year)</option>
-                    <option value={9}>9 Months</option>
-                    <option value={12}>12 Months (1 Year)</option>
-                    <option value={18}>18 Months (1.5 Years)</option>
-                    <option value={24}>24 Months (2 Years)</option>
-                  </select>
-                </div>
-
-                {/* Live EMI Calculation Summary */}
-                {loanForm.amount > 0 && (
-                  <div className={styles.calcCard} style={{ borderColor: '#e9d5ff', background: 'linear-gradient(135deg, #fdf4ff, #faf5ff)' }}>
-                    <div className={styles.calcHeader} style={{ color: '#6b21a8' }}>
-                      <span>Estimated EMI Calculation</span>
-                      <span>Interest: 0% Company Benefit</span>
-                    </div>
-                    <div className={styles.calcRows}>
-                      <div className={styles.calcCol}>
-                        <span className={styles.calcLabel}>Principal Amount</span>
-                        <span className={styles.calcVal}>{formatRupee(loanForm.amount)}</span>
-                      </div>
-                      <div className={styles.calcCol}>
-                        <span className={styles.calcLabel}>Tenure</span>
-                        <span className={styles.calcVal}>{loanForm.numberOfMonths} Months</span>
-                      </div>
-                      <div className={styles.calcCol}>
-                        <span className={styles.calcLabel}>Monthly Deduction (EMI)</span>
-                        <span className={styles.calcVal} style={{ color: '#7e22ce' }}>
-                          {formatRupee(calculatedLoanEmi)} / mo
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* First Deduction Month */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>First Deduction Month</label>
-                  <input
-                    type="month"
-                    className={styles.input}
-                    value={loanForm.firstDeductionMonth}
-                    onChange={(e) => setLoanForm({ ...loanForm, firstDeductionMonth: e.target.value })}
-                  />
-                </div>
-
-                {/* Purpose / Reason */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Loan Purpose <span className={styles.required}>*</span></label>
-                  <select
-                    className={styles.selectInput}
-                    value={loanForm.reason}
-                    onChange={(e) => {
-                      setLoanForm({ ...loanForm, reason: e.target.value });
-                      if (loanErrors.reason) setLoanErrors({ ...loanErrors, reason: null });
-                    }}
-                  >
-                    <option value="Family Emergency">Family Emergency</option>
-                    <option value="Education / School Fees">Child Education / School Fees</option>
-                    <option value="Medical Emergency">Medical Treatment / Hospitalization</option>
-                    <option value="Marriage / Ceremony">Marriage / Ceremony Expenses</option>
-                    <option value="House Renovation">Home Construction / Renovation</option>
-                    <option value="Vehicle Purchase">Vehicle Purchase / Commute</option>
-                    <option value="Other">Other Purpose (Specify below)</option>
-                  </select>
-                  {loanErrors.reason && <span className={styles.errorText}>{loanErrors.reason}</span>}
-                </div>
-
-                {loanForm.reason === 'Other' && (
-                  <div className={styles.formGroup}>
-                    <label className={styles.label}>Please Specify Purpose <span className={styles.required}>*</span></label>
-                    <input
-                      type="text"
-                      placeholder="Specify your loan purpose..."
-                      className={styles.input}
-                      value={loanForm.otherReason}
-                      onChange={(e) => setLoanForm({ ...loanForm, otherReason: e.target.value })}
-                    />
-                    {loanErrors.otherReason && (
-                      <span className={styles.errorText}>{loanErrors.otherReason}</span>
-                    )}
-                  </div>
-                )}
-
-                {/* Remarks */}
-                <div className={styles.formGroup}>
-                  <label className={styles.label}>Additional Notes / Justification (Optional)</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Provide any additional comments for management approval..."
-                    className={styles.textarea}
-                    value={loanForm.remarks}
-                    onChange={(e) => setLoanForm({ ...loanForm, remarks: e.target.value })}
-                  />
-                </div>
-
-                {/* Policy Notice */}
-                <div className={styles.policyAlert}>
-                  <Info size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                  <span>
-                    Monthly EMI deductions will begin from the selected deduction month. Approvals are subject to company service tenure and loan policy eligibility.
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.modalFooter}>
-                <button
-                  type="button"
-                  className={styles.cancelBtn}
-                  onClick={() => setModalType(null)}
-                  disabled={submitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className={styles.submitBtn}
-                  style={{ background: '#7e22ce' }}
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" /> Submitting...
-                    </>
-                  ) : (
-                    'Submit Loan Application'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast((prev) => ({ ...prev, show: false }))}
+        />
       )}
 
-      {/* ── VIEW DETAILS MODAL ─────────────────────────────── */}
-      {selectedRequest && (
-        <div className={styles.modalOverlay} onClick={() => setSelectedRequest(null)}>
-          <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitleGroup}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <h2 className={styles.modalTitle}>Request Details</h2>
-                  <span className={styles.reqId}>{selectedRequest.requestId}</span>
-                </div>
-                <p className={styles.modalSubtitle}>
-                  Applied on {formatDate(selectedRequest.requestDate || selectedRequest.createdAt)}
-                </p>
+      {/* ==================== VIEW 1: MY LOANS LIST ==================== */}
+      {viewMode === 'list' && (
+        <>
+          <header className={styles.pageHeader}>
+            <div className={styles.titleBlock}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <RequestBackButton />
+                <h1 className={styles.pageTitle}>
+                  <HandCoins size={18} />
+                  <span>My Loans</span>
+                </h1>
               </div>
-              <button
-                type="button"
-                className={styles.closeBtn}
-                onClick={() => setSelectedRequest(null)}
-              >
-                <X size={20} />
+              <p className={styles.pageSubtitle}>
+                Apply for a new loan and view your monthly repayment schedules.
+              </p>
+            </div>
+            <div className={styles.headerBtns}>
+              <button type="button" className={styles.addNewBtn} onClick={handleOpenApply}>
+                <PlusCircle size={15} />
+                <span>Apply for Loan</span>
               </button>
             </div>
+          </header>
 
-            <div className={styles.modalBody}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span className={`${styles.typeBadge} ${styles.loanBadge}`}>
-                    Personal Loan
-                  </span>
-                  <span style={{ fontSize: 13, color: '#64748b' }}>Current Status:</span>
-                </div>
-                <div>{getStatusBadge(selectedRequest.status)}</div>
-              </div>
-
-              {selectedRequest.status === 'rejected' && (
-                <div className={styles.rejectBox}>
-                  <div className={styles.rejectTitle}>
-                    <ShieldAlert size={16} /> Rejection Reason
-                  </div>
-                  <div className={styles.rejectReason}>
-                    {selectedRequest.rejectionReason || selectedRequest.remarks || 'Application could not be approved at this time.'}
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.detailGrid}>
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>Requested Amount</span>
-                  <span className={styles.detailValue}>{formatRupee(selectedRequest.amount)}</span>
-                </div>
-
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>Approved Amount</span>
-                  <span className={styles.detailValue} style={{ color: selectedRequest.status === 'approved' ? '#16a34a' : 'inherit' }}>
-                    {selectedRequest.approvedAmount ? formatRupee(selectedRequest.approvedAmount) : 'Pending Review'}
-                  </span>
-                </div>
-
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>Repayment Method</span>
-                  <span className={styles.detailValue}>
-                    {selectedRequest.deductionMethod === 'monthly-emi'
-                      ? `Monthly EMI (${selectedRequest.numberOfMonths || 1} Months)`
-                      : 'Salary Adjustment'}
-                  </span>
-                </div>
-
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>Monthly EMI</span>
-                  <span className={styles.detailValue}>
-                    {selectedRequest.emiAmount ? `${formatRupee(selectedRequest.emiAmount)} / month` : 'Single Deduction'}
-                  </span>
-                </div>
-
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>Remaining Balance</span>
-                  <span className={styles.detailValue} style={{ color: '#9333ea' }}>
-                    {['approved', 'completed'].includes(selectedRequest.status)
-                      ? formatRupee(selectedRequest.remainingAmount !== undefined ? selectedRequest.remainingAmount : selectedRequest.amount)
-                      : '—'}
-                  </span>
-                </div>
-
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>First Deduction Month</span>
-                  <span className={styles.detailValue}>
-                    {selectedRequest.firstDeductionMonth || selectedRequest.adjustmentMonth || 'Next Cycle'}
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.detailField}>
-                <span className={styles.detailLabel}>Purpose / Reason</span>
-                <span className={styles.detailValue}>{selectedRequest.reason}</span>
-              </div>
-
-              {selectedRequest.remarks && (
-                <div className={styles.detailField}>
-                  <span className={styles.detailLabel}>Additional Notes / Justification</span>
-                  <span className={styles.detailValue} style={{ fontWeight: 400, color: '#475569' }}>
-                    {selectedRequest.remarks}
-                  </span>
-                </div>
-              )}
-
-              {selectedRequest.approvedBy && (
-                <div className={styles.detailField} style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                  <span className={styles.detailLabel} style={{ color: '#166534' }}>Approval Metadata</span>
-                  <span className={styles.detailValue} style={{ color: '#14532d', fontSize: 12 }}>
-                    Approved by {selectedRequest.approvedBy} on {formatDate(selectedRequest.approvedDate)}
-                  </span>
-                </div>
-              )}
+          <div className={styles.filterBar}>
+            <div className={styles.dateRangeGroup}>
+              <input
+                type="date"
+                className={styles.dateInput}
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                aria-label="From date"
+              />
+              <span className={styles.dateTo}>to</span>
+              <input
+                type="date"
+                className={styles.dateInput}
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                aria-label="To date"
+              />
             </div>
 
-            <div className={styles.modalFooter}>
+            <div className={styles.selectGroup}>
+              <select
+                className={styles.filterSelect}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                aria-label="Filter by status"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="completed">Completed</option>
+              </select>
               <button
                 type="button"
-                className={styles.cancelBtn}
-                onClick={() => setSelectedRequest(null)}
+                className={styles.viewFilterBtn}
+                onClick={handleApplyFilters}
               >
-                Close
+                <CheckCircle2 size={14} />
+                <span>View</span>
               </button>
             </div>
           </div>
-        </div>
+
+          <div className={styles.tableCard}>
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>SN</th>
+                    <th>PURPOSE</th>
+                    <th>LOAN AMOUNT</th>
+                    <th>REQUEST DATE</th>
+                    <th>INTEREST METHOD</th>
+                    <th>INSTALLMENTS</th>
+                    <th>STATUS</th>
+                    <th>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={8} className={styles.emptyCell}>
+                        Loading your loans...
+                      </td>
+                    </tr>
+                  ) : filteredLoans.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className={styles.emptyCell}>
+                        No loans found. Click &quot;Apply for Loan&quot; to submit a new request.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredLoans.map((loan, idx) => (
+                      <tr key={loan.id}>
+                        <td className={styles.snCell}>{idx + 1}</td>
+                        <td>
+                          <div className={styles.purposeCell}>
+                            <strong>{loan.purpose}</strong>
+                            <span>{loan.requestId}</span>
+                          </div>
+                        </td>
+                        <td className={styles.amountCell}>₹{formatInt(loan.loanAmount)}</td>
+                        <td className={styles.dateCell}>{formatUpperDate(loan.issueDate)}</td>
+                        <td>
+                          <span className={styles.methodPill}>{loan.interestMethod}</span>
+                        </td>
+                        <td>{loan.installmentsCount} Months</td>
+                        <td>{renderStatusBadge(loan.status)}</td>
+                        <td>
+                          <div className={styles.circleActions}>
+                            <button
+                              type="button"
+                              className={styles.viewCircleBtn}
+                              onClick={() => handleOpenView(loan)}
+                              title="View Loan Schedule"
+                              aria-label="View Loan Schedule"
+                            >
+                              <Eye size={13} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ==================== VIEW 2: APPLY FOR LOAN ==================== */}
+      {viewMode === 'apply' && (
+        <>
+          <header className={styles.pageHeader}>
+            <div className={styles.titleBlock}>
+              <h1 className={styles.pageTitle}>Apply for New Loan</h1>
+              <p className={styles.pageSubtitle}>
+                Submit a loan request and preview your monthly EMI repayment schedule.
+              </p>
+            </div>
+            <div className={styles.headerBtns}>
+              <button
+                type="button"
+                className={styles.backLinkBtn}
+                onClick={() => setViewMode('list')}
+              >
+                <ArrowLeft size={15} />
+                <span>Back</span>
+              </button>
+            </div>
+          </header>
+
+          <form className={styles.formCard} onSubmit={handleSubmitLoan}>
+            <div className={styles.formGrid}>
+              <div className={styles.fieldRow}>
+                <label>
+                  Loan Amount (₹) <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="200000"
+                  className={`${styles.input} ${formErrors.loanAmount ? styles.inputError : ''}`}
+                  placeholder="Enter amount (max 2,00,000)"
+                  value={applyForm.loanAmount}
+                  onChange={(e) =>
+                    setApplyForm((prev) => ({ ...prev, loanAmount: e.target.value }))
+                  }
+                />
+                {formErrors.loanAmount && (
+                  <span className={styles.errorText}>{formErrors.loanAmount}</span>
+                )}
+              </div>
+
+              <div className={styles.fieldRow}>
+                <label>
+                  Purpose <span className={styles.reqStar}>*</span>
+                </label>
+                <select
+                  className={styles.select}
+                  value={applyForm.reason}
+                  onChange={(e) =>
+                    setApplyForm((prev) => ({ ...prev, reason: e.target.value }))
+                  }
+                >
+                  <option value="Family Emergency">Family Emergency</option>
+                  <option value="Medical Expense">Medical Expense</option>
+                  <option value="Education">Education</option>
+                  <option value="Home Renovation">Home Renovation</option>
+                  <option value="Wedding">Wedding</option>
+                  <option value="Personal">Personal</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {applyForm.reason === 'Other' && (
+                <div className={styles.fieldRow}>
+                  <label>
+                    Specify Purpose <span className={styles.reqStar}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className={`${styles.input} ${formErrors.otherReason ? styles.inputError : ''}`}
+                    placeholder="Enter loan purpose"
+                    value={applyForm.otherReason}
+                    onChange={(e) =>
+                      setApplyForm((prev) => ({ ...prev, otherReason: e.target.value }))
+                    }
+                  />
+                  {formErrors.otherReason && (
+                    <span className={styles.errorText}>{formErrors.otherReason}</span>
+                  )}
+                </div>
+              )}
+
+              <div className={styles.fieldRow}>
+                <label>
+                  Deduction Start <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="date"
+                  className={styles.input}
+                  value={applyForm.deductionStart}
+                  onChange={(e) =>
+                    setApplyForm((prev) => ({ ...prev, deductionStart: e.target.value }))
+                  }
+                />
+              </div>
+
+              <div className={styles.fieldRow}>
+                <label>
+                  Installments (Months) <span className={styles.reqStar}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  className={`${styles.input} ${formErrors.installments ? styles.inputError : ''}`}
+                  placeholder="1 - 24"
+                  value={applyForm.installments}
+                  onChange={(e) =>
+                    setApplyForm((prev) => ({ ...prev, installments: e.target.value }))
+                  }
+                />
+                {formErrors.installments && (
+                  <span className={styles.errorText}>{formErrors.installments}</span>
+                )}
+              </div>
+
+              <div className={styles.fieldRow}>
+                <label>Remarks</label>
+                <input
+                  type="text"
+                  className={styles.input}
+                  placeholder="Optional remarks for HR"
+                  value={applyForm.remarks}
+                  onChange={(e) =>
+                    setApplyForm((prev) => ({ ...prev, remarks: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className={styles.emiBanner}>
+              <span>
+                Estimated Monthly EMI ({applyForm.installments || 1} months, Interest Free):
+              </span>
+              <strong>₹{formatInt(estimatedEmi)} / month</strong>
+            </div>
+
+            <div className={styles.formActions}>
+              <button
+                type="button"
+                className={styles.previewBtn}
+                onClick={handlePreviewSchedule}
+              >
+                <Eye size={15} />
+                <span>Preview</span>
+              </button>
+              <button type="submit" className={styles.addNewBtn} disabled={submitting}>
+                <Save size={15} />
+                <span>{submitting ? 'Submitting...' : 'Submit Application'}</span>
+              </button>
+            </div>
+          </form>
+
+          {previewSchedule.length > 0 && (
+            <div className={styles.previewSection}>
+              <h3 className={styles.sectionHeading}>Loan Repayment Schedule Preview</h3>
+              <div className={styles.tableWrap}>
+                <table className={styles.scheduleTable}>
+                  <thead>
+                    <tr>
+                      <th>DATE</th>
+                      <th>OPENING</th>
+                      <th>PRINCIPAL</th>
+                      <th>INTEREST</th>
+                      <th>INSTALLMENT</th>
+                      <th>BALANCE</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {previewSchedule.map((r) => (
+                      <tr
+                        key={r.id}
+                        className={r.isDisbursement ? styles.disbursementRow : ''}
+                      >
+                        <td>
+                          {r.isDisbursement
+                            ? formatUpperDate(r.date)
+                            : formatMixedDate(r.date)}
+                        </td>
+                        <td>{formatDec(r.opening)}</td>
+                        <td>{formatDec(r.principal)}</td>
+                        <td>{formatDec(r.interest)}</td>
+                        <td>{formatDec(r.installment)}</td>
+                        <td>{formatDec(r.balance)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ==================== VIEW 3: VIEW LOAN & SCHEDULE ==================== */}
+      {viewMode === 'view' && selectedLoan && (
+        <>
+          <header className={styles.pageHeader}>
+            <div className={styles.titleBlock}>
+              <h1 className={styles.pageTitle}>View Loan</h1>
+              <p className={styles.pageSubtitle}>
+                Review your loan summary and monthly deduction schedule.
+              </p>
+            </div>
+            <div className={styles.headerBtns}>
+              <button
+                type="button"
+                className={styles.backLinkBtn}
+                onClick={() => setViewMode('list')}
+              >
+                <ArrowLeft size={15} />
+                <span>Back</span>
+              </button>
+            </div>
+          </header>
+
+          <div className={styles.summaryCardsGrid}>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Purpose</span>
+              <strong>
+                {selectedLoan.purpose} ({selectedLoan.requestId})
+              </strong>
+            </div>
+
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Loan Amount</span>
+              <strong>₹{formatInt(selectedLoan.loanAmount)}</strong>
+            </div>
+
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Request Date</span>
+              <strong>{formatUpperDate(selectedLoan.issueDate)}</strong>
+            </div>
+
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Status</span>
+              {renderStatusBadge(selectedLoan.status)}
+            </div>
+
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Deduction Start</span>
+              <strong>{formatUpperDate(selectedLoan.deductionStart)}</strong>
+            </div>
+
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Interest Method</span>
+              <strong>{selectedLoan.interestMethod}</strong>
+            </div>
+
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryCardLabel}>Total Installments</span>
+              <strong>{selectedLoan.installmentsCount}</strong>
+            </div>
+          </div>
+
+          <div className={styles.scheduleSection}>
+            <div className={styles.scheduleToolbar}>
+              <h3 className={styles.scheduleTitle}>Loan Repayment Schedule</h3>
+              <button
+                type="button"
+                className={styles.excelBtn}
+                onClick={handleDownloadScheduleExcel}
+              >
+                <FileSpreadsheet size={15} />
+                <span>Download Excel</span>
+              </button>
+            </div>
+
+            <div className={styles.tableWrap}>
+              <table className={styles.scheduleTable}>
+                <thead>
+                  <tr>
+                    <th>DATE</th>
+                    <th>OPENING</th>
+                    <th>PRINCIPAL</th>
+                    <th>INTEREST</th>
+                    <th>INSTALLMENT</th>
+                    <th>BALANCE</th>
+                    <th>DEDUCTIBLE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(selectedLoan.schedule || []).map((row) => (
+                    <tr
+                      key={row.id}
+                      className={row.isDisbursement ? styles.disbursementRow : ''}
+                    >
+                      <td className={styles.dateCell}>
+                        {row.isDisbursement
+                          ? formatUpperDate(row.date)
+                          : formatMixedDate(row.date)}
+                      </td>
+                      <td>{formatDec(row.opening)}</td>
+                      <td>{formatDec(row.principal)}</td>
+                      <td>{formatDec(row.interest)}</td>
+                      <td>{formatDec(row.installment)}</td>
+                      <td>{formatDec(row.balance)}</td>
+                      <td>
+                        {!row.isDisbursement && (
+                          <span
+                            className={
+                              row.deductible ? styles.deductibleYes : styles.deductibleNo
+                            }
+                          >
+                            {row.deductible ? 'Yes' : 'No'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className={styles.totalsRow}>
+                    <td>
+                      <strong>Totals</strong>
+                    </td>
+                    <td>0.00</td>
+                    <td>{formatDec(scheduleTotals.principal)}</td>
+                    <td>{formatDec(scheduleTotals.interest)}</td>
+                    <td>{formatDec(scheduleTotals.installment)}</td>
+                    <td>0.00</td>
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

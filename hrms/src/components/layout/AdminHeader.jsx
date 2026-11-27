@@ -286,7 +286,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       if (location.search.includes('tab=bonus')) return 'Payroll / Bonus Management';
       return 'Payroll / Payroll Processing';
     }
-    if (path.startsWith('/admin/advances-loans')) return 'Payroll / Loans';
+    if (path.startsWith('/admin/loans')) return 'Payroll / Loans';
     if (path.startsWith('/admin/overtime')) return 'Payroll / Overtime';
     if (path.startsWith('/admin/leave')) {
       if (location.search.includes('tab=encashment')) return 'Management / Leave / Leave Encashment';

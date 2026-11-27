@@ -62,7 +62,7 @@ function UserHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/user/shifts')) return 'Workforce / Shift Management';
     if (path.startsWith('/user/payroll-setup')) return 'Payroll Management / Payroll Setup';
     if (path.startsWith('/user/statutory-setup')) return 'Payroll Management / Statutory Setup';
-    if (path.startsWith('/user/advances-loans')) return 'Payroll Management / Loans';
+    if (path.startsWith('/user/loans')) return 'Payroll Management / Loans';
     if (path.startsWith('/user/reimbursements')) return 'Payroll Management / Reimbursements';
     if (path.startsWith('/user/overtime')) return 'Payroll Management / Overtime';
     if (path.startsWith('/user/payroll')) {
