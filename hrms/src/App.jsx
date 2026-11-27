@@ -46,7 +46,7 @@ import Leave from './pages/admin/Leave'
 import Overtime from './pages/admin/Overtime'
 import ShiftManagement from './pages/admin/ShiftManagement'
 import Inventory from './pages/admin/Inventory'
-import AdvanceLoanManagement from './pages/admin/AdvanceLoanManagement'
+import LoanManagement from './pages/admin/LoanManagement'
 import PayrollManagement from './pages/admin/PayrollManagement'
 import Reports from './pages/admin/Reports'
 import Notifications from './pages/admin/Notifications'
@@ -160,7 +160,7 @@ function App() {
       <Route path="/admin/overtime" element={<AdminRoute><Overtime /></AdminRoute>} />
       <Route path="/admin/shifts" element={<AdminRoute><ShiftManagement /></AdminRoute>} />
       <Route path="/admin/inventory" element={<AdminRoute><Inventory /></AdminRoute>} />
-      <Route path="/admin/advances-loans" element={<AdminRoute><AdvanceLoanManagement /></AdminRoute>} />
+      <Route path="/admin/loans" element={<AdminRoute><LoanManagement /></AdminRoute>} />
       <Route path="/admin/reimbursements" element={<AdminRoute><Reimbursements /></AdminRoute>} />
       <Route path="/admin/payroll" element={<AdminRoute><PayrollManagement /></AdminRoute>} />
       <Route path="/admin/payroll/separation-initiate" element={<AdminRoute><FnFInitiatePage /></AdminRoute>} />
@@ -243,7 +243,7 @@ function App() {
         <Route path="income-tax" element={<ModulePermissionRoute moduleKey="payroll" moduleTitle="Income Tax Management"><IncomeTaxManagement /></ModulePermissionRoute>} />
         <Route path="payroll-setup" element={<ModulePermissionRoute moduleKey="payroll_setup" moduleTitle="Payroll Setup"><PayrollSetup /></ModulePermissionRoute>} />
         <Route path="statutory-setup" element={<ModulePermissionRoute moduleKey="statutory_setup" moduleTitle="Statutory Setup"><StatutorySetup /></ModulePermissionRoute>} />
-        <Route path="advances-loans" element={<ModulePermissionRoute moduleKey="advances_loans" moduleTitle="Loans"><AdvanceLoanManagement /></ModulePermissionRoute>} />
+        <Route path="loans" element={<ModulePermissionRoute moduleKey="advances_loans" moduleTitle="Loans"><LoanManagement /></ModulePermissionRoute>} />
         <Route path="reimbursements" element={<ModulePermissionRoute moduleKey="reimbursements" moduleTitle="Reimbursements"><Reimbursements /></ModulePermissionRoute>} />
         <Route path="overtime" element={<ModulePermissionRoute moduleKey="overtime" moduleTitle="Overtime"><Overtime /></ModulePermissionRoute>} />
 
@@ -279,7 +279,7 @@ function App() {
         <Route path="overtime" element={<MyOvertime />} />
         <Route path="salary-slips" element={<MySalarySlips />} />
         <Route path="tax-declaration" element={<EmployeeTaxDeclaration />} />
-        <Route path="advances-loans" element={<MyAdvancesLoans />} />
+        <Route path="loans" element={<MyAdvancesLoans />} />
         <Route path="reimbursements" element={<MyReimbursements />} />
         <Route path="assets" element={<MyAssetsUniform />} />
         <Route path="uniforms" element={<MyAssetsUniform />} />

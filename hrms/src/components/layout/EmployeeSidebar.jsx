@@ -65,16 +65,10 @@ const ALL_NAV_ITEMS = [
   },
   { path: '/employee/tax-declaration', name: 'IT Declaration (12BB)', icon: Calculator, key: 'allowSalarySlips' },
   {
-    path: '/employee/advances-loans',
+    path: '/employee/loans',
     name: 'Loans',
     icon: HandCoins,
-    key: 'allowAdvancesLoans',
-    hasDropdown: true,
-    subItems: [
-      { path: '/employee/advances-loans?tab=loans', name: 'My Loans' },
-      { path: '/employee/advances-loans?tab=schedule', name: 'Deduction Schedule' },
-      { path: '/employee/advances-loans?tab=history', name: 'Deduction History' },
-    ]
+    key: 'allowAdvancesLoans'
   },
   { path: '/employee/reimbursements', name: 'Reimbursements', icon: Receipt },
   { path: '/employee/uniforms', name: 'Uniforms', icon: Shirt, key: 'allowAssetsUniform' },
@@ -105,7 +99,6 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
     '/employee/attendance': location.pathname.startsWith('/employee/attendance'),
     '/employee/leave': location.pathname.startsWith('/employee/leave'),
     '/employee/salary-slips': location.pathname.startsWith('/employee/salary-slips'),
-    '/employee/advances-loans': location.pathname.startsWith('/employee/advances-loans'),
   }));
 
   const currentUser = authService.getCurrentUser();
@@ -113,7 +106,7 @@ function EmployeeSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout 
 
   // Automatically expand dropdown if user navigates to an active section
   useEffect(() => {
-    ['/employee/attendance', '/employee/leave', '/employee/salary-slips', '/employee/advances-loans'].forEach((path) => {
+    ['/employee/attendance', '/employee/leave', '/employee/salary-slips'].forEach((path) => {
       if (location.pathname.startsWith(path)) {
         setOpenDropdowns((prev) => ({
           ...prev,

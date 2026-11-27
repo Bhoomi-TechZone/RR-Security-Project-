@@ -190,16 +190,10 @@ const USER_NAV_GROUPS = [
         ]
       },
       { 
-        path: '/user/advances-loans', 
+        path: '/user/loans', 
         name: 'Loans', 
         icon: HandCoins, 
-        moduleKey: 'advances_loans',
-        hasDropdown: true,
-        subItems: [
-          { path: '/user/advances-loans?tab=loans', name: 'All Loan Requests' },
-          { path: '/user/advances-loans?tab=schedule', name: 'Deduction Schedule' },
-          { path: '/user/advances-loans?tab=history', name: 'Deduction History' },
-        ]
+        moduleKey: 'advances_loans'
       },
       { 
         path: '/user/reimbursements', 
@@ -369,7 +363,6 @@ function UserSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) {
     '/user/payroll': location.pathname.startsWith('/user/payroll') && !isSeparationRoute,
     '/user/payroll-setup': location.pathname.startsWith('/user/payroll-setup'),
     '/user/statutory-setup': location.pathname.startsWith('/user/statutory-setup'),
-    '/user/advances-loans': location.pathname.startsWith('/user/advances-loans'),
     '/user/reimbursements': location.pathname.startsWith('/user/reimbursements'),
     '/user/overtime': location.pathname.startsWith('/user/overtime'),
     '/user/income-tax': location.pathname.startsWith('/user/income-tax'),
