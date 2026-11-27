@@ -4,7 +4,27 @@ import styles from './QuickInsights.module.css';
 
 
 
-function QuickInsights({ data, onOpenBirthdays, onOpenOnLeave, onOpenLeaveRequests }) {
+function QuickInsights({ data, loading, onOpenBirthdays, onOpenOnLeave, onOpenLeaveRequests }) {
+  if (loading && !data) {
+    return (
+      <div className={styles.card}>
+        <h3 className={styles.title}>Quick Insights</h3>
+        <div className={styles.grid}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className={`${styles.insightItem} ${styles.skeletonCard}`}>
+              <div className={`${styles.skeleton} ${styles.skeletonIcon}`} />
+              <div className={styles.meta} style={{ width: '100%' }}>
+                <div className={`${styles.skeleton} ${styles.skeletonText}`} style={{ width: '60%' }} />
+                <div className={`${styles.skeleton} ${styles.skeletonValue}`} style={{ width: '40%' }} />
+                <div className={`${styles.skeleton} ${styles.skeletonSub}`} style={{ width: '50%' }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const currentMonthName = new Date().toLocaleDateString('en-GB', { month: 'short', year: 'numeric' });
 
   const dynamicInsights = [

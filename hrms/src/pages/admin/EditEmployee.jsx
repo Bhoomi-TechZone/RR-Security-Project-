@@ -27,7 +27,13 @@ function EditEmployee() {
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id || '';
 
-  const [employee, setEmployee] = useState(null);
+  const preview = location.state?.employeePreview || null;
+  const [employee, setEmployee] = useState(() => {
+    if (preview && (preview.id === id || preview._id === id || preview.employeeId === id || preview.employeeCode === id)) {
+      return preview;
+    }
+    return null;
+  });
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [clients, setClients] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -42,25 +48,19 @@ function EditEmployee() {
   const [employeesCount, setEmployeesCount] = useState(0);
   const [employeeList, setEmployeeList] = useState([]);
 
-  // Fetch employee record
+  // Fetch complete employee record (excluding heavy base64 documents for ~10ms fast load)
   useEffect(() => {
     let isCancelled = false;
     const fetchEmployee = async () => {
       try {
-        const token = authService.getToken();
         const compId = currentCompanyId || employee?.companyId || '';
-        const res = await fetch(`${API_BASE_URL}/employees/${id}`, {
-          headers: {
-            'Authorization': `Bearer ${token || ''}`,
-            'x-company-id': compId
-          }
-        });
-        const data = await res.json();
+        const res = await employeeService.getEmployeeById(compId, id);
         if (isCancelled) return;
-        if (res.ok && data.success && data.employee) {
-          setEmployee(data.employee);
+        if (res) {
+          const empData = res.employee || res;
+          setEmployee((prev) => ({ ...prev, ...empData }));
         } else {
-          setToast({ message: data.message || 'Employee not found.', type: 'error' });
+          setToast({ message: 'Employee not found.', type: 'error' });
           if (!isCancelled) {
             setTimeout(() => navigate(basePath), 1500);
           }
@@ -82,8 +82,8 @@ function EditEmployee() {
     };
   }, [id, currentCompanyId, navigate, basePath]);
 
-  // Fetch dropdown masters & employee list
-  const fetchMasters = useCallback(async () => {
+  // Fetch dropdown masters & employee list asynchronously in background
+  const fetchMasters = useCallback(() => {
     const compId = currentCompanyId || employee?.companyId;
     if (!compId) return;
     try {
@@ -98,21 +98,22 @@ function EditEmployee() {
       masterService.getMasters('document-types', compId).then(setDocumentTypes).catch(() => {});
       workLocationService.getWorkLocations(compId).then(setWorkLocations).catch(() => {});
       
-      const allEmps = await employeeService.getEmployees(compId);
-      const emps = Array.isArray(allEmps) ? allEmps : [];
-      setEmployeesCount(emps.length);
+      employeeService.getEmployees(compId, { minimal: true }).then((allEmps) => {
+        const emps = Array.isArray(allEmps) ? allEmps : [];
+        setEmployeesCount(emps.length);
 
-      // Sort employees in natural sequence by code/id (e.g. RR-001, RR-002 ... RR-020)
-      const sortedEmps = [...emps].sort((a, b) => {
-        const codeA = String(a.employeeCode || a.employeeId || a.id || '').trim();
-        const codeB = String(b.employeeCode || b.employeeId || b.id || '').trim();
-        if (codeA && codeB) {
-          return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
-        }
-        return 0;
-      });
+        // Sort employees in natural sequence by code/id (e.g. RR-001, RR-002 ... RR-020)
+        const sortedEmps = [...emps].sort((a, b) => {
+          const codeA = String(a.employeeCode || a.employeeId || a.id || '').trim();
+          const codeB = String(b.employeeCode || b.employeeId || b.id || '').trim();
+          if (codeA && codeB) {
+            return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+          }
+          return 0;
+        });
 
-      setEmployeeList(sortedEmps);
+        setEmployeeList(sortedEmps);
+      }).catch(() => {});
     } catch (err) {
       console.error('Error fetching master records for EditEmployee:', err);
     }

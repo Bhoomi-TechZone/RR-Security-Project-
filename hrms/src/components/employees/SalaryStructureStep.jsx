@@ -123,18 +123,17 @@ function SalaryStructureStep({ data, onChange }) {
   const { activeCompany, activeCompanyId } = useCompany();
   const companyId = data.companyId || activeCompanyId || activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
 
-  const [earningComponents, setEarningComponents] = useState([]);
-  const [deductionComponents, setDeductionComponents] = useState([]);
-  const [loadingComponents, setLoadingComponents] = useState(true);
+  const [earningComponents, setEarningComponents] = useState(DEFAULT_FALLBACK_EARNINGS);
+  const [deductionComponents, setDeductionComponents] = useState(DEFAULT_FALLBACK_DEDUCTIONS);
+  const [loadingComponents, setLoadingComponents] = useState(false);
   const [hasConfiguredMasters, setHasConfiguredMasters] = useState(false);
 
-  // Dynamically load company-isolated active earning & deduction components from Masters API
+  // Dynamically load company-isolated active earning & deduction components from Masters API (with cache support)
   useEffect(() => {
     let isMounted = true;
     async function loadSalaryComponents() {
       try {
-        setLoadingComponents(true);
-        const allComponents = await masterService.getMasters('salary-components', companyId, true);
+        const allComponents = await masterService.getMasters('salary-components', companyId, false);
         if (isMounted) {
           const compsList = Array.isArray(allComponents) ? allComponents : [];
 
@@ -425,14 +424,24 @@ function SalaryStructureStep({ data, onChange }) {
     const updated = revisions.map((r) => {
       if (r.id === activeRevisionId) {
         return {
-          ...r,
-          ...updatedData,
+          id: r.id,
+          effectiveFrom: updatedData.salaryEffectiveFrom || r.effectiveFrom || '',
+          salaryEffectiveFrom: updatedData.salaryEffectiveFrom || r.salaryEffectiveFrom || '',
           grossSalary: calc.grossSalary,
           totalSalary: calc.grossSalary,
+          basic: Number(updatedData.basic) || 0,
+          vda: Number(updatedData.vda) || 0,
+          hra: Number(updatedData.hra) || 0,
+          conveyance: Number(updatedData.conveyance) || 0,
+          specialAllowance: Number(updatedData.specialAllowance) || 0,
+          otherAllowance: Number(updatedData.otherAllowance) || 0,
           netSalary: calc.netSalary,
           ctc: calc.totalCtc,
           totalCtc: calc.totalCtc,
-          employerContributions: calc.employerContributions
+          employerContributions: calc.employerContributions || {},
+          customEarnings: updatedData.customEarnings || {},
+          deductions: updatedData.deductions || {},
+          isIncrement: Boolean(r.isIncrement)
         };
       }
       return r;
@@ -879,7 +888,6 @@ function SalaryStructureStep({ data, onChange }) {
     });
 
     const newRev = {
-      ...data,
       id: newRevId,
       effectiveFrom: effectiveFromIso,
       salaryEffectiveFrom: effectiveFromIso,
@@ -890,10 +898,13 @@ function SalaryStructureStep({ data, onChange }) {
       hra: newHra,
       conveyance: newConveyance,
       specialAllowance: newSpecialAllowance,
+      otherAllowance: Number(data.otherAllowance) || 0,
       netSalary: calc.netSalary,
       ctc: calc.totalCtc,
       totalCtc: calc.totalCtc,
-      employerContributions: calc.employerContributions,
+      employerContributions: calc.employerContributions || {},
+      customEarnings: data.customEarnings || {},
+      deductions: data.deductions || {},
       isIncrement: true
     };
 
@@ -962,9 +973,9 @@ function SalaryStructureStep({ data, onChange }) {
       updatedRevisions = revisions.map((r) => {
         if (!targetRevId || r.id === targetRevId) {
           return {
-            ...r,
-            ...data,
-            effectiveFrom: data.salaryEffectiveFrom || r.effectiveFrom,
+            id: r.id,
+            effectiveFrom: data.salaryEffectiveFrom || r.effectiveFrom || r.salaryEffectiveFrom || '',
+            salaryEffectiveFrom: data.salaryEffectiveFrom || r.salaryEffectiveFrom || r.effectiveFrom || '',
             grossSalary: calc.grossSalary,
             totalSalary: calc.grossSalary,
             basic: Number(data.basic) || 0,
@@ -976,7 +987,10 @@ function SalaryStructureStep({ data, onChange }) {
             netSalary: calc.netSalary,
             ctc: calc.totalCtc,
             totalCtc: calc.totalCtc,
-            employerContributions: calc.employerContributions
+            employerContributions: calc.employerContributions || {},
+            customEarnings: data.customEarnings || {},
+            deductions: data.deductions || {},
+            isIncrement: Boolean(r.isIncrement)
           };
         }
         return r;

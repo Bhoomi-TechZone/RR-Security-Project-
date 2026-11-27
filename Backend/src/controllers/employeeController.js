@@ -112,14 +112,29 @@ export const getEmployees = async (req, res) => {
     }
 
     const clientIdFilter = req.query.clientId || 'all';
+    const pageParam = req.query.page ? parseInt(req.query.page, 10) : null;
+    const limitParam = req.query.limit ? parseInt(req.query.limit, 10) : (pageParam ? 10 : null);
+    const searchParam = (req.query.search || req.query.q || '').trim();
+    const locationParam = req.query.location || 'all';
+    const departmentParam = req.query.department || 'all';
+    const designationParam = req.query.designation || 'all';
+    const statusParam = req.query.status || 'all';
+    const sortByParam = req.query.sortBy || 'none';
+    const sortOrderParam = req.query.sortOrder || 'asc';
+    const isMinimal = req.query.minimal === 'true';
+
+    // Disable in-memory cache for parameterized paginated or filtered requests to ensure live accuracy
+    const hasDynamicParams = pageParam || searchParam || locationParam !== 'all' || departmentParam !== 'all' || designationParam !== 'all' || statusParam !== 'all' || sortByParam !== 'none' || isMinimal;
     const cacheKey = `${adminEmail}_${companyId}_${clientIdFilter}`;
-    const cached = employeesCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp < EMPLOYEES_CACHE_TTL)) {
-      res.set({
-        'Cache-Control': 'public, max-age=15',
-        'X-Cache': 'HIT'
-      });
-      return res.status(200).json(cached.payload);
+    if (!hasDynamicParams) {
+      const cached = employeesCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < EMPLOYEES_CACHE_TTL)) {
+        res.set({
+          'Cache-Control': 'public, max-age=15',
+          'X-Cache': 'HIT'
+        });
+        return res.status(200).json(cached.payload);
+      }
     }
 
     let companyIds = [companyId];
@@ -145,15 +160,99 @@ export const getEmployees = async (req, res) => {
       adminEmail
     };
 
-    if (req.query.clientId && req.query.clientId !== 'all') {
-      filter.clientId = req.query.clientId;
+    if (clientIdFilter && clientIdFilter !== 'all') {
+      filter.$or = [
+        { clientId: clientIdFilter },
+        { companyId: clientIdFilter },
+        { clientName: clientIdFilter }
+      ];
     }
 
-    // Exclude massive base64 document attachments and non-listing arrays for instantaneous table response
-    const employees = await Employee.find(filter)
-      .select('-documents -documentList -drivingLicenseCopy -activityLogs -familyMembers -licenseList -additionalInfo -notes -otherInfo1 -otherInfo2 -otherInfo3 -otherInfo4 -otherInfo5 -otherInfo6 -otherInfo7 -otherInfo8 -otherInfo9 -otherInfo10')
-      .sort({ createdAt: -1 })
-      .lean();
+    // Server-side search filter across name, codes, contact, email
+    if (searchParam) {
+      const searchRegex = new RegExp(searchParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const searchOr = [
+        { name: searchRegex },
+        { employeeId: searchRegex },
+        { employeeCode: searchRegex },
+        { mobile: searchRegex },
+        { contact: searchRegex },
+        { email: searchRegex }
+      ];
+      if (filter.$or) {
+        filter.$and = filter.$and || [];
+        filter.$and.push({ $or: searchOr });
+      } else {
+        filter.$or = searchOr;
+      }
+    }
+
+    // Location / Site filter
+    if (locationParam && locationParam !== 'all') {
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { siteLocation: locationParam },
+          { site: locationParam },
+          { location: locationParam },
+          { workLocation: locationParam }
+        ]
+      });
+    }
+
+    // Department filter
+    if (departmentParam && departmentParam !== 'all') {
+      filter.department = departmentParam;
+    }
+
+    // Designation filter
+    if (designationParam && designationParam !== 'all') {
+      filter.designation = designationParam;
+    }
+
+    // Status filter (Active / Inactive)
+    if (statusParam && statusParam !== 'all') {
+      const statusRegex = new RegExp(`^${statusParam}$`, 'i');
+      filter.$and = filter.$and || [];
+      filter.$and.push({
+        $or: [
+          { status: statusRegex },
+          { employeeStatus: statusRegex }
+        ]
+      });
+    }
+
+    // Server-side dynamic sorting
+    let sortObj = { createdAt: -1 };
+    const sortDir = sortOrderParam === 'desc' ? -1 : 1;
+    if (sortByParam === 'name') {
+      sortObj = { name: sortDir };
+    } else if (sortByParam === 'code') {
+      sortObj = { employeeCode: sortDir, employeeId: sortDir };
+    } else if (sortByParam === 'doj') {
+      sortObj = { joiningDate: sortDir };
+    }
+
+    // Table-only Projection: Select strictly the fields needed for table view
+    let selectFields = '_id employeeId employeeCode name mobile contact email designation department clientName clientId siteLocation site joiningDate status employeeStatus enablePortalAccess photo employeePhoto createdAt savedPassword';
+    if (isMinimal) {
+      selectFields = '_id employeeId employeeCode name';
+    }
+
+    // Total matching records count for accurate pagination metadata
+    const totalCount = await Employee.countDocuments(filter);
+
+    let query = Employee.find(filter)
+      .select(selectFields)
+      .sort(sortObj);
+
+    // Apply database-level pagination skip & limit
+    if (pageParam && limitParam) {
+      const skipCount = Math.max(0, (pageParam - 1) * limitParam);
+      query = query.skip(skipCount).limit(limitParam);
+    }
+
+    const employees = await query.lean();
 
     // Normalize employeeId formatting in memory and sync non-blocking to DB
     const normalizedEmployees = employees.map((emp) => {
@@ -189,14 +288,25 @@ export const getEmployees = async (req, res) => {
 
     const payload = {
       success: true,
-      count: normalizedEmployees.length,
-      employees: normalizedEmployees
+      count: totalCount,
+      employees: normalizedEmployees,
+      ...(pageParam && limitParam ? {
+        pagination: {
+          total: totalCount,
+          page: pageParam,
+          limit: limitParam,
+          totalPages: Math.ceil(totalCount / limitParam) || 1
+        }
+      } : {})
     };
-    employeesCache.set(cacheKey, { timestamp: Date.now(), payload });
+
+    if (!hasDynamicParams) {
+      employeesCache.set(cacheKey, { timestamp: Date.now(), payload });
+    }
 
     res.set({
-      'Cache-Control': 'public, max-age=15',
-      'X-Cache': 'MISS'
+      'Cache-Control': 'public, max-age=5',
+      'X-Cache': hasDynamicParams ? 'BYPASS' : 'MISS'
     });
 
     return res.status(200).json(payload);
@@ -209,14 +319,58 @@ export const getEmployees = async (req, res) => {
   }
 };
 
+export const sanitizeSalaryRevisions = (revisions) => {
+  if (!Array.isArray(revisions)) return [];
+  return revisions.map((r) => {
+    if (!r || typeof r !== 'object') return null;
+    return {
+      id: r.id || String(r._id || Date.now()),
+      effectiveFrom: r.effectiveFrom || r.salaryEffectiveFrom || '',
+      salaryEffectiveFrom: r.salaryEffectiveFrom || r.effectiveFrom || '',
+      grossSalary: Number(r.grossSalary || r.totalSalary || 0),
+      basic: Number(r.basic || 0),
+      vda: Number(r.vda || 0),
+      hra: Number(r.hra || 0),
+      conveyance: Number(r.conveyance || 0),
+      specialAllowance: Number(r.specialAllowance || 0),
+      otherAllowance: Number(r.otherAllowance || 0),
+      netSalary: Number(r.netSalary || 0),
+      ctc: Number(r.ctc || r.totalCtc || 0),
+      totalCtc: Number(r.totalCtc || r.ctc || 0),
+      employerContributions: r.employerContributions || {},
+      customEarnings: r.customEarnings || {},
+      deductions: r.deductions || {},
+      isIncrement: Boolean(r.isIncrement)
+    };
+  }).filter(Boolean);
+};
+
+const EMPLOYEE_SECTION_PROJECTIONS = {
+  summary: '_id employeeId employeeCode name firstName middleName lastName photo employeePhoto gender dob contact mobile email alternateMobile emergencyMobile fatherHusbandName fatherHusbandRelation maritalStatus marriageDate marriedDate spouseName bloodGroup religion nationality department designation siteLocation site clientName clientId companyName companyId employeeType employeeStatus status joiningDate confirmationDate noticePeriod reportingSupervisor reportingManager businessUnit grade shift attendanceMethod biometricCode createdAt',
+  basic: '_id employeeId employeeCode name firstName middleName lastName photo employeePhoto gender dob contact mobile email alternateMobile emergencyMobile fatherHusbandName fatherHusbandRelation maritalStatus marriageDate marriedDate spouseName bloodGroup religion nationality biometricCode',
+  employment: '_id employeeId employeeCode name department designation siteLocation site clientName clientId companyName companyId employeeType employeeStatus status joiningDate confirmationDate noticePeriod reportingSupervisor reportingManager businessUnit grade shift attendanceMethod dutyPost joiningLocation previousExperience language qualification technicalQualification exitDate exitReason exitDateReason attendanceMethods allowMobileAppLogin attendanceHolidayOfficeOff autoPunchOutLocationOff',
+  salary: '_id employeeId employeeCode name salaryType salaryStructureType grossSalary basic vda hra conveyance otherAllowance specialAllowance minimumWageCategory overtimeRate bonus gratuity salaryEffectiveFrom pan aadhaar uan pfNo esicNo dispensaryNo pfApplicable esiApplicable ptApplicable lwfApplicable tdsApplicable netSalary totalSalary ctc totalCtc isIncrement salaryRevisions customEarnings deductions employerContributions doNotDeductEsi deductEsi deductEsiAboveCeiling doNotDeductPf deductPf doNotDeductPension deductPfAboveCeilingEmployee deductPfAboveCeilingEmployer deductPfOnGrossSalary deductPfExtraContribution minPfDeduction doNotDeductPt deductPt ptNo ptTaxState doNotDeductTds deductTds metroCityResident doNotDeductLwf deductLwf lwfTaxState lwfNo',
+  bank: '_id employeeId employeeCode name bankName branchName accountNumber ifsc accountHolder paymentMode',
+  address: '_id employeeId employeeCode name presentAddress permanentAddress sameAsPresentAddress',
+  family: '_id employeeId employeeCode name familyMembers familyMemberName relation dobAge address nomineeYesNo nomineeSharePercent residentWith residingWith',
+  documents: '_id employeeId employeeCode name documents documentList drivingLicenseCopy licenseList licenseType drivingLicenseType drivingLicenseNo dlExpiryDate armedLicenseNo alExpiryDate',
+  assets: '_id employeeId employeeCode name assets assetList',
+  letters: '_id employeeId employeeCode name letters letterInbox',
+  login: '_id employeeId employeeCode name enablePortalAccess savedPassword allowMobileAppLogin sendMobileLogin sendWebLogin role',
+  additional: '_id employeeId employeeCode name notes otherInfo1 otherInfo2 otherInfo3 otherInfo4 otherInfo5 otherInfo6 otherInfo7 otherInfo8 otherInfo9 otherInfo10 additionalInfo remarks',
+  activity: '_id employeeId employeeCode name activityLogs',
+};
+
 /**
- * @desc    Get a single employee by ID
+ * @desc    Get a single employee by ID (supports section-wise projection & lean queries)
  * @route   GET /api/employees/:id
  * @access  Private
  */
 export const getEmployeeById = async (req, res) => {
   try {
     const { id } = req.params;
+    const section = (req.query.section || '').trim().toLowerCase();
+    const includeDocuments = req.query.includeDocuments === 'true';
 
     if (req.user && req.user.role === 'client') {
       const client = await resolveClient(req);
@@ -230,13 +384,113 @@ export const getEmployeeById = async (req, res) => {
           mongoose.Types.ObjectId.isValid(id) ? { $or: [{ _id: id }, { employeeId: id }] } : { employeeId: id }
         ]
       };
-      const employee = await Employee.findOne(query);
+      let q = Employee.findOne(query);
+      if (section && EMPLOYEE_SECTION_PROJECTIONS[section]) {
+        q = q.select(EMPLOYEE_SECTION_PROJECTIONS[section]);
+      } else if (!includeDocuments) {
+        q = q.select('-documents -documentList -drivingLicenseCopy');
+      }
+      const employee = await q.lean();
       if (!employee) {
         return res.status(404).json({ success: false, message: 'Employee not found or not assigned to your account.' });
       }
-      return res.status(200).json({ success: true, employee: employee.toJSON() });
+      const formattedEmp = {
+        ...employee,
+        id: employee.employeeId || employee._id.toString(),
+        photo: employee.employeePhoto || employee.photo || '',
+        employeePhoto: employee.employeePhoto || employee.photo || '',
+        companyName: employee.companyName || employee.clientName || '',
+        clientName: employee.clientName || employee.companyName || '',
+        siteLocation: employee.siteLocation || employee.site || '',
+        site: employee.siteLocation || employee.site || '',
+        contact: employee.contact || employee.mobile || '',
+        mobile: employee.mobile || employee.contact || '',
+        enablePortalAccess: employee.enablePortalAccess !== false && employee.enablePortalAccess !== 'false',
+        password: employee.savedPassword || '',
+        savedPassword: employee.savedPassword || '',
+      };
+      return res.status(200).json({ success: true, section: section || 'all', employee: formattedEmp });
     }
 
+    const adminEmail = req.user?.email?.toLowerCase();
+    const cleanId = String(id || '').trim();
+    const isMongoId = mongoose.Types.ObjectId.isValid(cleanId);
+
+    // High performance query: use exact index keys first without regex
+    const orConditions = isMongoId
+      ? [{ _id: cleanId }, { employeeId: cleanId }, { employeeCode: cleanId }]
+      : [{ employeeId: cleanId }, { employeeCode: cleanId }];
+
+    let query = {
+      $or: orConditions
+    };
+
+    let q = Employee.findOne(query);
+    if (section && EMPLOYEE_SECTION_PROJECTIONS[section]) {
+      q = q.select(EMPLOYEE_SECTION_PROJECTIONS[section]);
+    } else if (!includeDocuments) {
+      q = q.select('-documents -documentList -drivingLicenseCopy');
+    }
+    let employee = await q.lean();
+
+    // Fallback if not found by exact match
+    if (!employee) {
+      const idRegex = new RegExp(`^${cleanId}$`, 'i');
+      employee = await Employee.findOne({
+        $or: [{ employeeId: idRegex }, { employeeCode: idRegex }]
+      }).select(section && EMPLOYEE_SECTION_PROJECTIONS[section] ? EMPLOYEE_SECTION_PROJECTIONS[section] : '-documents -documentList -drivingLicenseCopy').lean();
+    }
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: 'Employee not found.'
+      });
+    }
+
+    // Always sanitize salaryRevisions so recursive bloated payloads are NEVER sent
+    if (Array.isArray(employee.salaryRevisions) && employee.salaryRevisions.length > 0) {
+      employee.salaryRevisions = sanitizeSalaryRevisions(employee.salaryRevisions);
+    }
+
+    const formattedEmp = {
+      ...employee,
+      id: employee.employeeId || employee._id.toString(),
+      photo: employee.employeePhoto || employee.photo || '',
+      employeePhoto: employee.employeePhoto || employee.photo || '',
+      companyName: employee.companyName || employee.clientName || '',
+      clientName: employee.clientName || employee.companyName || '',
+      siteLocation: employee.siteLocation || employee.site || '',
+      site: employee.siteLocation || employee.site || '',
+      contact: employee.contact || employee.mobile || '',
+      mobile: employee.mobile || employee.contact || '',
+      enablePortalAccess: employee.enablePortalAccess !== false && employee.enablePortalAccess !== 'false',
+      password: employee.savedPassword || '',
+      savedPassword: employee.savedPassword || '',
+    };
+
+    return res.status(200).json({
+      success: true,
+      section: section || 'all',
+      employee: formattedEmp
+    });
+  } catch (error) {
+    console.error('Error fetching employee by ID:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch employee.'
+    });
+  }
+};
+
+/**
+ * @desc    Get employee documents and file attachments on-demand
+ * @route   GET /api/employees/:id/documents
+ * @access  Private
+ */
+export const getEmployeeDocuments = async (req, res) => {
+  try {
+    const { id } = req.params;
     const adminEmail = req.user.email.toLowerCase();
 
     let query = { adminEmail };
@@ -246,7 +500,9 @@ export const getEmployeeById = async (req, res) => {
       query.$or = [{ employeeId: id }, { employeeCode: id }];
     }
 
-    const employee = await Employee.findOne(query);
+    const employee = await Employee.findOne(query)
+      .select('employeeId employeeCode name documents documentList drivingLicenseCopy licenseList')
+      .lean();
 
     if (!employee) {
       return res.status(404).json({
@@ -257,13 +513,18 @@ export const getEmployeeById = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      employee: employee.toJSON()
+      employeeId: employee.employeeId || employee.employeeCode || employee._id,
+      name: employee.name,
+      documents: employee.documents || {},
+      documentList: employee.documentList || [],
+      drivingLicenseCopy: employee.drivingLicenseCopy || '',
+      licenseList: employee.licenseList || []
     });
   } catch (error) {
-    console.error('Error fetching employee by ID:', error);
+    console.error('Error fetching employee documents:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to fetch employee.'
+      message: 'Failed to retrieve employee documents.'
     });
   }
 };
@@ -503,7 +764,7 @@ export const createEmployee = async (req, res) => {
       ctc: Number(req.body.ctc) || Number(req.body.totalCtc) || 0,
       totalCtc: Number(req.body.totalCtc) || Number(req.body.ctc) || 0,
       isIncrement: Boolean(req.body.isIncrement),
-      salaryRevisions: Array.isArray(req.body.salaryRevisions) ? req.body.salaryRevisions : [],
+      salaryRevisions: sanitizeSalaryRevisions(req.body.salaryRevisions),
       customEarnings: req.body.customEarnings || {},
       deductions: req.body.deductions || {},
       employerContributions: req.body.employerContributions || {},
@@ -749,7 +1010,7 @@ export const updateEmployee = async (req, res) => {
     }
 
     if (req.body.salaryRevisions !== undefined) {
-      employee.salaryRevisions = Array.isArray(req.body.salaryRevisions) ? req.body.salaryRevisions : [];
+      employee.salaryRevisions = sanitizeSalaryRevisions(req.body.salaryRevisions);
       employee.markModified('salaryRevisions');
     }
 
@@ -1545,15 +1806,29 @@ export const getEmployeeActivityLogs = async (req, res) => {
   try {
     const { id } = req.params;
     const adminEmail = req.user.email.toLowerCase();
+    const idRegex = new RegExp(`^${id}$`, 'i');
 
     let query = { adminEmail };
     if (mongoose.Types.ObjectId.isValid(id)) {
-      query.$or = [{ _id: id }, { employeeId: id }, { employeeCode: id }];
+      query.$or = [
+        { _id: id },
+        { employeeId: id },
+        { employeeCode: id },
+        { employeeId: idRegex },
+        { employeeCode: idRegex }
+      ];
     } else {
-      query.$or = [{ employeeId: id }, { employeeCode: id }];
+      query.$or = [
+        { employeeId: id },
+        { employeeCode: id },
+        { employeeId: idRegex },
+        { employeeCode: idRegex }
+      ];
     }
 
-    const employee = await Employee.findOne(query);
+    const employee = await Employee.findOne(query)
+      .select('activityLogs createdAt name employeeId employeeCode adminEmail')
+      .lean();
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found.' });
     }

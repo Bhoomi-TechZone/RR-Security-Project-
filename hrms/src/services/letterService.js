@@ -21,6 +21,8 @@ class LetterService {
     if (params.status && params.status !== 'All') query.append('status', params.status);
     if (params.department && params.department !== 'All') query.append('department', params.department);
     if (params.search) query.append('search', params.search);
+    if (params.employeeCode) query.append('employeeCode', params.employeeCode);
+    if (params.employeeId) query.append('employeeId', params.employeeId);
 
     const res = await fetch(`${API_BASE_URL}/letters?${query.toString()}`, {
       method: 'GET',

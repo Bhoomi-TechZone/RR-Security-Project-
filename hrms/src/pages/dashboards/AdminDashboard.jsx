@@ -21,18 +21,31 @@ function AdminDashboard() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || 'comp_rr_security';
 
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `hrms_dashboard_stats_${companyId}`;
+  const [dashboardData, setDashboardData] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem(`hrms_dashboard_stats_${companyId}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(() => !dashboardData);
   const [selectedDateFilter, setSelectedDateFilter] = useState('Today');
-  const [dashboardData, setDashboardData] = useState(null);
   const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
   const [isOnLeaveModalOpen, setIsOnLeaveModalOpen] = useState(false);
   const [isLeaveRequestsModalOpen, setIsLeaveRequestsModalOpen] = useState(false);
 
-  const fetchDashboardData = useCallback(async (silent = false) => {
+  const fetchDashboardData = useCallback(async (silent = false, forceRefresh = false) => {
     if (!silent) setLoading(true);
     try {
-      const data = await dashboardService.getDashboardStats(companyId);
+      const data = await dashboardService.getDashboardStats(companyId, forceRefresh);
       setDashboardData(data);
+      try {
+        sessionStorage.setItem(`hrms_dashboard_stats_${companyId}`, JSON.stringify(data));
+      } catch (e) {
+        console.warn('Dashboard sessionStorage cache warning:', e);
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
@@ -41,8 +54,10 @@ function AdminDashboard() {
   }, [companyId]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    const hasCache = !!sessionStorage.getItem(`hrms_dashboard_stats_${companyId}`);
+    // If cached data is ready, do a silent background refresh without blocking the UI
+    fetchDashboardData(hasCache, false);
+  }, [fetchDashboardData, companyId]);
 
   // Dynamic KPI array
   const displayedKpi = [
@@ -115,7 +130,7 @@ function AdminDashboard() {
             <button 
               type="button" 
               className={styles.dateSelector} 
-              onClick={() => fetchDashboardData(false)}
+              onClick={() => fetchDashboardData(false, true)}
               title="Refresh Live Data"
               style={{ minWidth: 'auto', padding: '8px 12px' }}
             >
@@ -196,6 +211,7 @@ function AdminDashboard() {
           <div className={styles.col7}>
             <QuickInsights 
               data={dashboardData?.quickInsights} 
+              loading={loading && !dashboardData}
               onOpenBirthdays={() => setIsBirthdayModalOpen(true)}
               onOpenOnLeave={() => setIsOnLeaveModalOpen(true)}
               onOpenLeaveRequests={() => setIsLeaveRequestsModalOpen(true)}

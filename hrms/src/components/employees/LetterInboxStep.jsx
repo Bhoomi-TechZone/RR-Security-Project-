@@ -34,70 +34,60 @@ function formatDisplayDate(dateVal) {
 
 function LetterInboxStep({ data, employee }) {
   const { activeCompany } = useCompany();
-  const companyId = data?.companyId || activeCompany?.companyId || activeCompany?.id || 'RRS8392014SEC';
+  const companyId = data?.companyId || activeCompany?.companyId || activeCompany?.id || '';
   const companyName = activeCompany?.name || data?.companyName || 'RR Security & Facilities';
-  const companyAddress = activeCompany?.address || 'Plot 45, Sector 18, Gurugram, Haryana - 122008';
+  const companyAddress = activeCompany?.address || '';
 
-  const employeeCode = data?.employeeCode || data?.employeeId || employee?.employeeCode || employee?.employeeId || 'RR-020';
-  const employeeName = data?.name || employee?.name || 'Ramesh Kumar';
-  const designation = data?.designation || employee?.designation || 'Security Guard';
-  const department = data?.department || employee?.department || 'Operations';
-  const joiningDate = data?.joiningDate || employee?.joiningDate || '2026-11-12';
-  const grossSalary = data?.grossSalary || employee?.grossSalary || 18500;
+  const employeeCode = data?.employeeCode || data?.employeeId || employee?.employeeCode || employee?.employeeId || '';
+  const employeeName = data?.name || employee?.name || '';
+  const designation = data?.designation || employee?.designation || '';
+  const department = data?.department || employee?.department || '';
+  const joiningDate = data?.joiningDate || employee?.joiningDate || '';
+  const grossSalary = data?.grossSalary || employee?.grossSalary || 0;
 
   const storageKey = `novaspark_letters_emp_${employeeCode}`;
 
   const cleanCode = String(employeeCode).replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
   const cleanName = String(employeeName).trim().replace(/\s+/g, '_').toUpperCase();
 
-  // Helper to construct title matching screenshot
+  // Helper to construct title
   const getLetterTitle = (letter) => {
-    if (letter.displayTitle) return letter.displayTitle;
+    if (letter.displayTitle) return letter.displayTitle.replace(/\s*\[SAMPLE\]/gi, '');
     const typeObj = LETTER_TYPES.find(t => t.id === letter.letterType);
     const typeName = (typeObj?.name || letter.templateName || 'Appointment Letter').toUpperCase();
-    const dateStr = formatDisplayDate(letter.issueDate);
-    return `${typeName} [SAMPLE] generated on ${dateStr}`;
+    const dateStr = formatDisplayDate(letter.issueDate || letter.createdAt);
+    return `${typeName} generated on ${dateStr}`;
   };
 
-  // Helper to construct filename matching screenshot
+  // Helper to construct filename
   const getLetterFileName = (letter) => {
-    if (letter.fileName) return letter.fileName;
+    if (letter.fileName) return letter.fileName.replace(/_SAMPLE_/gi, '_');
     const typePrefix = (letter.letterType || 'APPOINTMENT_LETTER').replace(/-/g, '_').toUpperCase();
-    return `${typePrefix}_SAMPLE_${cleanCode}_${cleanName}.PDF`;
+    return `${typePrefix}_${cleanCode || 'EMP'}_${cleanName || 'DOCUMENT'}.PDF`;
   };
 
-  // Initial Seed
+  // Dynamic Initial Letters (NO static fake samples!)
   const getInitialLetters = () => {
     try {
+      if (Array.isArray(data?.letters) && data.letters.length > 0) {
+        return data.letters;
+      }
+      if (Array.isArray(employee?.letters) && employee.letters.length > 0) {
+        return employee.letters;
+      }
       const saved = localStorage.getItem(storageKey);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // ignore
     }
-
-    // Default seeded sample letters matching the screenshot
-    return [
-      {
-        id: `LET-${cleanCode}-01`,
-        letterId: `LET-${cleanCode}-01`,
-        refNo: `RRS/APPT/2026/${cleanCode}`,
-        letterType: 'appointment-letter',
-        templateName: 'Appointment Letter',
-        issueDate: '2026-11-12',
-        isHidden: true,
-        displayTitle: `APPOINTMENT LETTER [SAMPLE] generated on 12-Nov-2026`,
-        fileName: `APPOINTMENT_LETTER_SAMPLE_${cleanCode}_${cleanName}.PDF`,
-        designation,
-        department,
-        employeeName,
-        employeeCode,
-        monthlySalary: grossSalary,
-        content: `We are pleased to offer you appointment as ${designation} in ${companyName}.\n\nYou will be based at our ${department} division and report to your designated supervisor. Your monthly gross salary will be INR ${Number(grossSalary).toLocaleString('en-IN')}/- per month, subject to standard statutory deductions.\n\nWe look forward to a mutually rewarding association.`
-      }
-    ];
+    return [];
   };
 
   const [letters, setLetters] = useState(getInitialLetters);
+  const [loading, setLoading] = useState(false);
 
   // Modal States
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
@@ -113,13 +103,14 @@ function LetterInboxStep({ data, employee }) {
   const [formSalary, setFormSalary] = useState(grossSalary);
   const [formSignatory, setFormSignatory] = useState('Authorized Signatory');
 
-  // Sync with backend if available
+  // Sync dynamically with backend
   useEffect(() => {
     let isMounted = true;
     const fetchBackendLetters = async () => {
       if (!companyId) return;
       try {
-        const res = await letterService.getLetters(companyId);
+        setLoading(true);
+        const res = await letterService.getLetters(companyId, { employeeCode });
         const allLetters = (res && Array.isArray(res.letters)) ? res.letters : [];
 
         // Check localStorage as well
@@ -159,7 +150,7 @@ function LetterInboxStep({ data, employee }) {
         };
 
         const matched = combined.filter(isMatch);
-        if (isMounted && matched.length > 0) {
+        if (isMounted) {
           // Deduplicate by refNo or id
           const seen = new Set();
           const deduped = [];
@@ -170,17 +161,21 @@ function LetterInboxStep({ data, employee }) {
               deduped.push({
                 ...item,
                 isHidden: item.isHidden !== false,
-                issueDate: item.issueDate || item.createdAt || '2026-11-12'
+                displayTitle: item.displayTitle ? item.displayTitle.replace(/\s*\[SAMPLE\]/gi, '') : undefined,
+                fileName: item.fileName ? item.fileName.replace(/_SAMPLE_/gi, '_') : undefined,
+                issueDate: item.issueDate || item.createdAt || ''
               });
             }
           }
+          setLetters(deduped);
           if (deduped.length > 0) {
-            setLetters(deduped);
             localStorage.setItem(storageKey, JSON.stringify(deduped));
           }
         }
       } catch (err) {
         console.warn('Letter inbox sync notice:', err.message);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
     fetchBackendLetters();
@@ -255,8 +250,8 @@ function LetterInboxStep({ data, employee }) {
       templateName: typeConfig.name,
       issueDate: formIssueDate,
       isHidden: true,
-      displayTitle: `${typeConfig.name.toUpperCase()} [SAMPLE] generated on ${dateFormatted}`,
-      fileName: `${formLetterType.replace(/-/g, '_').toUpperCase()}_SAMPLE_${cleanCode}_${cleanName}.PDF`,
+      displayTitle: `${typeConfig.name.toUpperCase()} generated on ${dateFormatted}`,
+      fileName: `${formLetterType.replace(/-/g, '_').toUpperCase()}_${cleanCode || 'EMP'}_${cleanName || 'DOC'}.PDF`,
       employeeId: employeeCode,
       employeeCode,
       employeeName,
@@ -337,7 +332,31 @@ function LetterInboxStep({ data, employee }) {
           2. LETTERS LIST (CARD ROWS MATCHING USER SCREENSHOT)
          ======================================================== */}
       <div className={styles.lettersList}>
-        {letters.length > 0 ? (
+        {loading ? (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '50px 20px',
+            gap: '12px',
+            background: '#ffffff',
+            borderRadius: '10px',
+            border: '1px solid #e2e8f0'
+          }}>
+            <div style={{
+              width: '28px',
+              height: '28px',
+              border: '3px solid #e2e8f0',
+              borderTopColor: '#3b82f6',
+              borderRadius: '50%',
+              animation: 'spin 0.8s linear infinite'
+            }} />
+            <span style={{ color: '#64748b', fontSize: '13px', fontWeight: 500 }}>
+              Loading employee letters...
+            </span>
+          </div>
+        ) : letters.length > 0 ? (
           letters.map((letter) => {
             const letterId = letter.id || letter.letterId;
             const isHidden = letter.isHidden !== false;
@@ -405,7 +424,21 @@ function LetterInboxStep({ data, employee }) {
           })
         ) : (
           <div className={styles.emptyState}>
-            <p style={{ margin: 0, fontWeight: 500 }}>No letters issued to this employee yet.</p>
+            <p style={{ margin: 0, fontWeight: 600, color: '#334155', fontSize: '14px' }}>
+              No letters issued to this employee yet.
+            </p>
+            <p style={{ margin: '6px 0 16px', color: '#64748b', fontSize: '13px' }}>
+              Click "+ Issue Letter" to generate an appointment, joining, increment, or confirmation letter.
+            </p>
+            <button
+              type="button"
+              className={styles.issueBtn}
+              onClick={handleOpenIssueModal}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <PlusCircle size={15} />
+              <span>Issue Letter</span>
+            </button>
           </div>
         )}
       </div>

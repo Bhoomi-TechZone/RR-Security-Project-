@@ -183,6 +183,8 @@ const salarySlipSchema = new mongoose.Schema(
     companyGstin: { type: String, default: '' },
     companyPan: { type: String, default: '' },
     companyLogo: { type: String, default: null },
+    pdfUrl: { type: String, default: '' },
+    fileKey: { type: String, default: '' },
     status: { type: String, enum: ['Draft', 'Generated', 'Published', 'Emailed'], default: 'Generated' },
     generatedDate: { type: String, default: '' },
   },

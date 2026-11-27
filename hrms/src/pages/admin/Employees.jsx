@@ -36,18 +36,9 @@ function Employees() {
   const isUserPanel = location.pathname.startsWith('/user');
   const addEmployeePath = isUserPanel ? '/user/employees/add' : '/admin/employees/add';
 
-  // SWR Instant Cache: Load cached employees synchronously so the table renders in 0 ms without skeleton wait
-  const [employees, setEmployees] = useState(() => {
-    try {
-      const activeId = localStorage.getItem('novaspark_active_company_id') || 'RRS8392014SEC';
-      const cached = sessionStorage.getItem(`novaspark_employees_${activeId}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-    } catch {}
-    return [];
-  });
+  const [employees, setEmployees] = useState([]);
+  const [totalEmployees, setTotalEmployees] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
   const [clients, setClients] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
@@ -58,17 +49,7 @@ function Employees() {
   const [banks, setBanks] = useState([]);
   const [documentTypes, setDocumentTypes] = useState([]);
   const [workLocations, setWorkLocations] = useState([]);
-  const [loading, setLoading] = useState(() => {
-    try {
-      const activeId = localStorage.getItem('novaspark_active_company_id') || 'RRS8392014SEC';
-      const cached = sessionStorage.getItem(`novaspark_employees_${activeId}`);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return false;
-      }
-    } catch {}
-    return true;
-  });
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const [searchParams] = useSearchParams();
@@ -133,8 +114,8 @@ function Employees() {
   // Active fetch abort controller to cancel stale in-flight requests
   const activeFetchAbortRef = useRef(null);
 
-  // Fetch employees strictly isolated for active company (SWR background sync)
-  const fetchEmployees = useCallback(async (forceLoading = false) => {
+  // Fetch employees strictly isolated for active company with server-side pagination & filtering
+  const fetchEmployees = useCallback(async (targetPage = 1, forceLoading = false) => {
     if (!currentCompanyId) {
       setLoading(false);
       return;
@@ -147,18 +128,26 @@ function Employees() {
     const abortController = new AbortController();
     activeFetchAbortRef.current = abortController;
 
-    // Only show skeleton if we have NO cached data to display
-    setEmployees((currentList) => {
-      if (currentList.length === 0 || forceLoading) {
-        setLoading(true);
-      }
-      return currentList;
-    });
+    if (forceLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const token = authService.getToken();
-      const res = await fetch(`${API_BASE_URL}/employees`, {
+      const query = new URLSearchParams();
+      query.append('page', String(targetPage));
+      query.append('limit', String(ITEMS_PER_PAGE));
+      if (searchTerm.trim()) query.append('search', searchTerm.trim());
+      if (companyFilter && companyFilter !== 'all') query.append('clientId', companyFilter);
+      if (locationFilter && locationFilter !== 'all') query.append('location', locationFilter);
+      if (departmentFilter && departmentFilter !== 'all') query.append('department', departmentFilter);
+      if (designationFilter && designationFilter !== 'all') query.append('designation', designationFilter);
+      if (statusFilter && statusFilter !== 'all') query.append('status', statusFilter);
+      if (sortBy && sortBy !== 'none') query.append('sortBy', sortBy);
+      if (sortOrder) query.append('sortOrder', sortOrder);
+
+      const res = await fetch(`${API_BASE_URL}/employees?${query.toString()}`, {
         signal: abortController.signal,
         headers: {
           'Authorization': `Bearer ${token || ''}`,
@@ -185,11 +174,11 @@ function Employees() {
 
       const data = await res.json();
       if (data && data.success) {
-        const freshList = data.employees || [];
-        setEmployees(freshList);
-        try {
-          sessionStorage.setItem(`novaspark_employees_${currentCompanyId}`, JSON.stringify(freshList));
-        } catch {}
+        setEmployees(data.employees || []);
+        const total = data.pagination?.total ?? data.count ?? (data.employees?.length || 0);
+        setTotalEmployees(total);
+        setTotalPages(data.pagination?.totalPages || Math.ceil(total / ITEMS_PER_PAGE) || 1);
+        setCurrentPage(targetPage);
       } else {
         if (data?.message) {
           setError(data.message);
@@ -204,7 +193,7 @@ function Employees() {
         setLoading(false);
       }
     }
-  }, [currentCompanyId]);
+  }, [currentCompanyId, searchTerm, companyFilter, locationFilter, departmentFilter, designationFilter, statusFilter, sortBy, sortOrder]);
 
   // Clean up abort controller on unmount
   useEffect(() => {
@@ -245,10 +234,17 @@ function Employees() {
     }
   }, [currentCompanyId]);
 
+  // Initial & Filter change trigger (debounced for rapid typing)
   useEffect(() => {
-    fetchEmployees();
+    const timer = setTimeout(() => {
+      fetchEmployees(1, true);
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [fetchEmployees]);
+
+  useEffect(() => {
     fetchFilterMasters();
-  }, [fetchEmployees, fetchFilterMasters]);
+  }, [fetchFilterMasters]);
 
   // Preload form masters when form opens or after brief idle delay
   useEffect(() => {
@@ -267,7 +263,7 @@ function Employees() {
     const handleSync = () => {
       fetchFilterMasters();
       if (isFormOpen) fetchFormMasters();
-      fetchEmployees();
+      fetchEmployees(currentPage, true);
     };
     window.addEventListener('clients-updated', handleSync);
     window.addEventListener('locations-updated', handleSync);
@@ -279,9 +275,9 @@ function Employees() {
       window.removeEventListener('masters-updated', handleSync);
       window.removeEventListener('employees-updated', handleSync);
     };
-  }, [fetchFilterMasters, fetchFormMasters, isFormOpen, fetchEmployees]);
+  }, [fetchFilterMasters, fetchFormMasters, isFormOpen, fetchEmployees, currentPage]);
 
-  // Extract unique locations from workLocations, sites, and employees
+  // Extract unique locations from workLocations and sites
   const locationList = useMemo(() => {
     const locSet = new Set();
     (workLocations || []).forEach((w) => {
@@ -292,14 +288,8 @@ function Employees() {
       const val = typeof s === 'string' ? s : (s.name || s.siteName);
       if (val) locSet.add(val);
     });
-    (employees || []).forEach((e) => {
-      if (e.siteLocation) locSet.add(e.siteLocation);
-      if (e.location) locSet.add(e.location);
-      if (e.site) locSet.add(e.site);
-      if (e.workLocation) locSet.add(e.workLocation);
-    });
     return Array.from(locSet).filter(Boolean).sort();
-  }, [workLocations, sites, employees]);
+  }, [workLocations, sites]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
@@ -313,72 +303,19 @@ function Employees() {
     setCurrentPage(1);
   };
 
-  // Dynamic Filtering
-  const filteredEmployees = employees.filter((e) => {
-    const search = searchTerm.toLowerCase().trim();
-    const matchesSearch =
-      !search ||
-      (e.name && e.name.toLowerCase().includes(search)) ||
-      (e.contact && e.contact.toLowerCase().includes(search)) ||
-      (e.employeeId && e.employeeId.toLowerCase().includes(search)) ||
-      (e.email && e.email.toLowerCase().includes(search));
+  const handlePageChange = (newPage) => {
+    fetchEmployees(newPage, true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-    const matchesCompany =
-      companyFilter === 'all' ||
-      e.clientId === companyFilter ||
-      e.companyId === companyFilter ||
-      e.clientName === companyFilter ||
-      e.companyName === companyFilter;
-
-    const matchesLocation =
-      locationFilter === 'all' ||
-      e.siteLocation === locationFilter ||
-      e.location === locationFilter ||
-      e.site === locationFilter ||
-      e.workLocation === locationFilter;
-
-    const matchesDept = departmentFilter === 'all' || e.department === departmentFilter;
-    const matchesDesg = designationFilter === 'all' || e.designation === designationFilter;
-    const matchesStatus =
-      statusFilter === 'all' ||
-      (e.status && e.status.toLowerCase() === statusFilter.toLowerCase());
-
-    return matchesSearch && matchesCompany && matchesLocation && matchesDept && matchesDesg && matchesStatus;
-  });
-
-  // Dynamic Sorting (Name, E-Code, Date of Joining)
-  const sortedEmployees = useMemo(() => {
-    if (!sortBy || sortBy === 'none') return filteredEmployees;
-    return [...filteredEmployees].sort((a, b) => {
-      let valA = '';
-      let valB = '';
-      if (sortBy === 'name') {
-        valA = (a.name || '').toLowerCase();
-        valB = (b.name || '').toLowerCase();
-      } else if (sortBy === 'code') {
-        valA = (a.employeeCode || a.employeeId || '').toLowerCase();
-        valB = (b.employeeCode || b.employeeId || '').toLowerCase();
-      } else if (sortBy === 'doj') {
-        valA = a.joiningDate ? new Date(a.joiningDate).getTime() : 0;
-        valB = b.joiningDate ? new Date(b.joiningDate).getTime() : 0;
-        return sortOrder === 'asc' ? valA - valB : valB - valA;
-      }
-      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
-      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [filteredEmployees, sortBy, sortOrder]);
-
-  // Pagination
-  const paginatedEmployees = sortedEmployees.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+  const hasActiveFilters = Boolean(
+    (searchTerm && searchTerm.trim()) ||
+    (companyFilter && companyFilter !== 'all') ||
+    (locationFilter && locationFilter !== 'all') ||
+    (departmentFilter && departmentFilter !== 'all') ||
+    (designationFilter && designationFilter !== 'all') ||
+    (statusFilter && statusFilter !== 'all')
   );
-
-  // Reset page on filter or sort change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, companyFilter, locationFilter, departmentFilter, designationFilter, statusFilter, sortBy, sortOrder]);
 
   // Add / Edit form submit to Backend API
   const handleFormSubmit = async (formData) => {
@@ -429,11 +366,15 @@ function Employees() {
 
   // Action menu handler
   const handleActionClick = (actionType, employee) => {
+    const empId = employee.id || employee._id || employee.employeeId;
     if (actionType === 'view') {
-      navigate(isUserPanel ? `/user/employees/${employee.id || employee._id || employee.employeeId}` : `/admin/employees/${employee.id || employee._id || employee.employeeId}`);
+      navigate(isUserPanel ? `/user/employees/${empId}` : `/admin/employees/${empId}`, {
+        state: { employeePreview: employee }
+      });
     } else if (actionType === 'edit') {
-      const empId = employee.id || employee._id || employee.employeeId;
-      navigate(isUserPanel ? `/user/employees/${empId}/edit` : `/admin/employees/${empId}/edit`);
+      navigate(isUserPanel ? `/user/employees/${empId}/edit` : `/admin/employees/${empId}/edit`, {
+        state: { employeePreview: employee }
+      });
     } else if (actionType === 'transfer') {
       const empId = employee.id || employee._id || employee.employeeId;
       navigate(isUserPanel ? `/user/employees/transfer?empId=${empId}` : `/admin/employees/transfer?empId=${empId}`);
@@ -711,11 +652,11 @@ function Employees() {
         {error ? (
           <div className={styles.errorState}>
             <p className={styles.errorMsg}>{error}</p>
-            <button className={styles.retryBtn} onClick={fetchEmployees}>
+            <button className={styles.retryBtn} onClick={() => fetchEmployees(1, true)}>
               Try Again
             </button>
           </div>
-        ) : !loading && employees.length === 0 ? (
+        ) : !loading && totalEmployees === 0 && !hasActiveFilters ? (
           <div className={styles.emptyWrap}>
             <EmptyState
               icon={Users}
@@ -728,7 +669,7 @@ function Employees() {
         ) : (
           <>
             <EmployeeTable
-              employees={paginatedEmployees}
+              employees={employees}
               loading={loading}
               onAction={handleActionClick}
               onResetFilters={handleResetFilters}
@@ -736,12 +677,12 @@ function Employees() {
               clients={clients}
             />
 
-            {!loading && sortedEmployees.length > 0 && (
+            {!loading && totalEmployees > 0 && (
               <Pagination
                 currentPage={currentPage}
-                totalItems={sortedEmployees.length}
+                totalItems={totalEmployees}
                 itemsPerPage={ITEMS_PER_PAGE}
-                onPageChange={setCurrentPage}
+                onPageChange={handlePageChange}
                 label="employees"
               />
             )}

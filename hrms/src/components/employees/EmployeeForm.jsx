@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Check, ChevronRight, ChevronLeft, Loader2 } from 'lucide-react';
 import styles from './EmployeeForm.module.css';
 import PersonalInfoStep from './PersonalInfoStep';
@@ -16,6 +16,7 @@ import ActivityLogsStep from './ActivityLogsStep';
 import LetterInboxStep from './LetterInboxStep';
 import AssetsStep from './AssetsStep';
 import { useCompany } from '../../context/CompanyContext';
+import { employeeService } from '../../services/employeeService';
 import { generateSeriesPreview } from '../../data/numberSeriesData';
 
 const STEPS = [
@@ -531,11 +532,172 @@ function EmployeeForm({
   const shouldShow = isPageMode || isOpen;
   const isStackedMode = isPageMode;
   const [activeSection, setActiveSection] = useState('section-summary');
+  const [sectionLoading, setSectionLoading] = useState({});
+  const [loadedSections, setLoadedSections] = useState({ summary: true });
 
+  const SECTION_KEY_MAP = {
+    'section-summary': 'summary',
+    'section-basic': 'basic',
+    'section-employment': 'employment',
+    'section-salary': 'salary',
+    'section-bank': 'bank',
+    'section-address': 'address',
+    'section-family': 'family',
+    'section-documents': 'documents',
+    'section-assets': 'assets',
+    'section-letters': 'letters',
+    'section-login': 'login',
+    'section-additional': 'additional',
+    'section-activity': 'activity',
+  };
+
+  const STEP_SECTION_MAP = {
+    0: 'summary',
+    1: 'basic',
+    2: 'employment',
+    3: 'salary',
+    4: 'bank',
+    5: 'address',
+    6: 'family',
+    7: 'documents',
+    8: 'assets',
+    9: 'letters',
+    10: 'login',
+    11: 'additional',
+    12: 'activity'
+  };
+
+  // Reset loaded sections when switching active employee
+  useEffect(() => {
+    if (!employee) {
+      setLoadedSections({
+        summary: true,
+        basic: true,
+        employment: true,
+        salary: true,
+        bank: true,
+        address: true,
+        family: true,
+        documents: true,
+        assets: true,
+        letters: true,
+        login: true,
+        additional: true,
+        activity: true
+      });
+    } else {
+      // Start with only summary loaded so each respective section shows its professional loading spinner when navigated
+      setLoadedSections({
+        summary: true
+      });
+    }
+    setSectionLoading({});
+  }, [employee?._id, employee?.employeeId, employee?.id]);
+
+  // On-demand fetch of specific section details with dedicated loading spinner
+  const loadSectionData = useCallback(async (targetSection) => {
+    if (!targetSection || !isEditMode || sectionLoading[targetSection]) return;
+    const empId = employee?._id || employee?.employeeId || employee?.employeeCode || employee?.id || formData?._id || formData?.employeeId;
+    if (!empId) return;
+    const compId = activeCompany?.companyId || activeCompany?.id || activeCompany?._id || employee?.companyId || formData?.companyId;
+
+    try {
+      setSectionLoading((prev) => ({ ...prev, [targetSection]: true }));
+      const minLoaderDelay = new Promise((resolve) => setTimeout(resolve, 250));
+
+      if (targetSection === 'documents' && !loadedSections['documents']) {
+        const [res] = await Promise.all([
+          employeeService.getEmployeeDocuments(compId, empId),
+          minLoaderDelay
+        ]);
+        if (res && res.success) {
+          setFormData((prev) => ({
+            ...prev,
+            documents: {
+              ...prev.documents,
+              ...(res.documents || {})
+            },
+            documentList: Array.isArray(res.documentList) && res.documentList.length > 0
+              ? res.documentList.map(d => ({
+                  name: d.name ?? d.documentName ?? '',
+                  photo: d.photo ?? d.fileName ?? ''
+                }))
+              : prev.documentList,
+            drivingLicenseCopy: res.drivingLicenseCopy || prev.drivingLicenseCopy,
+            licenseList: res.licenseList || prev.licenseList
+          }));
+          setLoadedSections((prev) => ({ ...prev, documents: true }));
+        }
+      } else if (!loadedSections[targetSection]) {
+        const [res] = await Promise.all([
+          employeeService.getEmployeeById(compId, empId, { section: targetSection }),
+          minLoaderDelay
+        ]);
+        if (res) {
+          const empData = res.employee || res;
+          setFormData((prev) => ({
+            ...prev,
+            ...empData
+          }));
+          setLoadedSections((prev) => ({ ...prev, [targetSection]: true }));
+        }
+      } else {
+        await minLoaderDelay;
+      }
+    } catch (err) {
+      console.error(`Failed to load employee section ${targetSection}:`, err);
+    } finally {
+      setSectionLoading((prev) => ({ ...prev, [targetSection]: false }));
+    }
+  }, [loadedSections, isEditMode, sectionLoading, employee, formData?._id, formData?.employeeId, formData?.companyId, activeCompany]);
+
+  // Section click navigation handler with dedicated loading spinner
   const handleTabClick = (sectionId) => {
     setActiveSection(sectionId);
+    const targetSection = SECTION_KEY_MAP[sectionId];
+    if (targetSection) {
+      loadSectionData(targetSection);
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  // Preload section in wizard step mode
+  useEffect(() => {
+    if (!isPageMode) {
+      const targetSection = STEP_SECTION_MAP[currentStep];
+      if (targetSection && !loadedSections[targetSection]) {
+        loadSectionData(targetSection);
+      }
+    }
+  }, [currentStep, isPageMode, loadedSections, loadSectionData]);
+
+  const renderSectionLoadingSpinner = (title) => (
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '64px 20px',
+      gap: '14px',
+      background: '#ffffff',
+      borderRadius: '12px',
+      border: '1px solid #e2e8f0',
+      minHeight: '260px',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+    }}>
+      <div style={{
+        width: '32px',
+        height: '32px',
+        border: '3px solid #e2e8f0',
+        borderTopColor: '#3b82f6',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite'
+      }} />
+      <span style={{ color: '#64748b', fontSize: '13.5px', fontWeight: 500 }}>
+        Loading {title}...
+      </span>
+    </div>
+  );
 
   useEffect(() => {
     if (shouldShow) {
@@ -777,6 +939,8 @@ function EmployeeForm({
               <nav className={styles.quickNavList} aria-label="Section navigation" role="tablist">
                 {QUICK_NAV_SECTIONS.map((item) => {
                   const isActive = activeSection === item.id;
+                  const secKey = SECTION_KEY_MAP[item.id];
+                  const isLoading = sectionLoading[secKey];
                   return (
                     <button
                       key={item.id}
@@ -790,6 +954,11 @@ function EmployeeForm({
                         {item.number}
                       </span>
                       <span className={styles.quickNavLabel}>{item.label}</span>
+                      {isLoading && (
+                        <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center' }}>
+                          <div style={{ width: '12px', height: '12px', border: '2px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -804,7 +973,11 @@ function EmployeeForm({
               className={styles.sectionCard}
               style={{ display: activeSection === 'section-summary' ? 'block' : 'none' }}
             >
-              <EmployeeSummaryStep data={formData} />
+              {sectionLoading['summary'] ? (
+                renderSectionLoadingSpinner('Summary')
+              ) : (
+                <EmployeeSummaryStep data={formData} />
+              )}
             </section>
 
             {/* 02. Basic Details */}
@@ -813,7 +986,11 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-basic' ? 'block' : 'none' }}
             >
-              <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
+              {sectionLoading['basic'] ? (
+                renderSectionLoadingSpinner('Basic Details')
+              ) : (
+                <PersonalInfoStep data={formData} onChange={handleFormDataChange} errors={errors} />
+              )}
             </section>
 
             {/* 03. Employment Details */}
@@ -822,19 +999,23 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-employment' ? 'block' : 'none' }}
             >
-              <EmploymentStep
-                data={formData}
-                onChange={handleFormDataChange}
-                errors={errors}
-                clients={clients}
-                departments={departments}
-                designations={designations}
-                employeeTypes={employeeTypes}
-                sites={sites}
-                posts={posts}
-                shifts={shifts}
-                workLocations={workLocations}
-              />
+              {sectionLoading['employment'] ? (
+                renderSectionLoadingSpinner('Employment Details')
+              ) : (
+                <EmploymentStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  errors={errors}
+                  clients={clients}
+                  departments={departments}
+                  designations={designations}
+                  employeeTypes={employeeTypes}
+                  sites={sites}
+                  posts={posts}
+                  shifts={shifts}
+                  workLocations={workLocations}
+                />
+              )}
             </section>
 
             {/* 04. Salary & Statutory */}
@@ -843,11 +1024,15 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-salary' ? 'block' : 'none' }}
             >
-              <SalaryStructureStep
-                key={formData._id || formData.id || formData.employeeCode || formData.employeeId || 'salary-new'}
-                data={formData}
-                onChange={handleFormDataChange}
-              />
+              {sectionLoading['salary'] ? (
+                renderSectionLoadingSpinner('Salary & Statutory')
+              ) : (
+                <SalaryStructureStep
+                  key={formData._id || formData.id || formData.employeeCode || formData.employeeId || 'salary-new'}
+                  data={formData}
+                  onChange={handleFormDataChange}
+                />
+              )}
             </section>
 
             {/* 05. Bank Details */}
@@ -856,12 +1041,16 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-bank' ? 'block' : 'none' }}
             >
-              <BankDetailsStep
-                data={formData}
-                onChange={handleFormDataChange}
-                errors={errors}
-                banks={banks}
-              />
+              {sectionLoading['bank'] ? (
+                renderSectionLoadingSpinner('Bank Details')
+              ) : (
+                <BankDetailsStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  errors={errors}
+                  banks={banks}
+                />
+              )}
             </section>
 
             {/* 06. Addresses */}
@@ -870,7 +1059,11 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-address' ? 'block' : 'none' }}
             >
-              <AddressStep data={formData} onChange={handleFormDataChange} />
+              {sectionLoading['address'] ? (
+                renderSectionLoadingSpinner('Addresses')
+              ) : (
+                <AddressStep data={formData} onChange={handleFormDataChange} />
+              )}
             </section>
 
             {/* 07. Family Details */}
@@ -879,7 +1072,11 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-family' ? 'block' : 'none' }}
             >
-              <FamilyStep data={formData} onChange={handleFormDataChange} />
+              {sectionLoading['family'] ? (
+                renderSectionLoadingSpinner('Family Details')
+              ) : (
+                <FamilyStep data={formData} onChange={handleFormDataChange} />
+              )}
             </section>
 
             {/* 08. Documents & Licenses */}
@@ -888,12 +1085,16 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-documents' ? 'block' : 'none' }}
             >
-              <DocumentsStep
-                data={formData}
-                onChange={handleFormDataChange}
-                designation={formData.designation}
-                documentTypes={documentTypes}
-              />
+              {sectionLoading['documents'] ? (
+                renderSectionLoadingSpinner('Documents & Licenses')
+              ) : (
+                <DocumentsStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  designation={formData.designation}
+                  documentTypes={documentTypes}
+                />
+              )}
             </section>
 
             {/* 09. Assets */}
@@ -902,11 +1103,15 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-assets' ? 'block' : 'none' }}
             >
-              <AssetsStep
-                data={formData}
-                employee={employee || formData}
-                onChange={handleFormDataChange}
-              />
+              {sectionLoading['assets'] ? (
+                renderSectionLoadingSpinner('Assets')
+              ) : (
+                <AssetsStep
+                  data={formData}
+                  employee={employee || formData}
+                  onChange={handleFormDataChange}
+                />
+              )}
             </section>
 
             {/* 10. Letter Inbox */}
@@ -915,10 +1120,14 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-letters' ? 'block' : 'none' }}
             >
-              <LetterInboxStep
-                data={formData}
-                employee={employee}
-              />
+              {sectionLoading['letters'] ? (
+                renderSectionLoadingSpinner('Letter Inbox')
+              ) : (
+                <LetterInboxStep
+                  data={formData}
+                  employee={employee}
+                />
+              )}
             </section>
 
             {/* 11. Login Access */}
@@ -927,11 +1136,15 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-login' ? 'block' : 'none' }}
             >
-              <LoginAccessStep
-                data={formData}
-                onChange={handleFormDataChange}
-                isEditMode={isEditMode}
-              />
+              {sectionLoading['login'] ? (
+                renderSectionLoadingSpinner('Login Access')
+              ) : (
+                <LoginAccessStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  isEditMode={isEditMode}
+                />
+              )}
             </section>
 
             {/* 12. Additional Info */}
@@ -950,11 +1163,15 @@ function EmployeeForm({
                 </div>
               </div>
               <div className={styles.sectionBody}>
-                <AdditionalInfoStep
-                  data={formData}
-                  onChange={handleFormDataChange}
-                  isSubmitting={isSubmitting}
-                />
+                {sectionLoading['additional'] ? (
+                  renderSectionLoadingSpinner('Additional Info')
+                ) : (
+                  <AdditionalInfoStep
+                    data={formData}
+                    onChange={handleFormDataChange}
+                    isSubmitting={isSubmitting}
+                  />
+                )}
               </div>
               {isEditMode && (
                 <div className={styles.sectionFooter}>
@@ -986,7 +1203,11 @@ function EmployeeForm({
               className={styles.plainSectionCard}
               style={{ display: activeSection === 'section-activity' ? 'block' : 'none' }}
             >
-              <ActivityLogsStep data={formData} employee={employee || {}} />
+              {sectionLoading['activity'] ? (
+                renderSectionLoadingSpinner('Activity Logs')
+              ) : (
+                <ActivityLogsStep data={formData} employee={employee || {}} />
+              )}
             </section>
 
             {/* Bottom Actions Bar in Page Mode (Shifted to bottom as requested) */}
@@ -1088,63 +1309,103 @@ function EmployeeForm({
               />
             )}
             {currentStep === 3 && (
-              <SalaryStructureStep
-                key={formData._id || formData.id || formData.employeeCode || formData.employeeId || 'salary-new'}
-                data={formData}
-                onChange={handleFormDataChange}
-              />
+              sectionLoading['salary'] ? (
+                renderSectionLoadingSpinner('Salary & Statutory')
+              ) : (
+                <SalaryStructureStep
+                  key={formData._id || formData.id || formData.employeeCode || formData.employeeId || 'salary-new'}
+                  data={formData}
+                  onChange={handleFormDataChange}
+                />
+              )
             )}
             {currentStep === 4 && (
-              <BankDetailsStep
-                data={formData}
-                onChange={handleFormDataChange}
-                errors={errors}
-                banks={banks}
-              />
+              sectionLoading['bank'] ? (
+                renderSectionLoadingSpinner('Bank Details')
+              ) : (
+                <BankDetailsStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  errors={errors}
+                  banks={banks}
+                />
+              )
             )}
             {currentStep === 5 && (
-              <AddressStep data={formData} onChange={handleFormDataChange} />
+              sectionLoading['address'] ? (
+                renderSectionLoadingSpinner('Address')
+              ) : (
+                <AddressStep data={formData} onChange={handleFormDataChange} />
+              )
             )}
             {currentStep === 6 && (
-              <FamilyStep data={formData} onChange={handleFormDataChange} />
+              sectionLoading['family'] ? (
+                renderSectionLoadingSpinner('Family Details')
+              ) : (
+                <FamilyStep data={formData} onChange={handleFormDataChange} />
+              )
             )}
             {currentStep === 7 && (
-              <DocumentsStep
-                data={formData}
-                onChange={handleFormDataChange}
-                designation={formData.designation}
-                documentTypes={documentTypes}
-              />
+              sectionLoading['documents'] ? (
+                renderSectionLoadingSpinner('Documents & Licenses')
+              ) : (
+                <DocumentsStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  designation={formData.designation}
+                  documentTypes={documentTypes}
+                />
+              )
             )}
             {currentStep === 8 && (
-              <AssetsStep
-                data={formData}
-                employee={employee || formData}
-                onChange={handleFormDataChange}
-              />
+              sectionLoading['assets'] ? (
+                renderSectionLoadingSpinner('Assets')
+              ) : (
+                <AssetsStep
+                  data={formData}
+                  employee={employee || formData}
+                  onChange={handleFormDataChange}
+                />
+              )
             )}
             {currentStep === 9 && (
-              <LetterInboxStep
-                data={formData}
-                employee={employee}
-              />
+              sectionLoading['letters'] ? (
+                renderSectionLoadingSpinner('Letter Inbox')
+              ) : (
+                <LetterInboxStep
+                  data={formData}
+                  employee={employee}
+                />
+              )
             )}
             {currentStep === 10 && (
-              <LoginAccessStep
-                data={formData}
-                onChange={handleFormDataChange}
-                isEditMode={isEditMode}
-              />
+              sectionLoading['login'] ? (
+                renderSectionLoadingSpinner('Login Access')
+              ) : (
+                <LoginAccessStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  isEditMode={isEditMode}
+                />
+              )
             )}
             {currentStep === 11 && (
-              <AdditionalInfoStep
-                data={formData}
-                onChange={handleFormDataChange}
-                isSubmitting={isSubmitting}
-              />
+              sectionLoading['additional'] ? (
+                renderSectionLoadingSpinner('Additional Info')
+              ) : (
+                <AdditionalInfoStep
+                  data={formData}
+                  onChange={handleFormDataChange}
+                  isSubmitting={isSubmitting}
+                />
+              )
             )}
             {currentStep === 12 && (
-              <ActivityLogsStep data={formData} />
+              sectionLoading['activity'] ? (
+                renderSectionLoadingSpinner('Activity Logs')
+              ) : (
+                <ActivityLogsStep data={formData} />
+              )
             )}
             {currentStep === 13 && (
               <EmployeeReview data={formData} onEditStep={(stepIdx) => !isSubmitting && setCurrentStep(stepIdx)} />

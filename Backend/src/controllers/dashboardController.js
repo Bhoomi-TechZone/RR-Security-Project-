@@ -17,6 +17,10 @@ import Separation from '../models/separationModel.js';
 import { parseDateParts } from '../services/greetingService.js';
 import jwt from 'jsonwebtoken';
 
+// In-memory high performance TTL cache for instant dashboard delivery
+const dashboardCache = new Map();
+const DASHBOARD_CACHE_TTL_MS = 20 * 1000; // 20 seconds TTL
+
 /**
  * Helper to resolve company ID, aliases & employees reliably with strict tenant isolation
  */
@@ -102,20 +106,26 @@ const resolveCompanyFilter = async (req) => {
     candidateIds.add('comp_rr_security');
   }
 
-  const resolvedCompanyIds = Array.from(candidateIds).filter(Boolean);
-  const isRRTarget = resolvedCompanyIds.includes('RRS8392014SEC') || resolvedCompanyIds.includes('comp_rr_security');
+  const rawCandidateList = Array.from(candidateIds).filter(Boolean);
+  const resolvedCompanyIds = Array.from(new Set([
+    ...rawCandidateList,
+    ...rawCandidateList.map(id => id.toLowerCase()),
+    ...rawCandidateList.map(id => id.toUpperCase())
+  ]));
+  const isRRTarget = rawCandidateList.includes('RRS8392014SEC') || rawCandidateList.includes('comp_rr_security');
 
   // Check if employees exist strictly under this company's resolved IDs
   const employeeFilter = {
     $or: [
       { companyId: { $in: resolvedCompanyIds } },
-      { companyId: { $in: resolvedCompanyIds.map(id => new RegExp(`^${id}$`, 'i')) } },
       ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
     ]
   };
 
   const employees = resolvedCompanyIds.length > 0
-    ? await Employee.find(employeeFilter).select('-documents -documentList -drivingLicenseCopy').lean()
+    ? await Employee.find(employeeFilter)
+        .select('employeeId employeeCode name employeeName status employeeStatus gender createdAt joiningDate department designation clientName companyName clientId contact mobile email employeePhoto photo dob marriageDate marriedDate basic hra vda conveyance transportAllowance specialAllowance otherAllowance grossSalary salary basicSalary')
+        .lean()
     : [];
 
   const primaryCompanyId = companyDoc?.companyId || requestedCompanyId || (isMasterRR ? 'RRS8392014SEC' : '');
@@ -136,6 +146,17 @@ const resolveCompanyFilter = async (req) => {
  */
 export const getAdminDashboardStats = async (req, res) => {
   try {
+    const forceRefresh = req.query.refresh === 'true';
+    const queryCompanyId = req.query.companyId || req.headers['x-company-id'] || req.user?.companyId || 'RRS8392014SEC';
+    const cacheKey = `${queryCompanyId}_${req.user?.email || 'admin'}`;
+
+    if (!forceRefresh) {
+      const cached = dashboardCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < DASHBOARD_CACHE_TTL_MS)) {
+        return res.status(200).json(cached.data);
+      }
+    }
+
     const { companyId, resolvedCompanyIds, employees, companyDoc, isRRTarget } = await resolveCompanyFilter(req);
     const defaultTenantName = companyDoc?.name || 'Company Operations';
 
@@ -170,17 +191,7 @@ export const getAdminDashboardStats = async (req, res) => {
       return false;
     }).length;
 
-    // 2. Client count & Client Records
-    const clientFilter = {
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        { companyId: { $in: resolvedCompanyIds.map(id => new RegExp(`^${id}$`, 'i')) } },
-        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
-      ]
-    };
-    let clients = resolvedCompanyIds.length > 0 ? await Client.find(clientFilter).lean() : [];
-
-    // 3. Today's Attendance & Leaves
+    // Build common filter parameters
     const todayStr = now.toISOString().split('T')[0];
     const empIds = Array.from(new Set(
       employees.map(e => e.employeeId)
@@ -188,6 +199,13 @@ export const getAdminDashboardStats = async (req, res) => {
         .concat(employees.map(e => String(e._id)))
         .filter(Boolean)
     ));
+
+    const clientFilter = {
+      $or: [
+        { companyId: { $in: resolvedCompanyIds } },
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+      ]
+    };
 
     const attendanceFilter = {
       date: todayStr,
@@ -197,19 +215,6 @@ export const getAdminDashboardStats = async (req, res) => {
         ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
       ]
     };
-
-    const todayAttendance = resolvedCompanyIds.length > 0 ? await Attendance.find(attendanceFilter).lean() : [];
-
-    let presentToday = todayAttendance.filter(a =>
-      a.status === 'present' || a.status === 'late' || a.status === 'halfDay'
-    ).length;
-
-    const employeeMap = {};
-    employees.forEach(emp => {
-      if (emp.employeeId) employeeMap[emp.employeeId] = emp;
-      if (emp.employeeCode) employeeMap[emp.employeeCode] = emp;
-      if (emp._id) employeeMap[String(emp._id)] = emp;
-    });
 
     const approvedLeavesFilter = {
       status: { $regex: /^approved$/i },
@@ -222,7 +227,100 @@ export const getAdminDashboardStats = async (req, res) => {
       ]
     };
 
-    const approvedLeavesToday = resolvedCompanyIds.length > 0 ? await Leave.find(approvedLeavesFilter).lean() : [];
+    const allLeaveFilter = {
+      $or: [
+        { companyId: { $in: resolvedCompanyIds } },
+        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+      ]
+    };
+
+    const claimsFilter = {
+      $or: [
+        { companyId: { $in: resolvedCompanyIds } },
+        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+      ]
+    };
+
+    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const past7Dates = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dStr = d.toISOString().split('T')[0];
+      past7Dates.push({ date: dStr, dayName: daysOfWeek[d.getDay()], isToday: i === 0 });
+    }
+    const minPastDate = past7Dates[0].date;
+    const maxPastDate = past7Dates[past7Dates.length - 1].date;
+
+    // Execute ALL remaining Atlas database queries concurrently in parallel
+    const [
+      clients,
+      todayAttendance,
+      approvedLeavesToday,
+      allLeaveRequests,
+      pendingLeaveCount,
+      pendingReimbursementsCount,
+      pendingAdvancesCount,
+      latestLeaves,
+      latestClaims,
+      latestLoans,
+      latestInv,
+      pendingLeavesList,
+      pendingClaimsList,
+      pendingLoansList,
+      pendingOvertimeCount,
+      pendingOvertimeList,
+      pendingExitsCount,
+      pendingExitsList,
+      pendingLoansCountExact,
+      pendingInvAll,
+      companyNotifications,
+      statutoryDoc,
+      pastWeekAttendance
+    ] = await Promise.all([
+      resolvedCompanyIds.length > 0 ? Client.find(clientFilter).select('_id name code companyId').lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Attendance.find(attendanceFilter).select('employeeId employeeName department designation clientName companyName status attendanceId').lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Leave.find(approvedLeavesFilter).select('leaveId employeeId employeeName employeeAvatar department employeeRole clientName leaveType leaveCode category durationType fromDate toDate days reason').lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Leave.find(allLeaveFilter).select('leaveId employeeId employeeName employeeAvatar department employeeRole clientName leaveType leaveCode category durationType fromDate toDate days status reason createdAt appliedOn').sort({ createdAt: -1, fromDate: -1 }).limit(100).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Leave.countDocuments({ status: { $regex: /^pending$/i }, ...claimsFilter }) : Promise.resolve(0),
+      resolvedCompanyIds.length > 0 ? ReimbursementClaim.countDocuments({ ...claimsFilter, approvalStatus: { $regex: /^pending/i } }) : Promise.resolve(0),
+      resolvedCompanyIds.length > 0 ? AdvanceLoanRequest.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i } }) : Promise.resolve(0),
+      resolvedCompanyIds.length > 0 ? Leave.find(claimsFilter).select('leaveId status employeeName leaveType days createdAt appliedOn').sort({ createdAt: -1 }).limit(4).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? ReimbursementClaim.find(claimsFilter).select('claimId approvalStatus employeeName claimedAmount expenseType createdAt').sort({ createdAt: -1 }).limit(4).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? AdvanceLoanRequest.find(claimsFilter).select('requestId status employeeName amountRequested amount createdAt').sort({ createdAt: -1 }).limit(3).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? InventoryRequest.find(claimsFilter).select('requestId status employeeName quantity itemName createdAt').sort({ createdAt: -1 }).limit(3).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Leave.find({ ...claimsFilter, status: { $regex: /^pending/i } }).select('leaveId employeeName leaveType days createdAt appliedOn').sort({ createdAt: -1 }).limit(5).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? ReimbursementClaim.find({ ...claimsFilter, approvalStatus: { $regex: /^pending/i } }).select('claimId employeeName claimedAmount expenseType createdAt').sort({ createdAt: -1 }).limit(5).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? AdvanceLoanRequest.find({ ...claimsFilter, status: { $regex: /^pending/i }, type: 'loan' }).select('requestId employeeName amountRequested amount createdAt').sort({ createdAt: -1 }).limit(5).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Overtime.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i } }) : Promise.resolve(0),
+      resolvedCompanyIds.length > 0 ? Overtime.find({ ...claimsFilter, status: { $regex: /^pending/i } }).select('overtimeId employeeName overtimeHours date createdAt').sort({ createdAt: -1 }).limit(5).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Separation.countDocuments({ ...claimsFilter, settlementStatus: { $in: ['Pending Clearance', 'Pending Approval'] } }) : Promise.resolve(0),
+      resolvedCompanyIds.length > 0 ? Separation.find({ ...claimsFilter, settlementStatus: { $in: ['Pending Clearance', 'Pending Approval'] } }).select('settlementId employeeName separationReason createdAt').sort({ createdAt: -1 }).limit(5).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? AdvanceLoanRequest.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i }, type: 'loan' }) : Promise.resolve(0),
+      resolvedCompanyIds.length > 0 ? InventoryRequest.find({ ...claimsFilter, recordType: 'request', status: { $regex: /^pending/i } }).select('requestId employeeName quantity itemName requestType category createdAt').sort({ createdAt: -1 }).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? Notification.find({ companyId: { $in: resolvedCompanyIds }, isRead: false }).select('title message actionUrl createdAt').sort({ createdAt: -1 }).limit(5).lean() : Promise.resolve([]),
+      resolvedCompanyIds.length > 0 ? StatutoryConfig.findOne({ companyId: { $in: resolvedCompanyIds } }).select('pf esi pt tds').lean() : Promise.resolve(null),
+      resolvedCompanyIds.length > 0 ? Attendance.find({
+        date: { $gte: minPastDate, $lte: maxPastDate },
+        $or: [
+          { companyId: { $in: resolvedCompanyIds } },
+          ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
+          ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
+        ]
+      }).select('status date').lean() : Promise.resolve([])
+    ]);
+
+    let presentToday = todayAttendance.filter(a =>
+      a.status === 'present' || a.status === 'late' || a.status === 'halfDay'
+    ).length;
+
+    const employeeMap = {};
+    employees.forEach(emp => {
+      if (emp.employeeId) employeeMap[emp.employeeId] = emp;
+      if (emp.employeeCode) employeeMap[emp.employeeCode] = emp;
+      if (emp._id) employeeMap[String(emp._id)] = emp;
+    });
 
     const onLeaveTodayList = [];
     const seenOnLeaveEmpIds = new Set();
@@ -288,19 +386,6 @@ export const getAdminDashboardStats = async (req, res) => {
 
     const onLeaveToday = onLeaveTodayList.length;
 
-    // Fetch all leave requests for company context
-    const allLeaveFilter = {
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
-        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
-      ]
-    };
-
-    const allLeaveRequests = resolvedCompanyIds.length > 0
-      ? await Leave.find(allLeaveFilter).sort({ createdAt: -1, fromDate: -1 }).limit(100).lean()
-      : [];
-
     const formattedAllLeaveRequests = allLeaveRequests.map(lv => {
       const emp = employeeMap[lv.employeeId] || {};
       return {
@@ -340,21 +425,6 @@ export const getAdminDashboardStats = async (req, res) => {
 
     const leavePct = activeEmployees > 0
       ? Math.round((onLeaveToday / activeEmployees) * 10000) / 100
-      : 0;
-
-    // 4. Pending Leave Requests
-    const pendingLeaveCount = resolvedCompanyIds.length > 0
-      ? await Leave.countDocuments({
-          status: { $regex: /^pending$/i },
-          ...(empIds.length > 0
-            ? {
-                $or: [
-                  { companyId: { $in: resolvedCompanyIds } },
-                  { employeeId: { $in: empIds } }
-                ]
-              }
-            : { companyId: { $in: resolvedCompanyIds } })
-        })
       : 0;
 
     // 5. Birthdays calculation & chronological list
@@ -573,28 +643,6 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // 9. Real Pending Claims (Reimbursements + Advances)
-    const claimsFilter = {
-      $or: [
-        { companyId: { $in: resolvedCompanyIds } },
-        ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
-        ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
-      ]
-    };
-
-    const pendingReimbursementsCount = resolvedCompanyIds.length > 0
-      ? await ReimbursementClaim.countDocuments({
-          ...claimsFilter,
-          approvalStatus: { $regex: /^pending/i }
-        })
-      : 0;
-
-    const pendingAdvancesCount = resolvedCompanyIds.length > 0
-      ? await AdvanceLoanRequest.countDocuments({
-          ...claimsFilter,
-          status: { $regex: /^pending/i }
-        })
-      : 0;
-
     const totalPendingClaims = pendingReimbursementsCount + pendingAdvancesCount;
 
     // 10. Comprehensive Dynamic Recent Activities across all models
@@ -615,10 +663,6 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Leaves
-    const latestLeaves = resolvedCompanyIds.length > 0
-      ? await Leave.find(claimsFilter).sort({ createdAt: -1 }).limit(4).lean()
-      : [];
-
     latestLeaves.forEach(lv => {
       const isApproved = String(lv.status).toLowerCase() === 'approved';
       const isRejected = String(lv.status).toLowerCase() === 'rejected';
@@ -634,10 +678,6 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Reimbursement Claims
-    const latestClaims = resolvedCompanyIds.length > 0
-      ? await ReimbursementClaim.find(claimsFilter).sort({ createdAt: -1 }).limit(4).lean()
-      : [];
-
     latestClaims.forEach(rc => {
       const isApproved = String(rc.approvalStatus).toLowerCase().includes('approved');
       const isRejected = String(rc.approvalStatus).toLowerCase().includes('rejected');
@@ -653,10 +693,6 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Advance / Loan Requests
-    const latestLoans = resolvedCompanyIds.length > 0
-      ? await AdvanceLoanRequest.find(claimsFilter).sort({ createdAt: -1 }).limit(3).lean()
-      : [];
-
     latestLoans.forEach(al => {
       const isApproved = String(al.status).toLowerCase() === 'approved';
       const isRejected = String(al.status).toLowerCase() === 'rejected';
@@ -672,10 +708,6 @@ export const getAdminDashboardStats = async (req, res) => {
     });
 
     // Recent Inventory Requests
-    const latestInv = resolvedCompanyIds.length > 0
-      ? await InventoryRequest.find(claimsFilter).sort({ createdAt: -1 }).limit(3).lean()
-      : [];
-
     latestInv.forEach(inv => {
       const isApproved = String(inv.status).toLowerCase() === 'approved';
       const isRejected = String(inv.status).toLowerCase() === 'rejected';
@@ -699,45 +731,19 @@ export const getAdminDashboardStats = async (req, res) => {
       'attendance-correction': 0,
       leaves: pendingLeaveCount,
       'leave-encashment': 0,
-      overtime: 0,
+      overtime: pendingOvertimeCount,
       'shift-change': 0,
-      loans: 0,
+      loans: pendingLoansCountExact,
       reimbursement: pendingReimbursementsCount,
       'it-declaration': 0,
       'asset-requisition': 0,
       uniform: 0,
       'letter-request': 0,
       'transfer-request': 0,
-      resignation: 0
+      resignation: pendingExitsCount
     };
 
     if (resolvedCompanyIds.length > 0) {
-      const [
-        pendingLeavesList,
-        pendingClaimsList,
-        pendingLoansList,
-        pendingInvAll,
-        pendingOvertimeCount,
-        pendingOvertimeList,
-        pendingExitsCount,
-        pendingExitsList,
-        pendingLoansCountExact
-      ] = await Promise.all([
-        Leave.find({ ...claimsFilter, status: { $regex: /^pending/i } }).sort({ createdAt: -1 }).limit(5).lean(),
-        ReimbursementClaim.find({ ...claimsFilter, approvalStatus: { $regex: /^pending/i } }).sort({ createdAt: -1 }).limit(5).lean(),
-        AdvanceLoanRequest.find({ ...claimsFilter, status: { $regex: /^pending/i }, type: 'loan' }).sort({ createdAt: -1 }).limit(5).lean(),
-        InventoryRequest.find({ ...claimsFilter, recordType: 'request', status: { $regex: /^pending/i } }).sort({ createdAt: -1 }).lean(),
-        Overtime.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i } }),
-        Overtime.find({ ...claimsFilter, status: { $regex: /^pending/i } }).sort({ createdAt: -1 }).limit(5).lean(),
-        Separation.countDocuments({ ...claimsFilter, settlementStatus: { $in: ['Pending Clearance', 'Pending Approval'] } }),
-        Separation.find({ ...claimsFilter, settlementStatus: { $in: ['Pending Clearance', 'Pending Approval'] } }).sort({ createdAt: -1 }).limit(5).lean(),
-        AdvanceLoanRequest.countDocuments({ ...claimsFilter, status: { $regex: /^pending/i }, type: 'loan' })
-      ]);
-
-      openRequestCounts.overtime = pendingOvertimeCount;
-      openRequestCounts.resignation = pendingExitsCount;
-      openRequestCounts.loans = pendingLoansCountExact;
-
       let assetReqCount = 0;
       let uniformReqCount = 0;
       pendingInvAll.forEach(inv => {
@@ -914,13 +920,6 @@ export const getAdminDashboardStats = async (req, res) => {
     };
 
     // Unread Notifications & Reminders dynamically configured for this company
-    const companyNotifications = resolvedCompanyIds.length > 0
-      ? await Notification.find({
-          companyId: { $in: resolvedCompanyIds },
-          isRead: false
-        }).sort({ createdAt: -1 }).limit(5).lean()
-      : [];
-
     companyNotifications.forEach(n => {
       upcomingReminders.push({
         id: `notif-${n._id}`,
@@ -935,10 +934,6 @@ export const getAdminDashboardStats = async (req, res) => {
 
     // Statutory Compliances: ONLY show if company has registered employees AND has statutory registrations / rules configured
     if (totalEmployees > 0) {
-      const statutoryDoc = resolvedCompanyIds.length > 0
-        ? await StatutoryConfig.findOne({ companyId: { $in: resolvedCompanyIds } }).lean()
-        : null;
-
       const hasPfConfigured = Boolean(isRRTarget || companyDoc?.employerPfCode || statutoryDoc?.pf?.enabled);
       const hasEsiConfigured = Boolean(isRRTarget || companyDoc?.employerEsiCode || statutoryDoc?.esi?.enabled);
       const hasPtConfigured = Boolean(isRRTarget || statutoryDoc?.pt?.enabled);
@@ -1043,25 +1038,6 @@ export const getAdminDashboardStats = async (req, res) => {
       };
     });
 
-    const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const past7Dates = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dStr = d.toISOString().split('T')[0];
-      past7Dates.push({ date: dStr, dayName: daysOfWeek[d.getDay()], isToday: i === 0 });
-    }
-
-    const pastWeekAttendance = resolvedCompanyIds.length > 0
-      ? await Attendance.find({
-          date: { $in: past7Dates.map(p => p.date) },
-          $or: [
-            { companyId: { $in: resolvedCompanyIds } },
-            ...(empIds.length > 0 ? [{ employeeId: { $in: empIds } }] : []),
-            ...(isRRTarget ? [{ adminEmail: 'rrsecurity@gmail.com' }] : [])
-          ]
-        }).lean()
-      : [];
-
     const attendanceByDate = {};
     pastWeekAttendance.forEach(att => {
       if (att.status === 'present' || att.status === 'late' || att.status === 'halfDay') {
@@ -1125,7 +1101,7 @@ export const getAdminDashboardStats = async (req, res) => {
       month: monthChartData
     };
 
-    return res.status(200).json({
+    const responseData = {
       success: true,
       companyId,
       kpi: {
@@ -1174,7 +1150,14 @@ export const getAdminDashboardStats = async (req, res) => {
         },
         clientWise: clientWisePayroll
       }
+    };
+
+    dashboardCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: responseData
     });
+
+    return res.status(200).json(responseData);
 
   } catch (error) {
     console.error('Error fetching admin dashboard stats:', error);

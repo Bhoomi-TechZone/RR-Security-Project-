@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Pencil, Copy, Check, HelpCircle, Users, Upload } from 'lucide-react';
+import { Plus, Trash2, Pencil, Copy, Check, HelpCircle, Users, Upload, Loader2 } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
+import storageService from '../../services/storageService';
 import styles from './AddressFamilyStep.module.css';
 
 function AddressFamilyStep({ data, onChange }) {
@@ -459,9 +460,19 @@ function AddressFamilyStep({ data, onChange }) {
                       type="file"
                       accept="image/*,.pdf"
                       className={styles.fileInputHidden}
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          try {
+                            const compId = data?.companyId || activeCompany?.companyId || 'RRS8392014SEC';
+                            const uploaded = await storageService.uploadFile(file, 'documents', compId);
+                            if (uploaded?.url) {
+                              handleMemberChange(idx, 'aadhaarPhoto', uploaded.url);
+                              return;
+                            }
+                          } catch (err) {
+                            console.warn('R2 upload failed, fallback:', err);
+                          }
                           const reader = new FileReader();
                           reader.onloadend = () => {
                             handleMemberChange(idx, 'aadhaarPhoto', reader.result);

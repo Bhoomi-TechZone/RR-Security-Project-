@@ -6,13 +6,17 @@ export const dashboardService = {
   /**
    * Fetch dynamic admin dashboard metrics
    * @param {string} companyId - Active company identifier
+   * @param {boolean} refresh - Force bypass in-memory backend cache
    */
-  async getDashboardStats(companyId) {
+  async getDashboardStats(companyId, refresh = false) {
     try {
       const token = authService.getToken();
       const url = new URL(`${API_BASE_URL}/dashboard/stats`);
       if (companyId) {
         url.searchParams.append('companyId', companyId);
+      }
+      if (refresh) {
+        url.searchParams.append('refresh', 'true');
       }
 
       const response = await fetch(url.toString(), {

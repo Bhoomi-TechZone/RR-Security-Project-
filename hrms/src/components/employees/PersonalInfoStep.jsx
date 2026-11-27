@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Camera, Info, X, Plus, Download, HelpCircle, ExternalLink, Pencil, Clock } from 'lucide-react';
+import { Camera, Info, X, Plus, Download, HelpCircle, ExternalLink, Pencil, Clock, Loader2 } from 'lucide-react';
 import { downloadEmployeeProfile } from '../../utils/employeeProfileExport';
 import { useCompany } from '../../context/CompanyContext';
+import storageService from '../../services/storageService';
 import styles from './PersonalInfoStep.module.css';
 
 /**
@@ -51,6 +52,27 @@ const compressImageFile = (file, maxWidth = 250, quality = 0.8) => {
 
 function PersonalInfoStep({ data, onChange, errors = {} }) {
   const { activeCompany } = useCompany();
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+
+  const handlePhotoUpload = async (file) => {
+    if (!file) return;
+    setIsUploadingPhoto(true);
+    try {
+      const compId = data.companyId || activeCompany?.companyId || 'RRS8392014SEC';
+      const uploaded = await storageService.uploadFile(file, 'images', compId);
+      if (uploaded?.url) {
+        handleChange('employeePhoto', uploaded.url);
+        handleChange('photo', uploaded.url);
+      }
+    } catch (err) {
+      console.warn('R2 upload failed, fallback to compression:', err);
+      const compressed = await compressImageFile(file, 250, 0.8);
+      handleChange('employeePhoto', compressed);
+      handleChange('photo', compressed);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
   const [newTagInput, setNewTagInput] = useState('');
   const [showTagInput, setShowTagInput] = useState(false);
   const [editingJoiningDate, setEditingJoiningDate] = useState(false);
@@ -203,16 +225,18 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
             type="file"
             accept="image/*"
             className={styles.fileInputHidden}
+            disabled={isUploadingPhoto}
             onChange={async (e) => {
               const file = e.target.files?.[0];
               if (file) {
-                const compressed = await compressImageFile(file, 250, 0.8);
-                handleChange('employeePhoto', compressed);
+                await handlePhotoUpload(file);
               }
               e.target.value = '';
             }}
           />
-          <p className={styles.avatarMetaText}>Maximum File Size: 1 MB</p>
+          <p className={styles.avatarMetaText}>
+            {isUploadingPhoto ? 'Uploading to Cloudflare R2...' : 'Maximum File Size: 1 MB'}
+          </p>
           <label htmlFor="emp-avatar-upload" className={styles.avatarHintAction}>
             <Camera size={13} />
             <span>Click on the image to change</span>
@@ -839,11 +863,11 @@ function PersonalInfoStep({ data, onChange, errors = {} }) {
               type="file"
               accept="image/*"
               className={styles.fileInputHidden}
+              disabled={isUploadingPhoto}
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  const compressed = await compressImageFile(file, 250, 0.8);
-                  handleChange('employeePhoto', compressed);
+                  await handlePhotoUpload(file);
                 }
                 e.target.value = '';
               }}

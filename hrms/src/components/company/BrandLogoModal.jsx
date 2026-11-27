@@ -6,14 +6,16 @@ import {
 import styles from './BrandLogoModal.module.css';
 import { useCompany } from '../../context/CompanyContext';
 import rrLogo from '../../assets/rrlogo.png';
+import storageService from '../../services/storageService';
 
 function BrandLogoModal({ isOpen, onClose, onSuccess }) {
-  const { brandLogo, updateMasterBrandLogo } = useCompany();
+  const { brandLogo, updateMasterBrandLogo, activeCompany } = useCompany();
   const [previewLogo, setPreviewLogo] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
+  const [selectedFileObj, setSelectedFileObj] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error', message: string }
+  const [feedback, setFeedback] = useState(null); // { type: 'success' | 'error' | 'info', message: string }
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -21,6 +23,7 @@ function BrandLogoModal({ isOpen, onClose, onSuccess }) {
       const current = brandLogo || localStorage.getItem('novaspark_master_brand_logo') || rrLogo;
       setPreviewLogo(current);
       setSelectedFileName('');
+      setSelectedFileObj(null);
       setFeedback(null);
     }
   }, [isOpen, brandLogo]);
@@ -35,11 +38,12 @@ function BrandLogoModal({ isOpen, onClose, onSuccess }) {
       return;
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      setFeedback({ type: 'error', message: 'Image size exceeds 2MB limit. Please upload a smaller image.' });
+    if (file.size > 10 * 1024 * 1024) {
+      setFeedback({ type: 'error', message: 'Image size exceeds 10MB limit. Please upload a smaller image.' });
       return;
     }
 
+    setSelectedFileObj(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       const base64 = event.target.result;
@@ -47,7 +51,7 @@ function BrandLogoModal({ isOpen, onClose, onSuccess }) {
       setSelectedFileName(file.name);
       setFeedback({
         type: 'success',
-        message: `Loaded "${file.name}". Click "Update Brand Logo" to apply dynamically.`
+        message: `Loaded "${file.name}". Click "Update Brand Logo" to upload to Cloudflare R2.`
       });
     };
     reader.readAsDataURL(file);
@@ -92,11 +96,25 @@ function BrandLogoModal({ isOpen, onClose, onSuccess }) {
     setIsSaving(true);
     setFeedback(null);
     try {
-      const logoToSave = previewLogo === rrLogo ? null : previewLogo;
+      let logoToSave = previewLogo === rrLogo ? null : previewLogo;
+
+      // If user selected a new file, upload to Cloudflare R2
+      if (selectedFileObj) {
+        setFeedback({ type: 'info', message: 'Uploading brand logo to Cloudflare R2...' });
+        try {
+          const uploaded = await storageService.uploadFile(selectedFileObj, 'images', activeCompany?.companyId || '');
+          if (uploaded?.url) {
+            logoToSave = uploaded.url;
+          }
+        } catch (r2Err) {
+          console.warn('Direct Cloudflare R2 upload fallback:', r2Err);
+        }
+      }
+
       await updateMasterBrandLogo(logoToSave);
 
       if (onSuccess) {
-        onSuccess(previewLogo);
+        onSuccess(logoToSave || previewLogo);
       }
       onClose();
     } catch (err) {

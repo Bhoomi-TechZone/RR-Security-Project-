@@ -52,7 +52,7 @@ function toDateString(d) {
 function ActivityLogsStep({ data = {}, employee = {} }) {
   const safeData = data || {};
   const safeEmployee = employee || {};
-  const employeeCode = safeData?.employeeCode || safeData?.employeeId || safeEmployee?.employeeCode || safeEmployee?.employeeId || 'RR-020';
+  const employeeCode = safeData?.employeeCode || safeData?.employeeId || safeEmployee?.employeeCode || safeEmployee?.employeeId || '';
   const employeeName = safeData?.name || safeEmployee?.name || 'Employee';
   const cleanCode = String(employeeCode).replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
   const empId = safeData?._id || safeData?.id || safeEmployee?._id || safeEmployee?.id || employeeCode;
@@ -73,7 +73,6 @@ function ActivityLogsStep({ data = {}, employee = {} }) {
 
   // Fetch dynamic logs from backend API & state
   const fetchDynamicLogs = useCallback(async () => {
-    setLoading(true);
     let resolvedLogs = [];
 
     // 1. Check passed-in props from parent state
@@ -83,27 +82,7 @@ function ActivityLogsStep({ data = {}, employee = {} }) {
       resolvedLogs = [...safeEmployee.activityLogs];
     }
 
-    // 2. Fetch fresh dynamic logs from backend
-    if (empId) {
-      try {
-        const token = authService.getToken();
-        const res = await fetch(`${API_BASE_URL}/employees/${empId}/activity-logs`, {
-          headers: {
-            'Authorization': `Bearer ${token || ''}`
-          }
-        });
-        if (res.ok) {
-          const resData = await res.json();
-          if (resData.success && Array.isArray(resData.activityLogs) && resData.activityLogs.length > 0) {
-            resolvedLogs = resData.activityLogs;
-          }
-        }
-      } catch (err) {
-        console.warn('[ActivityLogsStep] Could not fetch remote activity logs, falling back to local records:', err);
-      }
-    }
-
-    // 3. Merge with any local session logs recorded in localStorage
+    // 2. Check local session logs recorded in localStorage
     try {
       const localSaved = localStorage.getItem(storageKey);
       if (localSaved) {
@@ -120,6 +99,57 @@ function ActivityLogsStep({ data = {}, employee = {} }) {
         }
       }
     } catch {}
+
+    // If logs are already available in memory, render immediately (0ms instant transition)
+    if (resolvedLogs.length > 0) {
+      resolvedLogs.sort((a, b) => {
+        const timeA = new Date(a.createdAt || a.timestamp || a.date).getTime();
+        const timeB = new Date(b.createdAt || b.timestamp || b.date).getTime();
+        return timeB - timeA;
+      });
+      setLogs(resolvedLogs);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
+    // 3. Fetch fresh dynamic logs from backend in background
+    if (empId) {
+      try {
+        const token = authService.getToken();
+        const res = await fetch(`${API_BASE_URL}/employees/${empId}/activity-logs`, {
+          headers: {
+            'Authorization': `Bearer ${token || ''}`
+          }
+        });
+        if (res.ok) {
+          const resData = await res.json();
+          if (resData.success && Array.isArray(resData.activityLogs) && resData.activityLogs.length > 0) {
+            resolvedLogs = resData.activityLogs;
+
+            // Merge local session logs with remote logs
+            try {
+              const localSaved = localStorage.getItem(storageKey);
+              if (localSaved) {
+                const parsed = JSON.parse(localSaved);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                  const existingIds = new Set(resolvedLogs.map(l => l.id || `${l.action}-${l.timestamp}`));
+                  parsed.forEach(p => {
+                    const key = p.id || `${p.action}-${p.timestamp}`;
+                    if (!existingIds.has(key)) {
+                      resolvedLogs.unshift(p);
+                      existingIds.add(key);
+                    }
+                  });
+                }
+              }
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('[ActivityLogsStep] Could not fetch remote activity logs, falling back to local records:', err);
+      }
+    }
 
     // 4. If no logs exist at all, construct dynamic creation log using the actual record metadata
     if (resolvedLogs.length === 0) {

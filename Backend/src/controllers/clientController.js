@@ -116,15 +116,14 @@ export const getClients = async (req, res) => {
     // Parallel fetch of clients and lightweight workforce mapping without waterfall
     const [clients, employees] = await Promise.all([
       Client.find({
-        companyId: { $in: [companyId, 'RRS8392014SEC'] },
-        adminEmail
+        companyId: { $in: [companyId, 'RRS8392014SEC'] }
       })
         .select('-document')
         .sort({ createdAt: -1 })
         .lean(),
       Employee.find({
         companyId: { $in: [companyId, 'RRS8392014SEC'] },
-        adminEmail
+        status: { $regex: /^active$/i }
       })
         .select('clientId clientName companyName status employeeId')
         .lean()
@@ -338,7 +337,9 @@ export const getClientById = async (req, res) => {
     const clientJson = client.toJSON();
     clientJson.employees = empCount;
 
-    invalidateClientsCache(companyId);
+    if (client.companyId) {
+      invalidateClientsCache(client.companyId);
+    }
 
     return res.status(200).json({
       success: true,

@@ -29,9 +29,22 @@ function CompanyDetails() {
 
   const currentCompanyId = activeCompany?.companyId || activeCompany?.id;
 
-  const [company, setCompany] = useState(null);
+  const [company, setCompany] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`novaspark_clients_${currentCompanyId}`);
+      if (saved) {
+        const list = JSON.parse(saved);
+        if (Array.isArray(list)) {
+          return list.find((c) =>
+            c && (c.id === id || c.clientId === id || c._id === id || String(c.id) === String(id))
+          ) || null;
+        }
+      }
+    } catch (_) {}
+    return null;
+  });
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !company);
   const [notFound, setNotFound] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
 
@@ -46,17 +59,29 @@ function CompanyDetails() {
 
   // Fetch client details purely dynamically from API and company store
   const fetchClientDetails = useCallback(async () => {
-    setLoading(true);
+    if (!company) {
+      setLoading(true);
+    }
     setNotFound(false);
-    let foundClient = null;
+    let foundClient = company;
 
-    // 1. Fetch live from backend database API
+    // 1. Fetch live from backend database API in parallel with targeted employees
     try {
-      if (currentCompanyId) {
-        foundClient = await clientService.getClientById(currentCompanyId, id);
+      const [backendClient, targetedEmps] = await Promise.all([
+        currentCompanyId ? clientService.getClientById(currentCompanyId, id).catch(() => null) : null,
+        currentCompanyId ? employeeService.getEmployees(currentCompanyId, { clientId: id, minimal: true }).catch(() => []) : []
+      ]);
+
+      if (backendClient) {
+        foundClient = backendClient;
+        setCompany(backendClient);
+      }
+
+      if (Array.isArray(targetedEmps)) {
+        setEmployees(targetedEmps);
       }
     } catch (e) {
-      console.warn('Direct client lookup failed, checking client list:', e);
+      console.warn('Direct client lookup failed, checking cache:', e);
     }
 
     if (!foundClient && currentCompanyId) {
@@ -93,28 +118,8 @@ function CompanyDetails() {
       setNotFound(true);
     }
 
-    // Fetch live workforce employees dynamically
-    let empsList = [];
-    try {
-      if (currentCompanyId) {
-        const liveEmps = await employeeService.getEmployees(currentCompanyId);
-        if (Array.isArray(liveEmps)) {
-          empsList = liveEmps;
-        }
-      }
-    } catch (e) {
-      try {
-        const saved = localStorage.getItem(`novaspark_employees_${currentCompanyId}`);
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed)) empsList = parsed;
-        }
-      } catch (_) {}
-    }
-
-    setEmployees(empsList);
     setLoading(false);
-  }, [id, currentCompanyId]);
+  }, [id, currentCompanyId, company]);
 
   useEffect(() => {
     fetchClientDetails();

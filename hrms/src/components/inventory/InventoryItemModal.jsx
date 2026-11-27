@@ -7,6 +7,7 @@ import {
   INVENTORY_UNITS,
   INVENTORY_BRANDS
 } from '../../data/inventoryMasterData';
+import storageService from '../../services/storageService';
 import styles from './InventoryItemModal.module.css';
 
 const UNIFORM_CATEGORIES = ['Uniform', 'Accessory', 'Other'];
@@ -126,18 +127,28 @@ export default function InventoryItemModal({
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = () => {
+      try {
+        const uploaded = await storageService.uploadFile(file, 'documents', 'RRS8392014SEC');
         setFormData((prev) => ({
           ...prev,
-          billPhoto: reader.result,
+          billPhoto: uploaded.url,
           billPhotoName: file.name
         }));
-      };
-      reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('R2 bill upload failed, fallback:', err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          setFormData((prev) => ({
+            ...prev,
+            billPhoto: reader.result,
+            billPhotoName: file.name
+          }));
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

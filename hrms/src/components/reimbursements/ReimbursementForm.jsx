@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, UploadCloud, FileText, Trash2, Check } from 'lucide-react';
 import styles from '../../pages/admin/Reimbursements.module.css';
 import { REIMBURSEMENT_HEADS } from '../../data/reimbursementData';
+import storageService from '../../services/storageService';
 
 export default function ReimbursementForm({ isOpen, onClose, onSave, editingClaim, expenseTypes, employees }) {
   if (!isOpen) return null;
@@ -29,17 +30,31 @@ export default function ReimbursementForm({ isOpen, onClose, onSave, editingClai
     return expenseTypes.find(t => t.name === expenseType) || expenseTypes[0] || {};
   }, [expenseType, expenseTypes]);
 
-  const handleFileDrop = (e) => {
+  const handleFileDrop = async (e) => {
     e.preventDefault();
     const file = e.dataTransfer ? e.dataTransfer.files[0] : e.target.files[0];
     if (file) {
-      setReceiptFile({
-        fileName: file.name,
-        fileSize: `${Math.round(file.size / 1024)} KB`,
-        fileType: file.type || 'application/pdf',
-        uploadedAt: new Date().toLocaleString(),
-        previewUrl: ''
-      });
+      try {
+        const uploaded = await storageService.uploadFile(file, 'documents', 'RRS8392014SEC');
+        setReceiptFile({
+          fileName: file.name,
+          fileSize: `${Math.round(file.size / 1024)} KB`,
+          fileType: file.type || 'application/pdf',
+          uploadedAt: new Date().toLocaleString(),
+          previewUrl: uploaded.url,
+          url: uploaded.url,
+          key: uploaded.key
+        });
+      } catch (err) {
+        console.warn('R2 receipt upload fallback:', err);
+        setReceiptFile({
+          fileName: file.name,
+          fileSize: `${Math.round(file.size / 1024)} KB`,
+          fileType: file.type || 'application/pdf',
+          uploadedAt: new Date().toLocaleString(),
+          previewUrl: ''
+        });
+      }
     }
   };
 
