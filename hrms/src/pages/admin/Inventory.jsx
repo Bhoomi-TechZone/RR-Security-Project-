@@ -1566,19 +1566,22 @@ export default function Inventory() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
               <h1>
-                {tab === 'requests'
-                  ? requestTypeFilter === 'asset'
-                    ? 'Asset Requisitions'
-                    : requestTypeFilter === 'uniform'
-                    ? 'Uniform Requisitions'
-                    : 'Uniform & Asset Requisitions'
-                  : tab === 'movement'
-                  ? 'Stock Movement & Audit Trail'
-                  : tab === 'clearance'
-                  ? 'Employee Exit Asset Clearance'
-                  : inventoryType === 'asset'
-                  ? 'Asset Management'
-                  : 'Uniform Management'}
+                <Package size={18} />
+                <span>
+                  {tab === 'requests'
+                    ? requestTypeFilter === 'asset'
+                      ? 'Asset Requisitions'
+                      : requestTypeFilter === 'uniform'
+                      ? 'Uniform Requisitions'
+                      : 'Uniform & Asset Requisitions'
+                    : tab === 'movement'
+                    ? 'Stock Movement & Audit Trail'
+                    : tab === 'clearance'
+                    ? 'Employee Exit Asset Clearance'
+                    : inventoryType === 'asset'
+                    ? 'Asset Management'
+                    : 'Uniform Management'}
+                </span>
               </h1>
             </div>
             <p>

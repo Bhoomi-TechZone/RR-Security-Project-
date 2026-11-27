@@ -49,15 +49,18 @@
 }
 
 .title {
-  font-size: var(--text-3xl, 26px);
-  font-weight: 800;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .description {
-  font-size: var(--text-base, 14px);
+  font-size: var(--text-sm, 12px);
   color: var(--text-secondary);
   margin: 0;
 }
@@ -134,11 +137,11 @@
   }
 
   .title {
-    font-size: 22px;
+    font-size: var(--text-lg, 16px);
   }
 
   .description {
-    font-size: 13px;
+    font-size: var(--text-sm, 12px);
   }
 
   .addBtn {
@@ -149,6 +152,6 @@
 
 @media (max-width: 480px) {
   .title {
-    font-size: 20px;
+    font-size: var(--text-lg, 16px);
   }
 }

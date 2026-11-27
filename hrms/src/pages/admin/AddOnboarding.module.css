@@ -67,8 +67,8 @@
 }
 
 .pageTitle {
-  font-size: 22px;
-  font-weight: 700;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary, #0f172a);
   margin: 0;
   line-height: 1.25;

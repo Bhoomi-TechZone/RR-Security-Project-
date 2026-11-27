@@ -50,14 +50,14 @@
 }
 
 .title {
-  font-size: var(--text-3xl);
-  font-weight: 800;
+  font-size: var(--text-lg);
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .titleBadge {
@@ -71,7 +71,7 @@
 }
 
 .description {
-  font-size: var(--text-base);
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   margin: 0;
 }

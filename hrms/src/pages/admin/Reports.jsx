@@ -6322,9 +6322,9 @@ function Reports() {
             {/* Explorer Page Header */}
             <header className={styles.pageHeader} style={{ marginBottom: '16px' }}>
               <div className={styles.pageHeaderContent} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <BarChart3 size={24} color="#2563eb" />
-                  <h1 style={{ margin: 0, fontSize: '22px' }}>Reports</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <BarChart3 size={18} color="#2563eb" />
+                  <h1 style={{ margin: 0 }}>Reports</h1>
                 </div>
                 <p className={styles.pageDescription}>
                   Generate, analyze and export dynamic reports related to attendance, payroll, billing, employee master, PF, ESI and labour laws compliance.

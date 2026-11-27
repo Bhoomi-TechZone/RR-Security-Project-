@@ -243,7 +243,7 @@ function AllCompanies() {
           <div className={styles.titleArea}>
             <div className={styles.titleRow}>
               <div className={styles.titleIconWrap}>
-                <Building2 size={24} />
+                <Building2 size={18} />
               </div>
               <h1 className={styles.title}>All Company Profiles</h1>
               <span className={styles.superAdminBadge}>

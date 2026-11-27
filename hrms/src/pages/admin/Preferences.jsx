@@ -25,11 +25,41 @@ import {
 } from '../../data/preferencesData';
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: SlidersHorizontal },
-  { id: 'employee-portal', label: 'Employee Portal', icon: UserCheck },
-  { id: 'email', label: 'Email Settings', icon: Mail },
-  { id: 'notifications', label: 'Notification Settings', icon: Bell },
-  { id: 'approvals', label: 'Approval Settings', icon: GitMerge }
+  {
+    id: 'overview',
+    label: 'Overview',
+    title: 'Preferences',
+    subtitle: 'Configure employee portal access, notifications, email and approval workflows.',
+    icon: SlidersHorizontal
+  },
+  {
+    id: 'employee-portal',
+    label: 'Employee Portal',
+    title: 'Employee Portal Settings',
+    subtitle: 'Control self-service portal modules, visibility, and employee access permissions.',
+    icon: UserCheck
+  },
+  {
+    id: 'email',
+    label: 'Email Settings',
+    title: 'Email Settings',
+    subtitle: 'Configure SMTP server, sender identity, and automated email delivery preferences.',
+    icon: Mail
+  },
+  {
+    id: 'notifications',
+    label: 'Notification Settings',
+    title: 'Notification Settings',
+    subtitle: 'Manage system alerts, in-app notifications, and event triggers across modules.',
+    icon: Bell
+  },
+  {
+    id: 'approvals',
+    label: 'Approval Settings',
+    title: 'Approval Settings',
+    subtitle: 'Define multi-level approval workflows and escalation rules for employee requests.',
+    icon: GitMerge
+  }
 ];
 
 function Preferences() {
@@ -429,32 +459,21 @@ function Preferences() {
                 </>
               )}
             </nav>
-            <h1 className={styles.pageTitle}>Preferences</h1>
-            <p className={styles.pageSubtitle}>
-              Configure employee portal access, notifications, email and approval workflows.
-            </p>
+            {(() => {
+              const currentTab = TABS.find((t) => t.id === activeTab) || TABS[0];
+              const HeadingIcon = currentTab.icon;
+              return (
+                <>
+                  <h1 className={styles.pageTitle}>
+                    <HeadingIcon size={18} />
+                    <span>{currentTab.title}</span>
+                  </h1>
+                  <p className={styles.pageSubtitle}>{currentTab.subtitle}</p>
+                </>
+              );
+            })()}
           </div>
         </header>
-
-        {/* Tabs Bar with Scroller */}
-        <div className={styles.tabsContainer}>
-          <div className={styles.tabsScroller}>
-            {TABS.filter(t => t.id === activeTab).map((tab) => {
-              const IconComponent = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`${styles.tabButton} ${styles.tabButtonActive}`}
-                  style={{ cursor: 'default' }}
-                >
-                  <IconComponent size={15} />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* TAB CONTENTS */}
         <div className={styles.tabContent}>

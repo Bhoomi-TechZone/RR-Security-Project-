@@ -3,7 +3,8 @@ import { useSearchParams, Link } from 'react-router-dom';
 import {
   ChevronRight,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Calculator
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
@@ -137,7 +138,10 @@ export default function IncomeTaxManagement() {
           <div className={styles.headerLeft}>
             <div className={styles.headerTitleRow}>
               <RequestBackButton />
-              <h1 className={styles.title}>{currentMeta.title}</h1>
+              <h1 className={styles.title}>
+                <Calculator size={18} />
+                <span>{currentMeta.title}</span>
+              </h1>
               <span className={styles.fyPill}>
                 <Sparkles size={12} color="#2563eb" />
                 FY 2026-2027 (AY 2027-2028)

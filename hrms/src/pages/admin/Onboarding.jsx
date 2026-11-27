@@ -299,7 +299,7 @@ export default function Onboarding() {
         <header className={styles.header}>
           <div className={styles.titleArea}>
             <h1 className={styles.title}>
-              <UserCheck className={styles.titleIcon} size={28} />
+              <UserCheck className={styles.titleIcon} size={18} />
               Workforce Onboarding Pipeline
             </h1>
             <p className={styles.description}>

@@ -101,7 +101,7 @@ function HRRequests() {
         {/* Page Header */}
         <div className={styles.pageHeader}>
           <div className={styles.titleWithIcon}>
-            <ArrowLeftRight size={26} strokeWidth={2} className={styles.headerIcon} />
+            <ArrowLeftRight size={18} strokeWidth={2} className={styles.headerIcon} />
             <div className={styles.titleArea}>
               <h1 className={styles.pageTitle}>Requests</h1>
               <p className={styles.pageSubtitle}>

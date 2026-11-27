@@ -12,7 +12,8 @@ import {
   TrendingUp,
   Calendar,
   Building2,
-  RefreshCw
+  RefreshCw,
+  UserMinus
 } from 'lucide-react';
 import { useCompany } from '../../context/CompanyContext';
 import separationService from '../../services/separationService';
@@ -90,7 +91,10 @@ export default function SeparationDashboard({
       <div className={styles.headerRow}>
         <div className={styles.titleGroup}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h2 className={styles.title}>Separation Dashboard</h2>
+            <h2 className={styles.title} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <UserMinus size={18} />
+              Separation Dashboard
+            </h2>
             <span
               style={{
                 fontSize: 12,

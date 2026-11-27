@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
-import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw, CalendarDays, CalendarRange, LayoutDashboard } from 'lucide-react';
+import { Download, CheckCircle, Clock, AlertCircle, FileSpreadsheet, UploadCloud, Trash2, Loader2, AlertTriangle, RefreshCw, CalendarDays, CalendarRange, LayoutDashboard, ClipboardCheck } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import AdminLayout from '../../components/layout/AdminLayout';
 import AttendanceSummaryCards from '../../components/attendance/AttendanceSummaryCards';
@@ -1064,7 +1064,8 @@ function Attendance() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
               <h1 className={styles.pageTitle}>
-                {activeTab === 'corrections' ? 'Correction Requests' : 'Attendance Management'}
+                <ClipboardCheck size={18} />
+                <span>{activeTab === 'corrections' ? 'Correction Requests' : 'Attendance Management'}</span>
               </h1>
             </div>
           </div>

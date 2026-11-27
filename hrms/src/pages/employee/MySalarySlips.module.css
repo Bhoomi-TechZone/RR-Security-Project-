@@ -30,14 +30,16 @@
 
 .pageHeader h1 {
   margin: 0;
-  font-size: var(--text-2xl);
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary);
+  letter-spacing: -0.01em;
 }
 
 .pageHeader p {
-  margin: 5px 0 0;
+  margin: 4px 0 0;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--text-sm, 12px);
 }
 
 .breadcrumb {

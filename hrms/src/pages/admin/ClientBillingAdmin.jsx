@@ -404,7 +404,8 @@ function ClientBillingAdmin() {
               <span>Clients & Commercial Accounts</span>
             </div> */}
             <h1 className={styles.pageTitle}>
-              Client Billing & Invoices
+              <Building2 size={18} />
+              <span>Client Billing & Invoices</span>
             </h1>
             <p className={styles.pageSubtitle}>
               Billing and invoice module.

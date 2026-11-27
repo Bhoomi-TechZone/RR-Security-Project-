@@ -18,7 +18,8 @@ import {
   AlertCircle,
   Sparkles,
   Layers,
-  Inbox
+  Inbox,
+  Home
 } from 'lucide-react';
 import styles from './UserDashboard.module.css';
 import { usePermissions } from '../../context/PermissionContext';
@@ -134,7 +135,8 @@ function UserDashboard() {
             </span>
           </div>
           <h1 className={styles.greeting}>
-            Welcome back, {firstName} 👋
+            <Home size={18} />
+            <span>Welcome back, {firstName} 👋</span>
           </h1>
           <p className={styles.subtitle}>
             Here's an overview of your assigned work and operational activities.

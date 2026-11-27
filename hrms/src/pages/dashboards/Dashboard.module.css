@@ -125,16 +125,27 @@
   line-height: 1.25;
 }
 
-.heading {
-  font-size: var(--text-2xl);
-  font-weight: 700;
+.headingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headingIcon {
   color: var(--text-primary);
-  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.heading {
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
 .subheading {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   margin: 4px 0 0 0;
 }

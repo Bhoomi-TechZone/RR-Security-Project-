@@ -287,7 +287,7 @@ export default function Recruitment() {
         <header className={styles.header}>
           <div className={styles.titleArea}>
             <h1 className={styles.title}>
-              <Users className={styles.titleIcon} size={28} />
+              <Users className={styles.titleIcon} size={18} />
               Candidate Directory & Recruitment
             </h1>
             <p className={styles.description}>

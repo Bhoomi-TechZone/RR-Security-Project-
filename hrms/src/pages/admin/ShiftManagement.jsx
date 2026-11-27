@@ -1774,7 +1774,10 @@ function ShiftManagement() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
-              <h1>Shift Management</h1>
+              <h1>
+                <CalendarDays size={18} />
+                <span>Shift Management</span>
+              </h1>
             </div>
             <p>Create shifts, assign employees and manage workforce rosters for {activeCompany?.name || 'Active Company'}.</p>
           </div>

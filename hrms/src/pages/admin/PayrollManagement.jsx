@@ -948,15 +948,18 @@ export default function PayrollManagement() {
         <header className={styles.pageHeader}>
           <div className={styles.headerTitles}>
             <h1 className={styles.title}>
-              {activeTab === 'processing' && 'Payroll Management'}
-              {activeTab === 'structure' && 'Salary Structure'}
-              {activeTab === 'rate-revision' && 'Rate Revision Management'}
-              {activeTab === 'arrears' && 'Arrears Calculation & Processing'}
-              {activeTab === 'slips' && 'Salary Slips'}
-              {activeTab === 'statutory' && 'Statutory Reports'}
-              {activeTab === 'fnf' && 'Full & Final (FnF) Settlement'}
-              {activeTab === 'gratuity' && 'Gratuity Management'}
-              {activeTab === 'bonus' && 'Bonus Management'}
+              <WalletCards size={18} />
+              <span>
+                {activeTab === 'processing' && 'Payroll Management'}
+                {activeTab === 'structure' && 'Salary Structure'}
+                {activeTab === 'rate-revision' && 'Rate Revision Management'}
+                {activeTab === 'arrears' && 'Arrears Calculation & Processing'}
+                {activeTab === 'slips' && 'Salary Slips'}
+                {activeTab === 'statutory' && 'Statutory Reports'}
+                {activeTab === 'fnf' && 'Full & Final (FnF) Settlement'}
+                {activeTab === 'gratuity' && 'Gratuity Management'}
+                {activeTab === 'bonus' && 'Bonus Management'}
+              </span>
             </h1>
             <p className={styles.subtitle}>
               {activeTab === 'processing' && 'Process live monthly salaries, manage dynamic salary slips and statutory payroll reports.'}

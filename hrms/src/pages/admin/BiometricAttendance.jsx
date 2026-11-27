@@ -675,7 +675,8 @@ function BiometricAttendance() {
           </nav>
           <div className={styles.titleRow}>
             <h1 className={styles.pageTitle}>
-              {activeTab === 'corrections' ? 'Correction Requests' : 'Biometric Attendance'}
+              <Fingerprint size={18} />
+              <span>{activeTab === 'corrections' ? 'Correction Requests' : 'Biometric Attendance'}</span>
             </h1>
             <span className={styles.liveBadge} title="Real-time terminal polling active">
               <span className={styles.pulseDot} />
