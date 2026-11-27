@@ -33,14 +33,15 @@
 .page .heading {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--text-2xl);
-  letter-spacing: -0.04em;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .page .subheading {
-  margin: 0px 0 0;
+  margin: 4px 0 0;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--text-sm, 12px);
   line-height: 1.5;
 }
 

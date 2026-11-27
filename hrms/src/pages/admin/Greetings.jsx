@@ -15,7 +15,8 @@ import {
   HelpCircle,
   X,
   Upload,
-  Link as LinkIcon
+  Link as LinkIcon,
+  PartyPopper
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Toast from '../../components/common/Toast';
@@ -380,7 +381,10 @@ export default function Greetings() {
         <header className={styles.pageHeader}>
           <div className={styles.headerTitles}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <h1 className={styles.pageTitle}>Greetings</h1>
+              <h1 className={styles.pageTitle}>
+                <PartyPopper size={18} />
+                <span>Greetings</span>
+              </h1>
               <span
                 style={{
                   fontSize: 12,

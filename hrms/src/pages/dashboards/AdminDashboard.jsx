@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, Plus, UserPlus, Building, RefreshCw } from 'lucide-react';
+import { CalendarDays, Plus, UserPlus, Building, RefreshCw, Home } from 'lucide-react';
 import styles from './Dashboard.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
 import StatCard from '../../components/dashboard/StatCard';
@@ -100,7 +100,10 @@ function AdminDashboard() {
         {/* ---- Page header ---- */}
         <div className={styles.pageHeader}>
           <div className={styles.welcomeSection}>
-            <h1 className={styles.heading}>Dashboard</h1>
+            <div className={styles.headingRow}>
+              <Home size={18} strokeWidth={2} className={styles.headingIcon} />
+              <h1 className={styles.heading}>Dashboard</h1>
+            </div>
             <p className={styles.subheading}>
               Welcome back, Admin 👋 Here's what's happening at <strong>{activeCompany?.name || 'RR Security & Facilities'}</strong> today.
             </p>

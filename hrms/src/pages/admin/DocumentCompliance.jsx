@@ -18,10 +18,34 @@ import { useCompany } from '../../context/CompanyContext';
 import complianceService from '../../services/complianceService';
 
 const TABS = [
-  { id: 'overview', label: 'Overview', icon: SlidersHorizontal },
-  { id: 'verification-rules', label: 'Verification Rules', icon: ShieldCheck },
-  { id: 'expiry-alert', label: 'Expiry Alert & License Tracker', icon: Bell },
-  { id: 'police-verification', label: 'Police Verification', icon: ShieldAlert }
+  {
+    id: 'overview',
+    label: 'Overview',
+    title: 'Document & Compliance',
+    subtitle: 'Workforce credential tracking, verification rules, statutory PSARA police compliance, and automated expiry alert management.',
+    icon: SlidersHorizontal
+  },
+  {
+    id: 'verification-rules',
+    label: 'Verification Rules',
+    title: 'Verification Rules',
+    subtitle: 'Configure mandatory document verification methods, verifier roles, and compliance checks.',
+    icon: ShieldCheck
+  },
+  {
+    id: 'expiry-alert',
+    label: 'Expiry Alert & License Tracker',
+    title: 'Expiry Alert & License Tracker',
+    subtitle: 'Monitor expiring guard licenses, IDs, and automated renewal alert thresholds.',
+    icon: Bell
+  },
+  {
+    id: 'police-verification',
+    label: 'Police Verification',
+    title: 'Police Verification',
+    subtitle: 'Track PSARA police verification dispatches, clearances, and pending background checks.',
+    icon: ShieldAlert
+  }
 ];
 
 const VERIFICATION_METHODS = [
@@ -597,10 +621,19 @@ function DocumentCompliance() {
                 </>
               )}
             </nav>
-            <h1 className={styles.pageTitle}>Document &amp; Compliance</h1>
-            <p className={styles.pageSubtitle}>
-              Workforce credential tracking, verification rules, statutory PSARA police compliance, and automated expiry alert management.
-            </p>
+            {(() => {
+              const currentTab = TABS.find((t) => t.id === activeTab) || TABS[0];
+              const HeadingIcon = currentTab.icon;
+              return (
+                <>
+                  <h1 className={styles.pageTitle}>
+                    <HeadingIcon size={18} />
+                    <span>{currentTab.title}</span>
+                  </h1>
+                  <p className={styles.pageSubtitle}>{currentTab.subtitle}</p>
+                </>
+              );
+            })()}
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -616,32 +649,6 @@ function DocumentCompliance() {
             </button>
           </div>
         </header>
-
-        {/* Tabs Bar with Scroller */}
-        <div className={styles.tabsContainer}>
-          <div className={styles.tabsScroller}>
-            {TABS.map((tab) => {
-              const IconComponent = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  className={`${styles.tabButton} ${isActive ? styles.tabButtonActive : ''}`}
-                  onClick={() => handleTabChange(tab.id)}
-                >
-                  <IconComponent size={15} />
-                  <span>{tab.label}</span>
-                  {tab.id === 'expiry-alert' && trackerSummary.activeAlertsTotal > 0 && (
-                    <span style={{ background: '#ef4444', color: '#fff', fontSize: '10.5px', padding: '1px 6px', borderRadius: '10px', fontWeight: 700 }}>
-                      {trackerSummary.activeAlertsTotal}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
 
         {/* TAB CONTENTS */}
         <div className={styles.tabContent}>

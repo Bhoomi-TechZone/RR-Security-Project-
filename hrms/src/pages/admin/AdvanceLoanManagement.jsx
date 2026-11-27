@@ -11,7 +11,8 @@ import {
   X,
   Loader2,
   RefreshCw,
-  Download
+  Download,
+  HandCoins
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import EmptyState from '../../components/common/EmptyState';
@@ -1511,11 +1512,14 @@ function AdvanceLoanManagement() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
               <h1>
-                {tab === 'schedule'
-                  ? 'Loan Deduction Schedule'
-                  : tab === 'history'
-                  ? 'Loan Deduction History'
-                  : 'Loan Management'}
+                <HandCoins size={18} />
+                <span>
+                  {tab === 'schedule'
+                    ? 'Loan Deduction Schedule'
+                    : tab === 'history'
+                    ? 'Loan Deduction History'
+                    : 'Loan Management'}
+                </span>
               </h1>
             </div>
             <p>

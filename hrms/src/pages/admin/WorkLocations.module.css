@@ -50,15 +50,15 @@
 }
 
 .title {
-  font-size: var(--text-3xl);
-  font-weight: 800;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.01em;
 }
 
 .description {
-  font-size: var(--text-base);
+  font-size: var(--text-sm, 12px);
   color: var(--text-secondary);
   margin: 0;
 }
@@ -69,7 +69,7 @@
   }
 
   .title {
-    font-size: var(--text-2xl);
+    font-size: var(--text-lg, 16px);
   }
 
   .description {

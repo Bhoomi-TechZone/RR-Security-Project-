@@ -62,9 +62,9 @@
 }
 
 .titleIconWrap {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   color: #2563eb;
   display: flex;
@@ -74,11 +74,11 @@
 }
 
 .title {
-  font-size: 24px;
-  font-weight: 800;
+  font-size: var(--text-lg);
+  font-weight: 500;
   color: var(--text-primary, #0f172a);
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.01em;
 }
 
 .superAdminBadge {
@@ -95,7 +95,7 @@
 }
 
 .description {
-  font-size: 14px;
+  font-size: var(--text-sm);
   color: var(--text-secondary, #64748b);
   margin: 0;
   max-width: 750px;

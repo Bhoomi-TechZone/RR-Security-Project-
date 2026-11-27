@@ -691,7 +691,10 @@ function NotificationsPage() {
 
         <header className={styles.header}>
           <div>
-            <h1>{activeTab === 'announcements' ? 'Announcements' : 'Notifications'}</h1>
+            <h1>
+              <Bell size={18} />
+              <span>{activeTab === 'announcements' ? 'Announcements' : 'Notifications'}</span>
+            </h1>
             <p>
               {activeTab === 'announcements'
                 ? 'Targeted notices and broadcasts for clients, employees, and operations teams.'

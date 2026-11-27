@@ -31,17 +31,18 @@
 }
 
 .pageTitle {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary, #0f172a);
   margin: 0;
+  letter-spacing: -0.01em;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .pageSubtitle {
-  font-size: 13.5px;
+  font-size: var(--text-sm, 12px);
   color: var(--text-secondary, #64748b);
   margin-top: 4px;
 }

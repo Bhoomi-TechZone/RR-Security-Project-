@@ -17,7 +17,8 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  CalendarOff
 } from 'lucide-react';
 import AdminLayout from '../../components/layout/AdminLayout';
 import Pagination from '../../components/common/Pagination';
@@ -864,7 +865,10 @@ export default function Leave() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
               <h1 className={styles.title}>
-                {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : activeTab === 'encashment' ? 'Leave Encashment Management' : 'Leave Management'}
+                <CalendarOff size={18} />
+                <span>
+                  {activeTab === 'balances' ? 'Employee Leave Balances & Quotas' : activeTab === 'master' ? 'Leave Type & Policy Master' : activeTab === 'calendar' ? 'Leave & Duty Roster Calendar' : activeTab === 'encashment' ? 'Leave Encashment Management' : 'Leave Management'}
+                </span>
               </h1>
             </div>
             <p className={styles.subtitle}>

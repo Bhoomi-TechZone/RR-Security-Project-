@@ -36,14 +36,15 @@
 }
 
 .pageHeader h1 {
-	font-size: var(--text-2xl);
+	font-size: var(--text-lg, 16px);
+	font-weight: 500;
 }
 
 .pageHeader p:not(.eyebrow),
 .overview p {
-	margin: 6px 0 0;
+	margin: 4px 0 0;
 	color: var(--text-secondary);
-	font-size: 13px;
+	font-size: var(--text-sm, 12px);
 }
 
 .headerActions {

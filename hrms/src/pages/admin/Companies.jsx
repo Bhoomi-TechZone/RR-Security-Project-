@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Plus } from 'lucide-react';
+import { Plus, Building2 } from 'lucide-react';
 import styles from './Companies.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -553,7 +553,10 @@ function Companies() {
         <header className={styles.header}>
           <div className={styles.titleArea}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 className={styles.title}>Clients</h1>
+              <h1 className={styles.title}>
+                <Building2 size={18} />
+                <span>Clients</span>
+              </h1>
               <span
                 style={{
                   fontSize: '11px',

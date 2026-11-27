@@ -820,7 +820,10 @@ function LetterManagement() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
-              <h1 className={styles.pageTitle}>Letter Management</h1>
+              <h1 className={styles.pageTitle}>
+                <FileSignature size={18} />
+                <span>Letter Management</span>
+              </h1>
             </div>
           <p className={styles.pageSubtitle}>
             Generate, issue, preview, and track official employee letters formatted from Template Setup.

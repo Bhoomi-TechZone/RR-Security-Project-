@@ -44,13 +44,15 @@
 .pageDescription {
   margin: 0;
   color: var(--text-secondary);
+  font-size: var(--text-sm, 12px);
 }
 
 .pageHeaderContent h1 {
   margin: 0;
   color: var(--text-primary);
-  font-size: var(--text-3xl);
-  font-weight: 800;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
 }
 
 .sectionHeader h2,

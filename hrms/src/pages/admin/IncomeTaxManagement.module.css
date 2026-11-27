@@ -53,10 +53,13 @@
 
 .title {
   margin: 0;
-  font-size: 24px;
-  font-weight: 800;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary, #0f172a);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .fyPill {
@@ -73,8 +76,8 @@
 }
 
 .subtitle {
-  margin: 6px 0 0 0;
-  font-size: 13.5px;
+  margin: 4px 0 0 0;
+  font-size: var(--text-sm, 12px);
   color: var(--text-secondary, #64748b);
   line-height: 1.5;
 }
@@ -132,6 +135,6 @@
 
 @media (max-width: 480px) {
   .title {
-    font-size: 20px;
+    font-size: var(--text-lg, 16px);
   }
 }

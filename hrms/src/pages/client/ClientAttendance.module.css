@@ -29,14 +29,15 @@
 }
 
 .pageTitle {
-  font-size: var(--text-2xl);
-  font-weight: 700;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
+  letter-spacing: -0.01em;
 }
 
 .pageSubtitle {
-  font-size: 13.5px;
+  font-size: var(--text-sm, 12px);
   color: var(--text-secondary);
   margin-top: 2px;
 }
@@ -405,6 +406,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -451,13 +453,23 @@
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideInRight {
-  from { transform: translateX(100%); }
-  to { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
 
 .drawerHeader {
@@ -630,4 +642,4 @@
   color: #166534;
   font-weight: 800;
   font-size: 14px;
-}
+}

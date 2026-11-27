@@ -594,7 +594,10 @@ function RolePermissions() {
             <header className={styles.header}>
               <div className={styles.headerTitleArea}>
                 <div className={styles.headerBadge}>Access Control</div>
-                <h1 className={styles.title}>Role & Permissions</h1>
+                <h1 className={styles.title}>
+                  <ShieldCheck size={18} />
+                  <span>Role & Permissions</span>
+                </h1>
                 <p className={styles.description}>
                   Configure system roles, fine-grained module permissions and user assignments for{' '}
                   <strong>{activeCompany?.name || 'RR Security'}</strong>.

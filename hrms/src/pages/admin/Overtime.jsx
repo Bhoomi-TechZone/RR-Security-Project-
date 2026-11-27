@@ -1229,7 +1229,10 @@ function Overtime() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
               <h1 className={styles.title}>
-                {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Client & Dept Overtime Analytics' : 'Overtime Management'}
+                <Timer size={18} />
+                <span>
+                  {activeTab === 'requests' ? 'Pending Overtime Approvals' : activeTab === 'history' ? 'Overtime History' : activeTab === 'analytics' ? 'Client & Dept Overtime Analytics' : 'Overtime Management'}
+                </span>
               </h1>
             </div>
             <p className={styles.subtitle}>

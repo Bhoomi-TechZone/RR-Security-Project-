@@ -152,11 +152,11 @@
   }
 
   .title {
-    font-size: 24px;
+    font-size: var(--text-lg, 16px);
   }
 
   .description {
-    font-size: 13px;
+    font-size: var(--text-sm, 12px);
   }
 
   .headerActions {
@@ -175,7 +175,7 @@
 
 @media (max-width: 480px) {
   .title {
-    font-size: 20px;
+    font-size: var(--text-lg, 16px);
   }
 
   /* .headerActions {

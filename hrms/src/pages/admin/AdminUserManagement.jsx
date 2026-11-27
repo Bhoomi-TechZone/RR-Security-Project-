@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus, Loader2 } from 'lucide-react';
+import { UserPlus, Loader2, UserCog } from 'lucide-react';
 import styles from './AdminUserManagement.module.css';
 
 import AdminLayout from '../../components/layout/AdminLayout';
@@ -388,7 +388,10 @@ function AdminUserManagement() {
           {/* Page Header */}
           <header className={styles.pageHeader}>
             <div>
-              <h1 className={styles.pageTitle}>User Management</h1>
+              <h1 className={styles.pageTitle}>
+                <UserCog size={18} />
+                <span>User Management</span>
+              </h1>
               <p className={styles.pageDescription}>
                 Manage HRMS login users, assign roles and control account access for <strong>{activeCompany?.name || 'Active Company'}</strong>.
               </p>

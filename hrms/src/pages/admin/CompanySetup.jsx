@@ -1018,9 +1018,9 @@ function CompanySetup() {
             {/* Page Header */}
             <header className={styles.header} style={{ marginBottom: '16px' }}>
               <div className={styles.titleArea}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Building2 size={24} color="#2563eb" />
-                  <h1 className={styles.title} style={{ fontSize: '22px' }}>Organization Setup</h1>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Building2 size={18} color="#2563eb" />
+                  <h1 className={styles.title}>Organization Setup</h1>
                 </div>
                 <p className={styles.description} style={{ marginTop: '6px' }}>
                   Configure your organization profile, branch locations, departments, designations, employee code numbering, and PF code compliance.
@@ -1156,7 +1156,7 @@ function CompanySetup() {
             {/* Page Header */}
             <header className={styles.header} style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
               <div className={styles.titleArea} style={{ flex: '1 1 auto', minWidth: '240px' }}>
-                <h1 className={styles.title} style={{ margin: 0, fontSize: '22px' }}>
+                <h1 className={styles.title} style={{ margin: 0 }}>
                   {isSpecificSectionMode
                     ? (SECTION_TITLES[activeSection] || 'Organization Setup')
                     : (isEmployeeCodeSection

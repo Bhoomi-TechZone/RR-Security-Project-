@@ -52,11 +52,11 @@
 }
 
 .title {
-  font-size: var(--text-2xl);
-  font-weight: 800;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary);
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .adminBadge {
@@ -71,7 +71,7 @@
 }
 
 .description {
-  font-size: var(--text-base);
+  font-size: var(--text-sm, 12px);
   color: var(--text-secondary);
   margin: 0;
 }
@@ -736,6 +736,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
@@ -923,9 +924,11 @@
   .payrollExplorerLayout {
     grid-template-columns: 1fr;
   }
+
   .explorerSidebar {
     position: static;
   }
+
   .explorerCardsGrid {
     grid-template-columns: 1fr;
   }
@@ -1034,4 +1037,4 @@
 .secondaryButton:hover {
   background: #f8fafc;
   border-color: #94a3b8;
-}
+}

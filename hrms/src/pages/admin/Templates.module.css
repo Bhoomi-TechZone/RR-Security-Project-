@@ -47,15 +47,15 @@
 }
 
 .pageTitle {
-  font-size: 24px;
-  font-weight: 700;
+  font-size: var(--text-lg, 16px);
+  font-weight: 500;
   color: var(--text-primary, #0f172a);
   margin: 0;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .pageSubtitle {
-  font-size: 14px;
+  font-size: var(--text-sm, 12px);
   color: var(--text-muted, #64748b);
   margin: 0;
 }
@@ -769,6 +769,7 @@
     align-items: stretch;
   }
 }
+
 /* Dynamic Template Variables Customizer */
 .variablesCustomizerPanel,
 .candidateCustomizerPanel {
@@ -1007,7 +1008,8 @@
     margin: 12mm 15mm;
   }
 
-  html, body {
+  html,
+  body {
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -1187,9 +1189,11 @@
   .templateExplorerLayout {
     grid-template-columns: 1fr;
   }
+
   .explorerSidebar {
     position: static;
   }
+
   .explorerCardsGrid {
     grid-template-columns: 1fr;
   }
@@ -1359,4 +1363,4 @@
 .crumbActive {
   color: var(--text-primary, #0f172a);
   font-weight: 600;
-}
+}

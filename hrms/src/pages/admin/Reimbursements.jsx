@@ -395,7 +395,10 @@ export default function Reimbursements() {
             </nav>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <RequestBackButton />
-              <h1 className={styles.pageTitle}>Reimbursement Management</h1>
+              <h1 className={styles.pageTitle}>
+                <Receipt size={18} />
+                <span>Reimbursement Management</span>
+              </h1>
             </div>
             <p className={styles.pageSubtitle}>
               Manage employee expense claims, multi-tier approvals, payments and reimbursement records.
