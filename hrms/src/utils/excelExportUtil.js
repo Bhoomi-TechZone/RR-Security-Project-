@@ -107,6 +107,17 @@ export const generateReportExcel = ({
       'Reason': r.reason || '',
       'Approved By': r.approvedBy || '-',
     }));
+  } else if (reportType === 'employee-events' || reportType === 'employee-events-report') {
+    exportData = records.map((r, idx) => ({
+      'Sr No': r.srNo || idx + 1,
+      'Employee Name': r.name,
+      'Employee ID': r.employeeId,
+      'Department': r.department || '—',
+      'Designation': r.designation || '—',
+      'Event Type': r.eventTypeLabel,
+      'Date': r.eventDate,
+      'Status': r.statusLabel,
+    }));
   } else {
     exportData = records.map((r, idx) => ({
       'Sr No': r.srNo || idx + 1,

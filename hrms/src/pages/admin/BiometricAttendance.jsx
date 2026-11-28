@@ -42,6 +42,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 import CorrectionRequests from '../../components/attendance/CorrectionRequests';
 import CorrectionReviewDrawer from '../../components/attendance/CorrectionReviewDrawer';
+import DailyAttendanceView from '../../components/attendance/DailyAttendanceView';
 import { useCompany } from '../../context/CompanyContext';
 import { clientService } from '../../services/clientService';
 import attendanceService from '../../services/attendanceService';
@@ -652,7 +653,9 @@ function BiometricAttendance() {
     );
   };
 
-  const content = (
+  const content = activeTab === 'daily' ? (
+    <DailyAttendanceView />
+  ) : (
     <div className={styles.container}>
       {/* Toast notifications */}
       {toast && (
@@ -726,53 +729,6 @@ function BiometricAttendance() {
           >
             <Plus size={15} />
             <span>Manual Punch</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Tabs Navigation: Daily | Weekly | Monthly | Correction Requests */}
-      <div className={styles.tabsRow}>
-        <div className={styles.tabsLeft}>
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'daily' ? styles.activeTab : ''}`}
-            onClick={() => handleTabChange('daily')}
-          >
-            <Clock size={16} />
-            <span>Daily</span>
-            <span className={styles.tabBadge}>{filteredDailyLogs.length}</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'weekly' ? styles.activeTab : ''}`}
-            onClick={() => handleTabChange('weekly')}
-          >
-            <CalendarDays size={16} />
-            <span>Weekly</span>
-            <span className={styles.tabBadge}>7 Days</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'monthly' ? styles.activeTab : ''}`}
-            onClick={() => handleTabChange('monthly')}
-          >
-            <CalendarRange size={16} />
-            <span>Monthly</span>
-            <span className={styles.tabBadge}>Muster Roll</span>
-          </button>
-
-          <button
-            type="button"
-            className={`${styles.tabBtn} ${activeTab === 'corrections' ? styles.activeTab : ''}`}
-            onClick={() => handleTabChange('corrections')}
-          >
-            <AlertCircle size={16} />
-            <span>Correction Requests</span>
-            {pendingCorrectionsCount > 0 && (
-              <span className={styles.badgeCount}>{pendingCorrectionsCount}</span>
-            )}
           </button>
         </div>
       </div>

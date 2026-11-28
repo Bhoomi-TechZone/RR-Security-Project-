@@ -1,4 +1,5 @@
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import styles from './EmployeeDistribution.module.css';
 
 /**
@@ -7,6 +8,11 @@ import styles from './EmployeeDistribution.module.css';
  * Supports skeleton loading state.
  */
 function EmployeeDistribution({ data = [], loading }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const reportPath = location.pathname.startsWith('/user')
+    ? '/user/reports?tab=employee'
+    : '/admin/reports?tab=employee';
   const total = data.reduce((sum, item) => sum + item.count, 0);
   const segmentClasses = [
     styles.segmentBlue,
@@ -50,9 +56,14 @@ function EmployeeDistribution({ data = [], loading }) {
     <div className={styles.card}>
       <div className={styles.header}>
         <h3 className={styles.title}>Department Wise Employees</h3>
-        <a href="#" onClick={(e) => e.preventDefault()} className={styles.viewLink}>
-          View Report →
-        </a>
+        <button
+          type="button"
+          onClick={() => navigate(reportPath)}
+          className={styles.viewLink}
+          title="Open Employee Master Report"
+        >
+          Open Report →
+        </button>
       </div>
       
       <div className={styles.container}>

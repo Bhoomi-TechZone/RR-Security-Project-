@@ -7,6 +7,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  height: 100%;
 }
 
 .header {
@@ -71,9 +72,9 @@
 }
 
 .gridLabel {
-  fill: var(--text-base);
-  font-size: 12px;
-  font-weight: 500;
+  fill: #0f172a;
+  font-size: 13.5px;
+  font-weight: 700;
   text-anchor: end;
 }
 
@@ -91,9 +92,9 @@
 }
 
 .xAxisLabel {
-  fill: var(--text-secondary);
-  font-size: 12px;
-  font-weight: 600;
+  fill: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
   text-anchor: middle;
 }
 

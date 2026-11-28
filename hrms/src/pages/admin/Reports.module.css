@@ -1466,3 +1466,65 @@
   color: #475569;
   font-weight: 600;
 }
+
+.eventToggleBar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 12px 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.eventToggleItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.eventToggleItem input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.eventToggleTrack {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #b8c4d4;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.eventToggleTrackOn {
+  background: #c94a38;
+}
+
+.eventToggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.25);
+  transition: transform 0.2s ease;
+}
+
+.eventToggleTrackOn .eventToggleThumb {
+  transform: translateX(16px);
+}
+
+.eventToggleLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+}

@@ -29,7 +29,10 @@ const urgencyClass = {
 
 function UpcomingReminders({ data }) {
   const navigate = useNavigate();
-  const remindersList = Array.isArray(data) ? data : [];
+  const remindersList = (Array.isArray(data) ? data : []).filter((r) => {
+    const text = `${r?.id || ''} ${r?.type || ''} ${r?.label || ''}`.toLowerCase();
+    return !text.includes('birthday') && !text.includes('anniversary');
+  });
 
   return (
     <div className={styles.card}>
@@ -52,34 +55,42 @@ function UpcomingReminders({ data }) {
             <p className={styles.emptyText}>No alerts or pending statutory reminders.</p>
           </div>
         ) : (
-          remindersList.map((r) => {
-          const config = iconConfigMap[r.id] || iconConfigMap[r.type] || { icon: HelpCircle, bg: '#f1f5f9', color: '#64748b' };
-          const Icon = config.icon;
-          const displayTag = r.tagText || (r.daysLeft === 0 ? 'Today' : r.daysLeft === 1 ? 'In 1 Day' : `In ${r.daysLeft} Days`);
+          <div
+            className={styles.marqueeTrack}
+            style={{ animationDuration: `${Math.max(10, remindersList.length * 3)}s` }}
+          >
+            {[...remindersList, ...remindersList].map((r, idx) => {
+              const config = iconConfigMap[r.id] || iconConfigMap[r.type] || { icon: HelpCircle, bg: '#f1f5f9', color: '#64748b' };
+              const Icon = config.icon;
+              const displayTag = r.tagText || (r.daysLeft === 0 ? 'Today' : r.daysLeft === 1 ? 'In 1 Day' : `In ${r.daysLeft} Days`);
+              const pillText =
+                r.id === 'claim-alert' || r.id === 'leave-alert'
+                  ? displayTag
+                  : (r.date || displayTag);
 
-          return (
-            <div
-              key={r.id}
-              className={`${styles.item} ${r.link ? styles.interactiveItem : ''}`}
-              onClick={() => r.link && navigate(r.link)}
-              role={r.link ? 'button' : undefined}
-              tabIndex={r.link ? 0 : undefined}
-              title={r.link ? `Go to ${r.label}` : r.label}
-            >
-              <div className={styles.iconWrap} style={{ backgroundColor: config.bg }}>
-                <Icon size={16} color={config.color} strokeWidth={2.2} />
-              </div>
-              <div className={styles.meta}>
-                <span className={styles.label}>{r.label}</span>
-                <span className={styles.date}>{r.date}</span>
-              </div>
-              <span className={`${styles.tag} ${urgencyClass[r.urgency] || styles.tagAmber}`}>
-                {displayTag}
-              </span>
-            </div>
-          );
-        })
-      )}
+              return (
+                <div
+                  key={`${r.id}-${idx}`}
+                  className={`${styles.item} ${r.link ? styles.interactiveItem : ''}`}
+                  onClick={() => r.link && navigate(r.link)}
+                  role={r.link ? 'button' : undefined}
+                  tabIndex={r.link ? 0 : undefined}
+                  title={r.link ? `Go to ${r.label}` : r.label}
+                >
+                  <div className={styles.itemLeft}>
+                    <span className={styles.rowIcon} style={{ color: config.color }} aria-hidden="true">
+                      <Icon size={16} strokeWidth={2} />
+                    </span>
+                    <span className={styles.label}>{r.label}</span>
+                  </div>
+                  <span className={styles.dateBadge}>
+                    {pillText}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

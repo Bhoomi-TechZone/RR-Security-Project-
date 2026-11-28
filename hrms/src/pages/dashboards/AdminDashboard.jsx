@@ -5,10 +5,8 @@ import styles from './Dashboard.module.css';
 import AdminLayout from '../../components/layout/AdminLayout';
 import StatCard from '../../components/dashboard/StatCard';
 import AgeDemograph from '../../components/dashboard/AgeDemograph';
-import QuickInsights from '../../components/dashboard/QuickInsights';
-import UpcomingBirthdaysModal from '../../components/dashboard/UpcomingBirthdaysModal';
-import OnLeaveTodayModal from '../../components/dashboard/OnLeaveTodayModal';
-import LeaveRequestsModal from '../../components/dashboard/LeaveRequestsModal';
+import UpcomingReminders from '../../components/dashboard/UpcomingReminders';
+import PayrollSummary from '../../components/dashboard/PayrollSummary';
 import EmployeeDistribution from '../../components/dashboard/EmployeeDistribution';
 import OpenRequests from '../../components/dashboard/OpenRequests';
 import UpcomingEvents from '../../components/dashboard/UpcomingEvents';
@@ -32,9 +30,6 @@ function AdminDashboard() {
   });
   const [loading, setLoading] = useState(() => !dashboardData);
   const [selectedDateFilter, setSelectedDateFilter] = useState('Today');
-  const [isBirthdayModalOpen, setIsBirthdayModalOpen] = useState(false);
-  const [isOnLeaveModalOpen, setIsOnLeaveModalOpen] = useState(false);
-  const [isLeaveRequestsModalOpen, setIsLeaveRequestsModalOpen] = useState(false);
 
   const fetchDashboardData = useCallback(async (silent = false, forceRefresh = false) => {
     if (!silent) setLoading(true);
@@ -58,6 +53,22 @@ function AdminDashboard() {
     // If cached data is ready, do a silent background refresh without blocking the UI
     fetchDashboardData(hasCache, false);
   }, [fetchDashboardData, companyId]);
+
+  const payrollOverall = dashboardData?.payrollSummary?.overall || (
+    dashboardData?.quickInsights?.monthlyPayroll
+      ? {
+          month: dashboardData.quickInsights.monthlyPayroll.month || 'Current Cycle',
+          grossSalary: `₹ ${Number(dashboardData.quickInsights.monthlyPayroll.amount || 0).toLocaleString('en-IN')}`,
+          deductions: '₹ 0',
+          netPayable: `₹ ${Number(dashboardData.quickInsights.monthlyPayroll.amount || 0).toLocaleString('en-IN')}`,
+          processedCount: dashboardData?.kpi?.activeEmployees || 0,
+          totalCount: dashboardData?.kpi?.totalEmployees || 0,
+          percentage: dashboardData?.kpi?.totalEmployees
+            ? Math.round(((dashboardData?.kpi?.activeEmployees || 0) / dashboardData.kpi.totalEmployees) * 100)
+            : 0
+        }
+      : null
+  );
 
   // Dynamic KPI array
   const displayedKpi = [
@@ -199,23 +210,26 @@ function AdminDashboard() {
           ))}
         </section>
 
-        {/* ---- Row 1: Age Demograph & Quick Insights ---- */}
+        {/* ---- Row 1: Age Demograph, Alerts & Reminders, Payroll Summary ---- */}
         <div className={styles.topGridRow}>
-          <div className={styles.col5}>
+          <div className={styles.col4}>
             <AgeDemograph 
               attendanceData={dashboardData?.attendanceOverview || { week: dashboardData?.attendanceTrend || [] }} 
               ageData={dashboardData?.ageDemographics || []}
               loading={loading && !dashboardData}
             />
           </div>
-          <div className={styles.col7}>
-            <QuickInsights 
-              data={dashboardData?.quickInsights} 
-              loading={loading && !dashboardData}
-              onOpenBirthdays={() => setIsBirthdayModalOpen(true)}
-              onOpenOnLeave={() => setIsOnLeaveModalOpen(true)}
-              onOpenLeaveRequests={() => setIsLeaveRequestsModalOpen(true)}
-            />
+          <div className={styles.col8}>
+            <div className={styles.topRightDualGrid}>
+              <UpcomingReminders
+                data={dashboardData?.upcomingReminders || dashboardData?.reminders || []}
+              />
+              <PayrollSummary
+                overallData={payrollOverall}
+                clientWiseData={dashboardData?.payrollSummary?.clientWise || []}
+                loading={loading && !dashboardData}
+              />
+            </div>
           </div>
         </div>
 
@@ -238,32 +252,6 @@ function AdminDashboard() {
             loading={loading && !dashboardData}
           />
         </div>
-
-        {/* ---- Upcoming Birthdays Modal Card ---- */}
-        <UpcomingBirthdaysModal
-          isOpen={isBirthdayModalOpen}
-          onClose={() => setIsBirthdayModalOpen(false)}
-          initialList={dashboardData?.quickInsights?.upcomingBirthdaysList}
-          companyId={companyId}
-          companyName={activeCompany?.name}
-        />
-
-        {/* ---- On Leave Today Modal Card (Current Day Only) ---- */}
-        <OnLeaveTodayModal
-          isOpen={isOnLeaveModalOpen}
-          onClose={() => setIsOnLeaveModalOpen(false)}
-          todayLeaves={dashboardData?.quickInsights?.onLeaveTodayList || []}
-          companyName={activeCompany?.name}
-        />
-
-        {/* ---- All Leave Requests Modal Card ---- */}
-        <LeaveRequestsModal
-          isOpen={isLeaveRequestsModalOpen}
-          onClose={() => setIsLeaveRequestsModalOpen(false)}
-          initialList={dashboardData?.quickInsights?.allLeaveRequestsList}
-          companyId={companyId}
-          companyName={activeCompany?.name}
-        />
 
       </div>
     </AdminLayout>

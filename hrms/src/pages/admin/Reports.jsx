@@ -26,6 +26,7 @@ import Pagination from '../../components/common/Pagination';
 import Toast from '../../components/common/Toast';
 import { useCompany } from '../../context/CompanyContext';
 import { reportService } from '../../services/reportService';
+import employeeService from '../../services/employeeService';
 import statutoryService from '../../services/statutoryService';
 import { masterService } from '../../services/masterService';
 import { generateReportPdf } from '../../utils/pdfExportUtil';
@@ -410,6 +411,18 @@ const reportMeta = {
     description: 'Official employee salary certificate for banks, loans, visa and employment verification.',
     filters: ['month', 'company', 'department', 'employee'],
     placeholder: 'Search employee by name, ID, designation...'
+  },
+  'employee-events': {
+    title: 'Employee Events Report',
+    description: 'Employee Birthdays, Work Anniversaries, and Wedding Anniversaries across the calendar.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, event type...'
+  },
+  'employee-events-report': {
+    title: 'Employee Events Report',
+    description: 'Employee Birthdays, Work Anniversaries, and Wedding Anniversaries across the calendar.',
+    filters: ['month', 'company', 'department', 'employee'],
+    placeholder: 'Search employee by name, ID, event type...'
   },
   'employee-id-card': {
     title: 'Employee ID Card',
@@ -1441,6 +1454,14 @@ const ALL_REPORTS_CATALOG = [
     category: 'employee',
     targetTab: 'salary-certificate',
     formats: ['pdf']
+  },
+  {
+    id: 'employee-events-report',
+    title: 'Employee Events',
+    desc: 'Employee birthdays, work & wedding anniversaries.',
+    category: 'employee',
+    targetTab: 'employee-events',
+    formats: ['excel', 'pdf', 'csv']
   }
 ];
 
@@ -1972,6 +1993,55 @@ function InventoryTable({ rows }) {
   );
 }
 
+function EmployeeEventsTable({ rows }) {
+  return (
+    <div className={styles.tableWrap}>
+      <table className={styles.dataTable}>
+        <thead>
+          <tr>
+            <th style={{ width: '50px', textAlign: 'center' }}>Sr.</th>
+            <th>Employee</th>
+            <th>Department &amp; Role</th>
+            <th>Event Type</th>
+            <th>Date</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((ev, idx) => (
+            <tr key={ev.id ? `${ev.id}-${idx}` : `ev-${idx}`}>
+              <td style={{ textAlign: 'center' }}>{ev.srNo || idx + 1}</td>
+              <td>
+                <div style={{ fontWeight: 700, color: '#0f172a' }}>{ev.name}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{ev.employeeId}</div>
+              </td>
+              <td>
+                <div style={{ fontWeight: 600, color: '#334155' }}>{ev.department || '—'}</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{ev.designation || '—'}</div>
+              </td>
+              <td>
+                <span style={{ fontWeight: 600, color: '#b45309', background: '#fef3c7', padding: '4px 10px', borderRadius: '999px', fontSize: '12px' }}>
+                  {ev.eventTypeLabel}
+                </span>
+              </td>
+              <td>
+                <span style={{ fontWeight: 700, color: '#0f172a', background: '#f3c593', padding: '4px 10px', borderRadius: '6px', fontSize: '12px' }}>
+                  {ev.eventDate}
+                </span>
+              </td>
+              <td>
+                <span style={{ fontWeight: 700, color: '#16a34a', background: '#f0fdf4', padding: '4px 10px', borderRadius: '999px', fontSize: '12px' }}>
+                  {ev.statusLabel}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /* =========================================================
    Report Filters Bar
    ========================================================= */
@@ -2472,17 +2542,27 @@ function ReportBody({
   });
   const payrollOptions = propPayrollOptions || localPayrollOptions;
   const setPayrollOptions = propSetPayrollOptions || setLocalPayrollOptions;
+  const isEmployeeEvents = activeReport === 'employee-events' || activeReport === 'employee-events-report';
+  const [eventTypeToggles, setEventTypeToggles] = useState({
+    birthday: true,
+    'work-anniversary': false,
+    'wedding-anniversary': false
+  });
   const records = reportData?.records || [];
 
-  // Filter records by search term
+  // Filter records by search term (and event type toggles for Employee Events)
   const filteredRows = useMemo(() => {
-    if (!searchTerm) return records;
+    let base = records;
+    if (isEmployeeEvents) {
+      base = base.filter((row) => !row.eventType || eventTypeToggles[row.eventType]);
+    }
+    if (!searchTerm) return base;
     const query = searchTerm.toLowerCase();
-    return records.filter((row) => {
+    return base.filter((row) => {
       const haystack = JSON.stringify(row).toLowerCase();
       return haystack.includes(query);
     });
-  }, [records, searchTerm]);
+  }, [records, searchTerm, isEmployeeEvents, eventTypeToggles]);
 
   const [currentPage, setCurrentPage] = useState(1);
   const totalItems = filteredRows.length;
@@ -3071,6 +3151,9 @@ function ReportBody({
       return <EmployeeMasterTable rows={paginatedRows} />;
     }
     if (activeReport === 'inventory') return <InventoryTable rows={paginatedRows} />;
+    if (activeReport === 'employee-events' || activeReport === 'employee-events-report') {
+      return <EmployeeEventsTable rows={paginatedRows} />;
+    }
     return null;
   };
 
@@ -3089,6 +3172,40 @@ function ReportBody({
         isReportGenerated={isReportGenerated}
         isViewingReport={isViewingReport}
       />
+
+      {isEmployeeEvents && (
+        <div className={styles.eventToggleBar}>
+          {[
+            { key: 'birthday', label: 'Birthdays' },
+            { key: 'work-anniversary', label: 'Work Anniversaries' },
+            { key: 'wedding-anniversary', label: 'Wedding Anniversaries' }
+          ].map((item) => {
+            const active = Boolean(eventTypeToggles[item.key]);
+            return (
+              <label key={item.key} className={styles.eventToggleItem}>
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() =>
+                    setEventTypeToggles((prev) => ({
+                      ...prev,
+                      [item.key]: !prev[item.key]
+                    }))
+                  }
+                />
+                <span
+                  className={`${styles.eventToggleTrack} ${
+                    active ? styles.eventToggleTrackOn : ''
+                  }`}
+                >
+                  <span className={styles.eventToggleThumb} />
+                </span>
+                <span className={styles.eventToggleLabel}>{item.label}</span>
+              </label>
+            );
+          })}
+        </div>
+      )}
 
       {/* For Salary Sheet (Format 1): Show Report Options BEFORE Generate Report */}
       {isSalarySheet1 && (
@@ -3433,10 +3550,12 @@ function ReportBody({
           activeReport === 'esi-form-7-opt1' ||
           activeReport === 'esi-form-7' ||
           activeReport === 'form-7-esi' ||
-          activeReport === 'form-7') ? (
+          activeReport === 'form-7' ||
+          activeReport === 'employee-events' ||
+          activeReport === 'employee-events-report') ? (
         <>
           <div id="report-preview-capture-area" className={styles.reportPreviewCaptureArea}>
-            {(activeReport === 'attendance' || activeReport === 'billing' || activeReport === 'employee' || activeReport === 'inventory') && (
+            {(activeReport === 'attendance' || activeReport === 'billing' || activeReport === 'employee' || activeReport === 'inventory' || activeReport === 'employee-events' || activeReport === 'employee-events-report') && (
               <div className={styles.standardReportDocHeader}>
                 <div className={styles.standardReportHeaderTop}>
                   <div className={styles.standardReportCompanyBlock}>
@@ -5299,6 +5418,8 @@ function Reports() {
     'billing',
     'employee',
     'employee-profile',
+    'employee-events',
+    'employee-events-report',
     'fnf-settlement',
     'fnf-settlement-payslip',
     'form-16',
@@ -5598,6 +5719,66 @@ function Reports() {
         data = await reportService.getEmployeeMasterReport(targetCompId, filters);
       } else if (activeReport === 'inventory') {
         data = await reportService.getInventoryReport(targetCompId, filters);
+      } else if (activeReport === 'employee-events' || activeReport === 'employee-events-report') {
+        const empList = await employeeService.getEmployees(targetCompId);
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const todayMidnight = new Date(currentYear, now.getMonth(), now.getDate());
+        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const parsedEvents = [];
+
+        const parseParts = (raw) => {
+          if (!raw) return null;
+          const s = String(raw).trim();
+          const iso = s.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+          if (iso) return { year: parseInt(iso[1], 10), month: parseInt(iso[2], 10), day: parseInt(iso[3], 10) };
+          const d = new Date(s);
+          if (!Number.isNaN(d.getTime())) {
+            return { year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() };
+          }
+          return null;
+        };
+
+        (Array.isArray(empList) ? empList : []).forEach((emp) => {
+          if (String(emp.status || '').toLowerCase() === 'inactive') return;
+          const empName = emp.name || emp.employeeName || 'Staff';
+          const empCode = emp.employeeCode || emp.employeeId || emp.code || '—';
+          const pushEv = (rawDate, type, baseLabel) => {
+            const p = parseParts(rawDate);
+            if (!p || !p.month || !p.day) return;
+            let occDate = new Date(currentYear, p.month - 1, p.day);
+            if (occDate < todayMidnight) occDate = new Date(currentYear + 1, p.month - 1, p.day);
+            const diffDays = Math.round((occDate.getTime() - todayMidnight.getTime()) / msPerDay);
+            const years = p.year ? occDate.getFullYear() - p.year : null;
+            if (type === 'work-anniversary' && years !== null && years < 0) return;
+            const showYr = (type === 'work-anniversary' || type === 'wedding-anniversary') && years !== null && years >= 0;
+            parsedEvents.push({
+              id: `${type}-${empCode}-${p.month}-${p.day}`,
+              eventType: type,
+              name: empName,
+              employeeId: empCode,
+              department: emp.department || '—',
+              designation: emp.designation || '—',
+              eventTypeLabel: showYr ? `${baseLabel} (${years} yr)` : baseLabel,
+              eventDate: `${shortMonths[p.month - 1]} ${String(p.day).padStart(2, '0')}`,
+              statusLabel: diffDays === 0 ? 'Today' : diffDays === 1 ? 'Tomorrow' : `In ${diffDays} Days`,
+              diffDays
+            });
+          };
+          pushEv(emp.dob, 'birthday', 'Birthday');
+          pushEv(emp.joiningDate, 'work-anniversary', 'Work Anniversary');
+          pushEv(emp.marriageDate || emp.marriedDate, 'wedding-anniversary', 'Wedding Anniversary');
+        });
+
+        parsedEvents.sort((a, b) => a.diffDays - b.diffDays);
+        const numbered = parsedEvents.map((ev, i) => ({ ...ev, srNo: i + 1 }));
+        data = {
+          records: numbered,
+          companyInfo: activeCompany,
+          period: { monthLabel: filters.month || 'All Months' },
+          totals: { totalEvents: numbered.length }
+        };
       } else if (activeReport === 'fnf-settlement' || activeReport === 'fnf-settlement-payslip') {
         data = await reportService.getFnfSettlementReport(targetCompId, filters);
       } else if (activeReport === 'form-16' || activeReport === 'form-16-part-b') {
