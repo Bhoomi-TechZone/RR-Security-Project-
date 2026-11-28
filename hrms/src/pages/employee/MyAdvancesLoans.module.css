@@ -207,7 +207,7 @@
 
 .table th {
   text-align: left;
-  padding: 13px 16px;
+  padding: 9px 12px;
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -217,7 +217,7 @@
 }
 
 .table td {
-  padding: 13px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 13.5px;
   color: #334155;
@@ -577,7 +577,7 @@
 
 .scheduleTable th {
   text-align: left;
-  padding: 12px 14px;
+  padding: 9px 12px;
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -587,7 +587,7 @@
 }
 
 .scheduleTable td {
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid #f1f5f9;
   font-size: 13.5px;
   color: #334155;

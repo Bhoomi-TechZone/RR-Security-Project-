@@ -42,6 +42,7 @@ import EditEmployee from './pages/admin/EditEmployee'
 import Masters from './pages/admin/Masters'
 import Attendance from './pages/admin/Attendance'
 import BiometricAttendance from './pages/admin/BiometricAttendance'
+import DailyPunches from './pages/admin/DailyPunches'
 import Leave from './pages/admin/Leave'
 import Overtime from './pages/admin/Overtime'
 import ShiftManagement from './pages/admin/ShiftManagement'
@@ -154,6 +155,7 @@ function App() {
       <Route path="/admin/masters" element={<AdminRoute><Masters /></AdminRoute>} />
       <Route path="/admin/attendance" element={<AdminRoute><Attendance /></AdminRoute>} />
       <Route path="/admin/biometric-attendance" element={<AdminRoute><BiometricAttendance /></AdminRoute>} />
+      <Route path="/admin/daily-punches" element={<AdminRoute><DailyPunches /></AdminRoute>} />
       <Route path="/admin/leave" element={<AdminRoute><Leave /></AdminRoute>} />
       <Route path="/admin/letter-management" element={<AdminRoute><LetterManagement /></AdminRoute>} />
       <Route path="/admin/letters" element={<AdminRoute><LetterManagement /></AdminRoute>} />
@@ -231,6 +233,7 @@ function App() {
         <Route path="letters" element={<ModulePermissionRoute moduleKey="letter_management" moduleTitle="Letter Management"><LetterManagement /></ModulePermissionRoute>} />
         <Route path="attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Attendance"><Attendance /></ModulePermissionRoute>} />
         <Route path="biometric-attendance" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Biometric Attendance"><BiometricAttendance /></ModulePermissionRoute>} />
+        <Route path="daily-punches" element={<ModulePermissionRoute moduleKey="attendance" moduleTitle="Daily Punches"><DailyPunches /></ModulePermissionRoute>} />
         <Route path="shifts" element={<ModulePermissionRoute moduleKey="shifts" moduleTitle="Shift Management"><ShiftManagement /></ModulePermissionRoute>} />
 
         {/* Payroll Modules */}

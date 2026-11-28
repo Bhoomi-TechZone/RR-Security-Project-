@@ -49,7 +49,9 @@ function isInCurrentOrNextMonth(monthNum, monthDayStr, daysLeft) {
 function UpcomingEvents({ events = [], birthdayFallbackList = [], loading = false }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const eventsPagePath = location.pathname.startsWith('/user') ? '/user/upcoming-events' : '/admin/upcoming-events';
+  const eventsReportPath = location.pathname.startsWith('/user')
+    ? '/user/reports?tab=employee-events'
+    : '/admin/reports?tab=employee-events';
 
   // Prefer backend upcomingEvents; strictly filter to current or next month
   const normalizedEvents = useMemo(() => {
@@ -108,11 +110,11 @@ function UpcomingEvents({ events = [], birthdayFallbackList = [], loading = fals
         <h3 className={styles.title}>Upcoming Events</h3>
         <button
           type="button"
-          onClick={() => navigate(eventsPagePath)}
+          onClick={() => navigate(eventsReportPath)}
           className={styles.viewAllBtn}
-          title="View all upcoming events"
+          title="Open Employee Events Report"
         >
-          View All →
+          Open Report →
         </button>
       </div>
 

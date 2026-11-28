@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import {
   Award,
   Cake,
   Calendar,
-  ChevronLeft,
+  ChevronDown,
   Heart,
   Loader2,
   RefreshCw,
@@ -26,21 +26,18 @@ const EVENT_META = {
   'work-anniversary': {
     label: 'Work Anniversary',
     icon: Award,
-    squareColor: '#f3c593',
     pillBg: '#fef3c7',
     pillColor: '#b45309'
   },
   birthday: {
     label: 'Birthday',
     icon: Cake,
-    squareColor: '#5b0e2d',
     pillBg: '#fdf2f8',
     pillColor: '#be185d'
   },
   'wedding-anniversary': {
     label: 'Wedding Anniversary',
     icon: Heart,
-    squareColor: '#be185d',
     pillBg: '#fff1f2',
     pillColor: '#e11d48'
   }
@@ -81,17 +78,18 @@ function parseDateParts(dateStr) {
 }
 
 function getInitials(name = '') {
-  return String(name || 'EM')
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0])
-    .join('')
-    .toUpperCase() || 'EM';
+  return (
+    String(name || 'EM')
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0])
+      .join('')
+      .toUpperCase() || 'EM'
+  );
 }
 
 export default function UpcomingEventsPage() {
-  const navigate = useNavigate();
   const location = useLocation();
   const isUserPanel = location.pathname.startsWith('/user');
   const LayoutComponent = isUserPanel ? UserLayout : AdminLayout;
@@ -103,7 +101,21 @@ export default function UpcomingEventsPage() {
 
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [monthFilter, setMonthFilter] = useState('all');
+  const [selectedMonths, setSelectedMonths] = useState([]); // empty = All Months
+  const [monthDropdownOpen, setMonthDropdownOpen] = useState(false);
+  const [timelineFilter, setTimelineFilter] = useState('upcoming'); // 'all' | 'upcoming' | 'past'
+
+  const monthDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (monthDropdownRef.current && !monthDropdownRef.current.contains(e.target)) {
+        setMonthDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchEmployees = useCallback(async () => {
     setLoading(true);
@@ -122,11 +134,12 @@ export default function UpcomingEventsPage() {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  // Build complete chronological calendar of ALL upcoming Birthdays, Work Anniversaries & Wedding Anniversaries
+  // Build events list according to timelineFilter: 'all' | 'upcoming' | 'past'
   const allEvents = useMemo(() => {
     const now = new Date();
     const currentYear = now.getFullYear();
     const todayMidnight = new Date(currentYear, now.getMonth(), now.getDate());
+    const msPerDay = 1000 * 60 * 60 * 24;
     const list = [];
 
     const pushOccasion = (emp, rawDate, type) => {
@@ -134,14 +147,25 @@ export default function UpcomingEventsPage() {
       const parsed = parseDateParts(rawDate);
       if (!parsed || !parsed.month || !parsed.day) return;
 
-      let nextOccasion = new Date(currentYear, parsed.month - 1, parsed.day);
-      if (nextOccasion < todayMidnight) {
-        nextOccasion = new Date(currentYear + 1, parsed.month - 1, parsed.day);
+      let occDate;
+      if (timelineFilter === 'upcoming') {
+        occDate = new Date(currentYear, parsed.month - 1, parsed.day);
+        if (occDate < todayMidnight) {
+          occDate = new Date(currentYear + 1, parsed.month - 1, parsed.day);
+        }
+      } else if (timelineFilter === 'past') {
+        occDate = new Date(currentYear, parsed.month - 1, parsed.day);
+        if (occDate >= todayMidnight) {
+          occDate = new Date(currentYear - 1, parsed.month - 1, parsed.day);
+        }
+      } else {
+        // 'all' -> current calendar year (Jan..Dec)
+        occDate = new Date(currentYear, parsed.month - 1, parsed.day);
       }
 
-      const occMonth = nextOccasion.getMonth() + 1;
-      const occYear = nextOccasion.getFullYear();
-      const diffDays = Math.round((nextOccasion.getTime() - todayMidnight.getTime()) / (1000 * 60 * 60 * 24));
+      const occMonth = occDate.getMonth() + 1;
+      const occYear = occDate.getFullYear();
+      const diffDays = Math.round((occDate.getTime() - todayMidnight.getTime()) / msPerDay);
       const years = parsed.year ? occYear - parsed.year : null;
 
       if (type === 'work-anniversary' && years !== null && years < 0) return;
@@ -150,26 +174,16 @@ export default function UpcomingEventsPage() {
       const empCode = emp.employeeCode || emp.employeeId || emp.code || '—';
       const monthDay = `${SHORT_MONTHS[parsed.month - 1]} ${String(parsed.day).padStart(2, '0')}`;
 
-      let eventTitle = `${empName}'s birthday`;
-      if (type === 'work-anniversary') {
-        const yrsLabel = years !== null && years >= 0 ? ` (${years} yr)` : '';
-        eventTitle = `${empName}'s work anniversary${yrsLabel}`;
-      } else if (type === 'wedding-anniversary') {
-        const yrsLabel = years !== null && years >= 0 ? ` (${years} yr)` : '';
-        eventTitle = `${empName}'s wedding anniversary${yrsLabel}`;
-      }
-
       list.push({
-        id: `${type}-${emp._id || emp.employeeId || empCode}-${occMonth}-${parsed.day}`,
+        id: `${type}-${emp._id || emp.employeeId || empCode}-${occMonth}-${parsed.day}-${occYear}`,
         type,
-        eventTitle,
         employeeName: empName,
         employeeCode: empCode,
         department: emp.department || '—',
         designation: emp.designation || '—',
         month: occMonth,
         monthDay,
-        daysLeft: diffDays,
+        diffDays,
         years
       });
     };
@@ -181,27 +195,50 @@ export default function UpcomingEventsPage() {
       pushOccasion(emp, emp.marriageDate || emp.marriedDate, 'wedding-anniversary');
     });
 
-    list.sort((a, b) => a.daysLeft - b.daysLeft);
+    if (timelineFilter === 'past') {
+      list.sort((a, b) => b.diffDays - a.diffDays); // most recent past first
+    } else if (timelineFilter === 'upcoming') {
+      list.sort((a, b) => a.diffDays - b.diffDays);
+    } else {
+      list.sort((a, b) => a.diffDays - b.diffDays);
+    }
     return list;
-  }, [employees]);
+  }, [employees, timelineFilter]);
 
   const filteredEvents = useMemo(() => {
     const q = search.trim().toLowerCase();
     return allEvents.filter((ev) => {
       if (typeFilter !== 'all' && ev.type !== typeFilter) return false;
-      if (monthFilter !== 'all' && ev.month !== Number(monthFilter)) return false;
+      if (selectedMonths.length > 0 && !selectedMonths.includes(ev.month)) return false;
       if (q) {
-        const hay = `${ev.employeeName} ${ev.employeeCode} ${ev.department} ${ev.designation} ${ev.eventTitle}`.toLowerCase();
+        const meta = EVENT_META[ev.type];
+        const hay = `${ev.employeeName} ${ev.employeeCode} ${ev.department} ${ev.designation} ${meta?.label || ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [allEvents, search, typeFilter, monthFilter]);
+  }, [allEvents, search, typeFilter, selectedMonths]);
+
+  const toggleMonth = (monthNum) => {
+    setSelectedMonths((prev) =>
+      prev.includes(monthNum) ? prev.filter((m) => m !== monthNum) : [...prev, monthNum].sort((a, b) => a - b)
+    );
+  };
+
+  const monthButtonLabel = useMemo(() => {
+    if (selectedMonths.length === 0) return 'All Months';
+    if (selectedMonths.length <= 3) {
+      return selectedMonths.map((m) => SHORT_MONTHS[m - 1]).join(', ');
+    }
+    return `${selectedMonths.length} Months Selected`;
+  }, [selectedMonths]);
 
   const resetFilters = () => {
     setSearch('');
     setTypeFilter('all');
-    setMonthFilter('all');
+    setSelectedMonths([]);
+    setTimelineFilter('upcoming');
+    setMonthDropdownOpen(false);
   };
 
   return (
@@ -211,14 +248,14 @@ export default function UpcomingEventsPage() {
         <div className={styles.breadcrumb}>
           <Link to={dashboardPath}>Dashboard</Link>
           <span>/</span>
-          <strong>Upcoming Events</strong>
+          <strong>Events</strong>
         </div>
 
         {/* Page Header */}
         <header className={styles.pageHeader}>
           <div className={styles.titleGroup}>
-            <h1>Upcoming Events</h1>
-            <p>All upcoming employee Birthdays, Work Anniversaries, and Wedding Anniversaries across the calendar.</p>
+            <h1>Events</h1>
+            <p>Employee Birthdays, Work Anniversaries, and Wedding Anniversaries across the calendar.</p>
           </div>
           <div className={styles.headerActions}>
             <button
@@ -228,13 +265,6 @@ export default function UpcomingEventsPage() {
               title="Refresh Events"
             >
               <RefreshCw size={15} /> Refresh
-            </button>
-            <button
-              type="button"
-              className={styles.secondaryButton}
-              onClick={() => navigate(dashboardPath)}
-            >
-              <ChevronLeft size={16} /> Back to Dashboard
             </button>
           </div>
         </header>
@@ -269,19 +299,67 @@ export default function UpcomingEventsPage() {
             </select>
           </div>
 
+          <div className={styles.field} ref={monthDropdownRef}>
+            <label className={styles.fieldLabel}>Months</label>
+            <div className={styles.multiSelectWrap}>
+              <button
+                type="button"
+                className={styles.multiSelectBtn}
+                onClick={() => setMonthDropdownOpen((o) => !o)}
+                aria-expanded={monthDropdownOpen}
+              >
+                <span className={styles.multiSelectText}>{monthButtonLabel}</span>
+                <ChevronDown size={15} />
+              </button>
+              {monthDropdownOpen && (
+                <div className={styles.multiSelectMenu}>
+                  <div className={styles.multiSelectHeader}>
+                    <button
+                      type="button"
+                      className={styles.multiSelectAction}
+                      onClick={() => setSelectedMonths([])}
+                    >
+                      All Months
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.multiSelectAction}
+                      onClick={() => setSelectedMonths([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                    >
+                      Select All
+                    </button>
+                  </div>
+                  <div className={styles.multiSelectList}>
+                    {FULL_MONTHS.map((mName, idx) => {
+                      const monthNum = idx + 1;
+                      const checked = selectedMonths.includes(monthNum);
+                      return (
+                        <label key={mName} className={styles.multiSelectItem}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleMonth(monthNum)}
+                          />
+                          <span>{mName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className={styles.field}>
-            <label className={styles.fieldLabel}>Month</label>
+            <label className={styles.fieldLabel}>Timeline</label>
             <select
               className={styles.select}
-              value={monthFilter}
-              onChange={(e) => setMonthFilter(e.target.value)}
+              value={timelineFilter}
+              onChange={(e) => setTimelineFilter(e.target.value)}
             >
-              <option value="all">All Months</option>
-              {FULL_MONTHS.map((mName, idx) => (
-                <option key={mName} value={String(idx + 1)}>
-                  {mName}
-                </option>
-              ))}
+              <option value="all">All</option>
+              <option value="upcoming">Upcoming</option>
+              <option value="past">Past</option>
             </select>
           </div>
 
@@ -295,7 +373,7 @@ export default function UpcomingEventsPage() {
           {loading ? (
             <div className={styles.emptyState}>
               <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: '#2563eb' }} />
-              <p>Loading upcoming events...</p>
+              <p>Loading events...</p>
             </div>
           ) : filteredEvents.length === 0 ? (
             <div className={styles.emptyState}>
@@ -307,39 +385,45 @@ export default function UpcomingEventsPage() {
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>Event</th>
                     <th>Employee</th>
                     <th>Department &amp; Role</th>
                     <th>Event Type</th>
                     <th>Date</th>
-                    <th>Upcoming In</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredEvents.map((ev, idx) => {
                     const meta = EVENT_META[ev.type] || EVENT_META.birthday;
                     const Icon = meta.icon;
-                    const countdownText =
-                      ev.daysLeft === 0 ? 'Today' : ev.daysLeft === 1 ? 'Tomorrow' : `In ${ev.daysLeft} Days`;
-                    const countdownClass =
-                      ev.daysLeft <= 1
-                        ? styles.tagToday
-                        : ev.daysLeft <= 7
-                        ? styles.tagSoon
-                        : styles.tagLater;
+
+                    const showYears =
+                      (ev.type === 'work-anniversary' || ev.type === 'wedding-anniversary') &&
+                      ev.years !== null &&
+                      ev.years >= 0;
+                    const eventTypeLabel = showYears ? `${meta.label} (${ev.years} yr)` : meta.label;
+
+                    let statusText = '';
+                    let statusClass = styles.tagLater;
+                    if (ev.diffDays === 0) {
+                      statusText = 'Today';
+                      statusClass = styles.tagToday;
+                    } else if (ev.diffDays === 1) {
+                      statusText = 'Tomorrow';
+                      statusClass = styles.tagToday;
+                    } else if (ev.diffDays > 1) {
+                      statusText = `In ${ev.diffDays} Days`;
+                      statusClass = ev.diffDays <= 7 ? styles.tagSoon : styles.tagLater;
+                    } else if (ev.diffDays === -1) {
+                      statusText = 'Yesterday';
+                      statusClass = styles.tagPast;
+                    } else {
+                      statusText = `${Math.abs(ev.diffDays)} Days Ago`;
+                      statusClass = styles.tagPast;
+                    }
 
                     return (
                       <tr key={`${ev.id}-${idx}`}>
-                        <td>
-                          <div className={styles.eventCell}>
-                            <span
-                              className={styles.squareMarker}
-                              style={{ backgroundColor: meta.squareColor }}
-                              aria-hidden="true"
-                            />
-                            <span className={styles.eventTitle}>{ev.eventTitle}</span>
-                          </div>
-                        </td>
                         <td>
                           <div className={styles.empCell}>
                             <span className={styles.avatar}>{getInitials(ev.employeeName)}</span>
@@ -350,8 +434,8 @@ export default function UpcomingEventsPage() {
                           </div>
                         </td>
                         <td>
-                          <div style={{ fontWeight: 500, color: '#334155' }}>{ev.department}</div>
-                          <small style={{ fontSize: '11px', color: '#64748b' }}>{ev.designation}</small>
+                          <div style={{ fontWeight: 600, fontSize: '14px', color: '#0f172a' }}>{ev.department}</div>
+                          <small style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 500 }}>{ev.designation}</small>
                         </td>
                         <td>
                           <span
@@ -359,15 +443,15 @@ export default function UpcomingEventsPage() {
                             style={{ backgroundColor: meta.pillBg, color: meta.pillColor }}
                           >
                             <Icon size={13} />
-                            {meta.label}
+                            {eventTypeLabel}
                           </span>
                         </td>
                         <td>
                           <span className={styles.dateBadge}>{ev.monthDay}</span>
                         </td>
                         <td>
-                          <span className={`${styles.countdownTag} ${countdownClass}`}>
-                            {countdownText}
+                          <span className={`${styles.countdownTag} ${statusClass}`}>
+                            {statusText}
                           </span>
                         </td>
                       </tr>

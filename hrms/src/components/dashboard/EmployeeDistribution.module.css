@@ -14,6 +14,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .title {
@@ -24,15 +26,20 @@
 }
 
 .viewLink {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--primary);
-  text-decoration: none;
-  transition: opacity 0.15s;
+  color: #ffffff;
+  background: #9f3c2d;
+  border: none;
+  border-radius: 5px;
+  padding: 4px 10px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 .viewLink:hover {
-  opacity: 0.75;
+  background: #b84a39;
 }
 
 .container {

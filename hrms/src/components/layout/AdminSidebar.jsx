@@ -89,6 +89,7 @@ const NAV_GROUPS = [
           { path: '/admin/hr-management/requests', name: 'Requests' },
           { path: '/admin/employees/transfer', name: 'Employee Transfer' },
           { path: '/admin/greetings', name: 'Greetings' },
+          { path: '/admin/upcoming-events', name: 'Events' },
           { path: '/admin/notifications?tab=announcements', name: 'Announcements' },
           { path: '/admin/letter-management', name: 'Letter Management' },
         ]
@@ -101,7 +102,11 @@ const NAV_GROUPS = [
         hasDropdown: true,
         subItems: [
           { path: '/admin/attendance', name: 'Manual Attendance' },
-          { path: '/admin/biometric-attendance', name: 'Biometric Attendance' },
+          { path: '/admin/biometric-attendance?tab=daily', name: 'Daily Attendance' },
+          { path: '/admin/biometric-attendance?tab=weekly', name: 'Weekly Attendance' },
+          { path: '/admin/biometric-attendance?tab=monthly', name: 'Monthly Attendance' },
+          { path: '/admin/daily-punches', name: 'Daily Punches' },
+          { path: '/admin/biometric-attendance?tab=corrections', name: 'Correction Requests' },
         ]
       },
       {
@@ -339,11 +344,16 @@ function AdminSidebar({ isCollapsed, isDrawerOpen, setIsDrawerOpen, onLogout }) 
       location.pathname.startsWith('/admin/letter-management') ||
       location.pathname.startsWith('/admin/letters') ||
       location.pathname.startsWith('/admin/greetings') ||
+      location.pathname.startsWith('/admin/upcoming-events') ||
       (location.pathname.startsWith('/admin/notifications') && location.search.includes('tab=announcements'))
     ) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/hr-management': true }));
     }
-    if (location.pathname.startsWith('/admin/attendance') || location.pathname.startsWith('/admin/biometric-attendance')) {
+    if (
+      location.pathname.startsWith('/admin/attendance') ||
+      location.pathname.startsWith('/admin/biometric-attendance') ||
+      location.pathname.startsWith('/admin/daily-punches')
+    ) {
       setOpenDropdowns(prev => ({ ...prev, '/admin/attendance': true }));
     }
     if (location.pathname.startsWith('/admin/shifts')) {

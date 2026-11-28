@@ -263,7 +263,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
     if (path.startsWith('/admin/hr-management')) return 'Workforce / HR Management';
     if (path.startsWith('/admin/letter-management') || path.startsWith('/admin/letters')) return 'Workforce / HR Management / Letter Management';
     if (path.startsWith('/admin/greetings')) return 'Workforce / HR Management / Greetings';
-    if (path.startsWith('/admin/upcoming-events')) return 'Dashboard / Upcoming Events';
+    if (path.startsWith('/admin/upcoming-events')) return 'Dashboard / Events';
     if (path.startsWith('/admin/notifications')) {
       return location.search.includes('tab=announcements') ? 'Workforce / HR Management / Announcements' : 'Settings / Notifications';
     }
@@ -303,6 +303,7 @@ function AdminHeader({ onToggleSidebar, onLogout }) {
       return 'Management / Inventory';
     }
     if (path.startsWith('/admin/reports')) return 'Management / Reports';
+    if (path.startsWith('/admin/daily-punches')) return 'Workforce / Daily Punches';
     if (path.startsWith('/admin/biometric-attendance')) return 'Workforce / Biometric Attendance';
     if (path.startsWith('/admin/attendance')) return 'Workforce / Attendance';
     if (path.startsWith('/admin/shifts')) return 'Workforce / Shifts';

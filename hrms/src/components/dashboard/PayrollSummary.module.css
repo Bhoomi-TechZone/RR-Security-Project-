@@ -3,10 +3,11 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
-  padding: 15px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 8px;
+  height: 100%;
 }
 
 .header {
@@ -14,49 +15,54 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 10px;
+  padding-bottom: 4px;
 }
 
 .title {
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
+  margin: 0;
 }
 
 .monthBadge {
-  background-color: var(--primary-light);
-  color: var(--primary);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 4px 12px;
-  border-radius: var(--radius-full);
+  background-color: #f3c593;
+  color: #0f172a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  line-height: 1.2;
 }
 
-/* Statistics Grid details */
-.grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-  border-bottom: 1px solid var(--border-light);
-  padding-bottom: 20px;
-}
-
-.statGroup {
+/* Clean list rows matching Upcoming Events & Alerts */
+.list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+}
+
+.statRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.statRow:last-child {
+  border-bottom: none;
 }
 
 .label {
-  font-size: 11px;
-  color: var(--text-secondary);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  font-size: 12.5px;
+  color: #1e293b;
+  font-weight: 500;
 }
 
 .value {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -73,7 +79,8 @@
 .progressSection {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 5px;
+  margin-top: 2px;
 }
 
 .progressInfo {
@@ -97,7 +104,7 @@
 
 .progressBarWrapper {
   position: relative;
-  height: 24px;
+  height: 20px;
   background-color: var(--background);
   border-radius: 6px;
   overflow: hidden;
@@ -119,6 +126,38 @@
   font-weight: 700;
   color: #fff;
   /* mix-blend-mode: difference; */
+}
+
+.ringRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 6px 2px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.ringLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ringWrap {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ringPct {
+  position: absolute;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 /* Empty State layout */
@@ -178,32 +217,32 @@
 .selectorWrapper {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: 1;
+  flex-wrap: wrap;
+  gap: 8px 10px;
 }
 
 .selectorLabel {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
 .selectContainer {
   position: relative;
-  flex: 0 1 250px;
+  flex: 1;
+  min-width: 0;
 }
 
 .clientSelect {
   width: 100%;
-  padding: 8px 12px;
-  padding-right: 36px;
-  font-size: 13px;
+  padding: 6px 30px 6px 10px;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--text-primary);
   background-color: var(--background);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: 6px;
   cursor: pointer;
   appearance: none;
   transition: border-color 0.2s ease, background-color 0.2s ease;
